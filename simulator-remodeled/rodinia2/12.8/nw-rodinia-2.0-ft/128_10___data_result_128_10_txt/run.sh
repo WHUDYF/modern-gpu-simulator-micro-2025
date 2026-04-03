@@ -1,0 +1,3 @@
+set -e
+
+export CUDA_VERSION="12.8"; export CUDA_VISIBLE_DEVICES="0" ; export TRACES_FOLDER=/scratch1/rodrigo/accel-sim-framework/hw_run/traces/device-0/12.8/nw-rodinia-2.0-ft/128_10___data_result_128_10_txt/traces; CUDA_INJECTION64_PATH=/scratch1/rodrigo/accel-sim-framework/util/tracer_nvbit/tracer_tool/tracer_tool.so ; LD_PRELOAD=/scratch1/rodrigo/accel-sim-framework/util/tracer_nvbit/tracer_tool/tracer_tool.so /scratch1/rodrigo/accel-sim-framework/gpu-app-collection/src/..//bin/12.8/release/nw-rodinia-2.0-ft 128 10 ./data/result_128_10.txt ;

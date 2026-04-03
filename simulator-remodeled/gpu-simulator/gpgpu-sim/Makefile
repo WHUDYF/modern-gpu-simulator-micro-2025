@@ -67,14 +67,19 @@ else # MAC
 	TARGETS += $(SIM_LIB_DIR)/libcudart.dylib
 endif
 
-ifeq  ($(NVOPENCL_LIBDIR),)
+ifeq ($(SKIP_OPENCL),1)
+	TARGETS += no_opencl_support
+else ifeq  ($(NVOPENCL_LIBDIR),)
 	TARGETS += no_opencl_support
 else ifeq ($(NVOPENCL_INCDIR),)
 	TARGETS += no_opencl_support
 else
 	TARGETS += $(SIM_LIB_DIR)/libOpenCL.so
 endif
+
+ifneq ($(SKIP_CUOBJDUMP_TO_PTXPLUS),1)
 	TARGETS += cuobjdump_to_ptxplus/cuobjdump_to_ptxplus
+endif
 
 MCPAT=
 MCPAT_OBJ_DIR=
@@ -283,4 +288,3 @@ cleangpgpusim: cleandocs
 		./cuobjdump_to_ptxplus/lex.ptx_.c ./cuobjdump_to_ptxplus/ptx.output ./cuobjdump_to_ptxplus/ptx.tab.h cuobjdump_to_ptxplus/ptx.tab.h \
 		./cuobjdump_to_ptxplus/sass_lexer.cc ./cuobjdump_to_ptxplus/sass_parser.cc ./cuobjdump_to_ptxplus/sass_parser.hh \
 		./cuobjdump_to_ptxplus/ptx.tab.cc ./cuobjdump_to_ptxplus/*.output
-

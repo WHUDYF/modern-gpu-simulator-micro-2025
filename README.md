@@ -77,6 +77,8 @@ Note: Newer g++ versions may fail with RapidJSON.
 
 1. **Tracer**: An NVBit tool for generating SASS traces from CUDA applications. While the implementation differs, usage is similar to the Accel-Sim tracer. Code lives in `./util/tracer_nvbit/`.
 
+   A project-specific explanation of the NVBit trace frontend and its outputs is available in `./docs/nv_trace.md`.
+
    ```bash
    export CUDA_INSTALL_PATH=<path-to-your-cuda>
    export PATH=$CUDA_INSTALL_PATH/bin:$PATH

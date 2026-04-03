@@ -68,7 +68,7 @@ TRACE_PRINTER = trace_printer
 all: traces_enhanced $(NVBIT_TOOL) trace_printer
 
 $(NVBIT_TOOL): $(OBJECTS) $(NVBIT_PATH)/libnvbit.a traces_enhanced
-	$(NVCC) -arch=$(ARCH) $(OPTFLAGS) $(OBJECTS) $(TRACES_ENHANCED_OBJ) $(TRACES_ENHANCED_PROTOCOL_BUFFER_OBJ) $(LIBS) $(NVCC_PATH) -lcuda -lcudart_static -lprotobuf -shared -o $@
+	$(NVCC) -arch=$(ARCH) $(OPTFLAGS) $(OBJECTS) $(TRACES_ENHANCED_OBJ) $(TRACES_ENHANCED_PROTOCOL_BUFFER_OBJ) $(LIBS) $(NVCC_PATH) -lcuda -lcudart_static -lprotobuf -lstdc++fs -shared -o $@
 
 %.o: %.cu common.h
 	$(NVCC) -dc -c -std=c++17 $(INCLUDES) -Xptxas -cloning=no -Xcompiler -Wall -arch=$(ARCH) $(OPTFLAGS) -Xcompiler -fPIC $< -o $@
@@ -84,7 +84,7 @@ traces_enhanced:
 # Build the trace_printer executable
 # First compile trace_printer's code into a shared library
 trace_printer: traces_enhanced
-	$(NVCC) -std=c++17 $(OPTFLAGS) -o $(TRACE_PRINTER) $(TRACES_ENHANCED_OBJ) $(TRACES_ENHANCED_PROTOCOL_BUFFER_OBJ) trace_printer.cc -lprotobuf
+	$(NVCC) -std=c++17 $(OPTFLAGS) -o $(TRACE_PRINTER) $(TRACES_ENHANCED_OBJ) $(TRACES_ENHANCED_PROTOCOL_BUFFER_OBJ) trace_printer.cc -lprotobuf -lstdc++fs
 
 clean:
 	rm -f *.so *.o trace_printer

@@ -70,7 +70,7 @@ $(PROTO_SRC_DIR)/%.pb.cc $(PROTO_HDR_DIR)/%.pb.h: $(TRACES_ENHANCED_PROTO_DIR)/%
 	@mv $(PROTO_SRC_DIR)/$*.pb.h $(PROTO_HDR_DIR)/$*.pb.h
 
 $(PROTO_OBJ_DIR)/%.pb.o: $(PROTO_SRC_DIR)/%.pb.cc $(PROTO_HDR_DIR)/%.pb.h
-	$(CXX) -c $(INCLUDES) $(PROTOBUF_INCLUDES) -fPIC -o $@ $<
+	$(CXX) $(CXXFLAGS) -c $(INCLUDES) $(PROTOBUF_INCLUDES) -fPIC -o $@ $<
 
 
 # Generate Protocol Buffer files

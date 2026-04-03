@@ -360,7 +360,7 @@ bool has_the_kernel_been_traced(std::string kernel_name, std::map<int, std::stri
 }
 
 void parse_sass(int binary_version, const std::filesystem::directory_entry &entry) {
-  std::string absolute_sass_path = cwd + "/" + sass_path;
+  std::string absolute_sass_path = std::filesystem::absolute(sass_path).string();
   std::string sass_file = absolute_sass_path + "/" + entry.path().stem().string() + ".sass";
   std::ifstream ifs_sass; // input file stream
   ifs_sass.open(sass_file, std::ios::in);
@@ -506,7 +506,7 @@ void parse_rfu_instruction_info(std::vector<std::string> splitted_text, std::vec
 }
 
 void parse_rfu(const std::filesystem::directory_entry &entry) {
-  std::string absolute_rfu_path = cwd + "/" + register_usage_path;
+  std::string absolute_rfu_path = std::filesystem::absolute(register_usage_path).string();
   std::string rfu_file = absolute_rfu_path + "/" + entry.path().stem().string() + ".rfu";
   std::ifstream ifs_rfu; // input file stream
   ifs_rfu.open(rfu_file, std::ios::in);
@@ -994,8 +994,6 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
 
     first_call = false;
     
-    create_folder(traces_path.c_str());
-
     if (active_from_start && !dynamic_kernel_limit_start || dynamic_kernel_limit_start == 1)
       active_region = true;
     else {
@@ -1006,15 +1004,23 @@ void nvbit_at_cuda_event(CUcontext ctx, int is_exit, nvbit_api_cuda_t cbid,
     if(user_defined_folders == 1)
     {
       std::string usr_folder = std::getenv("TRACES_FOLDER");
-      std::string temp_traces_location = usr_folder;
-      std::string temp_stats_location = usr_folder + "/stats.csv";
-      traces_location.resize(temp_traces_location.size());
-      stats_location.resize(temp_stats_location.size());
-      traces_location.replace(traces_location.begin(), traces_location.end(),temp_traces_location);
-      stats_location.replace(stats_location.begin(), stats_location.end(),temp_stats_location);
+      traces_path = usr_folder;
+      traces_location = usr_folder;
+      if (!traces_location.empty() && traces_location.back() != '/') {
+        traces_location += "/";
+      }
+      stats_location = traces_path + "/stats.csv";
+      extrainfo_path = traces_path + "/extra_info";
+      cubin_path = extrainfo_path + "/cubin";
+      sass_path = extrainfo_path + "/sass";
+      register_usage_path = extrainfo_path + "/register_usage";
+      threadblock_trace_path = traces_path + "/threadblocks";
+      threadblock_register_values_path = traces_path + "/threadblocks/register_values";
       printf("\n Traces location is %s \n", traces_location.c_str());
       printf("Stats location is %s \n", stats_location.c_str());
     }
+
+    create_folder(traces_path.c_str());
 
     statsFile = fopen(stats_location.c_str(), "w");
     fprintf(statsFile,
@@ -1476,14 +1482,14 @@ void enhanced_tracer() {
   create_folder(cubin_path.c_str());
   create_folder(sass_path.c_str());
   create_folder(register_usage_path.c_str());
-  std::string program_path = get_program_path();
+  std::string program_path = std::filesystem::absolute(get_program_path()).string();
   std::size_t found = program_path.find_last_of("/");
   std::string program_name = program_path.substr(found + 1);
   std::string command_get_cubin = "cd " + cubin_path + " && cuobjdump " + program_path + " -xelf all -arch=sm_" + std::to_string(binary_version);
   std::cout << "Generating extra information for the enhanced traces of benchmark: " << program_name << std::endl;
   check_system_call(system(command_get_cubin.c_str()), command_get_cubin.c_str());
   m_enhanced_traced_execution = new traced_execution(program_name);
-  std::string absolute_cubin_path = cwd + "/" + cubin_path;
+  std::string absolute_cubin_path = std::filesystem::absolute(cubin_path).string();
   for (const auto &entry : std::filesystem::directory_iterator(absolute_cubin_path))
   {
     std::string aux_cubin = entry.path().filename().string();

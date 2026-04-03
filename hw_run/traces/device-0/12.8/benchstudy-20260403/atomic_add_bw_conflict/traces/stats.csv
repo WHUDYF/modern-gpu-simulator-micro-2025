@@ -1,0 +1,2 @@
+device_id, stream_id, kernel id, kernel mangled name, grid_dimX, grid_dimY, grid_dimZ, #blocks, block_dimX, block_dimY, block_dimZ, #threads, total_insts, total_reported_insts
+0, 0, kernel-1.trace, _Z9max_flopsIiEvPjS0_PT_S2_, 160, 1, 1, 160, 1024, 1, 1, 1024, 271360,271360

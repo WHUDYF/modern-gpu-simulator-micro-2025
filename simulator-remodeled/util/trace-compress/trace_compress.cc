@@ -92,13 +92,23 @@ bool encode_v5_to_v6(const dynamic_trace::compressed_threadblock& src,
 
     int n = src_warp.instructions_size();
     int i = 0;
+    uint32_t abs_pc = 0;  // running absolute PC for the warp
+
     while (i < n) {
       const auto& ci = src_warp.instructions(i);
+
+      // Compute absolute PC of this instruction from its v5 encoding
+      uint32_t cur_abs_pc;
+      if (ci.flags() & FLAG_PC_DELTA) {
+        cur_abs_pc = abs_pc + ci.pc();
+      } else {
+        cur_abs_pc = ci.pc();
+      }
 
       // Try to start a run if this instruction qualifies
       if (can_run_encode(ci)) {
         uint32_t run_flags = ci.flags();
-        uint32_t run_delta = ci.pc();
+        uint32_t run_delta = ci.pc();  // delta step between consecutive instructions
         int run_len = 1;
 
         while (i + run_len < n) {
@@ -113,14 +123,16 @@ bool encode_v5_to_v6(const dynamic_trace::compressed_threadblock& src,
         }
 
         if (run_len >= static_cast<int>(MIN_RUN_LENGTH)) {
-          // Emit as a run
+          // Emit as a run; pc_start is the absolute PC of the first instruction
           auto* run = dwarp.add_runs();
-          run->set_pc_start(ci.pc());
+          run->set_pc_start(cur_abs_pc);
           run->set_pc_delta(run_delta);
           run->set_flags(run_flags);
           run->set_count(run_len);
           uint32_t run_idx = dwarp.runs_size() - 1;
           dwarp.add_sequence(SEQ_TAG_RUN_BIT | run_idx);
+          // Advance abs_pc past all instructions in this run
+          abs_pc = cur_abs_pc + run_delta * (run_len - 1);
           i += run_len;
           continue;
         }
@@ -131,6 +143,7 @@ bool encode_v5_to_v6(const dynamic_trace::compressed_threadblock& src,
       uint32_t inst_idx = dwarp.instructions_size();
       *dwarp.add_instructions() = ci;
       dwarp.add_sequence(inst_idx);
+      abs_pc = cur_abs_pc;
       ++i;
     }
 
@@ -154,21 +167,47 @@ bool decode_v6_to_v5(const dynamic_trace::compressed_threadblock_v6& src,
     dynamic_trace::compressed_warp dwarp;
     dwarp.set_id(src_warp.id());
 
+    uint32_t abs_pc = 0;          // running absolute PC for the warp
+    bool first_inst = true;       // tracks whether any instruction has been emitted
+
     for (int s = 0; s < src_warp.sequence_size(); ++s) {
       uint32_t tag = src_warp.sequence(s);
       if (tag & SEQ_TAG_RUN_BIT) {
-        // Expand a run
+        // Expand a run; run.pc_start() is the absolute PC of the first instruction
         uint32_t run_idx = tag & ~SEQ_TAG_RUN_BIT;
         const auto& run = src_warp.runs(run_idx);
+        uint32_t cur_abs_pc = run.pc_start();
+
         for (uint32_t k = 0; k < run.count(); ++k) {
           auto* ci = dwarp.add_instructions();
-          ci->set_pc(k == 0 ? run.pc_start() : run.pc_delta());
-          ci->set_flags(run.flags());
-          // No addresses, active/predicate masks are encoded in flags
+          if (k == 0) {
+            // Emit delta from prev abs_pc, or absolute if this is the first instruction
+            if (first_inst) {
+              ci->set_pc(cur_abs_pc);
+              ci->set_flags(run.flags() & ~static_cast<uint32_t>(FLAG_PC_DELTA));
+            } else {
+              ci->set_pc(cur_abs_pc - abs_pc);
+              ci->set_flags(run.flags() | FLAG_PC_DELTA);
+            }
+          } else {
+            // Subsequent instructions in run retain the original delta step
+            ci->set_pc(run.pc_delta());
+            ci->set_flags(run.flags());
+          }
+          abs_pc = cur_abs_pc;
+          first_inst = false;
+          cur_abs_pc += run.pc_delta();
         }
       } else {
-        // Individual instruction
-        *dwarp.add_instructions() = src_warp.instructions(tag);
+        // Individual instruction — copy as-is, then update abs_pc
+        const auto& ci_src = src_warp.instructions(tag);
+        *dwarp.add_instructions() = ci_src;
+        if (ci_src.flags() & FLAG_PC_DELTA) {
+          abs_pc += ci_src.pc();
+        } else {
+          abs_pc = ci_src.pc();
+        }
+        first_inst = false;
       }
     }
 

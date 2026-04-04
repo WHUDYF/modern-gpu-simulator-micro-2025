@@ -40,4 +40,15 @@ bool encode_v4_to_v6(const dynamic_trace::threadblock& src,
                      dynamic_trace::compressed_threadblock_v6* dst,
                      int function_unique_id);
 
+// Warp PC divergence threshold
+constexpr double WARP_DIVERGENCE_THRESHOLD = 0.10;
+
+// L3: Encode v5 -> v7 (cross-warp PC dedup)
+bool encode_v5_to_v7(const dynamic_trace::compressed_threadblock& src,
+                     dynamic_trace::compressed_threadblock_v7* dst);
+
+// L3: Decode v7 -> v5
+bool decode_v7_to_v5(const dynamic_trace::compressed_threadblock_v7& src,
+                     dynamic_trace::compressed_threadblock* dst);
+
 #endif

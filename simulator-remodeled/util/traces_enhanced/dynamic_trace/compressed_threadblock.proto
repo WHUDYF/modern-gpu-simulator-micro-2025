@@ -1,5 +1,6 @@
 syntax = "proto3";
 package dynamic_trace;
+import "address.proto";
 import "compressed_instruction.proto";
 import "dim3d.proto";
 
@@ -28,4 +29,29 @@ message compressed_threadblock_v6 {
   dim3d block_id = 1;
   map<int32, compressed_warp_v6> warps = 2;
   int32 function_unique_id = 3;
+}
+
+message warp_instruction {
+  repeated address addresses = 1;
+  uint32 flags = 2;
+  uint32 active_mask = 3;
+  uint32 predicate_mask = 4;
+}
+
+message pc_override {
+  uint32 instruction_index = 1;
+  uint32 actual_pc = 2;
+}
+
+message warp_diff {
+  int32 id = 1;
+  repeated warp_instruction instructions = 2;
+  repeated pc_override pc_overrides = 3;
+}
+
+message compressed_threadblock_v7 {
+  dim3d block_id = 1;
+  int32 function_unique_id = 2;
+  repeated uint32 shared_pc_sequence = 3;
+  map<int32, warp_diff> warps = 4;
 }

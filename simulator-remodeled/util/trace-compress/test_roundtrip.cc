@@ -320,6 +320,118 @@ bool test_v6_with_long_run() {
   return compare_threadblocks(tb, tb_back);
 }
 
+bool test_v7_roundtrip() {
+  auto tb_orig = make_test_threadblock();
+
+  // v4 -> v5
+  dynamic_trace::compressed_threadblock v5;
+  if (!encode_v4_to_v5(tb_orig, &v5, kFuncId)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 returned false\n");
+    return false;
+  }
+
+  // v5 -> v7
+  dynamic_trace::compressed_threadblock_v7 v7;
+  if (!encode_v5_to_v7(v5, &v7)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v7 returned false\n");
+    return false;
+  }
+
+  // Verify shared_pc_sequence has 5 entries starting at 0x1000
+  if (v7.shared_pc_sequence_size() != 5) {
+    fprintf(stderr, "FAIL: shared_pc_sequence size %d, expected 5\n",
+            v7.shared_pc_sequence_size());
+    return false;
+  }
+  if (v7.shared_pc_sequence(0) != 0x1000) {
+    fprintf(stderr, "FAIL: shared_pc_sequence[0] = 0x%x, expected 0x1000\n",
+            v7.shared_pc_sequence(0));
+    return false;
+  }
+
+  // v7 -> v5 -> v4
+  dynamic_trace::compressed_threadblock v5_back;
+  if (!decode_v7_to_v5(v7, &v5_back)) {
+    fprintf(stderr, "FAIL: decode_v7_to_v5 returned false\n");
+    return false;
+  }
+
+  dynamic_trace::threadblock tb_decoded;
+  if (!decode_v5_to_v4(v5_back, &tb_decoded)) {
+    fprintf(stderr, "FAIL: decode_v5_to_v4 returned false\n");
+    return false;
+  }
+
+  return compare_threadblocks(tb_orig, tb_decoded);
+}
+
+bool test_v7_divergent_warps() {
+  // Create a threadblock with 2 warps where warp 1 diverges at instruction 2
+  dynamic_trace::threadblock tb;
+  auto* bid = tb.mutable_block_id();
+  bid->set_x(1);
+  bid->set_y(2);
+  bid->set_z(0);
+
+  for (int w = 0; w < 2; ++w) {
+    dynamic_trace::warp warp;
+    warp.set_id(w);
+    for (int i = 0; i < 5; ++i) {
+      auto* inst = warp.add_instructions();
+      // Warp 1 branches to 0x5000 at instruction 2 instead of 0x1008
+      if (w == 1 && i == 2) {
+        inst->set_pc(0x5000);
+      } else {
+        inst->set_pc(0x1000 + i * 4);
+      }
+      inst->set_active_mask(0xFFFFFFFF);
+      inst->set_predicate_mask(0xFFFFFFFF);
+      inst->set_function_unique_id(kFuncId);
+    }
+    (*tb.mutable_warps())[w] = warp;
+  }
+
+  // v4 -> v5
+  dynamic_trace::compressed_threadblock v5;
+  if (!encode_v4_to_v5(tb, &v5, kFuncId)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 returned false\n");
+    return false;
+  }
+
+  // v5 -> v7
+  dynamic_trace::compressed_threadblock_v7 v7;
+  if (!encode_v5_to_v7(v5, &v7)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v7 returned false\n");
+    return false;
+  }
+
+  // Verify warp 1 has pc_overrides
+  auto it = v7.warps().find(1);
+  if (it == v7.warps().end()) {
+    fprintf(stderr, "FAIL: warp 1 not found in v7\n");
+    return false;
+  }
+  if (it->second.pc_overrides_size() == 0) {
+    fprintf(stderr, "FAIL: warp 1 should have pc_overrides for divergent PC\n");
+    return false;
+  }
+
+  // Verify roundtrip: v7 -> v5 -> v4
+  dynamic_trace::compressed_threadblock v5_back;
+  if (!decode_v7_to_v5(v7, &v5_back)) {
+    fprintf(stderr, "FAIL: decode_v7_to_v5 returned false\n");
+    return false;
+  }
+
+  dynamic_trace::threadblock tb_decoded;
+  if (!decode_v5_to_v4(v5_back, &tb_decoded)) {
+    fprintf(stderr, "FAIL: decode_v5_to_v4 returned false\n");
+    return false;
+  }
+
+  return compare_threadblocks(tb, tb_decoded);
+}
+
 int main() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
@@ -341,6 +453,8 @@ int main() {
   run("test_v5_compression_ratio", test_v5_compression_ratio);
   run("test_v6_roundtrip", test_v6_roundtrip);
   run("test_v6_with_long_run", test_v6_with_long_run);
+  run("test_v7_roundtrip", test_v7_roundtrip);
+  run("test_v7_divergent_warps", test_v7_divergent_warps);
 
   printf("\n%d passed, %d failed\n", passed, failed);
 

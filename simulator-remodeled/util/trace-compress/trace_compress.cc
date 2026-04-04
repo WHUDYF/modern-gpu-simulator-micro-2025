@@ -67,6 +67,129 @@ bool encode_v4_to_v5(const dynamic_trace::threadblock& src,
   return true;
 }
 
+// ---------------------------------------------------------------------------
+// L2: v5 -> v6 run-length squash
+// ---------------------------------------------------------------------------
+
+static bool can_run_encode(const dynamic_trace::compressed_instruction& ci) {
+  // Must have PC_DELTA flag and no addresses
+  return (ci.flags() & FLAG_PC_DELTA) && ci.addresses_size() == 0;
+}
+
+bool encode_v5_to_v6(const dynamic_trace::compressed_threadblock& src,
+                     dynamic_trace::compressed_threadblock_v6* dst) {
+  if (!dst) return false;
+  dst->Clear();
+
+  if (src.has_block_id()) {
+    *dst->mutable_block_id() = src.block_id();
+  }
+  dst->set_function_unique_id(src.function_unique_id());
+
+  for (const auto& [wid, src_warp] : src.warps()) {
+    dynamic_trace::compressed_warp_v6 dwarp;
+    dwarp.set_id(src_warp.id());
+
+    int n = src_warp.instructions_size();
+    int i = 0;
+    while (i < n) {
+      const auto& ci = src_warp.instructions(i);
+
+      // Try to start a run if this instruction qualifies
+      if (can_run_encode(ci)) {
+        uint32_t run_flags = ci.flags();
+        uint32_t run_delta = ci.pc();
+        int run_len = 1;
+
+        while (i + run_len < n) {
+          const auto& next = src_warp.instructions(i + run_len);
+          if (can_run_encode(next) &&
+              next.flags() == run_flags &&
+              next.pc() == run_delta) {
+            ++run_len;
+          } else {
+            break;
+          }
+        }
+
+        if (run_len >= static_cast<int>(MIN_RUN_LENGTH)) {
+          // Emit as a run
+          auto* run = dwarp.add_runs();
+          run->set_pc_start(ci.pc());
+          run->set_pc_delta(run_delta);
+          run->set_flags(run_flags);
+          run->set_count(run_len);
+          uint32_t run_idx = dwarp.runs_size() - 1;
+          dwarp.add_sequence(SEQ_TAG_RUN_BIT | run_idx);
+          i += run_len;
+          continue;
+        }
+        // Fall through: emit individually
+      }
+
+      // Emit as individual instruction
+      uint32_t inst_idx = dwarp.instructions_size();
+      *dwarp.add_instructions() = ci;
+      dwarp.add_sequence(inst_idx);
+      ++i;
+    }
+
+    (*dst->mutable_warps())[wid] = dwarp;
+  }
+
+  return true;
+}
+
+bool decode_v6_to_v5(const dynamic_trace::compressed_threadblock_v6& src,
+                     dynamic_trace::compressed_threadblock* dst) {
+  if (!dst) return false;
+  dst->Clear();
+
+  if (src.has_block_id()) {
+    *dst->mutable_block_id() = src.block_id();
+  }
+  dst->set_function_unique_id(src.function_unique_id());
+
+  for (const auto& [wid, src_warp] : src.warps()) {
+    dynamic_trace::compressed_warp dwarp;
+    dwarp.set_id(src_warp.id());
+
+    for (int s = 0; s < src_warp.sequence_size(); ++s) {
+      uint32_t tag = src_warp.sequence(s);
+      if (tag & SEQ_TAG_RUN_BIT) {
+        // Expand a run
+        uint32_t run_idx = tag & ~SEQ_TAG_RUN_BIT;
+        const auto& run = src_warp.runs(run_idx);
+        for (uint32_t k = 0; k < run.count(); ++k) {
+          auto* ci = dwarp.add_instructions();
+          ci->set_pc(k == 0 ? run.pc_start() : run.pc_delta());
+          ci->set_flags(run.flags());
+          // No addresses, active/predicate masks are encoded in flags
+        }
+      } else {
+        // Individual instruction
+        *dwarp.add_instructions() = src_warp.instructions(tag);
+      }
+    }
+
+    (*dst->mutable_warps())[wid] = dwarp;
+  }
+
+  return true;
+}
+
+bool encode_v4_to_v6(const dynamic_trace::threadblock& src,
+                     dynamic_trace::compressed_threadblock_v6* dst,
+                     int function_unique_id) {
+  dynamic_trace::compressed_threadblock v5;
+  if (!encode_v4_to_v5(src, &v5, function_unique_id)) return false;
+  return encode_v5_to_v6(v5, dst);
+}
+
+// ---------------------------------------------------------------------------
+// L1: v5 -> v4 decode
+// ---------------------------------------------------------------------------
+
 bool decode_v5_to_v4(const dynamic_trace::compressed_threadblock& src,
                      dynamic_trace::threadblock* dst) {
   if (!dst) return false;

@@ -225,6 +225,101 @@ bool test_v5_compression_ratio() {
   return true;
 }
 
+bool test_v6_roundtrip() {
+  auto tb_orig = make_test_threadblock();
+
+  // v4 -> v5 -> v6
+  dynamic_trace::compressed_threadblock v5;
+  if (!encode_v4_to_v5(tb_orig, &v5, kFuncId)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 returned false\n");
+    return false;
+  }
+
+  dynamic_trace::compressed_threadblock_v6 v6;
+  if (!encode_v5_to_v6(v5, &v6)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v6 returned false\n");
+    return false;
+  }
+
+  // v6 -> v5 -> v4
+  dynamic_trace::compressed_threadblock v5_back;
+  if (!decode_v6_to_v5(v6, &v5_back)) {
+    fprintf(stderr, "FAIL: decode_v6_to_v5 returned false\n");
+    return false;
+  }
+
+  dynamic_trace::threadblock tb_decoded;
+  if (!decode_v5_to_v4(v5_back, &tb_decoded)) {
+    fprintf(stderr, "FAIL: decode_v5_to_v4 returned false\n");
+    return false;
+  }
+
+  return compare_threadblocks(tb_orig, tb_decoded);
+}
+
+bool test_v6_with_long_run() {
+  // Create a threadblock with 20 sequential, all-active, no-address instructions
+  dynamic_trace::threadblock tb;
+  tb.mutable_block_id()->set_x(0);
+  tb.mutable_block_id()->set_y(0);
+  tb.mutable_block_id()->set_z(0);
+
+  dynamic_trace::warp warp;
+  warp.set_id(0);
+  for (int i = 0; i < 20; i++) {
+    auto* inst = warp.add_instructions();
+    inst->set_pc(0x1000 + i * 4);
+    inst->set_active_mask(0xFFFFFFFF);
+    inst->set_predicate_mask(0xFFFFFFFF);
+    inst->set_function_unique_id(1);
+    // No addresses: ALU-type instructions
+  }
+  (*tb.mutable_warps())[0] = warp;
+
+  // Encode v4 -> v5 -> v6
+  dynamic_trace::compressed_threadblock v5;
+  if (!encode_v4_to_v5(tb, &v5, 1)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 returned false\n");
+    return false;
+  }
+
+  dynamic_trace::compressed_threadblock_v6 v6;
+  if (!encode_v5_to_v6(v5, &v6)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v6 returned false\n");
+    return false;
+  }
+
+  // Verify runs were created
+  bool found_run = false;
+  for (const auto& [wid, w] : v6.warps()) {
+    if (w.runs_size() > 0) {
+      found_run = true;
+      if (w.runs(0).count() < MIN_RUN_LENGTH) {
+        fprintf(stderr, "FAIL: run count %u < MIN_RUN_LENGTH %u\n",
+                w.runs(0).count(), MIN_RUN_LENGTH);
+        return false;
+      }
+    }
+  }
+  if (!found_run) {
+    fprintf(stderr, "FAIL: no runs created for 20 sequential instructions\n");
+    return false;
+  }
+
+  // Verify roundtrip
+  dynamic_trace::compressed_threadblock v5_back;
+  if (!decode_v6_to_v5(v6, &v5_back)) {
+    fprintf(stderr, "FAIL: decode_v6_to_v5 returned false\n");
+    return false;
+  }
+  dynamic_trace::threadblock tb_back;
+  if (!decode_v5_to_v4(v5_back, &tb_back)) {
+    fprintf(stderr, "FAIL: decode_v5_to_v4 returned false\n");
+    return false;
+  }
+  return compare_threadblocks(tb, tb_back);
+}
+
 int main() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
@@ -244,6 +339,8 @@ int main() {
   run("test_v5_roundtrip", test_v5_roundtrip);
   run("test_v5_divergent", test_v5_divergent);
   run("test_v5_compression_ratio", test_v5_compression_ratio);
+  run("test_v6_roundtrip", test_v6_roundtrip);
+  run("test_v6_with_long_run", test_v6_with_long_run);
 
   printf("\n%d passed, %d failed\n", passed, failed);
 

@@ -13,3 +13,12 @@ message compressed_instruction {
   uint32 predicate_mask = 4;
   repeated address addresses = 5;
 }
+
+// Run-length encoding for consecutive address-free instructions
+// sharing the same flags and constant PC delta
+message instruction_run {
+  uint32 pc_start = 1;
+  uint32 pc_delta = 2;
+  uint32 flags = 3;
+  uint32 count = 4;
+}

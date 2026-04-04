@@ -13,3 +13,19 @@ message compressed_threadblock {
   map<int32, compressed_warp> warps = 2;
   int32 function_unique_id = 3;
 }
+
+message compressed_warp_v6 {
+  int32 id = 1;
+  repeated compressed_instruction instructions = 2;
+  repeated instruction_run runs = 3;
+  // Execution order tags:
+  // bit 31 = 0 -> index into instructions[], bit 31 = 1 -> index into runs[]
+  // lower 31 bits = array index
+  repeated uint32 sequence = 4;
+}
+
+message compressed_threadblock_v6 {
+  dim3d block_id = 1;
+  map<int32, compressed_warp_v6> warps = 2;
+  int32 function_unique_id = 3;
+}

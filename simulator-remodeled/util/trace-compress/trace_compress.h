@@ -21,4 +21,23 @@ bool encode_v4_to_v5(const dynamic_trace::threadblock& src,
 bool decode_v5_to_v4(const dynamic_trace::compressed_threadblock& src,
                      dynamic_trace::threadblock* dst);
 
+// Sequence tag constants
+constexpr uint32_t SEQ_TAG_RUN_BIT = 1u << 31;
+
+// Minimum run length to justify run-length encoding
+constexpr uint32_t MIN_RUN_LENGTH = 3;
+
+// L2: Encode v5 -> v6 (run-length squash)
+bool encode_v5_to_v6(const dynamic_trace::compressed_threadblock& src,
+                     dynamic_trace::compressed_threadblock_v6* dst);
+
+// L2: Decode v6 -> v5
+bool decode_v6_to_v5(const dynamic_trace::compressed_threadblock_v6& src,
+                     dynamic_trace::compressed_threadblock* dst);
+
+// Convenience: v4 -> v6 direct
+bool encode_v4_to_v6(const dynamic_trace::threadblock& src,
+                     dynamic_trace::compressed_threadblock_v6* dst,
+                     int function_unique_id);
+
 #endif

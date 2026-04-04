@@ -1,0 +1,15 @@
+syntax = "proto3";
+package dynamic_trace;
+import "compressed_instruction.proto";
+import "dim3d.proto";
+
+message compressed_warp {
+  int32 id = 1;
+  repeated compressed_instruction instructions = 2;
+}
+
+message compressed_threadblock {
+  dim3d block_id = 1;
+  map<int32, compressed_warp> warps = 2;
+  int32 function_unique_id = 3;
+}

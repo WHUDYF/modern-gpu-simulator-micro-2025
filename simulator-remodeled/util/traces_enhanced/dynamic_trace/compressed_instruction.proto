@@ -1,0 +1,15 @@
+syntax = "proto3";
+package dynamic_trace;
+import "address.proto";
+
+// Flags bit layout:
+// bit 0 (FULL_ACTIVE):    1 = active_mask is 0xFFFFFFFF (field omitted)
+// bit 1 (PRED_EQ_ACTIVE): 1 = predicate_mask equals active_mask (field omitted)
+// bit 2 (PC_DELTA):       1 = pc field is delta from previous instruction
+message compressed_instruction {
+  uint32 pc = 1;
+  uint32 flags = 2;
+  uint32 active_mask = 3;
+  uint32 predicate_mask = 4;
+  repeated address addresses = 5;
+}

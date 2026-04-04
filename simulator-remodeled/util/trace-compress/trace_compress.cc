@@ -3,6 +3,7 @@
 #include "instruction.pb.h"
 #include "address.pb.h"
 #include <unordered_map>
+#include <map>
 #include <vector>
 
 bool encode_v4_to_v5(const dynamic_trace::threadblock& src,
@@ -457,6 +458,173 @@ bool decode_v7_to_v5(const dynamic_trace::compressed_threadblock_v7& src,
     }
 
     (*dst->mutable_warps())[wid] = cwarp;
+  }
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// L4: v7 -> v8 cross-threadblock delta encoding
+// ---------------------------------------------------------------------------
+
+// Collect all (warp_id, instruction_index, address_index, base_address) tuples
+// from a v7 threadblock, in deterministic order.
+struct AddressLocation {
+  int32_t warp_id;
+  int instruction_index;
+  int address_index;
+  int64_t base_address;
+};
+
+static std::vector<AddressLocation> collect_addresses(
+    const dynamic_trace::compressed_threadblock_v7& tb) {
+  std::vector<AddressLocation> result;
+  std::map<int32_t, const dynamic_trace::warp_diff*> sorted_warps;
+  for (const auto& [wid, wdiff] : tb.warps()) {
+    sorted_warps[wid] = &wdiff;
+  }
+  for (const auto& [wid, wdiff] : sorted_warps) {
+    for (int i = 0; i < wdiff->instructions_size(); ++i) {
+      const auto& wi = wdiff->instructions(i);
+      for (int j = 0; j < wi.addresses_size(); ++j) {
+        result.push_back({wid, i, j,
+            static_cast<int64_t>(wi.addresses(j).base_address())});
+      }
+    }
+  }
+  return result;
+}
+
+bool encode_kernel_to_v8(
+    const std::vector<dynamic_trace::compressed_threadblock_v7>& threadblocks,
+    dynamic_trace::compressed_kernel_v8* dst) {
+  if (!dst || threadblocks.empty()) return false;
+  dst->Clear();
+
+  *dst->mutable_base_threadblock() = threadblocks[0];
+
+  auto base_addrs = collect_addresses(threadblocks[0]);
+
+  for (size_t t = 1; t < threadblocks.size(); ++t) {
+    const auto& current = threadblocks[t];
+    auto* delta = dst->add_delta_threadblocks();
+
+    *delta->mutable_block_id() = current.block_id();
+    *delta->mutable_reference_block_id() = threadblocks[0].block_id();
+
+    auto cur_addrs = collect_addresses(current);
+
+    if (base_addrs.size() != cur_addrs.size()) {
+      delta->set_is_full_encoding(true);
+      *delta->mutable_full_threadblock() = current;
+      continue;
+    }
+
+    // Compute offset frequency to find the mode (global_address_offset)
+    std::map<int64_t, int> offset_counts;
+    for (size_t i = 0; i < base_addrs.size(); ++i) {
+      int64_t offset = cur_addrs[i].base_address - base_addrs[i].base_address;
+      offset_counts[offset]++;
+    }
+
+    int64_t global_offset = 0;
+    int max_count = 0;
+    for (const auto& [offset, count] : offset_counts) {
+      if (count > max_count) {
+        max_count = count;
+        global_offset = offset;
+      }
+    }
+
+    // Count overrides
+    int override_count = 0;
+    for (size_t i = 0; i < base_addrs.size(); ++i) {
+      int64_t offset = cur_addrs[i].base_address - base_addrs[i].base_address;
+      if (offset != global_offset) {
+        ++override_count;
+      }
+    }
+
+    double divergence = base_addrs.empty() ? 0.0 :
+        static_cast<double>(override_count) / base_addrs.size();
+
+    if (divergence > TB_DIVERGENCE_THRESHOLD) {
+      delta->set_is_full_encoding(true);
+      *delta->mutable_full_threadblock() = current;
+      continue;
+    }
+
+    delta->set_global_address_offset(global_offset);
+    delta->set_is_full_encoding(false);
+
+    for (size_t i = 0; i < base_addrs.size(); ++i) {
+      int64_t offset = cur_addrs[i].base_address - base_addrs[i].base_address;
+      if (offset != global_offset) {
+        auto* ov = delta->add_address_overrides();
+        ov->set_warp_id(cur_addrs[i].warp_id);
+        ov->set_instruction_index(cur_addrs[i].instruction_index);
+        ov->set_address_index(cur_addrs[i].address_index);
+        ov->set_address_delta(offset - global_offset);
+      }
+    }
+  }
+
+  return true;
+}
+
+bool decode_v8_to_v7s(
+    const dynamic_trace::compressed_kernel_v8& src,
+    std::vector<dynamic_trace::compressed_threadblock_v7>* dst) {
+  if (!dst) return false;
+  dst->clear();
+
+  dst->push_back(src.base_threadblock());
+
+  for (int t = 0; t < src.delta_threadblocks_size(); ++t) {
+    const auto& delta = src.delta_threadblocks(t);
+
+    if (delta.is_full_encoding()) {
+      dst->push_back(delta.full_threadblock());
+      continue;
+    }
+
+    // Clone the base threadblock and apply delta
+    dynamic_trace::compressed_threadblock_v7 tb = src.base_threadblock();
+
+    *tb.mutable_block_id() = delta.block_id();
+
+    // Add global_address_offset to every address
+    for (auto& [wid, wdiff] : *tb.mutable_warps()) {
+      for (int i = 0; i < wdiff.instructions_size(); ++i) {
+        auto* wi = wdiff.mutable_instructions(i);
+        for (int j = 0; j < wi->addresses_size(); ++j) {
+          auto* addr = wi->mutable_addresses(j);
+          addr->set_base_address(
+              addr->base_address() + delta.global_address_offset());
+        }
+      }
+    }
+
+    // Apply per-address overrides
+    std::unordered_map<uint32_t, dynamic_trace::warp_diff*> warp_map;
+    for (auto& [wid, wdiff] : *tb.mutable_warps()) {
+      warp_map[wid] = &wdiff;
+    }
+
+    for (const auto& ov : delta.address_overrides()) {
+      auto wit = warp_map.find(ov.warp_id());
+      if (wit == warp_map.end()) continue;
+      auto* wdiff = wit->second;
+      if (static_cast<int>(ov.instruction_index()) >= wdiff->instructions_size())
+        continue;
+      auto* wi = wdiff->mutable_instructions(ov.instruction_index());
+      if (static_cast<int>(ov.address_index()) >= wi->addresses_size())
+        continue;
+      auto* addr = wi->mutable_addresses(ov.address_index());
+      addr->set_base_address(addr->base_address() + ov.address_delta());
+    }
+
+    dst->push_back(std::move(tb));
   }
 
   return true;

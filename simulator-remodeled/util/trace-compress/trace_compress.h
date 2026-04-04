@@ -51,4 +51,17 @@ bool encode_v5_to_v7(const dynamic_trace::compressed_threadblock& src,
 bool decode_v7_to_v5(const dynamic_trace::compressed_threadblock_v7& src,
                      dynamic_trace::compressed_threadblock* dst);
 
+// L4 divergence threshold
+constexpr double TB_DIVERGENCE_THRESHOLD = 0.20;
+
+// L4: Encode a set of v7 threadblocks (same kernel) into a single v8 kernel
+bool encode_kernel_to_v8(
+    const std::vector<dynamic_trace::compressed_threadblock_v7>& threadblocks,
+    dynamic_trace::compressed_kernel_v8* dst);
+
+// L4: Decode v8 kernel back to individual v7 threadblocks
+bool decode_v8_to_v7s(
+    const dynamic_trace::compressed_kernel_v8& src,
+    std::vector<dynamic_trace::compressed_threadblock_v7>* dst);
+
 #endif

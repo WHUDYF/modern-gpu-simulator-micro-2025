@@ -432,6 +432,177 @@ bool test_v7_divergent_warps() {
   return compare_threadblocks(tb, tb_decoded);
 }
 
+bool test_v8_roundtrip() {
+  // Create two threadblocks; the second has block_id.x=1 and all addresses
+  // shifted by +0x1000
+  auto tb1_v4 = make_test_threadblock();
+  auto tb2_v4 = make_test_threadblock();
+  tb2_v4.mutable_block_id()->set_x(1);
+
+  // Shift all addresses in tb2 by +0x1000
+  for (auto& [wid, warp] : *tb2_v4.mutable_warps()) {
+    for (int i = 0; i < warp.instructions_size(); ++i) {
+      auto* inst = warp.mutable_instructions(i);
+      for (int j = 0; j < inst->addresses_size(); ++j) {
+        auto* addr = inst->mutable_addresses(j);
+        addr->set_base_address(addr->base_address() + 0x1000);
+      }
+    }
+  }
+
+  // Encode both to v7 via v4 -> v5 -> v7
+  dynamic_trace::compressed_threadblock v5_1, v5_2;
+  if (!encode_v4_to_v5(tb1_v4, &v5_1, kFuncId) ||
+      !encode_v4_to_v5(tb2_v4, &v5_2, kFuncId)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 failed\n");
+    return false;
+  }
+
+  dynamic_trace::compressed_threadblock_v7 v7_1, v7_2;
+  if (!encode_v5_to_v7(v5_1, &v7_1) || !encode_v5_to_v7(v5_2, &v7_2)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v7 failed\n");
+    return false;
+  }
+
+  // Encode to v8
+  std::vector<dynamic_trace::compressed_threadblock_v7> v7s = {v7_1, v7_2};
+  dynamic_trace::compressed_kernel_v8 v8;
+  if (!encode_kernel_to_v8(v7s, &v8)) {
+    fprintf(stderr, "FAIL: encode_kernel_to_v8 failed\n");
+    return false;
+  }
+
+  // Verify structure
+  if (v8.delta_threadblocks_size() != 1) {
+    fprintf(stderr, "FAIL: expected 1 delta_threadblock, got %d\n",
+            v8.delta_threadblocks_size());
+    return false;
+  }
+  const auto& d = v8.delta_threadblocks(0);
+  if (d.global_address_offset() != 0x1000) {
+    fprintf(stderr, "FAIL: expected global_address_offset=0x1000, got %ld\n",
+            (long)d.global_address_offset());
+    return false;
+  }
+  if (d.is_full_encoding()) {
+    fprintf(stderr, "FAIL: expected is_full_encoding=false\n");
+    return false;
+  }
+
+  // Decode v8 -> v7 vector, then v7 -> v5 -> v4 and compare
+  std::vector<dynamic_trace::compressed_threadblock_v7> decoded_v7s;
+  if (!decode_v8_to_v7s(v8, &decoded_v7s)) {
+    fprintf(stderr, "FAIL: decode_v8_to_v7s failed\n");
+    return false;
+  }
+  if (decoded_v7s.size() != 2) {
+    fprintf(stderr, "FAIL: expected 2 decoded v7s, got %zu\n", decoded_v7s.size());
+    return false;
+  }
+
+  // Decode each v7 back to v4 and compare
+  dynamic_trace::threadblock originals[2] = {tb1_v4, tb2_v4};
+  for (int k = 0; k < 2; ++k) {
+    dynamic_trace::compressed_threadblock v5_back;
+    if (!decode_v7_to_v5(decoded_v7s[k], &v5_back)) {
+      fprintf(stderr, "FAIL: decode_v7_to_v5 failed for tb %d\n", k);
+      return false;
+    }
+    dynamic_trace::threadblock v4_back;
+    if (!decode_v5_to_v4(v5_back, &v4_back)) {
+      fprintf(stderr, "FAIL: decode_v5_to_v4 failed for tb %d\n", k);
+      return false;
+    }
+    if (!compare_threadblocks(originals[k], v4_back)) {
+      fprintf(stderr, "FAIL: threadblock %d mismatch after v8 roundtrip\n", k);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool test_v8_fallback() {
+  // Create two threadblocks where the second has completely different addresses
+  auto tb1_v4 = make_test_threadblock();
+  auto tb2_v4 = make_test_threadblock();
+  tb2_v4.mutable_block_id()->set_x(5);
+
+  // Replace all addresses in tb2 with completely different values
+  int addr_idx = 0;
+  for (auto& [wid, warp] : *tb2_v4.mutable_warps()) {
+    for (int i = 0; i < warp.instructions_size(); ++i) {
+      auto* inst = warp.mutable_instructions(i);
+      for (int j = 0; j < inst->addresses_size(); ++j) {
+        auto* addr = inst->mutable_addresses(j);
+        // Each address gets a unique, wildly different value
+        addr->set_base_address(0xBEEF0000 + addr_idx * 0x77777);
+        ++addr_idx;
+      }
+    }
+  }
+
+  // Encode both to v7
+  dynamic_trace::compressed_threadblock v5_1, v5_2;
+  if (!encode_v4_to_v5(tb1_v4, &v5_1, kFuncId) ||
+      !encode_v4_to_v5(tb2_v4, &v5_2, kFuncId)) {
+    fprintf(stderr, "FAIL: encode_v4_to_v5 failed\n");
+    return false;
+  }
+
+  dynamic_trace::compressed_threadblock_v7 v7_1, v7_2;
+  if (!encode_v5_to_v7(v5_1, &v7_1) || !encode_v5_to_v7(v5_2, &v7_2)) {
+    fprintf(stderr, "FAIL: encode_v5_to_v7 failed\n");
+    return false;
+  }
+
+  // Encode to v8
+  std::vector<dynamic_trace::compressed_threadblock_v7> v7s = {v7_1, v7_2};
+  dynamic_trace::compressed_kernel_v8 v8;
+  if (!encode_kernel_to_v8(v7s, &v8)) {
+    fprintf(stderr, "FAIL: encode_kernel_to_v8 failed\n");
+    return false;
+  }
+
+  // The second threadblock should fall back to full encoding
+  if (v8.delta_threadblocks_size() != 1) {
+    fprintf(stderr, "FAIL: expected 1 delta_threadblock, got %d\n",
+            v8.delta_threadblocks_size());
+    return false;
+  }
+  if (!v8.delta_threadblocks(0).is_full_encoding()) {
+    fprintf(stderr, "FAIL: expected is_full_encoding=true for divergent tb\n");
+    return false;
+  }
+
+  // Verify roundtrip still works
+  std::vector<dynamic_trace::compressed_threadblock_v7> decoded_v7s;
+  if (!decode_v8_to_v7s(v8, &decoded_v7s)) {
+    fprintf(stderr, "FAIL: decode_v8_to_v7s failed\n");
+    return false;
+  }
+
+  dynamic_trace::threadblock originals[2] = {tb1_v4, tb2_v4};
+  for (int k = 0; k < 2; ++k) {
+    dynamic_trace::compressed_threadblock v5_back;
+    if (!decode_v7_to_v5(decoded_v7s[k], &v5_back)) {
+      fprintf(stderr, "FAIL: decode_v7_to_v5 failed for tb %d\n", k);
+      return false;
+    }
+    dynamic_trace::threadblock v4_back;
+    if (!decode_v5_to_v4(v5_back, &v4_back)) {
+      fprintf(stderr, "FAIL: decode_v5_to_v4 failed for tb %d\n", k);
+      return false;
+    }
+    if (!compare_threadblocks(originals[k], v4_back)) {
+      fprintf(stderr, "FAIL: threadblock %d mismatch after v8 fallback roundtrip\n", k);
+      return false;
+    }
+  }
+
+  return true;
+}
+
 int main() {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 
@@ -455,6 +626,8 @@ int main() {
   run("test_v6_with_long_run", test_v6_with_long_run);
   run("test_v7_roundtrip", test_v7_roundtrip);
   run("test_v7_divergent_warps", test_v7_divergent_warps);
+  run("test_v8_roundtrip", test_v8_roundtrip);
+  run("test_v8_fallback", test_v8_fallback);
 
   printf("\n%d passed, %d failed\n", passed, failed);
 

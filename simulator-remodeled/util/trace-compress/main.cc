@@ -1,5 +1,8 @@
+#include <fstream>
 #include <iostream>
 #include <string>
+#include "trace_compress.h"
+#include "threadblock.pb.h"
 
 void print_usage(const char* prog) {
   std::cerr << "Usage: " << prog
@@ -10,6 +13,8 @@ void print_usage(const char* prog) {
 }
 
 int main(int argc, char* argv[]) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
   std::string input_path, output_path;
   int from_version = 4, to_version = 5;
   int func_id = 0;
@@ -26,11 +31,65 @@ int main(int argc, char* argv[]) {
 
   if (input_path.empty() || output_path.empty()) {
     print_usage(argv[0]);
+    google::protobuf::ShutdownProtobufLibrary();
     return 1;
   }
 
-  std::cout << "Converting " << input_path
-            << " from v" << from_version << " to v" << to_version << std::endl;
-  std::cerr << "Not yet implemented" << std::endl;
-  return 1;
+  if (from_version != 4 || to_version != 5) {
+    std::cerr << "Only v4->v5 conversion is supported" << std::endl;
+    google::protobuf::ShutdownProtobufLibrary();
+    return 1;
+  }
+
+  // Read v4 threadblock from input file
+  dynamic_trace::threadblock tb;
+  {
+    std::ifstream in(input_path, std::ios::binary);
+    if (!in.is_open()) {
+      std::cerr << "Cannot open input file: " << input_path << std::endl;
+      google::protobuf::ShutdownProtobufLibrary();
+      return 1;
+    }
+    if (!tb.ParseFromIstream(&in)) {
+      std::cerr << "Failed to parse input as threadblock: " << input_path << std::endl;
+      google::protobuf::ShutdownProtobufLibrary();
+      return 1;
+    }
+  }
+
+  // Encode v4 -> v5
+  dynamic_trace::compressed_threadblock ctb;
+  if (!encode_v4_to_v5(tb, &ctb, func_id)) {
+    std::cerr << "Encoding failed" << std::endl;
+    google::protobuf::ShutdownProtobufLibrary();
+    return 1;
+  }
+
+  // Write compressed output
+  {
+    std::ofstream out(output_path, std::ios::binary);
+    if (!out.is_open()) {
+      std::cerr << "Cannot open output file: " << output_path << std::endl;
+      google::protobuf::ShutdownProtobufLibrary();
+      return 1;
+    }
+    if (!ctb.SerializeToOstream(&out)) {
+      std::cerr << "Failed to serialize compressed threadblock" << std::endl;
+      google::protobuf::ShutdownProtobufLibrary();
+      return 1;
+    }
+  }
+
+  size_t original_size = tb.ByteSizeLong();
+  size_t compressed_size = ctb.ByteSizeLong();
+  double ratio = (original_size > 0)
+      ? static_cast<double>(compressed_size) / static_cast<double>(original_size)
+      : 0.0;
+
+  std::cout << "Original size:   " << original_size << " bytes" << std::endl;
+  std::cout << "Compressed size: " << compressed_size << " bytes" << std::endl;
+  std::cout << "Ratio:           " << ratio << std::endl;
+
+  google::protobuf::ShutdownProtobufLibrary();
+  return 0;
 }

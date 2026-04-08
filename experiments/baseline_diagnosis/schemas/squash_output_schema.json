@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Squash Mechanism Output",
+  "description": "Temporal segmentation output. Two-level: kernel-level and TB-level.",
+  "type": "object",
+  "required": ["mechanism", "workload", "kernel_level", "tb_level"],
+  "properties": {
+    "mechanism": {"const": "squash"},
+    "workload": {"type": "string"},
+    "kernel_level": {
+      "type": "object",
+      "required": ["squash_segments", "boundary_count", "total_kernels"],
+      "properties": {
+        "squash_segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["segment_id", "kernel_range", "dominant_opcodes", "cohesion_score"],
+            "properties": {
+              "segment_id": {"type": "integer"},
+              "kernel_range": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "kernel_count": {"type": "integer"},
+              "dominant_opcodes": {"type": "array", "items": {"type": "string"}},
+              "cohesion_score": {"type": "number"},
+              "representative_kernel": {"type": "integer"},
+              "behavior_summary": {"type": "string"}
+            }
+          }
+        },
+        "boundary_count": {"type": "integer"},
+        "total_kernels": {"type": "integer"}
+      }
+    },
+    "tb_level": {
+      "type": "object",
+      "description": "Per-kernel TB segmentation. Keys are kernel_ids as strings.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["squash_segments", "boundary_count", "total_tbs"],
+        "properties": {
+          "squash_segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["segment_id", "tb_range", "cohesion_score"],
+              "properties": {
+                "segment_id": {"type": "integer"},
+                "tb_range": {
+                  "type": "array",
+                  "items": {"type": "integer"},
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "tb_count": {"type": "integer"},
+                "cohesion_score": {"type": "number"},
+                "representative_tb": {"type": "integer"},
+                "behavior_summary": {"type": "string"}
+              }
+            }
+          },
+          "boundary_count": {"type": "integer"},
+          "total_tbs": {"type": "integer"}
+        }
+      }
+    },
+    "_simulation_reuse_hint": {
+      "type": "object",
+      "description": "Opportunistic: hints for simulator-level reuse",
+      "properties": {
+        "kernel_level_representatives": {"type": "array", "items": {"type": "integer"}},
+        "tb_level_representatives": {"type": "object"}
+      }
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Per-TB Features",
+  "description": "Canonical feature vector for a single threadblock, consumed by Squash/Batch/Delta mechanisms",
+  "type": "object",
+  "required": ["workload", "kernels"],
+  "properties": {
+    "workload": {
+      "type": "string",
+      "description": "Workload name, e.g. 'backprop-rodinia-2.0-ft'"
+    },
+    "input_size": {
+      "type": ["integer", "string"],
+      "description": "Workload input size for reproducibility"
+    },
+    "kernels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kernel_id", "kernel_name", "per_tb"],
+        "properties": {
+          "kernel_id": {"type": "integer"},
+          "kernel_name": {"type": "string"},
+          "kernel_summary": {
+            "type": "object",
+            "description": "Kernel-level features (for kernel-level mechanism operation)",
+            "properties": {
+              "top_opcodes": {"type": "array"},
+              "total_static_instructions": {"type": "integer"},
+              "total_dynamic_instructions": {"type": "integer"},
+              "uses_fp64": {"type": "boolean"},
+              "uses_shared_memory": {"type": "boolean"},
+              "num_barriers": {"type": "integer"},
+              "grid_dim": {"type": "string"},
+              "block_dim": {"type": "string"}
+            }
+          },
+          "per_tb": {
+            "type": "array",
+            "description": "One entry per threadblock in this kernel",
+            "items": {
+              "type": "object",
+              "required": ["tb_index", "features"],
+              "properties": {
+                "tb_index": {"type": "integer"},
+                "features": {
+                  "type": "object",
+                  "description": "Feature vector (numeric fields only, for clustering/diffing)",
+                  "properties": {
+                    "num_warps": {"type": "number"},
+                    "instructions_per_warp_mean": {"type": "number"},
+                    "instructions_per_warp_std": {"type": "number"},
+                    "opcode_ffma_ratio": {"type": "number"},
+                    "opcode_dfma_ratio": {"type": "number"},
+                    "opcode_ldg_ratio": {"type": "number"},
+                    "opcode_stg_ratio": {"type": "number"},
+                    "opcode_lds_ratio": {"type": "number"},
+                    "opcode_sts_ratio": {"type": "number"},
+                    "opcode_iadd_ratio": {"type": "number"},
+                    "opcode_bar_ratio": {"type": "number"},
+                    "address_override_count": {"type": "integer"},
+                    "is_full_encoding": {"type": "boolean"},
+                    "compression_format": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

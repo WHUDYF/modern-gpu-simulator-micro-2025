@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Delta Mechanism Output",
+  "description": "Field-level change pattern output. Two-level.",
+  "type": "object",
+  "required": ["mechanism", "workload", "kernel_level", "tb_level"],
+  "properties": {
+    "mechanism": {"const": "delta"},
+    "workload": {"type": "string"},
+    "kernel_level": {
+      "type": "object",
+      "required": ["field_temperature", "hot_fields", "cold_fields"],
+      "properties": {
+        "field_temperature": {
+          "type": "object",
+          "description": "Field name -> temperature score (0=cold, 1=hot)",
+          "additionalProperties": {"type": "number"}
+        },
+        "hot_fields": {"type": "array", "items": {"type": "string"}},
+        "cold_fields": {"type": "array", "items": {"type": "string"}},
+        "field_correlations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fields", "correlation"],
+            "properties": {
+              "fields": {"type": "array", "items": {"type": "string"}},
+              "correlation": {"type": "number"},
+              "interpretation": {"type": "string"}
+            }
+          }
+        },
+        "outlier_diffs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pair", "magnitude"],
+            "properties": {
+              "pair": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+              "magnitude": {"type": "number"},
+              "dominant_changing_fields": {"type": "array"},
+              "interpretation": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "tb_level": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["field_temperature", "hot_fields", "cold_fields"],
+        "properties": {
+          "field_temperature": {
+            "type": "object",
+            "additionalProperties": {"type": "number"}
+          },
+          "hot_fields": {"type": "array", "items": {"type": "string"}},
+          "cold_fields": {"type": "array", "items": {"type": "string"}},
+          "field_correlations": {"type": "array"},
+          "outlier_diffs": {"type": "array"}
+        }
+      }
+    }
+  }
+}

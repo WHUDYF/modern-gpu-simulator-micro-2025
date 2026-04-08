@@ -1,0 +1,41 @@
+{
+  "description": "Tunable parameters for Squash/Batch/Delta mechanisms. Values here are starting points; override via --config CLI flag when running mechanisms.",
+  "squash": {
+    "kernel_level": {
+      "similarity_threshold": 0.85,
+      "_note": "Cosine similarity threshold for adjacent kernels. Below this = segment boundary."
+    },
+    "tb_level": {
+      "similarity_threshold": 0.90,
+      "_note": "Cosine similarity threshold for adjacent TBs within a kernel."
+    }
+  },
+  "batch": {
+    "kernel_level": {
+      "clustering_algorithm": "dbscan",
+      "dbscan_eps": 0.15,
+      "dbscan_min_samples": 2,
+      "_note": "DBSCAN handles variable cluster counts and flags outliers naturally."
+    },
+    "tb_level": {
+      "clustering_algorithm": "dbscan",
+      "dbscan_eps": 0.10,
+      "dbscan_min_samples": 3,
+      "_note": "Tighter eps for TBs since they should be more uniform than kernels."
+    }
+  },
+  "delta": {
+    "kernel_level": {
+      "hot_threshold": 0.3,
+      "cold_threshold": 0.05,
+      "correlation_threshold": 0.6,
+      "outlier_zscore": 2.5
+    },
+    "tb_level": {
+      "hot_threshold": 0.2,
+      "cold_threshold": 0.05,
+      "correlation_threshold": 0.6,
+      "outlier_zscore": 2.5
+    }
+  }
+}

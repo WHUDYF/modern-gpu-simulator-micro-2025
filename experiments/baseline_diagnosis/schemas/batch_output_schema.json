@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Batch Mechanism Output",
+  "description": "Spatial homogeneity clustering output. Two-level.",
+  "type": "object",
+  "required": ["mechanism", "workload", "kernel_level", "tb_level"],
+  "properties": {
+    "mechanism": {"const": "batch"},
+    "workload": {"type": "string"},
+    "kernel_level": {
+      "type": "object",
+      "required": ["batch_clusters", "outlier_kernels", "homogeneity_score"],
+      "properties": {
+        "batch_clusters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["cluster_id", "kernel_ids", "cluster_size", "centroid_summary"],
+            "properties": {
+              "cluster_id": {"type": "integer"},
+              "kernel_ids": {"type": "array", "items": {"type": "integer"}},
+              "cluster_size": {"type": "integer"},
+              "cluster_pct": {"type": "number"},
+              "centroid_summary": {"type": "object"},
+              "cohesion": {"type": "number"}
+            }
+          }
+        },
+        "outlier_kernels": {"type": "array", "items": {"type": "integer"}},
+        "homogeneity_score": {"type": "number"}
+      }
+    },
+    "tb_level": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["batch_clusters", "outlier_tbs", "homogeneity_score"],
+        "properties": {
+          "batch_clusters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["cluster_id", "tb_ids", "cluster_size", "centroid_summary"],
+              "properties": {
+                "cluster_id": {"type": "integer"},
+                "tb_ids": {"type": "array", "items": {"type": "integer"}},
+                "cluster_size": {"type": "integer"},
+                "cluster_pct": {"type": "number"},
+                "centroid_summary": {"type": "object"},
+                "cohesion": {"type": "number"}
+              }
+            }
+          },
+          "outlier_tbs": {"type": "array", "items": {"type": "integer"}},
+          "homogeneity_score": {"type": "number"}
+        }
+      }
+    },
+    "_simulation_reuse_hint": {
+      "type": "object",
+      "properties": {
+        "kernel_cluster_representatives": {"type": "object"},
+        "tb_cluster_representatives": {"type": "object"}
+      }
+    }
+  }
+}

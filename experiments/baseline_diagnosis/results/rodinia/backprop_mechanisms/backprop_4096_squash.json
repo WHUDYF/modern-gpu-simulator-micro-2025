@@ -1,0 +1,92 @@
+{
+  "mechanism": "squash",
+  "workload": "backprop-rodinia-2.0-ft (input_size=4096)",
+  "kernel_level": {
+    "squash_segments": [
+      {
+        "segment_id": 0,
+        "kernel_range": [
+          0,
+          0
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [
+          "IADD3",
+          "NOP",
+          "LDS"
+        ],
+        "cohesion_score": 1.0,
+        "representative_kernel": 0,
+        "behavior_summary": "kernels 0..0: bpnn_layerforward_CUDA"
+      },
+      {
+        "segment_id": 1,
+        "kernel_range": [
+          1,
+          1
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [
+          "LDG.E",
+          "F2F.F64.F32",
+          "NOP"
+        ],
+        "cohesion_score": 1.0,
+        "representative_kernel": 1,
+        "behavior_summary": "kernels 1..1: bpnn_adjust_weights_cuda"
+      }
+    ],
+    "boundary_count": 1,
+    "total_kernels": 2
+  },
+  "tb_level": {
+    "1": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            255
+          ],
+          "tb_count": 256,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..255"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 256
+    },
+    "2": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            255
+          ],
+          "tb_count": 256,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..255"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 256
+    }
+  },
+  "_simulation_reuse_hint": {
+    "kernel_level_representatives": [
+      0,
+      1
+    ],
+    "tb_level_representatives": {
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ]
+    }
+  }
+}

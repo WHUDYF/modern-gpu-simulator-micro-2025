@@ -4,11 +4,11 @@
   "kernel_level": {
     "field_temperature": {
       "uses_fp64": 0.0,
-      "total_dynamic_instructions": 0.0027102866204480806,
-      "num_tbs": 0.0,
-      "num_barriers": 0.0,
+      "total_static_instructions": 0.0,
       "uses_shared_memory": 0.0,
-      "total_static_instructions": 0.0
+      "total_dynamic_instructions": 0.0027102866204480806,
+      "num_barriers": 0.0,
+      "num_tbs": 0.0
     },
     "hot_fields": [],
     "cold_fields": [
@@ -25,15 +25,15 @@
   "tb_level": {
     "1": {
       "field_temperature": {
-        "is_full_encoding": 0.0,
-        "instructions_per_warp_mean": 2.126368957816449e-16,
-        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "num_warps": 0.0,
         "opcode_other_ratio": 3.221823674629572e-16,
         "opcode_iadd_ratio": 4.739798243477385e-16,
         "opcode_ldg_ratio": 1.2836953484744733e-16,
+        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "instructions_per_warp_std": 3.4685503846554685e-16,
+        "instructions_per_warp_mean": 2.126368957816449e-16,
         "address_override_count": 0.0,
-        "num_warps": 0.0,
-        "instructions_per_warp_std": 3.4685503846554685e-16
+        "is_full_encoding": 0.0
       },
       "hot_fields": [],
       "cold_fields": [
@@ -47,141 +47,20 @@
         "opcode_ldg_ratio",
         "opcode_other_ratio"
       ],
-      "field_correlations": [
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_ffma_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_ffma_ratio covary together"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_other_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_other_ratio move inversely"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_iadd_ratio move inversely"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_ldg_ratio covary together"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "instructions_per_warp_mean and instructions_per_warp_std move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_other_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_other_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_iadd_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_ldg_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and instructions_per_warp_std move inversely"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and opcode_iadd_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_other_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_iadd_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_iadd_ratio and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_ldg_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ldg_ratio and instructions_per_warp_std move inversely"
-        }
-      ],
+      "field_correlations": [],
       "outlier_diffs": []
     },
     "2": {
       "field_temperature": {
-        "is_full_encoding": 0.0,
-        "instructions_per_warp_mean": 0.0,
-        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "num_warps": 0.0,
         "opcode_other_ratio": 3.221823674629572e-16,
         "opcode_iadd_ratio": 4.739798243477385e-16,
         "opcode_ldg_ratio": 1.2836953484744733e-16,
+        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
         "address_override_count": 0.0,
-        "num_warps": 0.0,
-        "instructions_per_warp_std": 0.0
+        "is_full_encoding": 0.0
       },
       "hot_fields": [],
       "cold_fields": [
@@ -195,69 +74,20 @@
         "opcode_ldg_ratio",
         "opcode_other_ratio"
       ],
-      "field_correlations": [
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_other_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_other_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_iadd_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_ldg_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and opcode_iadd_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_other_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_iadd_ratio and opcode_ldg_ratio move inversely"
-        }
-      ],
+      "field_correlations": [],
       "outlier_diffs": []
     },
     "3": {
       "field_temperature": {
-        "is_full_encoding": 0.0,
-        "instructions_per_warp_mean": 2.1383933268778123e-16,
-        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "num_warps": 0.0,
         "opcode_other_ratio": 3.221823674629572e-16,
         "opcode_iadd_ratio": 4.739798243477385e-16,
         "opcode_ldg_ratio": 1.2836953484744733e-16,
+        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "instructions_per_warp_std": 1.1574386521993383e-16,
+        "instructions_per_warp_mean": 2.1383933268778123e-16,
         "address_override_count": 0.0,
-        "num_warps": 0.0,
-        "instructions_per_warp_std": 1.1574386521993383e-16
+        "is_full_encoding": 0.0
       },
       "hot_fields": [],
       "cold_fields": [
@@ -271,141 +101,20 @@
         "opcode_ldg_ratio",
         "opcode_other_ratio"
       ],
-      "field_correlations": [
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_ffma_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_ffma_ratio move inversely"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_other_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_other_ratio covary together"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_iadd_ratio covary together"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "instructions_per_warp_mean and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "instructions_per_warp_mean",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "instructions_per_warp_mean and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_other_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_other_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_iadd_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_ldg_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and instructions_per_warp_std move inversely"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and opcode_iadd_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_other_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_iadd_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_iadd_ratio and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_ldg_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ldg_ratio and instructions_per_warp_std move inversely"
-        }
-      ],
+      "field_correlations": [],
       "outlier_diffs": []
     },
     "4": {
       "field_temperature": {
-        "is_full_encoding": 0.0,
-        "instructions_per_warp_mean": 0.0,
-        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "num_warps": 0.0,
         "opcode_other_ratio": 3.221823674629572e-16,
         "opcode_iadd_ratio": 4.739798243477385e-16,
         "opcode_ldg_ratio": 1.2836953484744733e-16,
+        "opcode_ffma_ratio": 1.643130066717902e-16,
+        "instructions_per_warp_std": 2.304940522108986e-16,
+        "instructions_per_warp_mean": 0.0,
         "address_override_count": 0.0,
-        "num_warps": 0.0,
-        "instructions_per_warp_std": 2.304940522108986e-16
+        "is_full_encoding": 0.0
       },
       "hot_fields": [],
       "cold_fields": [
@@ -419,88 +128,7 @@
         "opcode_ldg_ratio",
         "opcode_other_ratio"
       ],
-      "field_correlations": [
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_other_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_other_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_iadd_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ffma_ratio and opcode_ldg_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_ffma_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ffma_ratio and instructions_per_warp_std covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_iadd_ratio"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_other_ratio and opcode_iadd_ratio covary together"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_other_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_other_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_other_ratio and instructions_per_warp_std move inversely"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "opcode_ldg_ratio"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_iadd_ratio and opcode_ldg_ratio move inversely"
-        },
-        {
-          "fields": [
-            "opcode_iadd_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": -1.0,
-          "interpretation": "opcode_iadd_ratio and instructions_per_warp_std move inversely"
-        },
-        {
-          "fields": [
-            "opcode_ldg_ratio",
-            "instructions_per_warp_std"
-          ],
-          "correlation": 1.0,
-          "interpretation": "opcode_ldg_ratio and instructions_per_warp_std covary together"
-        }
-      ],
+      "field_correlations": [],
       "outlier_diffs": []
     }
   }

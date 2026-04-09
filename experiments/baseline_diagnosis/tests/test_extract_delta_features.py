@@ -64,3 +64,79 @@ def test_tb_level_per_kernel(tmp_path):
         assert "field_temperature" in data
         assert "hot_fields" in data
         assert "cold_fields" in data
+
+
+def test_no_spurious_correlations_on_constant_fields(tmp_path):
+    """Regression test: ensure pairwise_correlation filters out fields
+    whose std is just floating-point noise.
+
+    Uses a synthetic per-TB file where all TBs have identical feature
+    values. Delta should report 0 correlations and 0 outlier_diffs
+    at TB-level in this case.
+    """
+    # Build a synthetic workload: 1 kernel with 100 identical TBs
+    synthetic = {
+        "workload": "synthetic_constant",
+        "kernels": [
+            {
+                "kernel_id": 1,
+                "kernel_name": "constant_kernel",
+                "kernel_summary": {
+                    "top_opcodes": [],
+                    "total_static_instructions": 10,
+                    "total_dynamic_instructions": 100,
+                    "uses_fp64": False,
+                    "uses_shared_memory": False,
+                    "num_barriers": 0,
+                    "grid_dim": "1x1x1",
+                    "block_dim": "32x1x1",
+                },
+                "per_tb": [
+                    {
+                        "tb_index": i,
+                        "features": {
+                            "num_warps": 1.0,
+                            "instructions_per_warp_mean": 133.6631130063966,
+                            "opcode_ffma_ratio": 0.5,
+                            "opcode_ldg_ratio": 0.3,
+                            "address_override_count": 0,
+                            "is_full_encoding": False,
+                        },
+                    }
+                    for i in range(100)
+                ],
+            }
+        ],
+    }
+    synthetic_path = tmp_path / "synthetic_per_tb.json"
+    synthetic_path.write_text(json.dumps(synthetic))
+
+    out = tmp_path / "delta_synthetic.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--input",
+            str(synthetic_path),
+            "--config",
+            str(CONFIG),
+            "--output",
+            str(out),
+        ],
+        check=True,
+    )
+    result = json.loads(out.read_text())
+
+    # All TBs are identical → no hot fields, no correlations, no outliers
+    tb_level = result["tb_level"]["1"]
+    assert tb_level["hot_fields"] == [], (
+        f"Expected 0 hot fields on constant data, got {tb_level['hot_fields']}"
+    )
+    assert len(tb_level.get("field_correlations", [])) == 0, (
+        f"Regression: spurious correlations on constant fields. "
+        f"Found {len(tb_level['field_correlations'])}."
+    )
+    assert len(tb_level.get("outlier_diffs", [])) == 0, (
+        f"Regression: spurious outlier diffs on constant fields. "
+        f"Found {len(tb_level['outlier_diffs'])}."
+    )

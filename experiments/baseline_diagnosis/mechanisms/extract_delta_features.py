@@ -13,6 +13,13 @@ from pathlib import Path
 import numpy as np
 
 
+# Numerical threshold for detecting "effectively constant" fields.
+# Fields with std below this are treated as having no real variance,
+# so they are excluded from correlation and outlier computations to
+# avoid spurious signals from floating-point noise.
+MIN_STD_FOR_VARIANCE = 1e-10
+
+
 def extract_numeric_fields(obj):
     """Walk a dict recursively; return {flat_key: numeric_value}.
     Bool → 0/1. Nested dicts → dot-joined keys."""
@@ -52,7 +59,12 @@ def classify_fields(field_temps, hot_threshold, cold_threshold):
 
 
 def pairwise_correlation(field_series_dict, threshold):
-    """Compute correlations between field pairs that change together."""
+    """Compute correlations between field pairs that change together.
+
+    Fields whose standard deviation is below MIN_STD_FOR_VARIANCE are
+    treated as effectively constant and skipped, to prevent floating-point
+    noise from producing spurious correlations.
+    """
     fields = list(field_series_dict.keys())
     correlations = []
     for i, f1 in enumerate(fields):
@@ -61,7 +73,7 @@ def pairwise_correlation(field_series_dict, threshold):
             s2 = np.array(field_series_dict[f2])
             if len(s1) < 3:
                 continue
-            if np.std(s1) == 0 or np.std(s2) == 0:
+            if np.std(s1) < MIN_STD_FOR_VARIANCE or np.std(s2) < MIN_STD_FOR_VARIANCE:
                 continue
             corr = float(np.corrcoef(s1, s2)[0, 1])
             if abs(corr) >= threshold:
@@ -77,7 +89,12 @@ def pairwise_correlation(field_series_dict, threshold):
 
 
 def detect_outlier_diffs(field_series_dict, zscore_threshold):
-    """Find adjacent pairs where total delta magnitude is an outlier."""
+    """Find adjacent pairs where total delta magnitude is an outlier.
+
+    Fields whose standard deviation is below MIN_STD_FOR_VARIANCE are
+    treated as effectively constant and do not contribute to the magnitude
+    computation, to avoid floating-point noise being amplified by division.
+    """
     fields = list(field_series_dict.keys())
     if not fields:
         return []
@@ -93,7 +110,7 @@ def detect_outlier_diffs(field_series_dict, zscore_threshold):
             series = field_series_dict[f]
             diff = abs(series[i + 1] - series[i])
             std = np.std(series)
-            if std > 0:
+            if std >= MIN_STD_FOR_VARIANCE:
                 norm_diff = diff / std
                 total += norm_diff
                 if norm_diff > 1.0:
@@ -106,7 +123,7 @@ def detect_outlier_diffs(field_series_dict, zscore_threshold):
     total_values = [m[1] for m in magnitudes]
     mean_mag = np.mean(total_values)
     std_mag = np.std(total_values)
-    if std_mag == 0:
+    if std_mag < MIN_STD_FOR_VARIANCE:
         return []
 
     outliers = []

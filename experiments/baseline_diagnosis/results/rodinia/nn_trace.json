@@ -1,0 +1,323 @@
+{
+  "trace_dir": "/home/ubuntu/modern-gpu-simulator-micro-2025/simulator-remodeled/exampleTraces/rodinia2/12.8/nn-rodinia-2.0-ft/__data_filelist_4_3_30_90___data_filelist_4_3_30_90_result_txt/traces",
+  "dynamic_trace": {
+    "name": "nn-rodinia-2.0-ft",
+    "binary_version": 86,
+    "nvbit_version": "1.7.5",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z6euclidPcffPfiii___0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 938,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 16,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 20,
+        "size_shared_memory": 0
+      },
+      {
+        "id": 2,
+        "name": "_Z6euclidPcffPfiii___0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 938,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 16,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 20,
+        "size_shared_memory": 0
+      },
+      {
+        "id": 3,
+        "name": "_Z6euclidPcffPfiii___0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 938,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 16,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 20,
+        "size_shared_memory": 0
+      },
+      {
+        "id": 4,
+        "name": "_Z6euclidPcffPfiii___0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 938,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 16,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 20,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z6euclidPcffPfiii",
+      "grid_dimX": 938,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 938,
+      "block_dimX": 16,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 16,
+      "total_insts": 341315,
+      "total_reported_insts": 341315
+    },
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-2.trace",
+      "kernel mangled name": "_Z6euclidPcffPfiii",
+      "grid_dimX": 938,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 938,
+      "block_dimX": 16,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 16,
+      "total_insts": 339844,
+      "total_reported_insts": 339844
+    },
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-3.trace",
+      "kernel mangled name": "_Z6euclidPcffPfiii",
+      "grid_dimX": 938,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 938,
+      "block_dimX": 16,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 16,
+      "total_insts": 339275,
+      "total_reported_insts": 339275
+    },
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-4.trace",
+      "kernel mangled name": "_Z6euclidPcffPfiii",
+      "grid_dimX": 938,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 938,
+      "block_dimX": 16,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 16,
+      "total_insts": 338892,
+      "total_reported_insts": 338892
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "nn-rodinia-2.0-ft",
+    "kernels": [
+      {
+        "kernel_name": "_Z6euclidPcffPfiii___0",
+        "unique_function_id": 1,
+        "total_static_instructions": 240,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.MOV.U32",
+            "count": 25
+          },
+          {
+            "opcode": "FFMA",
+            "count": 25
+          },
+          {
+            "opcode": "BRA",
+            "count": 24
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 18
+          },
+          {
+            "opcode": "IADD3",
+            "count": 13
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 9
+          },
+          {
+            "opcode": "IMAD",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.S8",
+            "count": 8
+          },
+          {
+            "opcode": "I2FP.F32.S32",
+            "count": 8
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 240,
+            "mean": 3.325,
+            "std": 3.037714327143574,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 5.0
+          },
+          "barrier_waits": 18,
+          "yields": 85,
+          "write_barriers": 16,
+          "read_barriers": 2
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 938,
+      "format_counts": {
+        "compressed": 938
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 938,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 938,
+        "mean": 133.6631130063966,
+        "std": 30.72794064980353,
+        "min": 92.0,
+        "max": 163.0,
+        "p25": 92.0,
+        "p50": 128.0,
+        "p75": 163.0
+      }
+    },
+    "kernel_2": {
+      "num_tb_files": 938,
+      "format_counts": {
+        "compressed": 938
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 938,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 938,
+        "mean": 133.11513859275053,
+        "std": 30.984891514515475,
+        "min": 92.0,
+        "max": 163.0,
+        "p25": 92.0,
+        "p50": 128.0,
+        "p75": 163.0
+      }
+    },
+    "kernel_3": {
+      "num_tb_files": 938,
+      "format_counts": {
+        "compressed": 938
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 938,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 938,
+        "mean": 132.91151385927506,
+        "std": 30.694617567280755,
+        "min": 92.0,
+        "max": 163.0,
+        "p25": 92.0,
+        "p50": 128.0,
+        "p75": 163.0
+      }
+    },
+    "kernel_4": {
+      "num_tb_files": 938,
+      "format_counts": {
+        "compressed": 938
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 938,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 938,
+        "mean": 132.77825159914713,
+        "std": 30.826944509913645,
+        "min": 92.0,
+        "max": 163.0,
+        "p25": 92.0,
+        "p50": 128.0,
+        "p75": 163.0
+      }
+    }
+  }
+}

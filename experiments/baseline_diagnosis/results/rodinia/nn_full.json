@@ -1,0 +1,566 @@
+{
+  "workload": "nn-rodinia-2.0-ft",
+  "hardware": "RTX 3080 Ti (SM_86)",
+  "data_sources": {
+    "trace_compression_features": "from rodinia2Ampere preset traces",
+    "hardware_stats": "NCU profiled on RTX 3080 Ti (aggregated across 4 launches)"
+  },
+  "per_kernel": {
+    "euclid_1": {
+      "static_info": {
+        "kernel_name": "_Z6euclidPcffPfiii___0",
+        "unique_function_id": 1,
+        "total_static_instructions": 240,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.MOV.U32",
+            "count": 25
+          },
+          {
+            "opcode": "FFMA",
+            "count": 25
+          },
+          {
+            "opcode": "BRA",
+            "count": 24
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 18
+          },
+          {
+            "opcode": "IADD3",
+            "count": 13
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 9
+          },
+          {
+            "opcode": "IMAD",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.S8",
+            "count": 8
+          },
+          {
+            "opcode": "I2FP.F32.S32",
+            "count": 8
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 240,
+            "mean": 3.325,
+            "std": 3.037714327143574,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 5.0
+          },
+          "barrier_waits": 18,
+          "yields": 85,
+          "write_barriers": 16,
+          "read_barriers": 2
+        }
+      },
+      "dynamic_stats": {
+        "grid_dim": "938x1x1",
+        "block_dim": "16x1x1",
+        "num_blocks": 938,
+        "threads_per_block": 16,
+        "total_dynamic_insts": 341315
+      },
+      "compression_features": {
+        "num_tb_files": 938,
+        "format_counts": {
+          "compressed": 938
+        },
+        "dominant_format": "compressed",
+        "num_warps": {
+          "count": 938,
+          "mean": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "p25": 1.0,
+          "p50": 1.0,
+          "p75": 1.0
+        },
+        "instructions_per_warp_mean": {
+          "count": 938,
+          "mean": 133.6631130063966,
+          "std": 30.72794064980353,
+          "min": 92.0,
+          "max": 163.0,
+          "p25": 92.0,
+          "p50": 128.0,
+          "p75": 163.0
+        }
+      },
+      "hardware_metrics": {
+        "dram_throughput_pct": 17.05,
+        "dram_freq_hz": 9148418491.48,
+        "l1_throughput_pct": 9.31,
+        "l2_throughput_pct": 9.09,
+        "memory_throughput_bps": 149751824817.52,
+        "compute_throughput_pct": 7.32,
+        "sm_freq_hz": 1351570646.51,
+        "elapsed_cycles": 5929.0,
+        "duration_ns": 4384.0,
+        "sm_active_cycles": 3123.75,
+        "achieved_occupancy_pct": 18.1,
+        "theoretical_occupancy_pct": 33.33,
+        "achieved_warps_per_sm": 8.69,
+        "ipc_active": 0.5,
+        "ipc_elapsed": 0.29,
+        "issued_ipc_active": 0.51,
+        "l1_hit_rate_pct": 83.02,
+        "l2_hit_rate_pct": 15.99,
+        "mem_pipes_busy_pct": 4.27,
+        "branch_inst_ratio": 0.15,
+        "branch_efficiency_pct": 90.53,
+        "avg_divergent_branches": 3.43,
+        "block_limit_sm": 16.0,
+        "block_limit_registers": 84.0,
+        "block_limit_shmem": 16.0,
+        "block_limit_warps": 48.0,
+        "theoretical_active_warps_per_sm": 16.0,
+        "registers_per_thread": 20.0,
+        "static_shmem_per_block": 0.0,
+        "dynamic_shmem_per_block": 0.0,
+        "threads": 15008.0,
+        "waves_per_sm": 0.73,
+        "warp_cycles_per_issued_inst": 16.66,
+        "warp_cycles_per_executed_inst": 17.1,
+        "avg_active_threads_per_warp": 11.62,
+        "avg_not_predicated_off_threads_per_warp": 11.25,
+        "mem_busy_pct": 9.09,
+        "max_bandwidth_pct": 17.05
+      }
+    },
+    "euclid_2": {
+      "static_info": {
+        "kernel_name": "_Z6euclidPcffPfiii___0",
+        "unique_function_id": 1,
+        "total_static_instructions": 240,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.MOV.U32",
+            "count": 25
+          },
+          {
+            "opcode": "FFMA",
+            "count": 25
+          },
+          {
+            "opcode": "BRA",
+            "count": 24
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 18
+          },
+          {
+            "opcode": "IADD3",
+            "count": 13
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 9
+          },
+          {
+            "opcode": "IMAD",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.S8",
+            "count": 8
+          },
+          {
+            "opcode": "I2FP.F32.S32",
+            "count": 8
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 240,
+            "mean": 3.325,
+            "std": 3.037714327143574,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 5.0
+          },
+          "barrier_waits": 18,
+          "yields": 85,
+          "write_barriers": 16,
+          "read_barriers": 2
+        }
+      },
+      "dynamic_stats": {
+        "grid_dim": "938x1x1",
+        "block_dim": "16x1x1",
+        "num_blocks": 938,
+        "threads_per_block": 16,
+        "total_dynamic_insts": 339844
+      },
+      "compression_features": {
+        "num_tb_files": 938,
+        "format_counts": {
+          "compressed": 938
+        },
+        "dominant_format": "compressed",
+        "num_warps": {
+          "count": 938,
+          "mean": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "p25": 1.0,
+          "p50": 1.0,
+          "p75": 1.0
+        },
+        "instructions_per_warp_mean": {
+          "count": 938,
+          "mean": 133.11513859275053,
+          "std": 30.984891514515475,
+          "min": 92.0,
+          "max": 163.0,
+          "p25": 92.0,
+          "p50": 128.0,
+          "p75": 163.0
+        }
+      },
+      "hardware_metrics": {
+        "dram_throughput_pct": 17.05,
+        "dram_freq_hz": 9148418491.48,
+        "l1_throughput_pct": 9.31,
+        "l2_throughput_pct": 9.09,
+        "memory_throughput_bps": 149751824817.52,
+        "compute_throughput_pct": 7.32,
+        "sm_freq_hz": 1351570646.51,
+        "elapsed_cycles": 5929.0,
+        "duration_ns": 4384.0,
+        "sm_active_cycles": 3123.75,
+        "achieved_occupancy_pct": 18.1,
+        "theoretical_occupancy_pct": 33.33,
+        "achieved_warps_per_sm": 8.69,
+        "ipc_active": 0.5,
+        "ipc_elapsed": 0.29,
+        "issued_ipc_active": 0.51,
+        "l1_hit_rate_pct": 83.02,
+        "l2_hit_rate_pct": 15.99,
+        "mem_pipes_busy_pct": 4.27,
+        "branch_inst_ratio": 0.15,
+        "branch_efficiency_pct": 90.53,
+        "avg_divergent_branches": 3.43,
+        "block_limit_sm": 16.0,
+        "block_limit_registers": 84.0,
+        "block_limit_shmem": 16.0,
+        "block_limit_warps": 48.0,
+        "theoretical_active_warps_per_sm": 16.0,
+        "registers_per_thread": 20.0,
+        "static_shmem_per_block": 0.0,
+        "dynamic_shmem_per_block": 0.0,
+        "threads": 15008.0,
+        "waves_per_sm": 0.73,
+        "warp_cycles_per_issued_inst": 16.66,
+        "warp_cycles_per_executed_inst": 17.1,
+        "avg_active_threads_per_warp": 11.62,
+        "avg_not_predicated_off_threads_per_warp": 11.25,
+        "mem_busy_pct": 9.09,
+        "max_bandwidth_pct": 17.05
+      }
+    },
+    "euclid_3": {
+      "static_info": {
+        "kernel_name": "_Z6euclidPcffPfiii___0",
+        "unique_function_id": 1,
+        "total_static_instructions": 240,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.MOV.U32",
+            "count": 25
+          },
+          {
+            "opcode": "FFMA",
+            "count": 25
+          },
+          {
+            "opcode": "BRA",
+            "count": 24
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 18
+          },
+          {
+            "opcode": "IADD3",
+            "count": 13
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 9
+          },
+          {
+            "opcode": "IMAD",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.S8",
+            "count": 8
+          },
+          {
+            "opcode": "I2FP.F32.S32",
+            "count": 8
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 240,
+            "mean": 3.325,
+            "std": 3.037714327143574,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 5.0
+          },
+          "barrier_waits": 18,
+          "yields": 85,
+          "write_barriers": 16,
+          "read_barriers": 2
+        }
+      },
+      "dynamic_stats": {
+        "grid_dim": "938x1x1",
+        "block_dim": "16x1x1",
+        "num_blocks": 938,
+        "threads_per_block": 16,
+        "total_dynamic_insts": 339275
+      },
+      "compression_features": {
+        "num_tb_files": 938,
+        "format_counts": {
+          "compressed": 938
+        },
+        "dominant_format": "compressed",
+        "num_warps": {
+          "count": 938,
+          "mean": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "p25": 1.0,
+          "p50": 1.0,
+          "p75": 1.0
+        },
+        "instructions_per_warp_mean": {
+          "count": 938,
+          "mean": 132.91151385927506,
+          "std": 30.694617567280755,
+          "min": 92.0,
+          "max": 163.0,
+          "p25": 92.0,
+          "p50": 128.0,
+          "p75": 163.0
+        }
+      },
+      "hardware_metrics": {
+        "dram_throughput_pct": 17.05,
+        "dram_freq_hz": 9148418491.48,
+        "l1_throughput_pct": 9.31,
+        "l2_throughput_pct": 9.09,
+        "memory_throughput_bps": 149751824817.52,
+        "compute_throughput_pct": 7.32,
+        "sm_freq_hz": 1351570646.51,
+        "elapsed_cycles": 5929.0,
+        "duration_ns": 4384.0,
+        "sm_active_cycles": 3123.75,
+        "achieved_occupancy_pct": 18.1,
+        "theoretical_occupancy_pct": 33.33,
+        "achieved_warps_per_sm": 8.69,
+        "ipc_active": 0.5,
+        "ipc_elapsed": 0.29,
+        "issued_ipc_active": 0.51,
+        "l1_hit_rate_pct": 83.02,
+        "l2_hit_rate_pct": 15.99,
+        "mem_pipes_busy_pct": 4.27,
+        "branch_inst_ratio": 0.15,
+        "branch_efficiency_pct": 90.53,
+        "avg_divergent_branches": 3.43,
+        "block_limit_sm": 16.0,
+        "block_limit_registers": 84.0,
+        "block_limit_shmem": 16.0,
+        "block_limit_warps": 48.0,
+        "theoretical_active_warps_per_sm": 16.0,
+        "registers_per_thread": 20.0,
+        "static_shmem_per_block": 0.0,
+        "dynamic_shmem_per_block": 0.0,
+        "threads": 15008.0,
+        "waves_per_sm": 0.73,
+        "warp_cycles_per_issued_inst": 16.66,
+        "warp_cycles_per_executed_inst": 17.1,
+        "avg_active_threads_per_warp": 11.62,
+        "avg_not_predicated_off_threads_per_warp": 11.25,
+        "mem_busy_pct": 9.09,
+        "max_bandwidth_pct": 17.05
+      }
+    },
+    "euclid_4": {
+      "static_info": {
+        "kernel_name": "_Z6euclidPcffPfiii___0",
+        "unique_function_id": 1,
+        "total_static_instructions": 240,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.MOV.U32",
+            "count": 25
+          },
+          {
+            "opcode": "FFMA",
+            "count": 25
+          },
+          {
+            "opcode": "BRA",
+            "count": 24
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 18
+          },
+          {
+            "opcode": "IADD3",
+            "count": 13
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 9
+          },
+          {
+            "opcode": "IMAD",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.S8",
+            "count": 8
+          },
+          {
+            "opcode": "I2FP.F32.S32",
+            "count": 8
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 240,
+            "mean": 3.325,
+            "std": 3.037714327143574,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 5.0
+          },
+          "barrier_waits": 18,
+          "yields": 85,
+          "write_barriers": 16,
+          "read_barriers": 2
+        }
+      },
+      "dynamic_stats": {
+        "grid_dim": "938x1x1",
+        "block_dim": "16x1x1",
+        "num_blocks": 938,
+        "threads_per_block": 16,
+        "total_dynamic_insts": 338892
+      },
+      "compression_features": {
+        "num_tb_files": 938,
+        "format_counts": {
+          "compressed": 938
+        },
+        "dominant_format": "compressed",
+        "num_warps": {
+          "count": 938,
+          "mean": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "p25": 1.0,
+          "p50": 1.0,
+          "p75": 1.0
+        },
+        "instructions_per_warp_mean": {
+          "count": 938,
+          "mean": 132.77825159914713,
+          "std": 30.826944509913645,
+          "min": 92.0,
+          "max": 163.0,
+          "p25": 92.0,
+          "p50": 128.0,
+          "p75": 163.0
+        }
+      },
+      "hardware_metrics": {
+        "dram_throughput_pct": 17.05,
+        "dram_freq_hz": 9148418491.48,
+        "l1_throughput_pct": 9.31,
+        "l2_throughput_pct": 9.09,
+        "memory_throughput_bps": 149751824817.52,
+        "compute_throughput_pct": 7.32,
+        "sm_freq_hz": 1351570646.51,
+        "elapsed_cycles": 5929.0,
+        "duration_ns": 4384.0,
+        "sm_active_cycles": 3123.75,
+        "achieved_occupancy_pct": 18.1,
+        "theoretical_occupancy_pct": 33.33,
+        "achieved_warps_per_sm": 8.69,
+        "ipc_active": 0.5,
+        "ipc_elapsed": 0.29,
+        "issued_ipc_active": 0.51,
+        "l1_hit_rate_pct": 83.02,
+        "l2_hit_rate_pct": 15.99,
+        "mem_pipes_busy_pct": 4.27,
+        "branch_inst_ratio": 0.15,
+        "branch_efficiency_pct": 90.53,
+        "avg_divergent_branches": 3.43,
+        "block_limit_sm": 16.0,
+        "block_limit_registers": 84.0,
+        "block_limit_shmem": 16.0,
+        "block_limit_warps": 48.0,
+        "theoretical_active_warps_per_sm": 16.0,
+        "registers_per_thread": 20.0,
+        "static_shmem_per_block": 0.0,
+        "dynamic_shmem_per_block": 0.0,
+        "threads": 15008.0,
+        "waves_per_sm": 0.73,
+        "warp_cycles_per_issued_inst": 16.66,
+        "warp_cycles_per_executed_inst": 17.1,
+        "avg_active_threads_per_warp": 11.62,
+        "avg_not_predicated_off_threads_per_warp": 11.25,
+        "mem_busy_pct": 9.09,
+        "max_bandwidth_pct": 17.05
+      }
+    }
+  }
+}

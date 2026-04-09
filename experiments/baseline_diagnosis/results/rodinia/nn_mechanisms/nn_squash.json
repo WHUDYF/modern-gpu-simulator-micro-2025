@@ -1,0 +1,115 @@
+{
+  "mechanism": "squash",
+  "workload": "nn-rodinia-2.0-ft",
+  "kernel_level": {
+    "squash_segments": [
+      {
+        "segment_id": 0,
+        "kernel_range": [
+          0,
+          3
+        ],
+        "kernel_count": 4,
+        "dominant_opcodes": [
+          "IMAD.MOV.U32",
+          "FFMA",
+          "BRA"
+        ],
+        "cohesion_score": 1.0000000000000002,
+        "representative_kernel": 0,
+        "behavior_summary": "kernels 0..3: euclid_1 ... euclid_4"
+      }
+    ],
+    "boundary_count": 0,
+    "total_kernels": 4
+  },
+  "tb_level": {
+    "1": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            937
+          ],
+          "tb_count": 938,
+          "cohesion_score": 0.9999999999999999,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..937"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 938
+    },
+    "2": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            937
+          ],
+          "tb_count": 938,
+          "cohesion_score": 0.9999999999999999,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..937"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 938
+    },
+    "3": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            937
+          ],
+          "tb_count": 938,
+          "cohesion_score": 0.9999999999999999,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..937"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 938
+    },
+    "4": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            937
+          ],
+          "tb_count": 938,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..937"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 938
+    }
+  },
+  "_simulation_reuse_hint": {
+    "kernel_level_representatives": [
+      0
+    ],
+    "tb_level_representatives": {
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ]
+    }
+  }
+}

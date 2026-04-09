@@ -1,0 +1,54 @@
+{
+  "hardware_stats": {
+    "euclid": {
+      "full_name": "euclid(char *, float, float, float *, int, int, int)",
+      "block_size": "(16, 1, 1)",
+      "grid_size": "(938, 1, 1)",
+      "cc": "8.6",
+      "key_metrics": {
+        "dram_throughput_pct": 17.05,
+        "dram_freq_hz": 9148418491.48,
+        "l1_throughput_pct": 9.31,
+        "l2_throughput_pct": 9.09,
+        "memory_throughput_bps": 149751824817.52,
+        "compute_throughput_pct": 7.32,
+        "sm_freq_hz": 1351570646.51,
+        "elapsed_cycles": 5929.0,
+        "duration_ns": 4384.0,
+        "sm_active_cycles": 3123.75,
+        "achieved_occupancy_pct": 18.1,
+        "theoretical_occupancy_pct": 33.33,
+        "achieved_warps_per_sm": 8.69,
+        "ipc_active": 0.5,
+        "ipc_elapsed": 0.29,
+        "issued_ipc_active": 0.51,
+        "l1_hit_rate_pct": 83.02,
+        "l2_hit_rate_pct": 15.99,
+        "mem_pipes_busy_pct": 4.27,
+        "branch_inst_ratio": 0.15,
+        "branch_efficiency_pct": 90.53,
+        "avg_divergent_branches": 3.43,
+        "block_limit_sm": 16.0,
+        "block_limit_registers": 84.0,
+        "block_limit_shmem": 16.0,
+        "block_limit_warps": 48.0,
+        "theoretical_active_warps_per_sm": 16.0,
+        "registers_per_thread": 20.0,
+        "static_shmem_per_block": 0.0,
+        "dynamic_shmem_per_block": 0.0,
+        "threads": 15008.0,
+        "waves_per_sm": 0.73,
+        "warp_cycles_per_issued_inst": 16.66,
+        "warp_cycles_per_executed_inst": 17.1,
+        "avg_active_threads_per_warp": 11.62,
+        "avg_not_predicated_off_threads_per_warp": 11.25,
+        "mem_busy_pct": 9.09,
+        "max_bandwidth_pct": 17.05
+      }
+    }
+  },
+  "_full_metrics_count": 74,
+  "_kernels": [
+    "euclid"
+  ]
+}

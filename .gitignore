@@ -1,3 +1,4 @@
 .worktrees/
 *.pb
-hw_run/traces/
+hw_run/
+simulator-remodeled/

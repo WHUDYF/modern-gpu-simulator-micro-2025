@@ -1,1 +1,3 @@
 .worktrees/
+*.pb
+hw_run/traces/

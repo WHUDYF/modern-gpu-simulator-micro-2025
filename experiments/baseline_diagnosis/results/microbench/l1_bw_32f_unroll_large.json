@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l1_bw_32f_unroll_large/traces",
+  "dynamic_trace": {
+    "name": "l1_bw_32f_unroll_large",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z5l1_bwPjS_PfS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 38,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z5l1_bwPjS_PfS0_",
+      "grid_dimX": 1,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 1,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 744000,
+      "total_reported_insts": 744000
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "l1_bw_32f_unroll_large",
+    "kernels": [
+      {
+        "kernel_name": "_Z5l1_bwPjS_PfS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 120,
+        "top_opcodes": [
+          {
+            "opcode": "LDG.E.STRONG.SM",
+            "count": 37
+          },
+          {
+            "opcode": "FADD",
+            "count": 37
+          },
+          {
+            "opcode": "NOP",
+            "count": 9
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 4
+          },
+          {
+            "opcode": "IMAD.WIDE.U32",
+            "count": 4
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 3
+          },
+          {
+            "opcode": "IADD3",
+            "count": 3
+          },
+          {
+            "opcode": "BRA",
+            "count": 3
+          },
+          {
+            "opcode": "STG.E",
+            "count": 3
+          },
+          {
+            "opcode": "S2R",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 120,
+            "mean": 3.075,
+            "std": 1.7942616865998113,
+            "min": 0.0,
+            "max": 8.0,
+            "p25": 1.0,
+            "p50": 4.0,
+            "p75": 4.0
+          },
+          "barrier_waits": 21,
+          "yields": 49,
+          "write_barriers": 46,
+          "read_barriers": 2
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 1,
+      "format_counts": {
+        "compressed": 1
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 1,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 1,
+        "mean": 9149.0,
+        "std": 0.0,
+        "min": 9149.0,
+        "max": 9149.0,
+        "p25": 9149.0,
+        "p50": 9149.0,
+        "p75": 9149.0
+      }
+    }
+  }
+}

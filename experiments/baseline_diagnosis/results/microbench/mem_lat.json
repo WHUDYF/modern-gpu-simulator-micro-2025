@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/mem_lat/traces",
+  "dynamic_trace": {
+    "name": "mem_lat",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z7mem_latPjS_PmS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 160,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 16,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z7mem_latPjS_PmS0_",
+      "grid_dimX": 160,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 160,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 633968,
+      "total_reported_insts": 633968
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "mem_lat",
+    "kernels": [
+      {
+        "kernel_name": "_Z7mem_latPjS_PmS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 80,
+        "top_opcodes": [
+          {
+            "opcode": "NOP",
+            "count": 14
+          },
+          {
+            "opcode": "BRA",
+            "count": 6
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 6
+          },
+          {
+            "opcode": "IADD3",
+            "count": 6
+          },
+          {
+            "opcode": "LDG.E.64.STRONG.SYS",
+            "count": 6
+          },
+          {
+            "opcode": "BSSY.RECONVERGENT",
+            "count": 3
+          },
+          {
+            "opcode": "STG.E.64.STRONG.SYS",
+            "count": 3
+          },
+          {
+            "opcode": "BSYNC.RECONVERGENT",
+            "count": 3
+          },
+          {
+            "opcode": "LDC",
+            "count": 2
+          },
+          {
+            "opcode": "LDCU.64",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 80,
+            "mean": 2.8625,
+            "std": 3.01555861325891,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 1.5,
+            "p75": 5.0
+          },
+          "barrier_waits": 16,
+          "yields": 31,
+          "write_barriers": 15,
+          "read_barriers": 4
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 160,
+      "format_counts": {
+        "compressed": 160
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 160,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 160,
+        "mean": 51.4080078125,
+        "std": 35.716149027484114,
+        "min": 45.0,
+        "max": 500.25,
+        "p25": 45.0,
+        "p50": 51.0,
+        "p75": 51.0
+      }
+    }
+  }
+}

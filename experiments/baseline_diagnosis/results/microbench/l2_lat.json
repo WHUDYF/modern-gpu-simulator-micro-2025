@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l2_lat/traces",
+  "dynamic_trace": {
+    "name": "l2_lat",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z6l2_latPjS_PmS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 34,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z6l2_latPjS_PmS0_",
+      "grid_dimX": 1,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 1,
+      "block_dimX": 1,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1,
+      "total_insts": 82664,
+      "total_reported_insts": 82664
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "l2_lat",
+    "kernels": [
+      {
+        "kernel_name": "_Z6l2_latPjS_PmS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 33000,
+        "top_opcodes": [
+          {
+            "opcode": "LDG.E.64.STRONG.GPU",
+            "count": 32769
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 97
+          },
+          {
+            "opcode": "STG.E.64.STRONG.SYS",
+            "count": 97
+          },
+          {
+            "opcode": "NOP",
+            "count": 14
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 6
+          },
+          {
+            "opcode": "ISETP.NE.AND",
+            "count": 2
+          },
+          {
+            "opcode": "EXIT",
+            "count": 2
+          },
+          {
+            "opcode": "BRA",
+            "count": 2
+          },
+          {
+            "opcode": "CS2R.32",
+            "count": 2
+          },
+          {
+            "opcode": "STG.E.STRONG.SYS",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 33000,
+            "mean": 3.9871818181818184,
+            "std": 0.202527806477763,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 4.0,
+            "p50": 4.0,
+            "p75": 4.0
+          },
+          "barrier_waits": 32849,
+          "yields": 90,
+          "write_barriers": 32778,
+          "read_barriers": 77
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 1,
+      "format_counts": {
+        "compressed": 1
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 1,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 1,
+        "mean": 41235.0,
+        "std": 0.0,
+        "min": 41235.0,
+        "max": 41235.0,
+        "p25": 41235.0,
+        "p50": 41235.0,
+        "p75": 41235.0
+      }
+    }
+  }
+}

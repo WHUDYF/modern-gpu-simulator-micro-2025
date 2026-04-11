@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l1_bw_64f/traces",
+  "dynamic_trace": {
+    "name": "l1_bw_64f",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z5l1_bwPjS_PdS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 39,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z5l1_bwPjS_PdS0_",
+      "grid_dimX": 1,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 1,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 259264,
+      "total_reported_insts": 259264
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "l1_bw_64f",
+    "kernels": [
+      {
+        "kernel_name": "_Z5l1_bwPjS_PdS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 520,
+        "top_opcodes": [
+          {
+            "opcode": "NOP",
+            "count": 223
+          },
+          {
+            "opcode": "DADD",
+            "count": 66
+          },
+          {
+            "opcode": "LDG.E.64.STRONG.SM",
+            "count": 65
+          },
+          {
+            "opcode": "IADD3",
+            "count": 34
+          },
+          {
+            "opcode": "MOV",
+            "count": 33
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 33
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 33
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 4
+          },
+          {
+            "opcode": "IMAD.WIDE.U32",
+            "count": 4
+          },
+          {
+            "opcode": "BRA",
+            "count": 3
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 520,
+            "mean": 8.136538461538462,
+            "std": 6.053814082116199,
+            "min": 0.0,
+            "max": 15.0,
+            "p25": 2.0,
+            "p50": 5.0,
+            "p75": 15.0
+          },
+          "barrier_waits": 107,
+          "yields": 348,
+          "write_barriers": 129,
+          "read_barriers": 48
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 1,
+      "format_counts": {
+        "compressed": 1
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 1,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 1,
+        "mean": 3822.0,
+        "std": 0.0,
+        "min": 3822.0,
+        "max": 3822.0,
+        "p25": 3822.0,
+        "p50": 3822.0,
+        "p75": 3822.0
+      }
+    }
+  }
+}

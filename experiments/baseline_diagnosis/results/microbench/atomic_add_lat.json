@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/atomic_add_lat/traces",
+  "dynamic_trace": {
+    "name": "atomic_add_lat",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z9max_flopsIiEvPjS0_PT_S2____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 20,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z9max_flopsIiEvPjS0_PT_S2_",
+      "grid_dimX": 1,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 1,
+      "block_dimX": 1,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1,
+      "total_insts": 30378,
+      "total_reported_insts": 30378
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "atomic_add_lat",
+    "kernels": [
+      {
+        "kernel_name": "_Z9max_flopsIiEvPjS0_PT_S2____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 104,
+        "top_opcodes": [
+          {
+            "opcode": "IMAD.WIDE.U32",
+            "count": 32
+          },
+          {
+            "opcode": "ATOMG.E.ADD.STRONG.GPU",
+            "count": 32
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 5
+          },
+          {
+            "opcode": "IMAD.WIDE",
+            "count": 3
+          },
+          {
+            "opcode": "STG.E",
+            "count": 3
+          },
+          {
+            "opcode": "BAR.SYNC.DEFER_BLOCKING",
+            "count": 2
+          },
+          {
+            "opcode": "HFMA2",
+            "count": 2
+          },
+          {
+            "opcode": "CS2R.32",
+            "count": 2
+          },
+          {
+            "opcode": "BRA",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 104,
+            "mean": 3.4134615384615383,
+            "std": 2.3640357317156613,
+            "min": 0.0,
+            "max": 8.0,
+            "p25": 1.75,
+            "p50": 2.0,
+            "p75": 6.0
+          },
+          "barrier_waits": 42,
+          "yields": 49,
+          "write_barriers": 43,
+          "read_barriers": 1
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 1,
+      "format_counts": {
+        "compressed": 1
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 1,
+        "mean": 1.0,
+        "std": 0.0,
+        "min": 1.0,
+        "max": 1.0,
+        "p25": 1.0,
+        "p50": 1.0,
+        "p75": 1.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 1,
+        "mean": 8730.0,
+        "std": 0.0,
+        "min": 8730.0,
+        "max": 8730.0,
+        "p25": 8730.0,
+        "p50": 8730.0,
+        "p75": 8730.0
+      }
+    }
+  }
+}

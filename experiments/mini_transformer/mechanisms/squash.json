@@ -1,0 +1,376 @@
+{
+  "mechanism": "squash",
+  "workload": "mini-transformer-1layer (hidden=768, seq=512, heads=12)",
+  "kernel_level": {
+    "squash_segments": [
+      {
+        "segment_id": 0,
+        "kernel_range": [
+          0,
+          6
+        ],
+        "kernel_count": 7,
+        "dominant_opcodes": [],
+        "cohesion_score": 0.9331229448217794,
+        "representative_kernel": 0,
+        "behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7"
+      },
+      {
+        "segment_id": 1,
+        "kernel_range": [
+          7,
+          7
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [],
+        "cohesion_score": 1.0,
+        "representative_kernel": 7,
+        "behavior_summary": "kernels 7..7: _Z10gemm_tiledPKfS0_Pfiii_8"
+      },
+      {
+        "segment_id": 2,
+        "kernel_range": [
+          8,
+          8
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [],
+        "cohesion_score": 1.0,
+        "representative_kernel": 8,
+        "behavior_summary": "kernels 8..8: _Z12residual_addPfPKfi_9"
+      },
+      {
+        "segment_id": 3,
+        "kernel_range": [
+          9,
+          11
+        ],
+        "kernel_count": 3,
+        "dominant_opcodes": [],
+        "cohesion_score": 0.9227390339177678,
+        "representative_kernel": 9,
+        "behavior_summary": "kernels 9..11: _Z16layernorm_kernelPfii_10 ... _Z10gemm_tiledPKfS0_Pfiii_12"
+      },
+      {
+        "segment_id": 4,
+        "kernel_range": [
+          12,
+          12
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [],
+        "cohesion_score": 1.0,
+        "representative_kernel": 12,
+        "behavior_summary": "kernels 12..12: _Z12residual_addPfPKfi_13"
+      },
+      {
+        "segment_id": 5,
+        "kernel_range": [
+          13,
+          13
+        ],
+        "kernel_count": 1,
+        "dominant_opcodes": [],
+        "cohesion_score": 1.0,
+        "representative_kernel": 13,
+        "behavior_summary": "kernels 13..13: _Z16layernorm_kernelPfii_14"
+      }
+    ],
+    "boundary_count": 5,
+    "total_kernels": 14
+  },
+  "tb_level": {
+    "1": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "2": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "3": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "4": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "5": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            12287
+          ],
+          "tb_count": 12288,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..12287"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 12288
+    },
+    "6": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            23
+          ],
+          "tb_count": 24,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..23"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 24
+    },
+    "7": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "8": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "9": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "10": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            511
+          ],
+          "tb_count": 512,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..511"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 512
+    },
+    "11": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            6143
+          ],
+          "tb_count": 6144,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..6143"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 6144
+    },
+    "12": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "13": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            1535
+          ],
+          "tb_count": 1536,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..1535"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 1536
+    },
+    "14": {
+      "squash_segments": [
+        {
+          "segment_id": 0,
+          "tb_range": [
+            0,
+            511
+          ],
+          "tb_count": 512,
+          "cohesion_score": 1.0,
+          "representative_tb": 0,
+          "behavior_summary": "TBs 0..511"
+        }
+      ],
+      "boundary_count": 0,
+      "total_tbs": 512
+    }
+  },
+  "_simulation_reuse_hint": {
+    "kernel_level_representatives": [
+      0,
+      7,
+      8,
+      9,
+      12,
+      13
+    ],
+    "tb_level_representatives": {
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ]
+    }
+  }
+}

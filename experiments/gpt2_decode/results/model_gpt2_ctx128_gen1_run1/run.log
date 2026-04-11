@@ -1,0 +1,23 @@
+------------- NVBit (NVidia Binary Instrumentation Tool v1.8) Loaded --------------
+NVBit core environment variables (mostly for nvbit-devs):
+ACK_CTX_INIT_LIMITATION = 0 - if set, no warning will be printed for nvbit_at_ctx_init()
+            NVDISASM = nvdisasm - override default nvdisasm found in PATH
+            NOBANNER = 0 - if set, does not print this banner
+       NO_EAGER_LOAD = 1 - lazy module loading is now turned on by default. If you see deadlocks in your tool, set NO_EAGER_LOAD to 0
+---------------------------------------------------------------------------------
+         INSTR_BEGIN = 0 - Beginning of the instruction interval where to apply instrumentation
+           INSTR_END = 4294967295 - End of the instruction interval where to apply instrumentation
+    EXCLUDE_PRED_OFF = 1 - Exclude predicated off instruction from count
+DYNAMIC_KERNEL_LIMIT_END = 0 - Limit of the number kernel to be printed, 0 means no limit
+DYNAMIC_KERNEL_LIMIT_START = 0 - start to report kernel from this kernel id, 0 means starts from the beginning, i.e. first kernel
+   ACTIVE_FROM_START = 0 - Start instruction tracing from start or wait for cuProfilerStart and cuProfilerStop. If set to 0, DYNAMIC_KERNEL_LIMIT options have no effect
+        TOOL_VERBOSE = 0 - Enable verbosity inside the tool
+INTERMEDIATE_EXTRA_FILES_PERSISTANCE = 0 - Enable to not delete intermediate files from the extra trace generation
+     TOOL_TRACE_CORE = 0 - write the core id in the traces
+TERMINATE_UPON_LIMIT = 0 - Stop the process once the current kernel > DYNAMIC_KERNEL_LIMIT_END
+USER_DEFINED_FOLDERS = 1 - Uses the user defined folder TRACES_FOLDER path environment
+THRESHOLD_UNIQUE_KERNEL_CHECKING = 10 - Number of instructions used to check if kernels with the same name are different
+    GATHER_REGISTERS = 0 - Enable gathering of GPU register values. Not available in this version.
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/148 [00:00<?, ?it/s]Loading weights: 100%|██████████| 148/148 [00:00<00:00, 2646.17it/s]
+WARNING: Do not call CUDA memory allocation in nvbit_at_ctx_init(). It will cause deadlocks. Do them in nvbit_tool_init(). If you encounter deadlocks, remove CUDA API calls to debug.

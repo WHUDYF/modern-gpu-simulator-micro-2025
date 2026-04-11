@@ -61,9 +61,18 @@ def cohesion_score(vectors):
 
 
 def kernel_summary_to_vector(summary):
+    """Convert kernel_summary to a numeric vector for kernel-level comparison.
+
+    Uses opcode ratios when available. Falls back to / augments with NCU
+    hardware metrics (compute_throughput_pct, l1_throughput_pct, etc.) when
+    they are present in the summary. This ensures the vector captures
+    meaningful behavioral differences even when opcode data is missing
+    (e.g., when enhanced_execution_info was not generated).
+    """
     opcodes = {entry["opcode"].upper(): entry["count"] for entry in summary.get("top_opcodes", [])}
     total_ops = sum(opcodes.values()) or 1
-    return [
+
+    vec = [
         opcodes.get("FFMA", 0) / total_ops,
         sum(v for k, v in opcodes.items() if k.startswith("DFMA") or k.startswith("DMUL") or k.startswith("DADD")) / total_ops,
         sum(v for k, v in opcodes.items() if "LDG" in k) / total_ops,
@@ -74,6 +83,17 @@ def kernel_summary_to_vector(summary):
         1.0 if summary.get("uses_fp64") else 0.0,
         1.0 if summary.get("uses_shared_memory") else 0.0,
     ]
+
+    # Augment with NCU hardware metrics when available (normalized to 0-1)
+    for metric in ["compute_throughput_pct", "l1_throughput_pct",
+                    "l2_throughput_pct", "dram_throughput_pct",
+                    "ipc_active", "mem_pipes_busy_pct",
+                    "l1_hit_rate_pct", "achieved_occupancy_pct"]:
+        val = summary.get(metric)
+        if val is not None:
+            vec.append(float(val) / 100.0)  # normalize pct to 0-1
+
+    return vec
 
 
 def dominant_opcodes(summary, top_n=3):

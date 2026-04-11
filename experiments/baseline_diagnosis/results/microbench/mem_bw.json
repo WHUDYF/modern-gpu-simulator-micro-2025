@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/mem_bw/traces",
+  "dynamic_trace": {
+    "name": "mem_bw",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z6mem_bwPfS_S_S_S_S_PjS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 160,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 40,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z6mem_bwPfS_S_S_S_S_PjS0_",
+      "grid_dimX": 160,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 160,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 6189056,
+      "total_reported_insts": 6189056
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "mem_bw",
+    "kernels": [
+      {
+        "kernel_name": "_Z6mem_bwPfS_S_S_S_S_PjS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 72,
+        "top_opcodes": [
+          {
+            "opcode": "FADD",
+            "count": 16
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 8
+          },
+          {
+            "opcode": "IMAD.WIDE",
+            "count": 8
+          },
+          {
+            "opcode": "LDG.E.128.STRONG.GPU",
+            "count": 5
+          },
+          {
+            "opcode": "BRA",
+            "count": 3
+          },
+          {
+            "opcode": "LDC",
+            "count": 2
+          },
+          {
+            "opcode": "BAR.SYNC.DEFER_BLOCKING",
+            "count": 2
+          },
+          {
+            "opcode": "IMAD",
+            "count": 2
+          },
+          {
+            "opcode": "CS2R.32",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 72,
+            "mean": 2.5555555555555554,
+            "std": 2.8474593397198884,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 1.0,
+            "p75": 4.0
+          },
+          "barrier_waits": 17,
+          "yields": 23,
+          "write_barriers": 19,
+          "read_barriers": 1
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 160,
+      "format_counts": {
+        "compressed": 160
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 160,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 160,
+        "mean": 450.4,
+        "std": 13.200000000000001,
+        "min": 424.0,
+        "max": 457.0,
+        "p25": 457.0,
+        "p50": 457.0,
+        "p75": 457.0
+      }
+    }
+  }
+}

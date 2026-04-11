@@ -1,0 +1,21 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l2_bw_64f/traces",
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z5l2_bwPjS_PdS0_",
+      "grid_dimX": 160,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 160,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": ""
+    }
+  ],
+  "threadblock_features": {}
+}

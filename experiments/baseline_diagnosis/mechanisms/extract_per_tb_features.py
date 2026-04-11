@@ -47,6 +47,7 @@ def compute_opcode_ratios(top_opcodes):
 
 def build_kernel_summary(kernel_data):
     static = kernel_data.get("static_info", {})
+    hw = kernel_data.get("hardware_metrics", {}) or {}
     dynamic = kernel_data.get("dynamic_stats", {}) or {}
     compression = kernel_data.get("compression_features", {}) or {}
     top_opcodes = static.get("top_opcodes", [])
@@ -55,13 +56,29 @@ def build_kernel_summary(kernel_data):
         any(fp64 in entry["opcode"].upper() for fp64 in FP64_OPCODES)
         for entry in top_opcodes
     )
-    uses_shared_memory = any(
-        "LDS" in entry["opcode"].upper() or "STS" in entry["opcode"].upper()
-        for entry in top_opcodes
+    # Check both opcode trace (LDS/STS) and NCU hardware_metrics for shmem usage.
+    # static_shmem_per_block captures __shared__ declarations missed by opcode scan.
+    uses_shared_memory = (
+        any(
+            "LDS" in entry["opcode"].upper() or "STS" in entry["opcode"].upper()
+            for entry in top_opcodes
+        )
+        or (hw.get("static_shmem_per_block", 0) or 0) > 0
+        or (hw.get("dynamic_shmem_per_block", 0) or 0) > 0
     )
     num_barriers = sum(
         entry["count"] for entry in top_opcodes if "BAR" in entry["opcode"].upper()
     )
+
+    # Hardware metric fields included for cross-kernel delta analysis.
+    hw_fields = [
+        "dram_throughput_pct", "l1_throughput_pct", "l2_throughput_pct",
+        "compute_throughput_pct", "achieved_occupancy_pct", "ipc_active",
+        "l1_hit_rate_pct", "l2_hit_rate_pct", "mem_pipes_busy_pct",
+        "warp_cycles_per_issued_inst", "waves_per_sm", "block_limit_registers",
+        "static_shmem_per_block", "dynamic_shmem_per_block",
+    ]
+    hw_summary = {f: hw.get(f, 0.0) or 0.0 for f in hw_fields}
 
     return {
         "top_opcodes": top_opcodes[:10],
@@ -73,6 +90,7 @@ def build_kernel_summary(kernel_data):
         "grid_dim": dynamic.get("grid_dim", ""),
         "block_dim": dynamic.get("block_dim", ""),
         "num_tbs": compression.get("num_tb_files", 0),
+        **hw_summary,
     }
 
 

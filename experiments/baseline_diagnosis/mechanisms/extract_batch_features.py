@@ -106,10 +106,10 @@ def tb_centroid_summary(tbs):
 
 
 def kernel_summary_vector(summary):
-    """Same vectorization as squash: key opcode ratios + flags."""
+    """Same vectorization as squash: key opcode ratios + flags + NCU metrics."""
     opcodes = {entry["opcode"].upper(): entry["count"] for entry in summary.get("top_opcodes", [])}
     total_ops = sum(opcodes.values()) or 1
-    return [
+    vec = [
         opcodes.get("FFMA", 0) / total_ops,
         sum(v for k, v in opcodes.items() if k.startswith("DFMA") or k.startswith("DMUL") or k.startswith("DADD")) / total_ops,
         sum(v for k, v in opcodes.items() if "LDG" in k) / total_ops,
@@ -120,6 +120,14 @@ def kernel_summary_vector(summary):
         1.0 if summary.get("uses_fp64") else 0.0,
         1.0 if summary.get("uses_shared_memory") else 0.0,
     ]
+    for metric in ["compute_throughput_pct", "l1_throughput_pct",
+                    "l2_throughput_pct", "dram_throughput_pct",
+                    "ipc_active", "mem_pipes_busy_pct",
+                    "l1_hit_rate_pct", "achieved_occupancy_pct"]:
+        val = summary.get(metric)
+        if val is not None:
+            vec.append(float(val) / 100.0)
+    return vec
 
 
 def tb_feature_vector(features, key_order):

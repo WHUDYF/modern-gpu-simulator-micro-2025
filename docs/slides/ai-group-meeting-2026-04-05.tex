@@ -1,0 +1,253 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+
+\usepackage[UTF8]{ctex}
+\usepackage{booktabs}
+\usepackage{array}
+
+\title{AI GPU 方向组会进展}
+\subtitle{从 GPU Trace Compression 收敛到 AI Decode 下的 Warp Scheduling 分析}
+\author{dyf}
+\date{2026-04-05}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{背景与问题重定义}
+\textbf{当前的研究问题已经收敛，不再是“单纯做 trace 压缩”。}
+
+\vspace{0.5em}
+\textbf{新的主线：}
+
+\[
+\text{difftest 风格的压缩与验证} \rightarrow
+\text{保留 warp-level 行为语义的 GPU trace 表示} \rightarrow
+\text{AI workload 中 warp scheduling 失效模式分析}
+\]
+
+\vspace{0.8em}
+\textbf{为什么要这样收敛：}
+\begin{itemize}
+  \item 只讲压缩率，体系结构贡献不够硬
+  \item 只做工具链，很容易停留在工程优化
+  \item 如果 trace 表示能保留控制结构、重复结构和跨层差分，就有机会支撑后续调度分析与优化
+\end{itemize}
+
+\vspace{0.8em}
+\textbf{核心问题：}
+\begin{itemize}
+  \item 这种分层表示是否保留了足够的 warp-level 语义
+  \item 是否能帮助定位 AI decode 中 attention / KV-cache 引发的调度问题
+\end{itemize}
+\end{frame}
+
+\begin{frame}{研究主线与当前定位}
+\textbf{目前判断：warp scheduling 比单纯做 memory trace 更适合作为体系结构切入点。}
+
+\vspace{0.6em}
+\textbf{原因：}
+\begin{itemize}
+  \item dense matmul / GEMM 通常更规则，调度效应容易被算力吞吐掩盖
+  \item LLM inference，尤其是 decode 阶段的 attention + KV-cache，更容易暴露：
+  \begin{itemize}
+    \item warp 间推进不均衡
+    \item memory stall 长尾
+    \item ready warp 与高收益 warp 不一致
+  \end{itemize}
+  \item 当前压缩结构中已有的信息天然接近调度语义：
+  \begin{itemize}
+    \item shared PC sequence
+    \item warp diff
+    \item address delta / override
+    \item run-length / sequence folding
+  \end{itemize}
+\end{itemize}
+
+\vspace{0.6em}
+\textbf{策略：}
+\begin{itemize}
+  \item 先做解释型：定位现有 scheduler 的失效模式
+  \item 再看是否自然长出一个小而硬的调度机制
+\end{itemize}
+\end{frame}
+
+\begin{frame}{当前采用的压缩手段}
+\textbf{当前不是单一压缩算法，而是一套分层编码策略。}
+
+\vspace{0.6em}
+\begin{table}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.23\textwidth} >{\raggedright\arraybackslash}p{0.69\textwidth}}
+\toprule
+\textbf{类别} & \textbf{当前采用的手段} \\
+\midrule
+Delta encoding & PC delta；threadblock 间 base + offset + override；跨对象只存变化部分 \\
+\addlinespace
+Default elision & active mask 为全活跃时省略；predicate 与 active 相等时省略 \\
+\addlinespace
+Run-length / sequence compression & 连续重复指令段折叠为 instruction run；sequence + run 结构展开恢复 \\
+\addlinespace
+Cross-entity deduplication & 跨 warp 共享 PC skeleton；跨 threadblock 共享 base，只保留局部 override \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.6em}
+\textbf{如何理解这套压缩：}
+\begin{itemize}
+  \item 它不是单纯减少字节数
+  \item 更准确地说，是把原始 NVTrace 中显式时间展开的执行语义，提升为以控制结构、重复结构和跨层差分为核心的层次化表示
+\end{itemize}
+\end{frame}
+
+\begin{frame}{当前已完成工作与测试结果}
+\textbf{1. 压缩与恢复链路}
+\begin{itemize}
+  \item 已实现 v4 $\leftrightarrow$ v5 / v6 / v7 / v8 的核心编码与解码
+  \item \texttt{test\_roundtrip} 当前结果：\textbf{9 passed, 0 failed}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{2. 当前已能明确给出的压缩比}
+\begin{itemize}
+  \item \texttt{v4 -> v5} 合成 threadblock 单元测试：
+  \item 原始大小：258 B
+  \item 压缩后大小：132 B
+  \item 压缩后为原始大小的 \textbf{51.16\%}
+  \item 等价压缩倍数约 \textbf{1.95x}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{3. 模拟器接入}
+\begin{itemize}
+  \item parser 主链路已开始接入 v5 / v6
+  \item \texttt{trace\_driven} 中已加入版本分发逻辑
+  \item 还缺：v7 / v8 parser 集成与真实 trace 等价性验证
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{4. 需要说明的限制}
+\begin{itemize}
+  \item 当前只有 \texttt{v5} 合成测试给出了明确压缩比
+  \item 真实 benchmark / AI workload 上 \texttt{v5-v8} 的总体压缩比还未批量统计
+\end{itemize}
+\end{frame}
+
+\begin{frame}{AI Trace 方向的最小实验闭环}
+\textbf{当前已经决定的 AI workload 路线：}
+\begin{itemize}
+  \item 不先做 training，先做 inference
+  \item 不先做 full forward，先做 decode
+  \item 不先做大模型，先用 GPT-2 small 打通链路
+  \item 主研究对象先放在 attention + KV-cache
+  \item matmul / GEMM 保留为后续对照组
+\end{itemize}
+
+\vspace{0.6em}
+\textbf{已经新增的实验脚手架：}
+\begin{itemize}
+  \item \texttt{experiments/gpt2\_decode/run\_decode.py}
+  \item \texttt{experiments/gpt2\_decode/run\_trace.sh}
+  \item \texttt{experiments/gpt2\_decode/summarize\_runs.py}
+\end{itemize}
+
+\vspace{0.6em}
+\textbf{第一轮实验设置：}
+\begin{itemize}
+  \item 模型：GPT-2 small
+  \item 模式：decode only
+  \item batch = 1
+  \item gen tokens = 1
+  \item context length = 128 / 512 / 1024
+  \item 每个点运行 3 次
+\end{itemize}
+\end{frame}
+
+\begin{frame}{为什么 Squash / Batch 适合和 AI 读 Trace 结合}
+\textbf{目标：让 AI 能从 trace 中定位问题，而不是只做离线存储压缩。}
+
+\vspace{0.6em}
+\textbf{两者在后续 AI 定位问题中的分工：}
+\begin{itemize}
+  \item \textbf{Squash}：
+  \begin{itemize}
+    \item 把重复执行段、等价局部行为压成“逻辑片段”
+    \item 相当于把 raw trace 切成 AI 可读的 semantic chunks
+  \end{itemize}
+  \item \textbf{Batch}：
+  \begin{itemize}
+    \item 把细粒度事件提升到 warp / threadblock / kernel 粒度组织
+    \item 相当于给 AI 提供可逐层下钻的 hierarchical context
+  \end{itemize}
+\end{itemize}
+
+\vspace{0.6em}
+\textbf{可以形成的定位链：}
+
+\[
+\text{Kernel summary} \rightarrow
+\text{Threadblock summary} \rightarrow
+\text{Warp episode} \rightarrow
+\text{可疑长尾 / stall / divergence 片段}
+\]
+
+\vspace{0.6em}
+\textbf{预期功能：}
+\begin{itemize}
+  \item AI 先定位最可疑 kernel
+  \item 再下钻到具体 TB / warp
+  \item 最后输出“问题来自何处、为什么可能是 scheduler 失配”
+\end{itemize}
+\end{frame}
+
+\begin{frame}{4 个月投稿窗口下的阶段计划}
+\textbf{阶段 1：打通链路并验证可行性}
+\begin{itemize}
+  \item 完成 GPT-2 decode trace 生成
+  \item 跑通汇总分析
+  \item 确认 trace 中存在可稳定观测的 warp-level 结构变化
+\end{itemize}
+
+\textbf{阶段 2：形成解释型结果}
+\begin{itemize}
+  \item 从 attention / KV-cache trace 中提取 warp scheduling 相关特征
+  \item 与 matmul 做对照
+  \item 找出一个稳定、可解释的 scheduler 失效模式
+\end{itemize}
+
+\textbf{阶段 3：寻找设计机会}
+\begin{itemize}
+  \item 不强行做大机制
+  \item 只针对一个核心问题，探索小而硬的 scheduler 改进
+\end{itemize}
+
+\textbf{阶段 4：论文化收敛}
+\begin{itemize}
+  \item 如果设计机会成立：解释型 + 设计型组合贡献
+  \item 如果设计机会不足：至少形成一篇以体系结构 insight 为核心的解释型论文
+\end{itemize}
+\end{frame}
+
+\begin{frame}{当前风险与总结}
+\textbf{当前风险：}
+\begin{itemize}
+  \item decode ROI 中 attention kernel 可能还不够干净
+  \item GPT-2 small 可能过于简单，不足以暴露真实 scheduler 失效模式
+  \item 真实 workload 上 \texttt{v5-v8} 的压缩比与等价性验证还未补齐
+  \item 如果只有解释型结果，没有设计点，体系结构投稿力度可能不足
+\end{itemize}
+
+\vspace{0.8em}
+\textbf{当前一句话总结：}
+
+\begin{block}{}
+我们正在把“GPU trace 压缩”收敛为一套借鉴 \texttt{difftest} 思想、可保留 warp-level 行为语义的层次化 trace 表示，并尝试用它分析 LLM decode 中 attention / KV-cache 引发的 warp scheduling 失效模式，进一步寻找体系结构上的调度优化机会。
+\end{block}
+\end{frame}
+
+\end{document}

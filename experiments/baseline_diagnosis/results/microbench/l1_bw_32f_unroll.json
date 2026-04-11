@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l1_bw_32f_unroll/traces",
+  "dynamic_trace": {
+    "name": "l1_bw_32f_unroll",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z5l1_bwPjS_PfS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 40,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z5l1_bwPjS_PfS0_",
+      "grid_dimX": 1,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 1,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 644480,
+      "total_reported_insts": 644480
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "l1_bw_32f_unroll",
+    "kernels": [
+      {
+        "kernel_name": "_Z5l1_bwPjS_PfS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 248,
+        "top_opcodes": [
+          {
+            "opcode": "FADD",
+            "count": 36
+          },
+          {
+            "opcode": "IADD3",
+            "count": 35
+          },
+          {
+            "opcode": "LDG.E.STRONG.SM",
+            "count": 33
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 33
+          },
+          {
+            "opcode": "MOV",
+            "count": 32
+          },
+          {
+            "opcode": "LOP3.LUT",
+            "count": 32
+          },
+          {
+            "opcode": "NOP",
+            "count": 15
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 4
+          },
+          {
+            "opcode": "IMAD.WIDE.U32",
+            "count": 4
+          },
+          {
+            "opcode": "BRA",
+            "count": 3
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 248,
+            "mean": 2.028225806451613,
+            "std": 1.5117849140769999,
+            "min": 0.0,
+            "max": 9.0,
+            "p25": 1.0,
+            "p50": 2.0,
+            "p75": 3.0
+          },
+          "barrier_waits": 34,
+          "yields": 81,
+          "write_barriers": 42,
+          "read_barriers": 20
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 1,
+      "format_counts": {
+        "compressed": 1
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 1,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 1,
+        "mean": 6367.0,
+        "std": 0.0,
+        "min": 6367.0,
+        "max": 6367.0,
+        "p25": 6367.0,
+        "p50": 6367.0,
+        "p75": 6367.0
+      }
+    }
+  }
+}

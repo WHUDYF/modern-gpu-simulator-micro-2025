@@ -1,0 +1,704 @@
+{
+  "mechanism": "delta",
+  "workload": "mini-transformer-1layer (hidden=768, seq=512, heads=12)",
+  "kernel_level": {
+    "field_temperature": {
+      "static_shmem_per_block": 0.8602247417491976,
+      "mem_pipes_busy_pct": 0.36924073830434656,
+      "achieved_occupancy_pct": 0.07479243517361414,
+      "compute_throughput_pct": 0.36924073830434656,
+      "dynamic_shmem_per_block": 0.9574912254625716,
+      "l1_hit_rate_pct": 0.7495944182961048,
+      "l1_throughput_pct": 0.3234104892932497,
+      "l2_hit_rate_pct": 0.27160795567786195,
+      "total_static_instructions": 0.0,
+      "total_dynamic_instructions": 0.8256160170540994,
+      "dram_throughput_pct": 0.714459035546347,
+      "uses_shared_memory": 0.47942158303960464,
+      "block_limit_registers": 0.39079571819300135,
+      "l2_throughput_pct": 0.2251193163512099,
+      "num_tbs": 0.8584035342948513,
+      "uses_fp64": 0.0,
+      "waves_per_sm": 0.7682372278693335,
+      "num_barriers": 0.0,
+      "warp_cycles_per_issued_inst": 0.4521167160643006,
+      "ipc_active": 0.3249701925341634
+    },
+    "hot_fields": [
+      "block_limit_registers",
+      "compute_throughput_pct",
+      "dram_throughput_pct",
+      "dynamic_shmem_per_block",
+      "ipc_active",
+      "l1_hit_rate_pct",
+      "l1_throughput_pct",
+      "mem_pipes_busy_pct",
+      "num_tbs",
+      "static_shmem_per_block",
+      "total_dynamic_instructions",
+      "uses_shared_memory",
+      "warp_cycles_per_issued_inst",
+      "waves_per_sm"
+    ],
+    "cold_fields": [
+      "num_barriers",
+      "total_static_instructions",
+      "uses_fp64"
+    ],
+    "field_correlations": [
+      {
+        "fields": [
+          "static_shmem_per_block",
+          "l2_hit_rate_pct"
+        ],
+        "correlation": 0.6512931813414129,
+        "interpretation": "static_shmem_per_block and l2_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "static_shmem_per_block",
+          "num_tbs"
+        ],
+        "correlation": 0.8841749918053772,
+        "interpretation": "static_shmem_per_block and num_tbs covary together"
+      },
+      {
+        "fields": [
+          "static_shmem_per_block",
+          "waves_per_sm"
+        ],
+        "correlation": 0.8184361032949331,
+        "interpretation": "static_shmem_per_block and waves_per_sm covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "achieved_occupancy_pct"
+        ],
+        "correlation": 0.9631952049707099,
+        "interpretation": "mem_pipes_busy_pct and achieved_occupancy_pct covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "compute_throughput_pct"
+        ],
+        "correlation": 0.9999999999999999,
+        "interpretation": "mem_pipes_busy_pct and compute_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "l1_throughput_pct"
+        ],
+        "correlation": 0.9912684541133814,
+        "interpretation": "mem_pipes_busy_pct and l1_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "l2_hit_rate_pct"
+        ],
+        "correlation": 0.971142769569659,
+        "interpretation": "mem_pipes_busy_pct and l2_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "dram_throughput_pct"
+        ],
+        "correlation": -0.8532586668973472,
+        "interpretation": "mem_pipes_busy_pct and dram_throughput_pct move inversely"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "uses_shared_memory"
+        ],
+        "correlation": 0.6207376883799736,
+        "interpretation": "mem_pipes_busy_pct and uses_shared_memory covary together"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "block_limit_registers"
+        ],
+        "correlation": -0.9455575901218649,
+        "interpretation": "mem_pipes_busy_pct and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.7299217980851095,
+        "interpretation": "mem_pipes_busy_pct and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "mem_pipes_busy_pct",
+          "ipc_active"
+        ],
+        "correlation": 0.6000677245573888,
+        "interpretation": "mem_pipes_busy_pct and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "compute_throughput_pct"
+        ],
+        "correlation": 0.9631952049707099,
+        "interpretation": "achieved_occupancy_pct and compute_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "l1_throughput_pct"
+        ],
+        "correlation": 0.9357442772646402,
+        "interpretation": "achieved_occupancy_pct and l1_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "l2_hit_rate_pct"
+        ],
+        "correlation": 0.9273527046682106,
+        "interpretation": "achieved_occupancy_pct and l2_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "dram_throughput_pct"
+        ],
+        "correlation": -0.7059933648081183,
+        "interpretation": "achieved_occupancy_pct and dram_throughput_pct move inversely"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "block_limit_registers"
+        ],
+        "correlation": -0.8432703015219895,
+        "interpretation": "achieved_occupancy_pct and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.6753192272607454,
+        "interpretation": "achieved_occupancy_pct and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "achieved_occupancy_pct",
+          "ipc_active"
+        ],
+        "correlation": 0.6350001706716121,
+        "interpretation": "achieved_occupancy_pct and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "l1_throughput_pct"
+        ],
+        "correlation": 0.9912684541133814,
+        "interpretation": "compute_throughput_pct and l1_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "l2_hit_rate_pct"
+        ],
+        "correlation": 0.971142769569659,
+        "interpretation": "compute_throughput_pct and l2_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "dram_throughput_pct"
+        ],
+        "correlation": -0.8532586668973472,
+        "interpretation": "compute_throughput_pct and dram_throughput_pct move inversely"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "uses_shared_memory"
+        ],
+        "correlation": 0.6207376883799736,
+        "interpretation": "compute_throughput_pct and uses_shared_memory covary together"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "block_limit_registers"
+        ],
+        "correlation": -0.9455575901218649,
+        "interpretation": "compute_throughput_pct and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.7299217980851095,
+        "interpretation": "compute_throughput_pct and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "compute_throughput_pct",
+          "ipc_active"
+        ],
+        "correlation": 0.6000677245573888,
+        "interpretation": "compute_throughput_pct and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "dynamic_shmem_per_block",
+          "l1_hit_rate_pct"
+        ],
+        "correlation": 0.7418767977767429,
+        "interpretation": "dynamic_shmem_per_block and l1_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "dynamic_shmem_per_block",
+          "ipc_active"
+        ],
+        "correlation": 0.6048453064072072,
+        "interpretation": "dynamic_shmem_per_block and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "l2_hit_rate_pct"
+        ],
+        "correlation": 0.9532461547749994,
+        "interpretation": "l1_throughput_pct and l2_hit_rate_pct covary together"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "dram_throughput_pct"
+        ],
+        "correlation": -0.8927327619821412,
+        "interpretation": "l1_throughput_pct and dram_throughput_pct move inversely"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "uses_shared_memory"
+        ],
+        "correlation": 0.6692188889311655,
+        "interpretation": "l1_throughput_pct and uses_shared_memory covary together"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "block_limit_registers"
+        ],
+        "correlation": -0.9636852439828565,
+        "interpretation": "l1_throughput_pct and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.8051345382833739,
+        "interpretation": "l1_throughput_pct and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "l1_throughput_pct",
+          "ipc_active"
+        ],
+        "correlation": 0.6600685444402458,
+        "interpretation": "l1_throughput_pct and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "l2_hit_rate_pct",
+          "dram_throughput_pct"
+        ],
+        "correlation": -0.8801951013632965,
+        "interpretation": "l2_hit_rate_pct and dram_throughput_pct move inversely"
+      },
+      {
+        "fields": [
+          "l2_hit_rate_pct",
+          "block_limit_registers"
+        ],
+        "correlation": -0.9421000340332809,
+        "interpretation": "l2_hit_rate_pct and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "l2_hit_rate_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.6208352897387608,
+        "interpretation": "l2_hit_rate_pct and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "dram_throughput_pct",
+          "uses_shared_memory"
+        ],
+        "correlation": -0.6200589500589415,
+        "interpretation": "dram_throughput_pct and uses_shared_memory move inversely"
+      },
+      {
+        "fields": [
+          "dram_throughput_pct",
+          "block_limit_registers"
+        ],
+        "correlation": 0.9569174767981583,
+        "interpretation": "dram_throughput_pct and block_limit_registers covary together"
+      },
+      {
+        "fields": [
+          "dram_throughput_pct",
+          "l2_throughput_pct"
+        ],
+        "correlation": 0.6225825840737587,
+        "interpretation": "dram_throughput_pct and l2_throughput_pct covary together"
+      },
+      {
+        "fields": [
+          "dram_throughput_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": 0.7396738140224146,
+        "interpretation": "dram_throughput_pct and warp_cycles_per_issued_inst covary together"
+      },
+      {
+        "fields": [
+          "uses_shared_memory",
+          "block_limit_registers"
+        ],
+        "correlation": -0.7362967916570505,
+        "interpretation": "uses_shared_memory and block_limit_registers move inversely"
+      },
+      {
+        "fields": [
+          "uses_shared_memory",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": -0.7486972607641528,
+        "interpretation": "uses_shared_memory and warp_cycles_per_issued_inst move inversely"
+      },
+      {
+        "fields": [
+          "uses_shared_memory",
+          "ipc_active"
+        ],
+        "correlation": 0.6321654493809864,
+        "interpretation": "uses_shared_memory and ipc_active covary together"
+      },
+      {
+        "fields": [
+          "block_limit_registers",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": 0.7557771703297137,
+        "interpretation": "block_limit_registers and warp_cycles_per_issued_inst covary together"
+      },
+      {
+        "fields": [
+          "l2_throughput_pct",
+          "warp_cycles_per_issued_inst"
+        ],
+        "correlation": 0.7629103731492627,
+        "interpretation": "l2_throughput_pct and warp_cycles_per_issued_inst covary together"
+      },
+      {
+        "fields": [
+          "num_tbs",
+          "waves_per_sm"
+        ],
+        "correlation": 0.7908562397696511,
+        "interpretation": "num_tbs and waves_per_sm covary together"
+      },
+      {
+        "fields": [
+          "warp_cycles_per_issued_inst",
+          "ipc_active"
+        ],
+        "correlation": -0.9254378780620316,
+        "interpretation": "warp_cycles_per_issued_inst and ipc_active move inversely"
+      }
+    ],
+    "outlier_diffs": []
+  },
+  "tb_level": {
+    "1": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "2": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "3": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "4": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "5": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "6": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "7": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "8": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "9": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "10": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "11": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "12": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "13": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    },
+    "14": {
+      "field_temperature": {
+        "instructions_per_warp_std": 0.0,
+        "instructions_per_warp_mean": 0.0,
+        "is_full_encoding": 0.0,
+        "address_override_count": 0.0,
+        "num_warps": 0.0
+      },
+      "hot_fields": [],
+      "cold_fields": [
+        "address_override_count",
+        "instructions_per_warp_mean",
+        "instructions_per_warp_std",
+        "is_full_encoding",
+        "num_warps"
+      ],
+      "field_correlations": [],
+      "outlier_diffs": []
+    }
+  }
+}

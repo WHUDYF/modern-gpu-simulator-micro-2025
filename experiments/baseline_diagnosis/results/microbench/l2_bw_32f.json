@@ -1,0 +1,143 @@
+{
+  "trace_dir": "hw_run/traces/device-0/12.8/benchstudy-20260403/l2_bw_32f/traces",
+  "dynamic_trace": {
+    "name": "l2_bw_32f",
+    "binary_version": 120,
+    "nvbit_version": "1.7.6",
+    "accelsim_version": 4,
+    "kernels": [
+      {
+        "id": 1,
+        "name": "_Z5l2_bwPjS_PfS0____0",
+        "function_unique_id": 1,
+        "grid_dim": {
+          "x": 160,
+          "y": 1,
+          "z": 1
+        },
+        "block_dim": {
+          "x": 1024,
+          "y": 1,
+          "z": 1
+        },
+        "number_of_registers": 38,
+        "size_shared_memory": 0
+      }
+    ]
+  },
+  "stats_csv": [
+    {
+      "device_id": 0,
+      "stream_id": 0,
+      "kernel id": "kernel-1.trace",
+      "kernel mangled name": "_Z5l2_bwPjS_PfS0_",
+      "grid_dimX": 160,
+      "grid_dimY": 1,
+      "grid_dimZ": 1,
+      "#blocks": 160,
+      "block_dimX": 1024,
+      "block_dimY": 1,
+      "block_dimZ": 1,
+      "#threads": 1024,
+      "total_insts": 56820736,
+      "total_reported_insts": 56820736
+    }
+  ],
+  "enhanced_execution_info": {
+    "benchmark_name": "l2_bw_32f",
+    "kernels": [
+      {
+        "kernel_name": "_Z5l2_bwPjS_PfS0____0",
+        "unique_function_id": 1,
+        "total_static_instructions": 120,
+        "top_opcodes": [
+          {
+            "opcode": "LDG.E.STRONG.GPU",
+            "count": 33
+          },
+          {
+            "opcode": "FADD",
+            "count": 33
+          },
+          {
+            "opcode": "NOP",
+            "count": 10
+          },
+          {
+            "opcode": "LDC.64",
+            "count": 5
+          },
+          {
+            "opcode": "IMAD.WIDE.U32",
+            "count": 5
+          },
+          {
+            "opcode": "BRA",
+            "count": 4
+          },
+          {
+            "opcode": "MOV",
+            "count": 3
+          },
+          {
+            "opcode": "IADD.64",
+            "count": 3
+          },
+          {
+            "opcode": "STG.E.STRONG.SYS",
+            "count": 3
+          },
+          {
+            "opcode": "LDC",
+            "count": 2
+          }
+        ],
+        "control_bits_summary": {
+          "stall_count_stats": {
+            "count": 120,
+            "mean": 3.216666666666667,
+            "std": 2.176324628562772,
+            "min": 0.0,
+            "max": 13.0,
+            "p25": 1.0,
+            "p50": 4.0,
+            "p75": 4.0
+          },
+          "barrier_waits": 18,
+          "yields": 54,
+          "write_barriers": 43,
+          "read_barriers": 2
+        }
+      }
+    ]
+  },
+  "threadblock_features": {
+    "kernel_1": {
+      "num_tb_files": 160,
+      "format_counts": {
+        "compressed": 160
+      },
+      "dominant_format": "compressed",
+      "num_warps": {
+        "count": 160,
+        "mean": 32.0,
+        "std": 0.0,
+        "min": 32.0,
+        "max": 32.0,
+        "p25": 32.0,
+        "p50": 32.0,
+        "p75": 32.0
+      },
+      "instructions_per_warp_mean": {
+        "count": 160,
+        "mean": 4395.4,
+        "std": 2.939387691339814,
+        "min": 4393.0,
+        "max": 4399.0,
+        "p25": 4393.0,
+        "p50": 4393.0,
+        "p75": 4399.0
+      }
+    }
+  }
+}

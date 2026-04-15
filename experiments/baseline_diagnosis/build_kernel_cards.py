@@ -13,6 +13,7 @@ def load_sources(repo_root: Path) -> dict[str, Path]:
         "E0_baseline": result_dir / "E0_baseline.md",
         "E1_squash": result_dir / "E1_squash.md",
         "E2_batch": result_dir / "E2_batch.md",
+        "E3_delta": result_dir / "E3_delta.md",
         "E4_full": result_dir / "E4_full.md",
         "E5_stageC_validation": result_dir / "E5_stageC_validation.md",
         "baseline_ape": result_dir / "baseline_ape.json",

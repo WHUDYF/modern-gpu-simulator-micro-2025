@@ -16,6 +16,14 @@ REQUIRED_HEADERS = [
     "## Evidence References",
 ]
 
+REQUIRED_FIELD_SNIPPETS = [
+    "operator semantics:",
+    "workload role:",
+    "tentative mode:",
+    "primary:",
+    "tentative family:",
+]
+
 
 def validate_card(path: Path) -> list[str]:
     text = path.read_text()
@@ -24,6 +32,10 @@ def validate_card(path: Path) -> list[str]:
     for header in REQUIRED_HEADERS:
         if header not in text:
             errors.append(f"missing header: {header}")
+
+    for snippet in REQUIRED_FIELD_SNIPPETS:
+        if snippet not in text:
+            errors.append(f"missing required field content: {snippet}")
 
     evidence_lines = [line for line in text.splitlines() if line.strip().startswith("- [")]
     if len(evidence_lines) < 2:

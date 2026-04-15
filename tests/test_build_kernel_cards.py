@@ -16,6 +16,7 @@ def test_load_sources_contains_expected_reports():
     assert "E0_baseline" in sources
     assert "E1_squash" in sources
     assert "E2_batch" in sources
+    assert "E3_delta" in sources
     assert "E4_full" in sources
     assert "E5_stageC_validation" in sources
     assert "baseline_ape" in sources
@@ -31,7 +32,7 @@ def test_load_sources_paths_exist_on_disk():
 def test_load_sources_fails_when_canonical_evidence_is_missing(tmp_path):
     result_dir = tmp_path / "experiments" / "baseline_diagnosis" / "results" / "mini_transformer_v4"
     result_dir.mkdir(parents=True)
-    for name in ["E0_baseline.md", "E1_squash.md", "E2_batch.md", "E4_full.md"]:
+    for name in ["E0_baseline.md", "E1_squash.md", "E2_batch.md", "E3_delta.md", "E4_full.md"]:
         (result_dir / name).write_text("placeholder")
 
     try:

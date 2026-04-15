@@ -35,7 +35,7 @@
 ## Evidence References
 
 - [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
-- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-2：residual_add 是纯 HBM 带宽瓶颈”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-2：residual_add 是纯 DRAM/GDDR6X 带宽瓶颈”
 - [E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): residual_add 独立聚类说明
-- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-2：residual_add 是孤立的 HBM 带宽瓶颈”
+- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-2：residual_add 是孤立的 DRAM/GDDR6X 带宽瓶颈”
 - [baseline_ape.json](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/baseline_ape.json): `residual_add` 的 baseline APE 条目

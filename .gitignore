@@ -2,3 +2,6 @@
 *.pb
 hw_run/
 simulator-remodeled/
+.humanize*
+**/__pycache__/
+*.pyc

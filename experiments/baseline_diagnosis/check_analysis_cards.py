@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import re
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -17,16 +18,17 @@ REQUIRED_HEADERS = [
 ]
 
 REQUIRED_FIELD_SNIPPETS = [
-    "operator semantics:",
-    "workload role:",
-    "tentative mode:",
-    "primary:",
-    "tentative family:",
+    "- operator semantics:",
+    "- workload role:",
+    "- tentative mode:",
+    "- primary:",
+    "- tentative family:",
 ]
 
 
 def validate_card(path: Path) -> list[str]:
     text = path.read_text()
+    lines = text.splitlines()
     errors: list[str] = []
 
     for header in REQUIRED_HEADERS:
@@ -34,14 +36,27 @@ def validate_card(path: Path) -> list[str]:
             errors.append(f"missing header: {header}")
 
     for snippet in REQUIRED_FIELD_SNIPPETS:
-        if snippet not in text:
+        if not any(line.strip().startswith(snippet) for line in lines):
             errors.append(f"missing required field content: {snippet}")
 
-    evidence_lines = [line for line in text.splitlines() if line.strip().startswith("- [")]
+    evidence_lines = [line.strip() for line in lines if line.strip().startswith("- [")]
     if len(evidence_lines) < 2:
         errors.append("fewer than 2 evidence references")
-    if "baseline_ape.json" not in text:
+    if not any("baseline_ape.json" in line for line in evidence_lines):
         errors.append("missing baseline_ape.json evidence reference")
+
+    link_pattern = re.compile(r"^- \[[^\]]+\]\(([^)]+)\)")
+    for line in evidence_lines:
+        match = link_pattern.match(line)
+        if not match:
+            errors.append(f"malformed evidence link: {line}")
+            continue
+        target = match.group(1)
+        if "://" in target:
+            continue
+        target_path = (path.parent / target).resolve()
+        if not target_path.exists():
+            errors.append(f"missing evidence target: {target}")
 
     if "boundary note:" not in text and "ambiguity / outlier note:" not in text:
         errors.append("missing boundary or uncertainty notes")

@@ -63,8 +63,10 @@ def validate_card_directory(card_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    card_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
-        "/home/dyf/modern-gpu-simulator-micro-2025/docs/family_criteria/mini_transformer_v4/analysis_cards"
+    card_dir = (
+        Path(sys.argv[1])
+        if len(sys.argv) > 1
+        else REPO_ROOT / "docs" / "family_criteria" / "mini_transformer_v4" / "analysis_cards"
     )
     failures = validate_card_directory(card_dir)
     if failures:

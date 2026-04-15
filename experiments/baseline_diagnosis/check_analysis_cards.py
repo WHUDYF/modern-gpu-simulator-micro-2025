@@ -1,6 +1,11 @@
 from pathlib import Path
 import sys
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from experiments.baseline_diagnosis.build_kernel_cards import default_kernel_names
+
 
 REQUIRED_HEADERS = [
     "## Basic Info",
@@ -30,24 +35,44 @@ def validate_card(path: Path) -> list[str]:
     return errors
 
 
+def validate_card_directory(card_dir: Path) -> list[str]:
+    failures = []
+    existing = {path.stem for path in card_dir.glob("*.md")}
+    expected = set(default_kernel_names())
+
+    missing_cards = sorted(expected - existing)
+    extra_cards = sorted(existing - expected)
+
+    if missing_cards:
+        failures.append(
+            "missing expected cards: " + ", ".join(missing_cards)
+        )
+    if extra_cards:
+        failures.append(
+            "unexpected cards present: " + ", ".join(extra_cards)
+        )
+
+    for path in sorted(card_dir.glob("*.md")):
+        errors = validate_card(path)
+        if errors:
+            failures.append(
+                f"{path.name}: " + "; ".join(errors)
+            )
+
+    return failures
+
+
 def main() -> int:
     card_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
         "/home/dyf/modern-gpu-simulator-micro-2025/docs/family_criteria/mini_transformer_v4/analysis_cards"
     )
-    failures = []
-    for path in sorted(card_dir.glob("*.md")):
-        errors = validate_card(path)
-        if errors:
-            failures.append((path.name, errors))
-
+    failures = validate_card_directory(card_dir)
     if failures:
-        for name, errors in failures:
-            print(f"{name}:")
-            for err in errors:
-                print(f"  - {err}")
+        for error in failures:
+            print(error)
         return 1
 
-    print(f"validated {len(list(card_dir.glob('*.md')))} analysis cards")
+    print(f"validated {len(default_kernel_names())} analysis cards")
     return 0
 
 

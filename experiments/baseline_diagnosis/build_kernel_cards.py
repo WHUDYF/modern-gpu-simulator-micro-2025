@@ -9,7 +9,7 @@ def load_sources(repo_root: Path) -> dict[str, Path]:
         / "results"
         / "mini_transformer_v4"
     )
-    return {
+    sources = {
         "E0_baseline": result_dir / "E0_baseline.md",
         "E1_squash": result_dir / "E1_squash.md",
         "E2_batch": result_dir / "E2_batch.md",
@@ -17,6 +17,14 @@ def load_sources(repo_root: Path) -> dict[str, Path]:
         "E5_stageC_validation": result_dir / "E5_stageC_validation.md",
         "baseline_ape": result_dir / "baseline_ape.json",
     }
+    missing = [str(path) for path in sources.values() if not path.exists()]
+    if missing:
+        missing_list = "\n".join(f"- {path}" for path in missing)
+        raise FileNotFoundError(
+            "Missing canonical evidence files:\n"
+            f"{missing_list}"
+        )
+    return sources
 
 
 def default_kernel_names() -> list[str]:

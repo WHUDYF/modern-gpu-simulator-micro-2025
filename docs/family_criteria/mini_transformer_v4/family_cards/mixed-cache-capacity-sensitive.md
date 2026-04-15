@@ -27,4 +27,5 @@
 ## Validation Meaning
 
 - 当前阶段不建议和 `context_mul` 共享验证主线
-- 它更适合作为 cache-capacity / DRAM-pressure 方向的独立验证入口
+- 当前更稳妥的表述是：它是 cache-capacity / DRAM-pressure 方向的结构性候选入口
+- 但由于 `E5` 中 C-3 尚未得到可响应的 L2 证据，不能把它直接宣传为已经可靠的 validation entry

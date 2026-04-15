@@ -25,5 +25,6 @@
 
 ## Validation Meaning
 
-- 当前阶段可把它视为 memory-system 验证中的稳定中心样本
-- 它适合承担后续 DRAM-side 验证主线的锚点角色
+- 当前阶段可把它视为 memory-side 结构解释中的中心样本
+- 但不能把它直接当成已经被 simulator 验证通过的 DRAM-side 锚点
+- 若后续继续做 simulator 验证，应把它视为“值得继续检验的候选主线”，而不是已经成立的稳定主线

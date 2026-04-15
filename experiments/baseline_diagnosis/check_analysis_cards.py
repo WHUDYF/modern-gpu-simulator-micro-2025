@@ -28,6 +28,8 @@ def validate_card(path: Path) -> list[str]:
     evidence_lines = [line for line in text.splitlines() if line.strip().startswith("- [")]
     if len(evidence_lines) < 2:
         errors.append("fewer than 2 evidence references")
+    if "baseline_ape.json" not in text:
+        errors.append("missing baseline_ape.json evidence reference")
 
     if "boundary note:" not in text and "ambiguity / outlier note:" not in text:
         errors.append("missing boundary or uncertainty notes")

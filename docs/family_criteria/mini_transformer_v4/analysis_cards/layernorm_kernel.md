@@ -35,6 +35,7 @@
 
 ## Evidence References
 
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-3：layernorm_kernel 受 waves 不足限制”
-- [E2_batch.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): `layernorm_kernel` 独立聚类说明
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-3：layernorm_kernel 受 waves 不足限制”
+- [E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): `layernorm_kernel` 独立聚类说明
+- [baseline_ape.json](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/baseline_ape.json): `layernorm_kernel` 的 baseline APE 条目

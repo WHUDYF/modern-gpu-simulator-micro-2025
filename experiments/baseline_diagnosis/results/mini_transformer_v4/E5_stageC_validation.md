@@ -1,10 +1,10 @@
 # Stage C 验证报告：mini-transformer v4 [E5_stageC_validation]
 
 **日期：** 2026-04-12
-**硬件参考：** RTX A6000（SM_86，80 SM，24 内存通道）
+**硬件参考：** RTX 3080 Ti（SM_86，80 SM，24 内存通道）
 **模拟器：** GPGPU-Sim 4.2 remodeled（已修复 gemm_tiled 死锁）
 **配置：** `configs/baseline/`（baseline）及三个灵敏度变体 C-1/C-2/C-3
-**输出文件：** `baseline_ape.json`, `rx_C1_ape.json`, `rx_C2_ape.json`, `rx_C3_ape.json`
+**输出文件：** `baseline_ape.json`
 
 ---
 

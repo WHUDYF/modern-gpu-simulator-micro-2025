@@ -34,6 +34,7 @@ CARD_TEMPLATE = """# Kernel Analysis Card: `{name}`
 
 - [ref1](/tmp/ref1): sample
 - [ref2](/tmp/ref2): sample
+- [baseline_ape.json](/tmp/baseline_ape.json): sample
 """
 
 

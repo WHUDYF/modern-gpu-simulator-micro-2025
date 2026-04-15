@@ -34,7 +34,8 @@
 
 ## Evidence References
 
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-1：gemm_tiled + attention_score 均受寄存器限制”
-- [E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-1：gemm_tiled + attention_score 共享计算瓶颈”
-- [gemm_tiled-vs-attention_score.md](/home/dyf/modern-gpu-simulator-micro-2025/docs/family_criteria/mini_transformer_v4/boundary_cases/gemm_tiled-vs-attention_score.md): “Graded Conclusion / Current Execution Advice”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-1：gemm_tiled + attention_score 均受寄存器限制”
+- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-1：gemm_tiled + attention_score 共享计算瓶颈”
+- [baseline_ape.json](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/baseline_ape.json): `gemm_tiled` 的 baseline APE 条目
+- [gemm_tiled-vs-attention_score.md](../boundary_cases/gemm_tiled-vs-attention_score.md): “Graded Conclusion / Current Execution Advice”

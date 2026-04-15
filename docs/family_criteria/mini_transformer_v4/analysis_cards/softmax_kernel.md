@@ -34,7 +34,8 @@
 
 ## Evidence References
 
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-4：softmax 的 DRAM 使用率异常”
-- [E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-3：softmax 揭示 L2 cache 容量限制”
-- [softmax_kernel-vs-context_mul.md](/home/dyf/modern-gpu-simulator-micro-2025/docs/family_criteria/mini_transformer_v4/boundary_cases/softmax_kernel-vs-context_mul.md): “Distinguishing Points / Graded Conclusion”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “发现 C-4：softmax 的 DRAM 使用率异常”
+- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-3：softmax 揭示 L2 cache 容量限制”
+- [baseline_ape.json](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/baseline_ape.json): `softmax_kernel` 的 baseline APE 条目
+- [softmax_kernel-vs-context_mul.md](../boundary_cases/softmax_kernel-vs-context_mul.md): “Distinguishing Points / Graded Conclusion”

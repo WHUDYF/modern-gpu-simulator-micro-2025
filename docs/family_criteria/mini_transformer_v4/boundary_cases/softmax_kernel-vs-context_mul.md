@@ -16,7 +16,7 @@
 
 ### 1. 二者都不是典型的纯 GEMM 主干
 
-从 [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 可见：
+从 [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 可见：
 
 - `softmax_kernel`: `compute=85.5%`, `dram=41.2%`, `l1_hit=79.9%`
 - `context_mul`: `compute=89.6%`, `dram=7.4%`, `l1_hit=88.5%`
@@ -36,13 +36,13 @@
 
 ### 1. `softmax_kernel` 的主信号是 DRAM / working-set 压力
 
-[E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 对 `softmax` 的解读非常明确：
+[E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 对 `softmax` 的解读非常明确：
 
 - `dram=41.2%` 明显高于其他计算类 kernel
 - `l1_hit=79.9%`
 - attention score working set 约 12MB，大于 RTX 3080 Ti 的 6MB L2
 
-[E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 进一步把它归结为：
+[E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 进一步把它归结为：
 
 - `softmax` 是 **L2 cache 容量敏感性的标志 kernel**
 - 若 simulator 把 L2 配置过大，会低估其 DRAM 利用率
@@ -53,13 +53,13 @@
 
 ### 2. `context_mul` 的主信号是 locality / L1 驻留
 
-在 [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 的“内存三态”里：
+在 [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 的“内存三态”里：
 
 - `context_mul` 被单独归为 **L1 驻留**
 - `l1_hit=88.5%`
 - `dram=7.4%`
 
-而 [E2_batch.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md) 也明确指出：
+而 [E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md) 也明确指出：
 
 - `context_mul` 是 outlier
 - 其核心差异在于 **L1 驻留特征**，而非 GEMM 的 L2 驻留模式
@@ -108,6 +108,6 @@
 
 ## Evidence References
 
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”与“内存三态（v4 更新版）”
-- [E2_batch.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): `softmax_kernel` 与 `context_mul` 的 outlier 描述
-- [E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-3：softmax 揭示 L2 cache 容量限制”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”与“内存三态（v4 更新版）”
+- [E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): `softmax_kernel` 与 `context_mul` 的 outlier 描述
+- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-3：softmax 揭示 L2 cache 容量限制”

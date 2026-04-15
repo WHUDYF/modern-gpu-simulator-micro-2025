@@ -16,7 +16,7 @@
 
 ### 1. 二者都明显属于 compute-heavy 区域
 
-来自 [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 的 kernel 指标表：
+来自 [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 的 kernel 指标表：
 
 - `gemm_tiled`: `compute=90.9%`, `warp_cyc=36.3`
 - `attention_score`: `compute=95.2%`, `warp_cyc=34.0`
@@ -25,7 +25,7 @@
 
 ### 2. 二者共享最严格的寄存器限制信号
 
-同样来自 [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md)：
+同样来自 [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md)：
 
 - `gemm_tiled`: `block_limit_registers=6`
 - `attention_score`: `block_limit_registers=6`
@@ -34,7 +34,7 @@
 
 ### 3. 多机制综合解释指向同一主机制
 
-[E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 的“发现 C-1”明确给出：
+[E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 的“发现 C-1”明确给出：
 
 - 两者共享计算瓶颈
 - 三机制一致收敛到**寄存器文件大小**是主瓶颈
@@ -46,7 +46,7 @@
 
 ### 1. `attention_score` 仍然是 batch 里的良性 outlier
 
-[E2_batch.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md) 明确指出：
+[E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md) 明确指出：
 
 - `attention_score` 没有并入 `gemm_tiled` 聚类
 - 原因不是软件问题，而是良性架构异质
@@ -60,12 +60,12 @@
 
 ### 2. shared memory 特征可能改变次级解释路径
 
-在 [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 中：
+在 [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md) 中：
 
 - `gemm_tiled`: `shmem(B)=2048`
 - `attention_score`: `shmem(B)=8256`
 
-而 [E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 里也明确说：
+而 [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md) 里也明确说：
 
 - `attention_score` 的处方在共享寄存器主线之外，还要额外考虑 shared memory bank 配置
 
@@ -114,6 +114,6 @@
 
 ## Evidence References
 
-- [E0_baseline.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
-- [E2_batch.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): “Batch 输出：3 聚类 + 3 outlier”
-- [E4_full.md](/home/dyf/modern-gpu-simulator-micro-2025/experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-1：gemm_tiled + attention_score 共享计算瓶颈”
+- [E0_baseline.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E0_baseline.md): “每 Kernel 关键指标（v4，6 层均值）”
+- [E2_batch.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E2_batch.md): “Batch 输出：3 聚类 + 3 outlier”
+- [E4_full.md](../../../../experiments/baseline_diagnosis/results/mini_transformer_v4/E4_full.md): “发现 C-1：gemm_tiled + attention_score 共享计算瓶颈”

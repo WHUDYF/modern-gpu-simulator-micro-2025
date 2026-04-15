@@ -503,3 +503,22 @@ family 结构。**
 5. 输入采用“指标为主、语义约束、经验隔离”
 6. 框架内部用层级结构，输出用 family 解释卡片
 7. 第一版显式保留不确定性
+
+## 九、Prototype Status
+
+当前原型已经在 `mini_transformer_v4` 上开始落地，主要产物位于：
+
+- `docs/family_criteria/mini_transformer_v4/boundary_cases/`
+- `docs/family_criteria/mini_transformer_v4/analysis_cards/`
+- `docs/family_criteria/mini_transformer_v4/family_cards/`
+- `docs/family_criteria/mini_transformer_v4/outlier_analysis/`
+- `docs/family_criteria/mini_transformer_v4/mini_transformer_v4_family_synthesis.md`
+
+这一版 prototype 的执行顺序已经体现出本 spec 的核心思想：
+
+- 先做关键边界 case
+- 再由边界 case 反推 analysis cards
+- 再由 analysis cards 收束为 family cards
+- 最后以 synthesis 作为主交付物
+
+因此，这份 spec 当前不再只是纯设计文档，而是已经对应到一个正在形成中的、文档先行的第一版方法原型。

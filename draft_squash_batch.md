@@ -252,3 +252,28 @@
 2. `batch` 的职责是识别共享架构机制的 kernel family，而不是仅按算子名分组。
 3. `batch` 在实现层面进一步指导 simulator 处方复用与验证分流。
 4. `squash + batch` 的共同价值，在于为“从 workload 到 simulator”的端到端流程提供必要的中间结构层。
+
+## 十、当前原型状态
+
+当前已经在 `mini_transformer_v4` 上落下一版原型工作区：
+
+- `docs/family_criteria/mini_transformer_v4/boundary_cases/`
+- `docs/family_criteria/mini_transformer_v4/analysis_cards/`
+- `docs/family_criteria/mini_transformer_v4/family_cards/`
+- `docs/family_criteria/mini_transformer_v4/outlier_analysis/`
+- `docs/family_criteria/mini_transformer_v4/mini_transformer_v4_family_synthesis.md`
+
+这一版原型的核心顺序不是“先铺满所有 cards”，而是：
+
+**先做边界 case，再回填 analysis cards，再形成 family cards，最后输出 family synthesis。**
+
+其中第一轮优先处理的边界 case 是：
+
+- `gemm_tiled vs attention_score`
+- `softmax_kernel vs context_mul`
+
+当前原型的状态应理解为：
+
+- 已经形成了第一版可解释结构
+- 但还没有进入 `delta`
+- 也还没有展开具体 simulator 处方层

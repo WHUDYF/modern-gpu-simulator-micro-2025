@@ -49,18 +49,25 @@ RULES:
 <!-- Map each task to its target Acceptance Criterion and routing tag -->
 | Task | Target AC | Status | Tag | Owner | Notes |
 |------|-----------|--------|-----|-------|-------|
-| task1 | AC-1 | pending | coding | claude | Create workspace plus boundary/outlier directories and schema docs |
-| task2 | AC-2 | pending | coding | claude | Add minimal evidence extractor and pytest guardrails |
-| task3 | AC-3 | pending | coding | claude | Write first two boundary case documents with graded judgments |
-| task4 | AC-4 | pending | coding | claude | Backfill six analysis cards from boundary-case conclusions |
-| task5 | AC-5 | pending | coding | claude | Derive family cards and outlier card with boundary-first framing |
-| task6 | AC-6 | pending | coding | claude | Write family synthesis with method-first emphasis |
-| task7 | AC-7 | pending | coding | claude | Reflect prototype status back into draft/spec |
+| task1 | AC-1 | completed_pending_verification | coding | claude | Workspace, boundary/outlier directories and schema docs created |
+| task2 | AC-2 | completed_pending_verification | coding | claude | Evidence extractor hardened and canonical evidence restored |
+| task3 | AC-3 | completed_pending_verification | coding | claude | First two boundary case documents written with graded judgments |
+| task4 | AC-4 | completed_pending_verification | coding | claude | Six analysis cards backfilled and fixed completeness checker added |
+| task5 | AC-5 | completed_pending_verification | coding | claude | Derived family cards and outlier card with boundary-first framing |
+| task6 | AC-6 | completed_pending_verification | coding | claude | Wrote family synthesis with method-first emphasis |
+| task7 | AC-7 | completed_pending_verification | coding | claude | Reflected prototype status back into draft/spec |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
 | AC | Task | Completed Round | Verified Round | Evidence |
 |----|------|-----------------|----------------|----------|
+| AC-1 | task1 | 0 | pending | `docs/family_criteria/README.md`, `kernel_card_schema.md`, `boundary_cases/README.md`, `outlier_analysis/README.md`, directory checks passed |
+| AC-2 | task2 | 0 | pending | `build_kernel_cards.py`, `tests/test_build_kernel_cards.py`, canonical E5 / baseline evidence restored, `pytest tests/test_build_kernel_cards.py -v` passed |
+| AC-3 | task3 | 0 | pending | `boundary_cases/gemm_tiled-vs-attention_score.md`, `boundary_cases/softmax_kernel-vs-context_mul.md`, required section checks passed |
+| AC-4 | task4 | 0 | pending | Six analysis cards created; `python3 experiments/baseline_diagnosis/check_analysis_cards.py` passed |
+| AC-5 | task5 | 0 | pending | Family cards created for compute-heavy/register-limited, memory-heavy/dram-dominated, mixed/cache-capacity-sensitive, mixed/locality-dominated, plus outliers |
+| AC-6 | task6 | 0 | pending | `mini_transformer_v4_family_synthesis.md` created with method-first sections and version-1 limits |
+| AC-7 | task7 | 0 | pending | `draft_squash_batch.md` and spec updated with prototype status and current artifact locations |
 
 ### Explicitly Deferred
 <!-- Items here require strong justification -->

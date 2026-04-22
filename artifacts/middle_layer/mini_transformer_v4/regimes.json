@@ -1,0 +1,200 @@
+[
+  {
+    "regime_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A1_qkv_projection_dense_48x32"
+    ],
+    "phase_id": "Phase A",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 projection-like dense region",
+    "context_scope": "Q/K/V projection path",
+    "resource_signature": "register-limited dense backbone",
+    "observed_coverage_ratio": 0.2857,
+    "observed_time_ratio": 0.5011,
+    "coverage_label": "High",
+    "time_label": "High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "regime_priority_score": 0.9,
+    "validation_status": "pending",
+    "notes": "Primary dense regime."
+  },
+  {
+    "regime_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A2_attention_score_dense_32x32x12"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Pairwise Score",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "32x32x12 attention-score region",
+    "context_scope": "attention score path",
+    "resource_signature": "register + shmem coupled dense compute",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.0422,
+    "coverage_label": "Medium",
+    "time_label": "Medium-High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "regime_priority_score": 0.7875,
+    "validation_status": "pending",
+    "notes": "Boundary regime that should not be merged into generic dense projection."
+  },
+  {
+    "regime_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A5_output_projection_dense_48x32"
+    ],
+    "phase_id": "Phase B_to_C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 post-attention projection region",
+    "context_scope": "attention output projection path",
+    "resource_signature": "dense transform with post-attention context",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.9,
+    "local_decision_label": "Medium",
+    "regime_priority_score": 0.705,
+    "validation_status": "pending",
+    "notes": "Checks whether projection lane conclusions transfer after attention."
+  },
+  {
+    "regime_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A8_ffn_expand_dense_192x32"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "192x32 FFN expansion region",
+    "context_scope": "FFN expansion path",
+    "resource_signature": "large-shape dense compute, register-sensitive",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_label": "Medium",
+    "time_label": "High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "regime_priority_score": 0.825,
+    "validation_status": "pending",
+    "notes": "Heavy dense regime in later pipeline stage."
+  },
+  {
+    "regime_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A9_ffn_contract_dense_48x32"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 FFN contraction region",
+    "context_scope": "FFN contraction path",
+    "resource_signature": "dense contraction with lower local leverage than expansion",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.9,
+    "local_decision_label": "Medium",
+    "regime_priority_score": 0.705,
+    "validation_status": "pending",
+    "notes": "Secondary dense regime."
+  },
+  {
+    "regime_id": "R6_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "source_anchor_ids": [
+      "A3_softmax_reduce_24x1"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "shape_regime": "24x1 row-wise normalization region",
+    "context_scope": "attention normalization path",
+    "resource_signature": "cache-capacity-sensitive, DRAM-pressure",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.015,
+    "coverage_label": "Medium",
+    "time_label": "Medium-High",
+    "family_importance_score": 0.75,
+    "local_decision_label": "High",
+    "regime_priority_score": 0.735,
+    "validation_status": "pending",
+    "notes": "Primary reduction regime."
+  },
+  {
+    "regime_id": "R7_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "source_anchor_ids": [
+      "A7_layernorm_reduce_512"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "shape_regime": "512x1 layernorm reduction region",
+    "context_scope": "residual normalization path",
+    "resource_signature": "reduction / normalization dominated",
+    "observed_coverage_ratio": 0.1429,
+    "observed_time_ratio": 0.0048,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.75,
+    "local_decision_label": "Medium",
+    "regime_priority_score": 0.6525,
+    "validation_status": "pending",
+    "notes": "Normalization-path constraint regime."
+  },
+  {
+    "regime_id": "R8_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "source_anchor_ids": [
+      "A4_context_stream_4x32x12"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Weighted Aggregation",
+    "hardware_template": "Streaming Aggregation Template",
+    "shape_regime": "4x32x12 weighted aggregation region",
+    "context_scope": "attention aggregation path",
+    "resource_signature": "locality-dominated, L1-resident streaming",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.0579,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.645,
+    "local_decision_label": "Medium-High",
+    "regime_priority_score": 0.6382,
+    "validation_status": "pending",
+    "notes": "Independent streaming regime."
+  },
+  {
+    "regime_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
+    "source_anchor_ids": [
+      "A6_residual_elementwise_1536"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Elementwise Fusion",
+    "hardware_template": "Elementwise Template",
+    "shape_regime": "1536-wide residual elementwise region",
+    "context_scope": "residual path",
+    "resource_signature": "lightweight elementwise memory-side",
+    "observed_coverage_ratio": 0.1429,
+    "observed_time_ratio": 0.0031,
+    "coverage_label": "High",
+    "time_label": "Low",
+    "family_importance_score": 0.525,
+    "local_decision_label": "Low",
+    "regime_priority_score": 0.5288,
+    "validation_status": "pending",
+    "notes": "Regression / constraint regime."
+  }
+]

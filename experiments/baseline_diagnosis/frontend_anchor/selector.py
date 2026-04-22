@@ -121,6 +121,7 @@ def _materialize_groups(method: str, groups: dict[tuple[str, ...], list[dict[str
                 "avg_exec_time": mean(exec_times) if exec_times else None,
                 "avg_dynamic_inst_count": mean(inst_counts) if inst_counts else None,
                 "heterogeneity_flag": heterogeneity_flag or boundary_crossing,
+                "squash_boundary_crossing_flag": boundary_crossing,
                 "guardrail_note": guardrail_note,
             }
         )

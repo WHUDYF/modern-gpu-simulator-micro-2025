@@ -12,10 +12,15 @@ if str(REPO_ROOT) not in sys.path:
 SCRIPT = ROOT / "build_invocation_table.py"
 PIPELINE = ROOT / "build_frontend_anchor_outputs.py"
 FULL_JSON = ROOT.parent / "mini_transformer" / "mini_transformer_v4_full.json"
+IDENTITY_JSON = ROOT.parent / "mini_transformer" / "frontend_anchor_sources" / "mini_transformer_v4_identity.json"
+FEATURES_JSON = ROOT.parent / "mini_transformer" / "frontend_anchor_sources" / "mini_transformer_v4_features.json"
 SQUASH_JSON = ROOT.parent / "mini_transformer" / "mechanisms" / "squash.json"
 
 from experiments.baseline_diagnosis.frontend_anchor.selector import run_selector
-from experiments.baseline_diagnosis.frontend_anchor.invocation_table import build_records_from_full_json
+from experiments.baseline_diagnosis.frontend_anchor.invocation_table import (
+    build_records_from_dual_sources,
+)
+from experiments.baseline_diagnosis.frontend_anchor.exporter import export_anchor_table
 
 
 def run_builder(tmp_path, *extra):
@@ -23,12 +28,12 @@ def run_builder(tmp_path, *extra):
     cmd = [
         sys.executable,
         str(SCRIPT),
-            "--identity-json",
-            str(FULL_JSON),
-            "--features-json",
-            str(FULL_JSON),
-            "--output",
-            str(out),
+        "--identity-json",
+        str(IDENTITY_JSON),
+        "--features-json",
+        str(FEATURES_JSON),
+        "--output",
+        str(out),
         *extra,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -65,7 +70,7 @@ def test_builder_rejects_missing_input(tmp_path):
             "--identity-json",
             str(tmp_path / "missing.json"),
             "--features-json",
-            str(FULL_JSON),
+            str(FEATURES_JSON),
             "--output",
             str(out),
         ],
@@ -76,11 +81,30 @@ def test_builder_rejects_missing_input(tmp_path):
     assert "identity_json not found" in proc.stderr
 
 
+def test_builder_rejects_missing_feature_source(tmp_path):
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--identity-json",
+            str(IDENTITY_JSON),
+            "--features-json",
+            str(tmp_path / "missing_features.json"),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "features_json not found" in proc.stderr
+
+
 def test_builder_rejects_unalignable_sources(tmp_path):
     bad_features = tmp_path / "bad_features.json"
-    data = json.loads(FULL_JSON.read_text())
-    first_key = next(iter(data["per_kernel"]))
-    data["per_kernel"].pop(first_key)
+    data = json.loads(FEATURES_JSON.read_text())
+    data["feature_records"] = data["feature_records"][1:]
     bad_features.write_text(json.dumps(data))
 
     out = tmp_path / "invocation_table.json"
@@ -89,7 +113,7 @@ def test_builder_rejects_unalignable_sources(tmp_path):
             sys.executable,
             str(SCRIPT),
             "--identity-json",
-            str(FULL_JSON),
+            str(IDENTITY_JSON),
             "--features-json",
             str(bad_features),
             "--output",
@@ -108,9 +132,9 @@ def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
             sys.executable,
             str(PIPELINE),
             "--identity-json",
-            str(FULL_JSON),
+            str(IDENTITY_JSON),
             "--features-json",
-            str(FULL_JSON),
+            str(FEATURES_JSON),
             "--squash-json",
             str(SQUASH_JSON),
             "--output-dir",
@@ -136,7 +160,7 @@ def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
 
 
 def test_selector_rejects_unknown_mode():
-    records = build_records_from_full_json(FULL_JSON)["records"]
+    records = build_records_from_dual_sources(IDENTITY_JSON, FEATURES_JSON)["records"]
 
     try:
         run_selector(records, "unknown-mode")
@@ -144,3 +168,58 @@ def test_selector_rejects_unknown_mode():
         assert "unknown selector mode" in str(exc)
     else:
         raise AssertionError("expected ValueError for unknown selector mode")
+
+
+def test_hybrid_groups_stay_within_coarse_buckets():
+    records = build_records_from_dual_sources(IDENTITY_JSON, FEATURES_JSON)["records"]
+    coarse = run_selector(records, "pka-like-coarse")
+    hybrid = run_selector(records, "hybrid")
+    coarse_sets = {
+        tuple(sorted(m["kernel_invocation_id"] for m in group["members"]))
+        for group in coarse
+    }
+    for group in hybrid:
+        member_ids = {m["kernel_invocation_id"] for m in group["members"]}
+        assert any(member_ids <= set(coarse_members) for coarse_members in coarse_sets)
+
+
+def test_exporter_rejects_forbidden_downstream_keys():
+    groups = [
+        {
+            "method": "hybrid",
+            "cluster_id": "hybrid-1",
+            "anchor_record": {
+                "kernel_name": "k",
+                "trace_order": 1,
+                "grid_dim": "1x1x1",
+                "block_dim": "1x1x1",
+            },
+            "members": [{"kernel_invocation_id": "k#1", "trace_order": 1, "exec_time": 1.0}],
+            "member_count": 1,
+            "heterogeneity_flag": False,
+            "squash_boundary_crossing_flag": False,
+            "guardrail_note": None,
+        }
+    ]
+    table = export_anchor_table(groups)
+    table[0]["family_id"] = "f-1"
+    from experiments.baseline_diagnosis.frontend_anchor import exporter as exporter_mod
+
+    try:
+        exporter_mod._validate_anchor_table(table)
+    except ValueError as exc:
+        assert "forbidden downstream keys" in str(exc)
+    else:
+        raise AssertionError("expected forbidden downstream key rejection")
+
+
+def test_exporter_rejects_missing_required_fields():
+    from experiments.baseline_diagnosis.frontend_anchor import exporter as exporter_mod
+
+    table = [{"kernel_name": "k"}]
+    try:
+        exporter_mod._validate_anchor_table(table)
+    except ValueError as exc:
+        assert "missing required fields" in str(exc)
+    else:
+        raise AssertionError("expected missing required field rejection")

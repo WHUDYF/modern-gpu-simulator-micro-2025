@@ -1,0 +1,133 @@
+{
+  "workload": "mini-transformer-1layer (hidden=768, seq=512, heads=12)",
+  "hardware": "RTX 3080 Ti (SM_86)",
+  "source_kind": "identity_context_v1",
+  "invocations": [
+    {
+      "kernel_id": 1,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_1",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 1,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 2,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_2",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 2,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 3,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_3",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 3,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 4,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_4",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 4,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 5,
+      "source_invocation_key": "_Z15attention_scorePKfS0_Pfiii_5",
+      "kernel_name": "_Z15attention_scorePKfS0_Pfiii",
+      "trace_order": 5,
+      "grid_dim": "32x32x12",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 6,
+      "source_invocation_key": "_Z14softmax_kernelPfii_6",
+      "kernel_name": "_Z14softmax_kernelPfii",
+      "trace_order": 6,
+      "grid_dim": "24x1x1",
+      "block_dim": "256x1x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 7,
+      "source_invocation_key": "_Z11context_mulPKfS0_Pfiii_7",
+      "kernel_name": "_Z11context_mulPKfS0_Pfiii",
+      "trace_order": 7,
+      "grid_dim": "4x32x12",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 8,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_8",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 8,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 9,
+      "source_invocation_key": "_Z12residual_addPfPKfi_9",
+      "kernel_name": "_Z12residual_addPfPKfi",
+      "trace_order": 9,
+      "grid_dim": "1536x1x1",
+      "block_dim": "256x1x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 10,
+      "source_invocation_key": "_Z16layernorm_kernelPfii_10",
+      "kernel_name": "_Z16layernorm_kernelPfii",
+      "trace_order": 10,
+      "grid_dim": "512x1x1",
+      "block_dim": "256x1x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 11,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_11",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 11,
+      "grid_dim": "192x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 12,
+      "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_12",
+      "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+      "trace_order": 12,
+      "grid_dim": "48x32x1",
+      "block_dim": "16x16x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 13,
+      "source_invocation_key": "_Z12residual_addPfPKfi_13",
+      "kernel_name": "_Z12residual_addPfPKfi",
+      "trace_order": 13,
+      "grid_dim": "1536x1x1",
+      "block_dim": "256x1x1",
+      "shape_hint": null
+    },
+    {
+      "kernel_id": 14,
+      "source_invocation_key": "_Z16layernorm_kernelPfii_14",
+      "kernel_name": "_Z16layernorm_kernelPfii",
+      "trace_order": 14,
+      "grid_dim": "512x1x1",
+      "block_dim": "256x1x1",
+      "shape_hint": null
+    }
+  ]
+}

@@ -25,7 +25,7 @@
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": true,
-    "squash_boundary_crossing_flag": false,
+    "squash_boundary_crossing_flag": true,
     "notes": "members span multiple kernel squash segments"
   },
   {
@@ -126,7 +126,7 @@
     "block_dim": "256x1x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": true,
-    "squash_boundary_crossing_flag": false,
+    "squash_boundary_crossing_flag": true,
     "notes": "members span multiple kernel squash segments"
   },
   {
@@ -152,7 +152,7 @@
     "block_dim": "256x1x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": true,
-    "squash_boundary_crossing_flag": false,
+    "squash_boundary_crossing_flag": true,
     "notes": "members span multiple kernel squash segments"
   },
   {

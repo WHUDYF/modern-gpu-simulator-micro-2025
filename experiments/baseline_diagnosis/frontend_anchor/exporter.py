@@ -40,12 +40,8 @@ def export_anchor_table(selector_groups: list[dict[str, Any]]) -> list[dict[str,
                 "grid_dim": anchor.get("grid_dim"),
                 "block_dim": anchor.get("block_dim"),
                 "member_invocations_status": "full_list",
-                "heterogeneity_flag": group["heterogeneity_flag"] or any(
-                    member.get("kernel_squash_boundary_crossing_flag", False) for member in members
-                ),
-                "squash_boundary_crossing_flag": any(
-                    member.get("kernel_squash_boundary_crossing_flag", False) for member in members
-                ),
+                "heterogeneity_flag": group["heterogeneity_flag"],
+                "squash_boundary_crossing_flag": group.get("squash_boundary_crossing_flag", False),
                 "notes": group.get("guardrail_note"),
             }
         )

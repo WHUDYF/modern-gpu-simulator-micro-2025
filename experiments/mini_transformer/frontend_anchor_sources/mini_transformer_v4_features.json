@@ -1,23 +1,15 @@
 {
   "workload": "mini-transformer-1layer (hidden=768, seq=512, heads=12)",
   "hardware": "RTX 3080 Ti (SM_86)",
-  "source_mode": "explicit_dual_source",
-  "identity_source": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/frontend_anchor_sources/mini_transformer_v4_identity.json",
-  "features_source": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/frontend_anchor_sources/mini_transformer_v4_features.json",
-  "records": [
+  "source_kind": "feature_payload_v1",
+  "feature_records": [
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#1",
+      "kernel_id": 1,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_1",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 1,
-      "trace_order": 1,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 98832384,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 98832384,
       "feature_vector": {
         "total_dynamic_insts": 98832384,
         "num_blocks": 1536,
@@ -33,27 +25,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#2",
+      "kernel_id": 2,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_2",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 2,
-      "trace_order": 2,
-      "kernel_name_occurrence": 2,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 98832384,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 98832384,
       "feature_vector": {
         "total_dynamic_insts": 98832384,
         "num_blocks": 1536,
@@ -69,27 +49,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#3",
+      "kernel_id": 3,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_3",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 3,
-      "trace_order": 3,
-      "kernel_name_occurrence": 3,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 98832384,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 98832384,
       "feature_vector": {
         "total_dynamic_insts": 98832384,
         "num_blocks": 1536,
@@ -105,27 +73,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#4",
+      "kernel_id": 4,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_4",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 4,
-      "trace_order": 4,
-      "kernel_name_occurrence": 4,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 98832384,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 98832384,
       "feature_vector": {
         "total_dynamic_insts": 98832384,
         "num_blocks": 1536,
@@ -141,27 +97,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z15attention_scorePKfS0_Pfiii#5",
+      "kernel_id": 5,
       "source_invocation_key": "_Z15attention_scorePKfS0_Pfiii_5",
       "kernel_name": "_Z15attention_scorePKfS0_Pfiii",
-      "kernel_id": 5,
-      "trace_order": 5,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "32x32x12",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 83656704,
       "exec_time": 187557.3333,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 83656704,
       "feature_vector": {
         "total_dynamic_insts": 83656704,
         "num_blocks": 12288,
@@ -177,27 +121,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.9190600522193212
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z14softmax_kernelPfii#6",
+      "kernel_id": 6,
       "source_invocation_key": "_Z14softmax_kernelPfii_6",
       "kernel_name": "_Z14softmax_kernelPfii",
-      "kernel_id": 6,
-      "trace_order": 6,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "24x1x1",
-      "block_dim": "256x1x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 9030720,
       "exec_time": 66554.6667,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 9030720,
       "feature_vector": {
         "total_dynamic_insts": 9030720,
         "num_blocks": 24,
@@ -213,27 +145,15 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z11context_mulPKfS0_Pfiii#7",
+      "kernel_id": 7,
       "source_invocation_key": "_Z11context_mulPKfS0_Pfiii_7",
       "kernel_name": "_Z11context_mulPKfS0_Pfiii",
-      "kernel_id": 7,
-      "trace_order": 7,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "4x32x12",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 109707264,
       "exec_time": 257856.0,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 109707264,
       "feature_vector": {
         "total_dynamic_insts": 109707264,
         "num_blocks": 1536,
@@ -249,27 +169,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.9190600522193212
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 0,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9331229448217794,
-      "kernel_squash_behavior_summary": "kernels 0..6: _Z10gemm_tiledPKfS0_Pfiii_1 ... _Z11context_mulPKfS0_Pfiii_7",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#8",
+      "kernel_id": 8,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_8",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 8,
-      "trace_order": 8,
-      "kernel_name_occurrence": 5,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 98832384,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 98832384,
       "feature_vector": {
         "total_dynamic_insts": 98832384,
         "num_blocks": 1536,
@@ -285,27 +193,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 1,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 1.0,
-      "kernel_squash_behavior_summary": "kernels 7..7: _Z10gemm_tiledPKfS0_Pfiii_8",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z12residual_addPfPKfi#9",
+      "kernel_id": 9,
       "source_invocation_key": "_Z12residual_addPfPKfi_9",
       "kernel_name": "_Z12residual_addPfPKfi",
-      "kernel_id": 9,
-      "trace_order": 9,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "1536x1x1",
-      "block_dim": "256x1x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 356352,
       "exec_time": 7021.3333,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 356352,
       "feature_vector": {
         "total_dynamic_insts": 356352,
         "num_blocks": 1536,
@@ -321,27 +217,15 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 2,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 1.0,
-      "kernel_squash_behavior_summary": "kernels 8..8: _Z12residual_addPfPKfi_9",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z16layernorm_kernelPfii#10",
+      "kernel_id": 10,
       "source_invocation_key": "_Z16layernorm_kernelPfii_10",
       "kernel_name": "_Z16layernorm_kernelPfii",
-      "kernel_id": 10,
-      "trace_order": 10,
-      "kernel_name_occurrence": 1,
-      "grid_dim": "512x1x1",
-      "block_dim": "256x1x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 3555328,
       "exec_time": 10712.0,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 3555328,
       "feature_vector": {
         "total_dynamic_insts": 3555328,
         "num_blocks": 512,
@@ -357,27 +241,15 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 3,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9227390339177678,
-      "kernel_squash_behavior_summary": "kernels 9..11: _Z16layernorm_kernelPfii_10 ... _Z10gemm_tiledPKfS0_Pfiii_12",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#11",
+      "kernel_id": 11,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_11",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 11,
-      "trace_order": 11,
-      "kernel_name_occurrence": 6,
-      "grid_dim": "192x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 395329536,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 395329536,
       "feature_vector": {
         "total_dynamic_insts": 395329536,
         "num_blocks": 6144,
@@ -393,27 +265,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 3,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9227390339177678,
-      "kernel_squash_behavior_summary": "kernels 9..11: _Z16layernorm_kernelPfii_10 ... _Z10gemm_tiledPKfS0_Pfiii_12",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#12",
+      "kernel_id": 12,
       "source_invocation_key": "_Z10gemm_tiledPKfS0_Pfiii_12",
       "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
-      "kernel_id": 12,
-      "trace_order": 12,
-      "kernel_name_occurrence": 7,
-      "grid_dim": "48x32x1",
-      "block_dim": "16x16x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 392564736,
       "exec_time": 557115.6757,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 392564736,
       "feature_vector": {
         "total_dynamic_insts": 392564736,
         "num_blocks": 1536,
@@ -429,27 +289,15 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 3,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 0.9227390339177678,
-      "kernel_squash_behavior_summary": "kernels 9..11: _Z16layernorm_kernelPfii_10 ... _Z10gemm_tiledPKfS0_Pfiii_12",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z12residual_addPfPKfi#13",
+      "kernel_id": 13,
       "source_invocation_key": "_Z12residual_addPfPKfi_13",
       "kernel_name": "_Z12residual_addPfPKfi",
-      "kernel_id": 13,
-      "trace_order": 13,
-      "kernel_name_occurrence": 2,
-      "grid_dim": "1536x1x1",
-      "block_dim": "256x1x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 356352,
       "exec_time": 7021.3333,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 356352,
       "feature_vector": {
         "total_dynamic_insts": 356352,
         "num_blocks": 1536,
@@ -465,27 +313,15 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 4,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 1.0,
-      "kernel_squash_behavior_summary": "kernels 12..12: _Z12residual_addPfPKfi_13",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     },
     {
-      "kernel_invocation_id": "_Z16layernorm_kernelPfii#14",
+      "kernel_id": 14,
       "source_invocation_key": "_Z16layernorm_kernelPfii_14",
       "kernel_name": "_Z16layernorm_kernelPfii",
-      "kernel_id": 14,
-      "trace_order": 14,
-      "kernel_name_occurrence": 2,
-      "grid_dim": "512x1x1",
-      "block_dim": "256x1x1",
-      "shape_hint": null,
+      "dynamic_inst_count": 3555328,
       "exec_time": 10712.0,
       "exec_time_source": "duration_ns",
-      "dynamic_inst_count": 3555328,
       "feature_vector": {
         "total_dynamic_insts": 3555328,
         "num_blocks": 512,
@@ -501,13 +337,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json",
-      "kernel_squash_segment_id": 5,
-      "kernel_squash_boundary_count": 5,
-      "kernel_squash_cohesion": 1.0,
-      "kernel_squash_behavior_summary": "kernels 13..13: _Z16layernorm_kernelPfii_14",
-      "tb_squash_segment_count": 1,
-      "tb_squash_boundary_count": 0
+      "feature_source_note": "frontend_anchor_sources feature payload derived from mini_transformer_v4_full.json"
     }
   ]
 }

@@ -78,9 +78,27 @@ def _build_tb_level_squash_map(squash_data: dict[str, Any]) -> dict[int, dict[st
 
 
 def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    invocations = identity_data.get("invocations")
+    if isinstance(invocations, list) and invocations:
+        normalized: dict[int, dict[str, Any]] = {}
+        for item in invocations:
+            kernel_id = item.get("kernel_id")
+            if kernel_id is None:
+                raise ValueError("identity_json invocation missing kernel_id")
+            normalized[int(kernel_id)] = {
+                "source_invocation_key": item.get("source_invocation_key", f"kernel_{kernel_id}"),
+                "kernel_name": item["kernel_name"],
+                "kernel_id": int(kernel_id),
+                "grid_dim": item.get("grid_dim"),
+                "block_dim": item.get("block_dim"),
+                "shape_hint": item.get("shape_hint"),
+                "trace_order": item.get("trace_order"),
+            }
+        return normalized
+
     per_kernel = identity_data.get("per_kernel", {})
     if not isinstance(per_kernel, dict) or not per_kernel:
-        raise ValueError("identity_json does not contain a non-empty per_kernel mapping")
+        raise ValueError("identity_json does not contain a non-empty per_kernel mapping or invocations list")
     normalized: dict[int, dict[str, Any]] = {}
     for source_invocation_key, item in per_kernel.items():
         kernel_id = item.get("kernel_id")
@@ -93,14 +111,34 @@ def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[
             "grid_dim": item.get("dynamic_stats", {}).get("grid_dim"),
             "block_dim": item.get("dynamic_stats", {}).get("block_dim"),
             "shape_hint": None,
+            "trace_order": None,
         }
     return normalized
 
 
 def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    feature_records = features_data.get("feature_records")
+    if isinstance(feature_records, list) and feature_records:
+        normalized: dict[int, dict[str, Any]] = {}
+        for item in feature_records:
+            kernel_id = item.get("kernel_id")
+            if kernel_id is None:
+                raise ValueError("features_json feature record missing kernel_id")
+            normalized[int(kernel_id)] = {
+                "source_invocation_key": item.get("source_invocation_key", f"kernel_{kernel_id}"),
+                "kernel_name": item["kernel_name"],
+                "kernel_id": int(kernel_id),
+                "dynamic_inst_count": item.get("dynamic_inst_count"),
+                "exec_time": item.get("exec_time"),
+                "exec_time_source": item.get("exec_time_source", "unknown"),
+                "feature_vector": item.get("feature_vector", {}),
+                "feature_source_note": item.get("feature_source_note", "feature_records"),
+            }
+        return normalized
+
     per_kernel = features_data.get("per_kernel", {})
     if not isinstance(per_kernel, dict) or not per_kernel:
-        raise ValueError("features_json does not contain a non-empty per_kernel mapping")
+        raise ValueError("features_json does not contain a non-empty per_kernel mapping or feature_records list")
     normalized: dict[int, dict[str, Any]] = {}
     for source_invocation_key, item in per_kernel.items():
         kernel_id = item.get("kernel_id")
@@ -150,14 +188,21 @@ def build_records_from_dual_sources(
 
     name_counts: dict[str, int] = defaultdict(int)
     records: list[dict[str, Any]] = []
-    ordered_kernel_ids = sorted(identity_map.keys())
-    for zero_based_idx, kernel_id in enumerate(ordered_kernel_ids):
-        identity = identity_map[kernel_id]
+    ordered_identity = sorted(
+        identity_map.values(),
+        key=lambda item: (
+            item["trace_order"] is None,
+            item["trace_order"] if item["trace_order"] is not None else item["kernel_id"],
+            item["kernel_id"],
+        ),
+    )
+    for zero_based_idx, identity in enumerate(ordered_identity):
+        kernel_id = identity["kernel_id"]
         features = feature_map[kernel_id]
         kernel_name = identity["kernel_name"]
         name_counts[kernel_name] += 1
         occurrence_index = name_counts[kernel_name]
-        trace_order = zero_based_idx + 1
+        trace_order = identity["trace_order"] if identity["trace_order"] is not None else zero_based_idx + 1
 
         record = {
             "kernel_invocation_id": f"{kernel_name}#{trace_order}",

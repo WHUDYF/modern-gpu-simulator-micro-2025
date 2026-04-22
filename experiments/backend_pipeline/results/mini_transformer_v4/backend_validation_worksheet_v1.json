@@ -20,13 +20,17 @@
     }
   ],
   "budget_definition": {
+    "family_preselection_count": 3,
     "family_preselection": "Top-3 families (recommended target)",
     "comparison_strategies": [
       "importance-guided",
       "time-only",
       "name-based",
       "no-priority"
-    ]
+    ],
+    "main_object_max_scenarios": 2,
+    "review_object_max_scenarios": 1,
+    "constraint_object_max_scenarios": 1
   },
   "parameter_scenarios": [
     {

@@ -12,34 +12,99 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-REVIEW_OBJECTS = {"R4_layernorm_reduction"}
-CONSTRAINT_OBJECTS = {"R6_residual_elementwise"}
-ORIGINAL_ORDER = ["R1_projection_dense", "R2_attention_score_dense", "R3_softmax_reduction", "R4_layernorm_reduction", "R5_context_streaming", "R6_residual_elementwise"]
+REQUIRED_REGIME_FIELDS = {
+    "object_level",
+    "object_id",
+    "family_id",
+    "regime_id",
+    "priority_source",
+    "priority_rank",
+    "simulator_lane_id",
+    "parameter_scenario_ids",
+    "recommended_tuning_target",
+    "canonical_status",
+    "validation_role",
+    "expected_signal",
+    "original_order",
+}
+REQUIRED_FAMILY_FIELDS = {
+    "object_level",
+    "object_id",
+    "family_id",
+    "priority_source",
+    "priority_rank",
+}
 
 
 def load_json(path: Path):
     return json.loads(path.read_text())
 
 
-def _validation_role(regime_id: str) -> str:
-    if regime_id in REVIEW_OBJECTS:
-        return "review-object"
-    if regime_id in CONSTRAINT_OBJECTS:
-        return "constraint-object"
-    return "main-object"
+def _required_strategies(worksheet: dict) -> list[str]:
+    strategies = worksheet.get("budget_definition", {}).get("comparison_strategies")
+    if not isinstance(strategies, list) or not strategies:
+        raise ValueError("validation worksheet must define non-empty budget_definition.comparison_strategies")
+    return strategies
 
 
-def _scenario_limit(regime_id: str, scenarios: list[str]) -> list[str]:
-    role = _validation_role(regime_id)
+def _family_preselection_count(worksheet: dict) -> int:
+    value = worksheet.get("budget_definition", {}).get("family_preselection_count")
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError("validation worksheet must define positive integer budget_definition.family_preselection_count")
+    return value
+
+
+def _max_scenarios(worksheet: dict, role: str) -> int:
+    mapping = {
+        "main-object": "main_object_max_scenarios",
+        "review-object": "review_object_max_scenarios",
+        "constraint-object": "constraint_object_max_scenarios",
+    }
+    value = worksheet.get("budget_definition", {}).get(mapping[role])
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"validation worksheet must define positive integer budget_definition.{mapping[role]}")
+    return value
+
+
+def _scenario_limit(row: dict, worksheet: dict) -> list[str]:
+    role = row["validation_role"]
     if role in {"review-object", "constraint-object"}:
-        return scenarios[:1]
-    return scenarios[:2]
+        return row["parameter_scenario_ids"][: _max_scenarios(worksheet, role)]
+    return row["parameter_scenario_ids"][: _max_scenarios(worksheet, role)]
 
 
-def _top_three_families(priority_lane_table: list[dict]) -> list[str]:
-    families = [row for row in priority_lane_table if row["object_level"] == "family" and row["priority_source"] == "importance-guided"]
+def _validate_priority_lane_table(priority_lane_table: list[dict], worksheet: dict) -> None:
+    required_strategies = set(_required_strategies(worksheet))
+    family_rows = [row for row in priority_lane_table if row.get("object_level") == "family"]
+    regime_rows = [row for row in priority_lane_table if row.get("object_level") == "regime"]
+
+    if not family_rows or not regime_rows:
+        raise ValueError("priority lane table must contain both family and regime rows")
+
+    for row in family_rows:
+        missing = REQUIRED_FAMILY_FIELDS - set(row.keys())
+        if missing:
+            raise ValueError(f"family priority row is missing required fields: {sorted(missing)}")
+    for row in regime_rows:
+        missing = REQUIRED_REGIME_FIELDS - set(row.keys())
+        if missing:
+            raise ValueError(f"regime priority row is missing required fields: {sorted(missing)}")
+        if not isinstance(row["parameter_scenario_ids"], list) or not row["parameter_scenario_ids"]:
+            raise ValueError(f"regime row {row.get('regime_id')} must have non-empty parameter_scenario_ids")
+
+    family_sources = {row["priority_source"] for row in family_rows}
+    regime_sources = {row["priority_source"] for row in regime_rows}
+    if family_sources != required_strategies or regime_sources != required_strategies:
+        raise ValueError(
+            "priority lane table must cover exactly the worksheet comparison strategies "
+            f"(expected {sorted(required_strategies)}, got family={sorted(family_sources)}, regime={sorted(regime_sources)})"
+        )
+
+
+def _top_families_for_source(priority_lane_table: list[dict], source: str, limit: int) -> list[str]:
+    families = [row for row in priority_lane_table if row["object_level"] == "family" and row["priority_source"] == source]
     families.sort(key=lambda row: row["priority_rank"])
-    return [row["family_id"] for row in families[:3]]
+    return [row["family_id"] for row in families[:limit]]
 
 
 def _order_rows(rows: list[dict], source: str) -> list[dict]:
@@ -49,20 +114,25 @@ def _order_rows(rows: list[dict], source: str) -> list[dict]:
         return sorted(rows, key=lambda row: row["priority_rank"])
     if source == "name-based":
         return sorted(rows, key=lambda row: row["regime_id"])
-    return sorted(rows, key=lambda row: ORIGINAL_ORDER.index(row["regime_id"]))
+    return sorted(rows, key=lambda row: row["original_order"])
 
 
-def build_run_manifest(priority_lane_table: list[dict]) -> list[dict]:
-    top_families = _top_three_families(priority_lane_table)
+def build_run_manifest(priority_lane_table: list[dict], worksheet: dict) -> list[dict]:
+    _validate_priority_lane_table(priority_lane_table, worksheet)
     manifest = []
-    regime_rows = [
-        row for row in priority_lane_table
-        if row["object_level"] == "regime" and (row["family_id"] in top_families or row["regime_id"] in CONSTRAINT_OBJECTS)
-    ]
-    for source in ["importance-guided", "time-only", "name-based", "no-priority"]:
-        rows = _order_rows([row for row in regime_rows if row["priority_source"] == source], source)
+    strategies = _required_strategies(worksheet)
+    family_limit = _family_preselection_count(worksheet)
+    regime_rows = [row for row in priority_lane_table if row["object_level"] == "regime"]
+    for source in strategies:
+        top_families = _top_families_for_source(priority_lane_table, source, family_limit)
+        selected_rows = [
+            row for row in regime_rows
+            if row["priority_source"] == source
+            and (row["family_id"] in top_families or row["validation_role"] == "constraint-object")
+        ]
+        rows = _order_rows(selected_rows, source)
         for row in rows:
-            for scenario_id in _scenario_limit(row["regime_id"], row["parameter_scenario_ids"]):
+            for scenario_id in _scenario_limit(row, worksheet):
                 manifest.append(
                     {
                         "run_id": f"RUN_{source.replace('-', '_')}_{row['regime_id']}_{scenario_id}",
@@ -76,7 +146,7 @@ def build_run_manifest(priority_lane_table: list[dict]) -> list[dict]:
                         "parameter_scenario_id": scenario_id,
                         "recommended_tuning_target": row["recommended_tuning_target"],
                         "canonical_status": row["canonical_status"],
-                        "validation_role": _validation_role(row["regime_id"]),
+                        "validation_role": row["validation_role"],
                         "expected_signal": row["expected_signal"],
                         "run_status": "planned",
                     }
@@ -93,11 +163,13 @@ def build_scenario_matrix(run_manifest: list[dict]) -> list[dict]:
     return list(grouped.values())
 
 
-def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict]) -> dict:
-    top_families = _top_three_families(priority_lane_table)
+def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict], worksheet: dict) -> dict:
+    strategies = _required_strategies(worksheet)
+    family_limit = _family_preselection_count(worksheet)
     plan = {"comparison_scope": "family -> regime", "budget_policy": {"family_preselection": "Top-3 families (recommended target)", "main_object_scenarios": "up to 2", "review_object_scenarios": "1", "constraint_object_scenarios": "1, budget tail"}, "strategies": {}}
-    for source in ["importance-guided", "time-only", "name-based", "no-priority"]:
+    for source in strategies:
         rows = [row for row in run_manifest if row["priority_source"] == source]
+        top_families = _top_families_for_source(priority_lane_table, source, family_limit)
         plan["strategies"][source] = {"selected_families": top_families, "selected_regimes": [row["regime_id"] for row in rows], "run_count": len(rows)}
     return plan
 
@@ -131,10 +203,10 @@ def main() -> None:
     args = parser.parse_args()
 
     priority_lane_table = load_json(args.priority_lane_table)
-    _ = load_json(args.validation_worksheet)
-    manifest = build_run_manifest(priority_lane_table)
+    worksheet = load_json(args.validation_worksheet)
+    manifest = build_run_manifest(priority_lane_table, worksheet)
     scenario_matrix = build_scenario_matrix(manifest)
-    baseline_plan = build_baseline_plan(manifest, priority_lane_table)
+    baseline_plan = build_baseline_plan(manifest, priority_lane_table, worksheet)
     result_summary = build_result_summary_template(manifest)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "backend_run_manifest_v1.json").write_text(json.dumps(manifest, indent=2))

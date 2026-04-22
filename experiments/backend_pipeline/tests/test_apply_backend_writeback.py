@@ -160,3 +160,69 @@ def test_writeback_preserves_constraint_object_bottleneck_note(tmp_path):
     validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
     family_status = next(row for row in validation["family_status"] if row["family_id"] == "F4_elementwise_fusion")
     assert "R6_residual_elementwise" in family_status["regime_ids"]
+
+
+def test_writeback_fails_on_mismatched_run_and_regime(tmp_path):
+    output_dir = _prepare_environment(tmp_path)
+    bad = [
+        {
+            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+            "object_id": "R2_attention_score_dense",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R2_attention_score_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "observed_metric_values": {},
+            "baseline_delta": {},
+            "sensitivity_score": 0.5,
+            "coverage_gain": 0.0,
+            "tuning_gain": 0.0,
+            "result_status": "success",
+            "notes": "intentional mismatch",
+        }
+    ]
+    (output_dir / "backend_result_summary_v1.json").write_text(json.dumps(bad, indent=2))
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(WRITEBACK_SCRIPT),
+            "--run-manifest",
+            str(output_dir / "backend_run_manifest_v1.json"),
+            "--result-summary",
+            str(output_dir / "backend_result_summary_v1.json"),
+            "--writeback-map",
+            str(output_dir / "backend_writeback_map_v1.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "mismatches manifest" in result.stderr or "mismatches manifest" in result.stdout
+
+
+def test_writeback_fails_on_duplicate_result_rows(tmp_path):
+    output_dir = _prepare_environment(tmp_path)
+    _write_result_summary(output_dir)
+    result_summary = json.loads((output_dir / "backend_result_summary_v1.json").read_text())
+    result_summary.append(result_summary[0])
+    (output_dir / "backend_result_summary_v1.json").write_text(json.dumps(result_summary, indent=2))
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(WRITEBACK_SCRIPT),
+            "--run-manifest",
+            str(output_dir / "backend_run_manifest_v1.json"),
+            "--result-summary",
+            str(output_dir / "backend_result_summary_v1.json"),
+            "--writeback-map",
+            str(output_dir / "backend_writeback_map_v1.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "duplicate result_summary row" in result.stderr or "duplicate result_summary row" in result.stdout

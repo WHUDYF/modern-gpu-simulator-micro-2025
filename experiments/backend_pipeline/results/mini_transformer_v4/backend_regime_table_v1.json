@@ -19,6 +19,8 @@
     "local_decision_weight_label": "High",
     "regime_priority_score": 0.803991,
     "simulator_lane_id": "L1_dense_projection",
+    "validation_role": "main-object",
+    "original_order": 0,
     "validation_status": "pending"
   },
   {
@@ -41,6 +43,8 @@
     "local_decision_weight_label": "High",
     "regime_priority_score": 0.488166,
     "simulator_lane_id": "L2_attention_score",
+    "validation_role": "main-object",
+    "original_order": 1,
     "validation_status": "pending"
   },
   {
@@ -63,6 +67,8 @@
     "local_decision_weight_label": "High",
     "regime_priority_score": 0.364648,
     "simulator_lane_id": "L3_softmax",
+    "validation_role": "main-object",
+    "original_order": 2,
     "validation_status": "pending"
   },
   {
@@ -85,6 +91,8 @@
     "local_decision_weight_label": "Medium-High",
     "regime_priority_score": 0.287258,
     "simulator_lane_id": "L5_context_mul",
+    "validation_role": "main-object",
+    "original_order": 4,
     "validation_status": "pending"
   },
   {
@@ -107,6 +115,8 @@
     "local_decision_weight_label": "Medium",
     "regime_priority_score": 0.279968,
     "simulator_lane_id": "L4_layernorm",
+    "validation_role": "review-object",
+    "original_order": 3,
     "validation_status": "pending-review"
   },
   {
@@ -129,6 +139,8 @@
     "local_decision_weight_label": "Low",
     "regime_priority_score": 0.156284,
     "simulator_lane_id": "L6_residual_add",
+    "validation_role": "constraint-object",
+    "original_order": 5,
     "validation_status": "pending"
   }
 ]

@@ -59,6 +59,24 @@ LANE_SPECS = {
     "L6_residual_add": ("constraint-memory", ["S7_constraint_regression"], "residual_add acts as a low-priority constraint and memory-side check"),
 }
 
+REGIME_VALIDATION_ROLES = {
+    "R1_projection_dense": "main-object",
+    "R2_attention_score_dense": "main-object",
+    "R3_softmax_reduction": "main-object",
+    "R4_layernorm_reduction": "review-object",
+    "R5_context_streaming": "main-object",
+    "R6_residual_elementwise": "constraint-object",
+}
+
+REGIME_ORIGINAL_ORDER = [
+    "R1_projection_dense",
+    "R2_attention_score_dense",
+    "R3_softmax_reduction",
+    "R4_layernorm_reduction",
+    "R5_context_streaming",
+    "R6_residual_elementwise",
+]
+
 PARAMETER_SCENARIOS = {
     "S1_register_pressure": {"scenario_id": "S1_register_pressure", "focus": "register-sensitive"},
     "S2_occupancy_balance": {"scenario_id": "S2_occupancy_balance", "focus": "occupancy-sensitive"},
@@ -208,6 +226,8 @@ def build_regime_table(anchor_table: list[dict[str, Any]], family_table: list[di
                 "local_decision_weight_label": local_label,
                 "regime_priority_score": _fmt(priority),
                 "simulator_lane_id": lane_id,
+                "validation_role": REGIME_VALIDATION_ROLES[regime_id],
+                "original_order": REGIME_ORIGINAL_ORDER.index(regime_id),
                 "validation_status": "pending-review" if canon_status == "review-needed" else "pending",
             }
         )
@@ -240,12 +260,26 @@ def build_priority_lane_table(family_table: list[dict[str, Any]], regime_table: 
             regs = regime_table[:]
         for rank, regime in enumerate(regs, start=1):
             lane_type, scenarios, expected = LANE_SPECS[regime["simulator_lane_id"]]
-            rows.append({"priority_item_id": f"P_regime_{regime['regime_id']}_{source.replace('-', '_')}", "object_level": "regime", "object_id": regime["regime_id"], "family_id": regime["family_id"], "regime_id": regime["regime_id"], "priority_source": source, "priority_rank": rank, "canonical_status": regime["canonical_status"], "simulator_lane_id": regime["simulator_lane_id"], "lane_type": lane_type, "recommended_tuning_target": next(f["recommended_tuning_target"] for f in family_table if f["family_id"] == regime["family_id"]), "parameter_scenario_ids": scenarios, "expected_signal": expected, "score": regime["regime_priority_score"] if source == "importance-guided" else regime["time_weight"] if source == "time-only" else 0.0, "status": "planned"})
+            rows.append({"priority_item_id": f"P_regime_{regime['regime_id']}_{source.replace('-', '_')}", "object_level": "regime", "object_id": regime["regime_id"], "family_id": regime["family_id"], "regime_id": regime["regime_id"], "priority_source": source, "priority_rank": rank, "canonical_status": regime["canonical_status"], "simulator_lane_id": regime["simulator_lane_id"], "lane_type": lane_type, "recommended_tuning_target": next(f["recommended_tuning_target"] for f in family_table if f["family_id"] == regime["family_id"]), "parameter_scenario_ids": scenarios, "expected_signal": expected, "validation_role": regime["validation_role"], "original_order": regime["original_order"], "score": regime["regime_priority_score"] if source == "importance-guided" else regime["time_weight"] if source == "time-only" else 0.0, "status": "planned"})
     return rows
 
 
 def build_validation_worksheet(priority_lane_table: list[dict[str, Any]]) -> dict[str, Any]:
-    return {"validation_round_id": "mini_transformer_v4_backend_v1", "target_scope": "mini_transformer_v4", "baseline_defs": BASELINE_DEFS, "budget_definition": {"family_preselection": "Top-3 families (recommended target)", "comparison_strategies": ["importance-guided", "time-only", "name-based", "no-priority"]}, "parameter_scenarios": list(PARAMETER_SCENARIOS.values()), "notes": "First validation pass uses family -> regime expansion."}
+    return {
+        "validation_round_id": "mini_transformer_v4_backend_v1",
+        "target_scope": "mini_transformer_v4",
+        "baseline_defs": BASELINE_DEFS,
+        "budget_definition": {
+            "family_preselection_count": 3,
+            "family_preselection": "Top-3 families (recommended target)",
+            "comparison_strategies": ["importance-guided", "time-only", "name-based", "no-priority"],
+            "main_object_max_scenarios": 2,
+            "review_object_max_scenarios": 1,
+            "constraint_object_max_scenarios": 1,
+        },
+        "parameter_scenarios": list(PARAMETER_SCENARIOS.values()),
+        "notes": "First validation pass uses family -> regime expansion.",
+    }
 
 
 def build_writeback_map(regime_table: list[dict[str, Any]], anchor_table: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -18,6 +18,15 @@ def load_json(path: Path):
     return json.loads(path.read_text())
 
 
+def _validate_unique_rows(rows: list[dict], key_fields: tuple[str, ...], label: str) -> None:
+    seen = set()
+    for row in rows:
+        key = tuple(row[field] for field in key_fields)
+        if key in seen:
+            raise ValueError(f"duplicate {label} row for key {key}")
+        seen.add(key)
+
+
 def _derive_decision_update(result_status: str, sensitivity_score):
     if result_status == "success":
         return "increase"
@@ -79,6 +88,10 @@ def _explanation_note(result_row: dict, validation_role: str, canonical_status: 
 
 
 def build_writeback_updates(run_manifest: list[dict], result_summary: list[dict], writeback_map: list[dict]) -> list[dict]:
+    _validate_unique_rows(run_manifest, ("run_id",), "run_manifest")
+    _validate_unique_rows(result_summary, ("run_id",), "result_summary")
+    _validate_unique_rows(writeback_map, ("regime_id", "parameter_scenario_id"), "writeback_map")
+
     manifest_by_run = {row["run_id"]: row for row in run_manifest}
     writeback_by_key = {
         (row["regime_id"], row["parameter_scenario_id"]): row for row in writeback_map
@@ -86,8 +99,18 @@ def build_writeback_updates(run_manifest: list[dict], result_summary: list[dict]
 
     updates = []
     for result in result_summary:
+        if result["run_id"] not in manifest_by_run:
+            raise ValueError(f"result_summary row references unknown run_id: {result['run_id']}")
         manifest_row = manifest_by_run[result["run_id"]]
+        for field in ("family_id", "regime_id", "priority_source", "parameter_scenario_id"):
+            if result[field] != manifest_row[field]:
+                raise ValueError(
+                    f"result_summary row for {result['run_id']} mismatches manifest on {field}: "
+                    f"{result[field]} != {manifest_row[field]}"
+                )
         key = (result["regime_id"], result["parameter_scenario_id"])
+        if key not in writeback_by_key:
+            raise ValueError(f"writeback_map is missing key {key}")
         writeback_row = writeback_by_key[key]
         validation_role = manifest_row["validation_role"]
         result_status = result["result_status"]

@@ -57,11 +57,19 @@ def test_middle_layer_mappings_are_internally_consistent():
     for family in bundle["families"]:
         assert set(family["input_anchor_ids"]).issubset(anchor_ids)
         assert "decision_weight_factors" in family
+        assert "coverage_weight" in family
+        assert "time_weight" in family
+        assert "decision_weight" in family
+        assert set(family["weight_source"]) == {"coverage", "time", "decision"}
 
     for regime in bundle["regimes"]:
         assert regime["family_id"] in family_ids
         assert set(regime["source_anchor_ids"]).issubset(anchor_ids)
         assert "decision_weight_factors" in regime
+        assert "coverage_weight" in regime
+        assert "time_weight" in regime
+        assert "local_decision_weight" in regime
+        assert set(regime["weight_source"]) == {"coverage", "time", "decision"}
         assert regime["simulator_lane_id"].startswith("L")
 
     for lane in bundle["lanes"]:
@@ -84,6 +92,31 @@ def test_metadata_records_rule_config_path():
     assert bundle["metadata"]["rule_config_path"] == "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
 
 
+def test_importance_scoring_sheet_and_writeback_records_exist_and_align():
+    bundle = build_middle_layer_artifacts(REPO_ROOT)
+
+    scoring_rows = bundle["importance_scoring_sheet"]
+    writeback_rows = bundle["writeback_lane_to_regime"]
+
+    assert len(scoring_rows) == len(bundle["families"]) + len(bundle["regimes"])
+    assert len(writeback_rows) == len(bundle["lanes"])
+
+    valid_weight_sources = {"measured", "derived", "provisional", "placeholder"}
+    for row in scoring_rows:
+        assert "coverage_weight" in row
+        assert "time_weight" in row
+        assert "decision_weight" in row
+        assert set(row["weight_source"].values()).issubset(valid_weight_sources)
+
+    lane_by_id = {lane["lane_id"]: lane for lane in bundle["lanes"]}
+    regime_ids = {regime["regime_id"] for regime in bundle["regimes"]}
+    for row in writeback_rows:
+        assert row["lane_id"] in lane_by_id
+        assert row["target_regime_id"] in regime_ids
+        assert row["writeback_chain"]["lane_to_regime"] == row["target_regime_id"]
+        assert row["writeback_chain"]["regime_to_family"] == row["target_family_id"]
+
+
 def test_write_middle_layer_artifacts_creates_expected_files(tmp_path):
     bundle = build_middle_layer_artifacts(REPO_ROOT)
 
@@ -99,5 +132,9 @@ def test_write_middle_layer_artifacts_creates_expected_files(tmp_path):
         "families.md",
         "regimes.md",
         "lanes.md",
+        "importance_scoring_sheet.json",
+        "importance_scoring_sheet.md",
+        "writeback_lane_to_regime.json",
+        "writeback_lane_to_regime.md",
     }
     assert {path.name for path in tmp_path.iterdir()} == expected

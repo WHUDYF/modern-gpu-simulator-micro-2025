@@ -22,6 +22,12 @@
     "resource_signature_summary": "register / occupancy primary; attention_score carries stronger shmem coupling",
     "observed_coverage_ratio": 0.5714,
     "observed_time_ratio": 0.9192,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
     "coverage_label": "High",
     "time_label": "High",
     "decision_label": "High",
@@ -33,7 +39,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "Dense backbone is the main simulator decision object and contains a boundary regime that still justifies family-level priority.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -61,6 +67,12 @@
     "resource_signature_summary": "reduction / synchronization; softmax is more cache-capacity and DRAM-pressure sensitive",
     "observed_coverage_ratio": 0.2143,
     "observed_time_ratio": 0.0198,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
     "coverage_label": "Medium",
     "time_label": "Medium-High",
     "decision_label": "High",
@@ -72,7 +84,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "Reduction family deserves high priority because it combines a high-value attention-side object and a normalization-side constraint object.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -98,6 +110,12 @@
     "resource_signature_summary": "locality-dominated / L1-resident / streaming accumulation",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.0579,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium-High",
+    "decision_weight_score": 0.75,
     "coverage_label": "Medium",
     "time_label": "Medium",
     "decision_label": "Medium-High",
@@ -109,7 +127,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "Streaming aggregation remains important because it exposes an attention readout behavior not covered by reduction or generic dense lanes.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -135,6 +153,12 @@
     "resource_signature_summary": "lightweight memory-side fusion",
     "observed_coverage_ratio": 0.1429,
     "observed_time_ratio": 0.0031,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "decision_weight": "Low-Medium",
+    "decision_weight_score": 0.45,
     "coverage_label": "High",
     "time_label": "Low",
     "decision_label": "Low-Medium",
@@ -146,7 +170,7 @@
       "is_constraint_object": true
     },
     "decision_weight_note": "Residual elementwise remains important as a regression / constraint object, not as a primary tuning target.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"

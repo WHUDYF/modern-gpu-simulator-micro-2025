@@ -1,0 +1,249 @@
+[
+  {
+    "object_level": "family",
+    "object_id": "F1_dense_tiled_backbone",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.9,
+    "priority_class": "High",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Dense backbone is the main simulator decision object and contains a boundary regime that still justifies family-level priority."
+  },
+  {
+    "object_level": "family",
+    "object_id": "F2_reduction_normalize",
+    "parent_family_id": "F2_reduction_normalize",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.75,
+    "priority_class": "High",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Reduction family deserves high priority because it combines a high-value attention-side object and a normalization-side constraint object."
+  },
+  {
+    "object_level": "family",
+    "object_id": "F3_streaming_aggregation",
+    "parent_family_id": "F3_streaming_aggregation",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium-High",
+    "decision_weight_score": 0.75,
+    "importance_score": 0.645,
+    "priority_class": "Medium",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Streaming aggregation remains important because it exposes an attention readout behavior not covered by reduction or generic dense lanes."
+  },
+  {
+    "object_level": "family",
+    "object_id": "F4_elementwise_residual",
+    "parent_family_id": "F4_elementwise_residual",
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "decision_weight": "Low-Medium",
+    "decision_weight_score": 0.45,
+    "importance_score": 0.525,
+    "priority_class": "Low",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Residual elementwise remains important as a regression / constraint object, not as a primary tuning target."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R1_qkv_projection_dense",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.9,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "This is the front dense backbone regime and should remain the highest-priority projection object."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R2_attention_score_dense",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.7875,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "attention_score stays in the dense family but must remain an independent regime because it can shift backend parameter direction."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R3_output_projection_dense",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium",
+    "decision_weight_score": 0.6,
+    "importance_score": 0.705,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Output projection should remain separate to check whether front projection conclusions transfer after attention."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R4_ffn_expand_dense",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.825,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "FFN expansion is the heaviest late-stage dense regime and should stay independent for backend prioritization."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R5_ffn_contract_dense",
+    "parent_family_id": "F1_dense_tiled_backbone",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium",
+    "decision_weight_score": 0.6,
+    "importance_score": 0.705,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "FFN contraction should remain explicit, but is expected to have lower standalone leverage than expansion."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R6_softmax_reduction",
+    "parent_family_id": "F2_reduction_normalize",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "importance_score": 0.735,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "softmax must remain independent because it captures the attention-side reduction behavior most likely to change backend parameter direction."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R7_layernorm_reduction",
+    "parent_family_id": "F2_reduction_normalize",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium",
+    "decision_weight_score": 0.6,
+    "importance_score": 0.6525,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "layernorm should remain separate as the normalization-path constraint regime rather than a primary tuning object."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R8_context_streaming",
+    "parent_family_id": "F3_streaming_aggregation",
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium-High",
+    "decision_weight_score": 0.75,
+    "importance_score": 0.6382,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Streaming aggregation deserves its own lane because locality-sensitive behavior would be lost inside reduction or dense objects."
+  },
+  {
+    "object_level": "regime",
+    "object_id": "R9_residual_elementwise",
+    "parent_family_id": "F4_elementwise_residual",
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "decision_weight": "Low",
+    "decision_weight_score": 0.3,
+    "importance_score": 0.5288,
+    "priority_class": null,
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "decision_weight_note": "Residual elementwise should stay explicit so backend can use it as a regression and constraint lane."
+  }
+]

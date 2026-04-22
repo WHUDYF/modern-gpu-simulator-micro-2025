@@ -131,9 +131,17 @@ def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list
                 "coverage_count": len(kernel_ids),
                 "observed_coverage_ratio": _round4(coverage_ratio),
                 "observed_time_ratio": _round4(time_ratio),
+                "coverage_weight": spec["coverage_label"],
+                "coverage_weight_score": _round4(_label_score(spec["coverage_label"])),
+                "time_weight": spec["time_label"],
+                "time_weight_score": _round4(_label_score(spec["time_label"])),
                 "coverage_label": spec["coverage_label"],
                 "time_label": spec["time_label"],
                 "decision_label": spec["decision_label"],
+                "weight_source": {
+                    "coverage": "derived",
+                    "time": "derived",
+                },
                 "trace_order_summary": spec["trace_order_summary"],
                 "grid_dim_summary": grid_dim,
                 "block_dim_summary": block_dim,
@@ -181,12 +189,18 @@ def build_family_records(anchors: list[dict[str, Any]], rules: dict[str, Any]) -
                 "resource_signature_summary": family["resource_signature_summary"],
                 "observed_coverage_ratio": _round4(coverage_ratio),
                 "observed_time_ratio": _round4(time_ratio),
+                "coverage_weight": family["coverage_label"],
+                "coverage_weight_score": _round4(_label_score(family["coverage_label"])),
+                "time_weight": family["time_label"],
+                "time_weight_score": _round4(_label_score(family["time_label"])),
+                "decision_weight": family["decision_label"],
+                "decision_weight_score": _round4(_label_score(family["decision_label"])),
                 "coverage_label": family["coverage_label"],
                 "time_label": family["time_label"],
                 "decision_label": family["decision_label"],
                 "decision_weight_factors": family["decision_weight_factors"],
                 "decision_weight_note": family["decision_weight_note"],
-                "weight_source_status": family["weight_source_status"],
+                "weight_source": family["weight_source_status"],
                 "importance_score": _round4(importance),
                 "priority_class": family["priority_class"],
                 "recommended_tuning_target": family["recommended_tuning_target"],
@@ -232,13 +246,19 @@ def build_regime_records(
                     "resource_signature": regime["resource_signature"],
                     "observed_coverage_ratio": _round4(coverage_ratio),
                     "observed_time_ratio": _round4(time_ratio),
+                    "coverage_weight": regime["coverage_label"],
+                    "coverage_weight_score": _round4(_label_score(regime["coverage_label"])),
+                    "time_weight": regime["time_label"],
+                    "time_weight_score": _round4(_label_score(regime["time_label"])),
+                    "local_decision_weight": regime["local_decision_label"],
+                    "local_decision_weight_score": _round4(_label_score(regime["local_decision_label"])),
                     "coverage_label": regime["coverage_label"],
                     "time_label": regime["time_label"],
                     "family_importance_score": family_importance,
                     "local_decision_label": regime["local_decision_label"],
                     "decision_weight_factors": regime["decision_weight_factors"],
                     "decision_weight_note": regime["decision_weight_note"],
-                    "weight_source_status": regime["weight_source_status"],
+                    "weight_source": regime["weight_source_status"],
                     "regime_priority_score": _round4(regime_priority),
                     "simulator_lane_id": regime["lane"]["lane_id"],
                     "validation_status": regime["validation_status"],
@@ -269,6 +289,76 @@ def build_lane_records(rules: dict[str, Any]) -> list[dict[str, Any]]:
     return lanes
 
 
+def build_importance_scoring_sheet(
+    families: list[dict[str, Any]],
+    regimes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for family in families:
+        rows.append(
+            {
+                "object_level": "family",
+                "object_id": family["family_id"],
+                "parent_family_id": family["family_id"],
+                "coverage_weight": family["coverage_weight"],
+                "coverage_weight_score": family["coverage_weight_score"],
+                "time_weight": family["time_weight"],
+                "time_weight_score": family["time_weight_score"],
+                "decision_weight": family["decision_weight"],
+                "decision_weight_score": family["decision_weight_score"],
+                "importance_score": family["importance_score"],
+                "priority_class": family["priority_class"],
+                "weight_source": family["weight_source"],
+                "decision_weight_note": family["decision_weight_note"],
+            }
+        )
+    for regime in regimes:
+        rows.append(
+            {
+                "object_level": "regime",
+                "object_id": regime["regime_id"],
+                "parent_family_id": regime["family_id"],
+                "coverage_weight": regime["coverage_weight"],
+                "coverage_weight_score": regime["coverage_weight_score"],
+                "time_weight": regime["time_weight"],
+                "time_weight_score": regime["time_weight_score"],
+                "decision_weight": regime["local_decision_weight"],
+                "decision_weight_score": regime["local_decision_weight_score"],
+                "importance_score": regime["regime_priority_score"],
+                "priority_class": None,
+                "weight_source": regime["weight_source"],
+                "decision_weight_note": regime["decision_weight_note"],
+            }
+        )
+    return rows
+
+
+def build_writeback_lane_to_regime(
+    lanes: list[dict[str, Any]],
+    regimes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    regime_by_id = {regime["regime_id"]: regime for regime in regimes}
+    rows: list[dict[str, Any]] = []
+    for lane in lanes:
+        regime = regime_by_id[lane["target_regime_id"]]
+        rows.append(
+            {
+                "lane_id": lane["lane_id"],
+                "target_regime_id": lane["target_regime_id"],
+                "target_family_id": lane["target_family_id"],
+                "writeback_target": lane["writeback_target"],
+                "writeback_chain": {
+                    "lane_to_regime": lane["target_regime_id"],
+                    "regime_to_family": regime["family_id"],
+                    "family_to_workload_explanation": lane["writeback_target"],
+                },
+                "parameter_direction": lane["parameter_direction"],
+                "validation_metric": lane["validation_metric"],
+            }
+        )
+    return rows
+
+
 def build_middle_layer_artifacts(
     repo_root: Path | None = None,
     rule_config_path: Path = DEFAULT_RULE_CONFIG,
@@ -280,6 +370,8 @@ def build_middle_layer_artifacts(
     families = build_family_records(anchors, rules)
     regimes = build_regime_records(anchors, families, rules)
     lanes = build_lane_records(rules)
+    importance_scoring_sheet = build_importance_scoring_sheet(families, regimes)
+    writeback_lane_to_regime = build_writeback_lane_to_regime(lanes, regimes)
     return {
         "metadata": {
             "workload": rules["workload"],
@@ -294,6 +386,8 @@ def build_middle_layer_artifacts(
         "families": families,
         "regimes": regimes,
         "lanes": lanes,
+        "importance_scoring_sheet": importance_scoring_sheet,
+        "writeback_lane_to_regime": writeback_lane_to_regime,
     }
 
 
@@ -405,17 +499,64 @@ def render_markdown_snapshots(bundle: dict[str, Any]) -> dict[str, str]:
             "",
         ]
     )
+    scoring_md = "\n".join(
+        header
+        + [
+            "## Importance Scoring Sheet",
+            "",
+            _markdown_table(
+                bundle["importance_scoring_sheet"],
+                [
+                    "object_level",
+                    "object_id",
+                    "parent_family_id",
+                    "coverage_weight",
+                    "time_weight",
+                    "decision_weight",
+                    "importance_score",
+                ],
+            ),
+            "",
+        ]
+    )
+    writeback_md = "\n".join(
+        header
+        + [
+            "## Writeback Lane To Regime",
+            "",
+            _markdown_table(
+                bundle["writeback_lane_to_regime"],
+                [
+                    "lane_id",
+                    "target_regime_id",
+                    "target_family_id",
+                    "writeback_target",
+                    "parameter_direction",
+                ],
+            ),
+            "",
+        ]
+    )
     return {
         "anchors.md": anchors_md,
         "families.md": families_md,
         "regimes.md": regimes_md,
         "lanes.md": lanes_md,
+        "importance_scoring_sheet.md": scoring_md,
+        "writeback_lane_to_regime.md": writeback_md,
     }
 
 
 def write_middle_layer_artifacts(bundle: dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("anchors", "families", "regimes", "lanes"):
+    for name in (
+        "anchors",
+        "families",
+        "regimes",
+        "lanes",
+        "importance_scoring_sheet",
+        "writeback_lane_to_regime",
+    ):
         (output_dir / f"{name}.json").write_text(json.dumps(bundle[name], indent=2, ensure_ascii=True) + "\n")
     (output_dir / "bundle.json").write_text(json.dumps(bundle, indent=2, ensure_ascii=True) + "\n")
     for name, text in render_markdown_snapshots(bundle).items():

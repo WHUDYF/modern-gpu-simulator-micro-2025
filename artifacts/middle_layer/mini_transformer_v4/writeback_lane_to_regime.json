@@ -1,0 +1,119 @@
+[
+  {
+    "lane_id": "L1_dense_projection",
+    "target_regime_id": "R1_qkv_projection_dense",
+    "target_family_id": "F1_dense_tiled_backbone",
+    "writeback_target": "R1 -> F1 -> dense backbone summary",
+    "writeback_chain": {
+      "lane_to_regime": "R1_qkv_projection_dense",
+      "regime_to_family": "F1_dense_tiled_backbone",
+      "family_to_workload_explanation": "R1 -> F1 -> dense backbone summary"
+    },
+    "parameter_direction": "register-sensitive, occupancy-sensitive",
+    "validation_metric": "cycles delta, occupancy response, top-k coverage gain"
+  },
+  {
+    "lane_id": "L2_attention_score",
+    "target_regime_id": "R2_attention_score_dense",
+    "target_family_id": "F1_dense_tiled_backbone",
+    "writeback_target": "R2 -> F1 boundary refinement",
+    "writeback_chain": {
+      "lane_to_regime": "R2_attention_score_dense",
+      "regime_to_family": "F1_dense_tiled_backbone",
+      "family_to_workload_explanation": "R2 -> F1 boundary refinement"
+    },
+    "parameter_direction": "shared-memory-coupled, register-sensitive",
+    "validation_metric": "cycles delta, cache behavior shift, shmem-coupled response"
+  },
+  {
+    "lane_id": "L3_output_projection",
+    "target_regime_id": "R3_output_projection_dense",
+    "target_family_id": "F1_dense_tiled_backbone",
+    "writeback_target": "R3 -> F1 dense reuse note",
+    "writeback_chain": {
+      "lane_to_regime": "R3_output_projection_dense",
+      "regime_to_family": "F1_dense_tiled_backbone",
+      "family_to_workload_explanation": "R3 -> F1 dense reuse note"
+    },
+    "parameter_direction": "register-sensitive, projection-path reuse",
+    "validation_metric": "cycles delta, reuse consistency, lane overlap"
+  },
+  {
+    "lane_id": "L4_ffn_expand",
+    "target_regime_id": "R4_ffn_expand_dense",
+    "target_family_id": "F1_dense_tiled_backbone",
+    "writeback_target": "R4 -> F1 FFN summary",
+    "writeback_chain": {
+      "lane_to_regime": "R4_ffn_expand_dense",
+      "regime_to_family": "F1_dense_tiled_backbone",
+      "family_to_workload_explanation": "R4 -> F1 FFN summary"
+    },
+    "parameter_direction": "register-sensitive, large-shape dense compute",
+    "validation_metric": "cycles delta, priority rank gain, sensitivity concentration"
+  },
+  {
+    "lane_id": "L5_ffn_contract",
+    "target_regime_id": "R5_ffn_contract_dense",
+    "target_family_id": "F1_dense_tiled_backbone",
+    "writeback_target": "R5 -> F1 secondary regime note",
+    "writeback_chain": {
+      "lane_to_regime": "R5_ffn_contract_dense",
+      "regime_to_family": "F1_dense_tiled_backbone",
+      "family_to_workload_explanation": "R5 -> F1 secondary regime note"
+    },
+    "parameter_direction": "dense contraction reuse, occupancy-sensitive",
+    "validation_metric": "cycles delta, marginal gain"
+  },
+  {
+    "lane_id": "L6_softmax",
+    "target_regime_id": "R6_softmax_reduction",
+    "target_family_id": "F2_reduction_normalize",
+    "writeback_target": "R6 -> F2 reduction summary",
+    "writeback_chain": {
+      "lane_to_regime": "R6_softmax_reduction",
+      "regime_to_family": "F2_reduction_normalize",
+      "family_to_workload_explanation": "R6 -> F2 reduction summary"
+    },
+    "parameter_direction": "cache-sensitive, reduction-sensitive",
+    "validation_metric": "cycles delta, dram throughput response, cache behavior response"
+  },
+  {
+    "lane_id": "L7_layernorm",
+    "target_regime_id": "R7_layernorm_reduction",
+    "target_family_id": "F2_reduction_normalize",
+    "writeback_target": "R7 -> F2 normalization note",
+    "writeback_chain": {
+      "lane_to_regime": "R7_layernorm_reduction",
+      "regime_to_family": "F2_reduction_normalize",
+      "family_to_workload_explanation": "R7 -> F2 normalization note"
+    },
+    "parameter_direction": "reduction-sensitive, normalization-path validation",
+    "validation_metric": "cycles delta, normalization consistency"
+  },
+  {
+    "lane_id": "L8_context_streaming",
+    "target_regime_id": "R8_context_streaming",
+    "target_family_id": "F3_streaming_aggregation",
+    "writeback_target": "R8 -> F3 streaming summary",
+    "writeback_chain": {
+      "lane_to_regime": "R8_context_streaming",
+      "regime_to_family": "F3_streaming_aggregation",
+      "family_to_workload_explanation": "R8 -> F3 streaming summary"
+    },
+    "parameter_direction": "locality-sensitive, L1-sensitive",
+    "validation_metric": "cycles delta, l1 hit response, locality concentration"
+  },
+  {
+    "lane_id": "L9_residual_regression",
+    "target_regime_id": "R9_residual_elementwise",
+    "target_family_id": "F4_elementwise_residual",
+    "writeback_target": "R9 -> F4 residual constraint note",
+    "writeback_chain": {
+      "lane_to_regime": "R9_residual_elementwise",
+      "regime_to_family": "F4_elementwise_residual",
+      "family_to_workload_explanation": "R9 -> F4 residual constraint note"
+    },
+    "parameter_direction": "lightweight memory-side, regression-check",
+    "validation_metric": "correctness-preserving delta, regression stability"
+  }
+]

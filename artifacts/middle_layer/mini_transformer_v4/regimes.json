@@ -13,6 +13,12 @@
     "resource_signature": "register-limited dense backbone",
     "observed_coverage_ratio": 0.2857,
     "observed_time_ratio": 0.5011,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
     "coverage_label": "High",
     "time_label": "High",
     "family_importance_score": 0.9,
@@ -25,7 +31,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "This is the front dense backbone regime and should remain the highest-priority projection object.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -49,6 +55,12 @@
     "resource_signature": "register + shmem coupled dense compute",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.0422,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
     "coverage_label": "Medium",
     "time_label": "Medium-High",
     "family_importance_score": 0.9,
@@ -61,7 +73,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "attention_score stays in the dense family but must remain an independent regime because it can shift backend parameter direction.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -85,6 +97,12 @@
     "resource_signature": "dense transform with post-attention context",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
     "coverage_label": "Medium",
     "time_label": "Medium",
     "family_importance_score": 0.9,
@@ -97,7 +115,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "Output projection should remain separate to check whether front projection conclusions transfer after attention.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -121,6 +139,12 @@
     "resource_signature": "large-shape dense compute, register-sensitive",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
     "coverage_label": "Medium",
     "time_label": "High",
     "family_importance_score": 0.9,
@@ -133,7 +157,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "FFN expansion is the heaviest late-stage dense regime and should stay independent for backend prioritization.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -157,6 +181,12 @@
     "resource_signature": "dense contraction with lower local leverage than expansion",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
     "coverage_label": "Medium",
     "time_label": "Medium",
     "family_importance_score": 0.9,
@@ -169,7 +199,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "FFN contraction should remain explicit, but is expected to have lower standalone leverage than expansion.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -193,6 +223,12 @@
     "resource_signature": "cache-capacity-sensitive, DRAM-pressure",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.015,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
     "coverage_label": "Medium",
     "time_label": "Medium-High",
     "family_importance_score": 0.75,
@@ -205,7 +241,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "softmax must remain independent because it captures the attention-side reduction behavior most likely to change backend parameter direction.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -229,6 +265,12 @@
     "resource_signature": "reduction / normalization dominated",
     "observed_coverage_ratio": 0.1429,
     "observed_time_ratio": 0.0048,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
     "coverage_label": "Medium",
     "time_label": "Medium",
     "family_importance_score": 0.75,
@@ -241,7 +283,7 @@
       "is_constraint_object": true
     },
     "decision_weight_note": "layernorm should remain separate as the normalization-path constraint regime rather than a primary tuning object.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -265,6 +307,12 @@
     "resource_signature": "locality-dominated, L1-resident streaming",
     "observed_coverage_ratio": 0.0714,
     "observed_time_ratio": 0.0579,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium-High",
+    "local_decision_weight_score": 0.75,
     "coverage_label": "Medium",
     "time_label": "Medium",
     "family_importance_score": 0.645,
@@ -277,7 +325,7 @@
       "is_constraint_object": false
     },
     "decision_weight_note": "Streaming aggregation deserves its own lane because locality-sensitive behavior would be lost inside reduction or dense objects.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"
@@ -301,6 +349,12 @@
     "resource_signature": "lightweight elementwise memory-side",
     "observed_coverage_ratio": 0.1429,
     "observed_time_ratio": 0.0031,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "local_decision_weight": "Low",
+    "local_decision_weight_score": 0.3,
     "coverage_label": "High",
     "time_label": "Low",
     "family_importance_score": 0.525,
@@ -313,7 +367,7 @@
       "is_constraint_object": true
     },
     "decision_weight_note": "Residual elementwise should stay explicit so backend can use it as a regression and constraint lane.",
-    "weight_source_status": {
+    "weight_source": {
       "coverage": "derived",
       "time": "derived",
       "decision": "provisional"

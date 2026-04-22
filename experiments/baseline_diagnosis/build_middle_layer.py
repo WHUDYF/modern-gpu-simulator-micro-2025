@@ -10,13 +10,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "artifacts" / "middle_layer" / "mini_transformer_v4"
-DEFAULT_RULE_CONFIG = (
-    REPO_ROOT
-    / "docs"
-    / "family_criteria"
-    / "mini_transformer_v4"
-    / "mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
+DEFAULT_RULE_CONFIG_RELATIVE = Path(
+    "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
 )
+DEFAULT_RULE_CONFIG = REPO_ROOT / DEFAULT_RULE_CONFIG_RELATIVE
 
 LABEL_SCORES = {
     "Low": 0.30,
@@ -52,6 +49,14 @@ def _display_rule_config_path(rule_config_path: Path, repo_root: Path) -> str:
         return str(resolved_config)
 
 
+def _resolve_rule_config_path(repo_root: Path, rule_config_path: Path | None) -> Path:
+    if rule_config_path is None:
+        return repo_root.resolve() / DEFAULT_RULE_CONFIG_RELATIVE
+    if rule_config_path.is_absolute():
+        return rule_config_path.resolve()
+    return (repo_root.resolve() / rule_config_path).resolve()
+
+
 def _ape_key(short_name: str, grid_dim: str, block_dim: str) -> str:
     grid = f"({grid_dim.replace('x', ', ')})"
     block = f"({block_dim.replace('x', ', ')})"
@@ -82,13 +87,14 @@ def load_middle_layer_sources(repo_root: Path) -> dict[str, Any]:
     return {name: _load_json(path) if path.suffix == ".json" else path.read_text() for name, path in required.items()}
 
 
-def load_middle_layer_rules(rule_config_path: Path = DEFAULT_RULE_CONFIG) -> dict[str, Any]:
-    if not rule_config_path.exists():
-        raise FileNotFoundError(f"Missing middle-layer rule config: {rule_config_path}")
-    rules = _load_yaml(rule_config_path)
+def load_middle_layer_rules(repo_root: Path, rule_config_path: Path | None = None) -> tuple[dict[str, Any], Path]:
+    resolved_rule_config_path = _resolve_rule_config_path(repo_root, rule_config_path)
+    if not resolved_rule_config_path.exists():
+        raise FileNotFoundError(f"Missing middle-layer rule config: {resolved_rule_config_path}")
+    rules = _load_yaml(resolved_rule_config_path)
     if not isinstance(rules, dict) or "families" not in rules:
-        raise ValueError(f"Invalid middle-layer rule config: {rule_config_path}")
-    return rules
+        raise ValueError(f"Invalid middle-layer rule config: {resolved_rule_config_path}")
+    return rules, resolved_rule_config_path
 
 
 def _iter_anchor_specs(rules: dict[str, Any]) -> list[dict[str, Any]]:
@@ -126,11 +132,62 @@ def _validate_rule_config_kernel_coverage(
         raise ValueError("Invalid middle-layer rule coverage: " + "; ".join(errors))
 
 
+def _validate_anchor_mechanism_evidence(
+    sources: dict[str, Any],
+    anchor_specs: list[dict[str, Any]],
+) -> None:
+    squash_segments = sources["squash"]["kernel_level"]["squash_segments"]
+    kernel_to_squash_segments: dict[int, list[int]] = {}
+    for segment in squash_segments:
+        start, end = segment["kernel_range"]
+        for kernel_id in range(start + 1, end + 2):
+            kernel_to_squash_segments.setdefault(kernel_id, []).append(segment["segment_id"])
+
+    batch_clusters = sources["batch"]["kernel_level"]["batch_clusters"]
+    kernel_to_batch_cluster: dict[int, int] = {}
+    for cluster in batch_clusters:
+        for kernel_id in cluster["kernel_ids"]:
+            kernel_to_batch_cluster[int(kernel_id)] = int(cluster["cluster_id"])
+    batch_outliers = {int(kernel_id) for kernel_id in sources["batch"]["kernel_level"]["outlier_kernels"]}
+
+    errors: list[str] = []
+    for spec in anchor_specs:
+        expected_segments = sorted(spec.get("expected_squash_segments", []))
+        actual_segments = sorted(
+            {segment_id for kernel_id in spec["kernel_ids"] for segment_id in kernel_to_squash_segments.get(kernel_id, [])}
+        )
+        if expected_segments != actual_segments:
+            errors.append(
+                f"{spec['anchor_id']} squash segments mismatch: expected {expected_segments}, got {actual_segments}"
+            )
+
+        expected_batch_cluster_id = spec.get("expected_batch_cluster_id")
+        expected_batch_outlier = bool(spec.get("expected_batch_outlier", False))
+        actual_clusters = sorted(
+            {kernel_to_batch_cluster[kernel_id] for kernel_id in spec["kernel_ids"] if kernel_id in kernel_to_batch_cluster}
+        )
+        actual_outlier = all(kernel_id in batch_outliers for kernel_id in spec["kernel_ids"])
+        if expected_batch_outlier:
+            if not actual_outlier:
+                errors.append(f"{spec['anchor_id']} expected batch outlier membership, got clusters {actual_clusters}")
+        else:
+            if actual_outlier:
+                errors.append(f"{spec['anchor_id']} expected batch cluster {expected_batch_cluster_id}, got outlier")
+            elif actual_clusters != [expected_batch_cluster_id]:
+                errors.append(
+                    f"{spec['anchor_id']} batch cluster mismatch: expected {[expected_batch_cluster_id]}, got {actual_clusters}"
+                )
+
+    if errors:
+        raise ValueError("Invalid middle-layer mechanism evidence: " + "; ".join(errors))
+
+
 def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list[dict[str, Any]]:
     per_kernel = _per_kernel_by_id(sources["full"])
     ape_table = sources["baseline_ape"]["ape_table"]
     anchor_specs = _iter_anchor_specs(rules)
     _validate_rule_config_kernel_coverage(per_kernel, anchor_specs)
+    _validate_anchor_mechanism_evidence(sources, anchor_specs)
 
     anchor_ape_keys: dict[str, str] = {}
     ape_key_to_anchor_ids: dict[str, list[str]] = {}
@@ -427,11 +484,11 @@ def build_writeback_lane_to_regime(
 
 def build_middle_layer_artifacts(
     repo_root: Path | None = None,
-    rule_config_path: Path = DEFAULT_RULE_CONFIG,
+    rule_config_path: Path | None = None,
 ) -> dict[str, Any]:
     repo_root = repo_root or REPO_ROOT
     sources = load_middle_layer_sources(repo_root)
-    rules = load_middle_layer_rules(rule_config_path)
+    rules, resolved_rule_config_path = load_middle_layer_rules(repo_root, rule_config_path)
     anchors = build_anchor_records(sources, rules)
     families = build_family_records(anchors, rules)
     regimes = build_regime_records(anchors, families, rules)
@@ -442,7 +499,7 @@ def build_middle_layer_artifacts(
         "metadata": {
             "workload": rules["workload"],
             "builder": "experiments/baseline_diagnosis/build_middle_layer.py",
-            "rule_config_path": _display_rule_config_path(rule_config_path, repo_root),
+            "rule_config_path": _display_rule_config_path(resolved_rule_config_path, repo_root),
             "rule_config_version": rules["rule_config_version"],
             "importance_formula": "0.3*coverage_label + 0.4*time_label + 0.3*decision_label",
             "regime_priority_formula": "0.35*family_importance + 0.25*coverage_label + 0.25*time_label + 0.15*local_decision_label",

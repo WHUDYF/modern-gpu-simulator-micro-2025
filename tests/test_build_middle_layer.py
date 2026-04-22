@@ -135,6 +135,23 @@ def test_invalid_rule_config_kernel_coverage_raises():
     assert "missing kernel ids" in message
 
 
+def test_invalid_rule_config_mechanism_evidence_raises():
+    config = yaml.safe_load(DEFAULT_RULE_CONFIG.read_text())
+    config["families"][0]["anchors"][0]["expected_squash_segments"] = [99]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_config_path = Path(tmpdir) / "bad_rules.yaml"
+        bad_config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+        try:
+            build_middle_layer_artifacts(REPO_ROOT, bad_config_path)
+        except ValueError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Expected ValueError for invalid squash evidence")
+
+    assert "squash segments mismatch" in message
+
+
 def test_importance_scoring_sheet_and_writeback_records_exist_and_align():
     bundle = build_middle_layer_artifacts(REPO_ROOT)
 

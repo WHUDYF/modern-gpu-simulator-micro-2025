@@ -2,17 +2,21 @@
   "metadata": {
     "workload": "mini_transformer_v4",
     "builder": "experiments/baseline_diagnosis/build_middle_layer.py",
+    "rule_config_path": "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml",
+    "rule_config_version": "v1",
     "importance_formula": "0.3*coverage_label + 0.4*time_label + 0.3*decision_label",
     "regime_priority_formula": "0.35*family_importance + 0.25*coverage_label + 0.25*time_label + 0.15*local_decision_label",
-    "notes": "Observed coverage/time ratios come from kernel invocation membership and weighted elapsed cycles; qualitative labels remain provisional."
+    "notes": "Observed coverage/time ratios come from kernel invocation membership and weighted elapsed cycles; qualitative labels remain provisional and are backed by rule notes in the YAML config."
   },
   "anchors": [
     {
       "anchor_id": "A1_qkv_projection_dense_48x32",
+      "family_id": "F1_dense_tiled_backbone",
       "kernel_name": "gemm_tiled",
       "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
       "phase_id": "Phase A",
       "context_scope": "Q/K/V projection path",
+      "semantic_route": "qkv_projection",
       "cluster_id": "C_dense_proj_qkv",
       "member_invocations": [
         1,
@@ -35,14 +39,16 @@
       "weighted_elapsed_cycles": 3041626.054,
       "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
       "ape_elapsed_cycles_ape": 98.36,
-      "notes": "Dense backbone front-end anchor"
+      "notes": "Dense backbone front-end anchor."
     },
     {
       "anchor_id": "A2_attention_score_dense_32x32x12",
+      "family_id": "F1_dense_tiled_backbone",
       "kernel_name": "attention_score",
       "kernel_name_raw": "_Z15attention_scorePKfS0_Pfiii",
       "phase_id": "Phase B",
       "context_scope": "attention score path",
+      "semantic_route": "attention_score",
       "cluster_id": "C_dense_attention_score",
       "member_invocations": [
         5
@@ -62,68 +68,16 @@
       "weighted_elapsed_cycles": 255911.5,
       "ape_lookup_key": "attention_score|(32, 32, 12)|(16, 16, 1)",
       "ape_elapsed_cycles_ape": 54.48,
-      "notes": "Dense family boundary anchor"
-    },
-    {
-      "anchor_id": "A3_softmax_reduce_24x1",
-      "kernel_name": "softmax_kernel",
-      "kernel_name_raw": "_Z14softmax_kernelPfii",
-      "phase_id": "Phase B",
-      "context_scope": "attention normalization path",
-      "cluster_id": "C_reduce_attention_softmax",
-      "member_invocations": [
-        6
-      ],
-      "coverage_count": 1,
-      "observed_coverage_ratio": 0.0714,
-      "observed_time_ratio": 0.015,
-      "coverage_label": "Medium",
-      "time_label": "Medium-High",
-      "decision_label": "High",
-      "trace_order_summary": "attention normalize stage",
-      "grid_dim_summary": "24x1x1",
-      "block_dim_summary": "256x1x1",
-      "shape_hint_summary": "row-wise reduction normalize region",
-      "route_hint": "Reduction / Normalize",
-      "template_hint": "Reduction Template",
-      "weighted_elapsed_cycles": 90821.0,
-      "ape_lookup_key": null,
-      "ape_elapsed_cycles_ape": null,
-      "notes": "Reduction family attention-side anchor"
-    },
-    {
-      "anchor_id": "A4_context_stream_4x32x12",
-      "kernel_name": "context_mul",
-      "kernel_name_raw": "_Z11context_mulPKfS0_Pfiii",
-      "phase_id": "Phase B",
-      "context_scope": "attention aggregation path",
-      "cluster_id": "C_stream_attention_context",
-      "member_invocations": [
-        7
-      ],
-      "coverage_count": 1,
-      "observed_coverage_ratio": 0.0714,
-      "observed_time_ratio": 0.0579,
-      "coverage_label": "Medium",
-      "time_label": "Medium",
-      "decision_label": "Medium-High",
-      "trace_order_summary": "attention aggregation stage",
-      "grid_dim_summary": "4x32x12",
-      "block_dim_summary": "16x16x1",
-      "shape_hint_summary": "streaming weighted aggregation region",
-      "route_hint": "Weighted Aggregation",
-      "template_hint": "Streaming Aggregation Template",
-      "weighted_elapsed_cycles": 351616.6667,
-      "ape_lookup_key": "context_mul|(4, 32, 12)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 98.76,
-      "notes": "Streaming aggregation anchor"
+      "notes": "Dense family boundary anchor."
     },
     {
       "anchor_id": "A5_output_projection_dense_48x32",
+      "family_id": "F1_dense_tiled_backbone",
       "kernel_name": "gemm_tiled",
       "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
       "phase_id": "Phase B_to_C",
       "context_scope": "attention output projection path",
+      "semantic_route": "output_projection",
       "cluster_id": "C_dense_output_proj",
       "member_invocations": [
         8
@@ -143,42 +97,103 @@
       "weighted_elapsed_cycles": 760406.5135,
       "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
       "ape_elapsed_cycles_ape": 98.36,
-      "notes": "Post-attention dense projection anchor"
+      "notes": "Post-attention dense projection anchor."
     },
     {
-      "anchor_id": "A6_residual_elementwise_1536",
-      "kernel_name": "residual_add",
-      "kernel_name_raw": "_Z12residual_addPfPKfi",
+      "anchor_id": "A8_ffn_expand_dense_192x32",
+      "family_id": "F1_dense_tiled_backbone",
+      "kernel_name": "gemm_tiled",
+      "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
       "phase_id": "Phase C",
-      "context_scope": "residual path",
-      "cluster_id": "C_elementwise_residual",
+      "context_scope": "FFN expansion path",
+      "semantic_route": "ffn_expand",
+      "cluster_id": "C_dense_ffn_expand",
       "member_invocations": [
-        9,
-        13
+        11
       ],
-      "coverage_count": 2,
-      "observed_coverage_ratio": 0.1429,
-      "observed_time_ratio": 0.0031,
-      "coverage_label": "High",
-      "time_label": "Low",
-      "decision_label": "Low-Medium",
-      "trace_order_summary": "repeated after attention and FFN",
-      "grid_dim_summary": "1536x1x1",
+      "coverage_count": 1,
+      "observed_coverage_ratio": 0.0714,
+      "observed_time_ratio": 0.1253,
+      "coverage_label": "Medium",
+      "time_label": "High",
+      "decision_label": "High",
+      "trace_order_summary": "FFN expansion stage",
+      "grid_dim_summary": "192x32x1",
+      "block_dim_summary": "16x16x1",
+      "shape_hint_summary": "large dense transform region",
+      "route_hint": "Dense Projection/Transform",
+      "template_hint": "Dense Tiled Compute",
+      "weighted_elapsed_cycles": 760406.5135,
+      "ape_lookup_key": "gemm_tiled|(192, 32, 1)|(16, 16, 1)",
+      "ape_elapsed_cycles_ape": 97.84,
+      "notes": "Dense family heavy back-end anchor."
+    },
+    {
+      "anchor_id": "A9_ffn_contract_dense_48x32",
+      "family_id": "F1_dense_tiled_backbone",
+      "kernel_name": "gemm_tiled",
+      "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
+      "phase_id": "Phase C",
+      "context_scope": "FFN contraction path",
+      "semantic_route": "ffn_contract",
+      "cluster_id": "C_dense_ffn_contract",
+      "member_invocations": [
+        12
+      ],
+      "coverage_count": 1,
+      "observed_coverage_ratio": 0.0714,
+      "observed_time_ratio": 0.1253,
+      "coverage_label": "Medium",
+      "time_label": "Medium",
+      "decision_label": "Medium",
+      "trace_order_summary": "FFN contraction stage",
+      "grid_dim_summary": "48x32x1",
+      "block_dim_summary": "16x16x1",
+      "shape_hint_summary": "dense contraction region",
+      "route_hint": "Dense Projection/Transform",
+      "template_hint": "Dense Tiled Compute",
+      "weighted_elapsed_cycles": 760406.5135,
+      "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
+      "ape_elapsed_cycles_ape": 98.36,
+      "notes": "Dense family contraction anchor."
+    },
+    {
+      "anchor_id": "A3_softmax_reduce_24x1",
+      "family_id": "F2_reduction_normalize",
+      "kernel_name": "softmax_kernel",
+      "kernel_name_raw": "_Z14softmax_kernelPfii",
+      "phase_id": "Phase B",
+      "context_scope": "attention normalization path",
+      "semantic_route": "attention_softmax",
+      "cluster_id": "C_reduce_attention_softmax",
+      "member_invocations": [
+        6
+      ],
+      "coverage_count": 1,
+      "observed_coverage_ratio": 0.0714,
+      "observed_time_ratio": 0.015,
+      "coverage_label": "Medium",
+      "time_label": "Medium-High",
+      "decision_label": "High",
+      "trace_order_summary": "attention normalize stage",
+      "grid_dim_summary": "24x1x1",
       "block_dim_summary": "256x1x1",
-      "shape_hint_summary": "elementwise residual region",
-      "route_hint": "Elementwise Fusion",
-      "template_hint": "Elementwise Template",
-      "weighted_elapsed_cycles": 19055.5,
-      "ape_lookup_key": "residual_add|(1536, 1, 1)|(256, 1, 1)",
-      "ape_elapsed_cycles_ape": 67.14,
-      "notes": "High-frequency residual regression anchor"
+      "shape_hint_summary": "row-wise reduction normalize region",
+      "route_hint": "Reduction / Normalize",
+      "template_hint": "Reduction Template",
+      "weighted_elapsed_cycles": 90821.0,
+      "ape_lookup_key": null,
+      "ape_elapsed_cycles_ape": null,
+      "notes": "Reduction family attention-side anchor."
     },
     {
       "anchor_id": "A7_layernorm_reduce_512",
+      "family_id": "F2_reduction_normalize",
       "kernel_name": "layernorm_kernel",
       "kernel_name_raw": "_Z16layernorm_kernelPfii",
       "phase_id": "Phase C",
       "context_scope": "normalization path",
+      "semantic_route": "layernorm",
       "cluster_id": "C_reduce_layernorm",
       "member_invocations": [
         10,
@@ -199,61 +214,66 @@
       "weighted_elapsed_cycles": 29125.3334,
       "ape_lookup_key": "layernorm_kernel|(512, 1, 1)|(256, 1, 1)",
       "ape_elapsed_cycles_ape": 82.68,
-      "notes": "Normalization-path reduction anchor"
+      "notes": "Normalization-path reduction anchor."
     },
     {
-      "anchor_id": "A8_ffn_expand_dense_192x32",
-      "kernel_name": "gemm_tiled",
-      "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
-      "phase_id": "Phase C",
-      "context_scope": "FFN expansion path",
-      "cluster_id": "C_dense_ffn_expand",
+      "anchor_id": "A4_context_stream_4x32x12",
+      "family_id": "F3_streaming_aggregation",
+      "kernel_name": "context_mul",
+      "kernel_name_raw": "_Z11context_mulPKfS0_Pfiii",
+      "phase_id": "Phase B",
+      "context_scope": "attention aggregation path",
+      "semantic_route": "context_aggregation",
+      "cluster_id": "C_stream_attention_context",
       "member_invocations": [
-        11
+        7
       ],
       "coverage_count": 1,
       "observed_coverage_ratio": 0.0714,
-      "observed_time_ratio": 0.1253,
-      "coverage_label": "Medium",
-      "time_label": "High",
-      "decision_label": "High",
-      "trace_order_summary": "FFN expansion stage",
-      "grid_dim_summary": "192x32x1",
-      "block_dim_summary": "16x16x1",
-      "shape_hint_summary": "large dense transform region",
-      "route_hint": "Dense Projection/Transform",
-      "template_hint": "Dense Tiled Compute",
-      "weighted_elapsed_cycles": 760406.5135,
-      "ape_lookup_key": "gemm_tiled|(192, 32, 1)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 97.84,
-      "notes": "Dense family heavy back-end anchor"
-    },
-    {
-      "anchor_id": "A9_ffn_contract_dense_48x32",
-      "kernel_name": "gemm_tiled",
-      "kernel_name_raw": "_Z10gemm_tiledPKfS0_Pfiii",
-      "phase_id": "Phase C",
-      "context_scope": "FFN contraction path",
-      "cluster_id": "C_dense_ffn_contract",
-      "member_invocations": [
-        12
-      ],
-      "coverage_count": 1,
-      "observed_coverage_ratio": 0.0714,
-      "observed_time_ratio": 0.1253,
+      "observed_time_ratio": 0.0579,
       "coverage_label": "Medium",
       "time_label": "Medium",
-      "decision_label": "Medium",
-      "trace_order_summary": "FFN contraction stage",
-      "grid_dim_summary": "48x32x1",
+      "decision_label": "Medium-High",
+      "trace_order_summary": "attention aggregation stage",
+      "grid_dim_summary": "4x32x12",
       "block_dim_summary": "16x16x1",
-      "shape_hint_summary": "dense contraction region",
-      "route_hint": "Dense Projection/Transform",
-      "template_hint": "Dense Tiled Compute",
-      "weighted_elapsed_cycles": 760406.5135,
-      "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 98.36,
-      "notes": "Dense family contraction anchor"
+      "shape_hint_summary": "streaming weighted aggregation region",
+      "route_hint": "Weighted Aggregation",
+      "template_hint": "Streaming Aggregation Template",
+      "weighted_elapsed_cycles": 351616.6667,
+      "ape_lookup_key": "context_mul|(4, 32, 12)|(16, 16, 1)",
+      "ape_elapsed_cycles_ape": 98.76,
+      "notes": "Streaming aggregation anchor."
+    },
+    {
+      "anchor_id": "A6_residual_elementwise_1536",
+      "family_id": "F4_elementwise_residual",
+      "kernel_name": "residual_add",
+      "kernel_name_raw": "_Z12residual_addPfPKfi",
+      "phase_id": "Phase C",
+      "context_scope": "residual path",
+      "semantic_route": "residual_add",
+      "cluster_id": "C_elementwise_residual",
+      "member_invocations": [
+        9,
+        13
+      ],
+      "coverage_count": 2,
+      "observed_coverage_ratio": 0.1429,
+      "observed_time_ratio": 0.0031,
+      "coverage_label": "High",
+      "time_label": "Low",
+      "decision_label": "Low-Medium",
+      "trace_order_summary": "repeated after attention and FFN",
+      "grid_dim_summary": "1536x1x1",
+      "block_dim_summary": "256x1x1",
+      "shape_hint_summary": "elementwise residual region",
+      "route_hint": "Elementwise Fusion",
+      "template_hint": "Elementwise Template",
+      "weighted_elapsed_cycles": 19055.5,
+      "ape_lookup_key": "residual_add|(1536, 1, 1)|(256, 1, 1)",
+      "ape_elapsed_cycles_ape": 67.14,
+      "notes": "High-frequency residual regression anchor."
     }
   ],
   "families": [
@@ -275,7 +295,7 @@
       "route_primitive": "Dense Projection/Transform + Pairwise Score",
       "hardware_template": "Dense Tiled Compute",
       "boundary_status": "weak_share_but_keep_together",
-      "boundary_notes": "attention_score differs in route and shmem signature, but shares the dense tiled execution template with projection and FFN anchors.",
+      "boundary_notes": "attention_score differs in semantic route and shmem signature, but shares the dense tiled execution template with projection and FFN anchors.",
       "shape_regime_summary": "48x32 projection/contract, 192x32 expansion, 32x32x12 pairwise score",
       "resource_signature_summary": "register / occupancy primary; attention_score carries stronger shmem coupling",
       "observed_coverage_ratio": 0.5714,
@@ -283,6 +303,19 @@
       "coverage_label": "High",
       "time_label": "High",
       "decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": true,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "Dense backbone is the main simulator decision object and contains a boundary regime that still justifies family-level priority.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "importance_score": 0.9,
       "priority_class": "High",
       "recommended_tuning_target": "register-sensitive, occupancy-sensitive, dense tiled path",
@@ -309,6 +342,19 @@
       "coverage_label": "Medium",
       "time_label": "Medium-High",
       "decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": true,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "Reduction family deserves high priority because it combines a high-value attention-side object and a normalization-side constraint object.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "importance_score": 0.75,
       "priority_class": "High",
       "recommended_tuning_target": "cache-capacity, reduction behavior, normalization path sensitivity",
@@ -333,6 +379,19 @@
       "coverage_label": "Medium",
       "time_label": "Medium",
       "decision_label": "Medium-High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "Streaming aggregation remains important because it exposes an attention readout behavior not covered by reduction or generic dense lanes.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "importance_score": 0.645,
       "priority_class": "Medium",
       "recommended_tuning_target": "locality-sensitive, aggregation path validation",
@@ -357,6 +416,19 @@
       "coverage_label": "High",
       "time_label": "Low",
       "decision_label": "Low-Medium",
+      "decision_weight_factors": {
+        "is_main_path": false,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": false,
+        "is_constraint_object": true
+      },
+      "decision_weight_note": "Residual elementwise remains important as a regression / constraint object, not as a primary tuning target.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "importance_score": 0.525,
       "priority_class": "Low",
       "recommended_tuning_target": "lightweight regression, constraint checking",
@@ -382,7 +454,21 @@
       "time_label": "High",
       "family_importance_score": 0.9,
       "local_decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "This is the front dense backbone regime and should remain the highest-priority projection object.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.9,
+      "simulator_lane_id": "L1_dense_projection",
       "validation_status": "pending",
       "notes": "Primary dense regime."
     },
@@ -404,7 +490,21 @@
       "time_label": "Medium-High",
       "family_importance_score": 0.9,
       "local_decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": true,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "attention_score stays in the dense family but must remain an independent regime because it can shift backend parameter direction.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.7875,
+      "simulator_lane_id": "L2_attention_score",
       "validation_status": "pending",
       "notes": "Boundary regime that should not be merged into generic dense projection."
     },
@@ -426,7 +526,21 @@
       "time_label": "Medium",
       "family_importance_score": 0.9,
       "local_decision_label": "Medium",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": false,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "Output projection should remain separate to check whether front projection conclusions transfer after attention.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.705,
+      "simulator_lane_id": "L3_output_projection",
       "validation_status": "pending",
       "notes": "Checks whether projection lane conclusions transfer after attention."
     },
@@ -448,7 +562,21 @@
       "time_label": "High",
       "family_importance_score": 0.9,
       "local_decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "FFN expansion is the heaviest late-stage dense regime and should stay independent for backend prioritization.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.825,
+      "simulator_lane_id": "L4_ffn_expand",
       "validation_status": "pending",
       "notes": "Heavy dense regime in later pipeline stage."
     },
@@ -470,7 +598,21 @@
       "time_label": "Medium",
       "family_importance_score": 0.9,
       "local_decision_label": "Medium",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": false,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "FFN contraction should remain explicit, but is expected to have lower standalone leverage than expansion.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.705,
+      "simulator_lane_id": "L5_ffn_contract",
       "validation_status": "pending",
       "notes": "Secondary dense regime."
     },
@@ -492,7 +634,21 @@
       "time_label": "Medium-High",
       "family_importance_score": 0.75,
       "local_decision_label": "High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "softmax must remain independent because it captures the attention-side reduction behavior most likely to change backend parameter direction.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.735,
+      "simulator_lane_id": "L6_softmax",
       "validation_status": "pending",
       "notes": "Primary reduction regime."
     },
@@ -514,7 +670,21 @@
       "time_label": "Medium",
       "family_importance_score": 0.75,
       "local_decision_label": "Medium",
+      "decision_weight_factors": {
+        "is_main_path": false,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": false,
+        "is_constraint_object": true
+      },
+      "decision_weight_note": "layernorm should remain separate as the normalization-path constraint regime rather than a primary tuning object.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.6525,
+      "simulator_lane_id": "L7_layernorm",
       "validation_status": "pending",
       "notes": "Normalization-path constraint regime."
     },
@@ -536,7 +706,21 @@
       "time_label": "Medium",
       "family_importance_score": 0.645,
       "local_decision_label": "Medium-High",
+      "decision_weight_factors": {
+        "is_main_path": true,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": true,
+        "is_constraint_object": false
+      },
+      "decision_weight_note": "Streaming aggregation deserves its own lane because locality-sensitive behavior would be lost inside reduction or dense objects.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.6382,
+      "simulator_lane_id": "L8_context_streaming",
       "validation_status": "pending",
       "notes": "Independent streaming regime."
     },
@@ -558,7 +742,21 @@
       "time_label": "Low",
       "family_importance_score": 0.525,
       "local_decision_label": "Low",
+      "decision_weight_factors": {
+        "is_main_path": false,
+        "has_independent_lane": true,
+        "is_boundary_case": false,
+        "expected_high_sensitivity": false,
+        "is_constraint_object": true
+      },
+      "decision_weight_note": "Residual elementwise should stay explicit so backend can use it as a regression and constraint lane.",
+      "weight_source_status": {
+        "coverage": "derived",
+        "time": "derived",
+        "decision": "provisional"
+      },
       "regime_priority_score": 0.5288,
+      "simulator_lane_id": "L9_residual_regression",
       "validation_status": "pending",
       "notes": "Regression / constraint regime."
     }

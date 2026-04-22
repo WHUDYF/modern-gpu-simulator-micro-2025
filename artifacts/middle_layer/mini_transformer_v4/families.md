@@ -2,6 +2,8 @@
 
 - workload: `mini_transformer_v4`
 - builder: `experiments/baseline_diagnosis/build_middle_layer.py`
+- rule config: `docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml`
+- rule config version: `v1`
 - importance formula: `0.3*coverage_label + 0.4*time_label + 0.3*decision_label`
 - regime priority formula: `0.35*family_importance + 0.25*coverage_label + 0.25*time_label + 0.15*local_decision_label`
 

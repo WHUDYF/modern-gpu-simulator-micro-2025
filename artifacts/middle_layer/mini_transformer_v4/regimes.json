@@ -17,7 +17,21 @@
     "time_label": "High",
     "family_importance_score": 0.9,
     "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "This is the front dense backbone regime and should remain the highest-priority projection object.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.9,
+    "simulator_lane_id": "L1_dense_projection",
     "validation_status": "pending",
     "notes": "Primary dense regime."
   },
@@ -39,7 +53,21 @@
     "time_label": "Medium-High",
     "family_importance_score": 0.9,
     "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": true,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "attention_score stays in the dense family but must remain an independent regime because it can shift backend parameter direction.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.7875,
+    "simulator_lane_id": "L2_attention_score",
     "validation_status": "pending",
     "notes": "Boundary regime that should not be merged into generic dense projection."
   },
@@ -61,7 +89,21 @@
     "time_label": "Medium",
     "family_importance_score": 0.9,
     "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Output projection should remain separate to check whether front projection conclusions transfer after attention.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.705,
+    "simulator_lane_id": "L3_output_projection",
     "validation_status": "pending",
     "notes": "Checks whether projection lane conclusions transfer after attention."
   },
@@ -83,7 +125,21 @@
     "time_label": "High",
     "family_importance_score": 0.9,
     "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "FFN expansion is the heaviest late-stage dense regime and should stay independent for backend prioritization.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.825,
+    "simulator_lane_id": "L4_ffn_expand",
     "validation_status": "pending",
     "notes": "Heavy dense regime in later pipeline stage."
   },
@@ -105,7 +161,21 @@
     "time_label": "Medium",
     "family_importance_score": 0.9,
     "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "FFN contraction should remain explicit, but is expected to have lower standalone leverage than expansion.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.705,
+    "simulator_lane_id": "L5_ffn_contract",
     "validation_status": "pending",
     "notes": "Secondary dense regime."
   },
@@ -127,7 +197,21 @@
     "time_label": "Medium-High",
     "family_importance_score": 0.75,
     "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "softmax must remain independent because it captures the attention-side reduction behavior most likely to change backend parameter direction.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.735,
+    "simulator_lane_id": "L6_softmax",
     "validation_status": "pending",
     "notes": "Primary reduction regime."
   },
@@ -149,7 +233,21 @@
     "time_label": "Medium",
     "family_importance_score": 0.75,
     "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": false,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": true
+    },
+    "decision_weight_note": "layernorm should remain separate as the normalization-path constraint regime rather than a primary tuning object.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.6525,
+    "simulator_lane_id": "L7_layernorm",
     "validation_status": "pending",
     "notes": "Normalization-path constraint regime."
   },
@@ -171,7 +269,21 @@
     "time_label": "Medium",
     "family_importance_score": 0.645,
     "local_decision_label": "Medium-High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Streaming aggregation deserves its own lane because locality-sensitive behavior would be lost inside reduction or dense objects.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.6382,
+    "simulator_lane_id": "L8_context_streaming",
     "validation_status": "pending",
     "notes": "Independent streaming regime."
   },
@@ -193,7 +305,21 @@
     "time_label": "Low",
     "family_importance_score": 0.525,
     "local_decision_label": "Low",
+    "decision_weight_factors": {
+      "is_main_path": false,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": true
+    },
+    "decision_weight_note": "Residual elementwise should stay explicit so backend can use it as a regression and constraint lane.",
+    "weight_source_status": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
     "regime_priority_score": 0.5288,
+    "simulator_lane_id": "L9_residual_regression",
     "validation_status": "pending",
     "notes": "Regression / constraint regime."
   }

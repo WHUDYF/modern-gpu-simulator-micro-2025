@@ -2,3 +2,4 @@
 *.pb
 hw_run/
 simulator-remodeled/
+.humanize*

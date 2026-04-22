@@ -236,7 +236,13 @@ def build_regime_table(anchor_table: list[dict[str, Any]], family_table: list[di
 
 def build_priority_lane_table(family_table: list[dict[str, Any]], regime_table: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
-    ordered_families = family_table[:]
+    ordered_families = sorted(
+        family_table,
+        key=lambda x: (
+            min(REGIME_ORIGINAL_ORDER.index(regime["regime_id"]) for regime in regime_table if regime["family_id"] == x["family_id"]),
+            x["family_id"],
+        ),
+    )
     for source in ["importance-guided", "time-only", "name-based", "no-priority"]:
         if source == "importance-guided":
             fams = ordered_families

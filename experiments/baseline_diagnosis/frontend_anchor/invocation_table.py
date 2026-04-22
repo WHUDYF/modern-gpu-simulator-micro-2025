@@ -199,6 +199,18 @@ def build_records_from_dual_sources(
     for zero_based_idx, identity in enumerate(ordered_identity):
         kernel_id = identity["kernel_id"]
         features = feature_map[kernel_id]
+        if identity["source_invocation_key"] != features["source_invocation_key"]:
+            raise ValueError(
+                "dual-source alignment failed: "
+                f"kernel_id={kernel_id} has mismatched source_invocation_key "
+                f"{identity['source_invocation_key']} != {features['source_invocation_key']}"
+            )
+        if identity["kernel_name"] != features["kernel_name"]:
+            raise ValueError(
+                "dual-source alignment failed: "
+                f"kernel_id={kernel_id} has mismatched kernel_name "
+                f"{identity['kernel_name']} != {features['kernel_name']}"
+            )
         kernel_name = identity["kernel_name"]
         name_counts[kernel_name] += 1
         occurrence_index = name_counts[kernel_name]

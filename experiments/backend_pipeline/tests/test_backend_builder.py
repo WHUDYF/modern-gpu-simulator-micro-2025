@@ -43,3 +43,19 @@ def test_cli_writes_expected_backend_artifacts(tmp_path):
     assert expected == {path.name for path in tmp_path.iterdir()}
     family_table = json.loads((tmp_path / "backend_family_table_v1.json").read_text())
     assert family_table[0]["family_id"] == "F1_dense_tiled"
+
+
+def test_no_priority_family_baseline_uses_stable_non_importance_order():
+    outputs = build_backend_outputs(load_full_features(INPUT))
+    rows = [
+        row
+        for row in outputs["priority_lane_table"]
+        if row["object_level"] == "family" and row["priority_source"] == "no-priority"
+    ]
+    rows.sort(key=lambda row: row["priority_rank"])
+    assert [row["family_id"] for row in rows] == [
+        "F1_dense_tiled",
+        "F2_reduction_normalize",
+        "F3_streaming_aggregation",
+        "F4_elementwise_fusion",
+    ]

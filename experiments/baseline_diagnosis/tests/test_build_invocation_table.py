@@ -126,6 +126,32 @@ def test_builder_rejects_unalignable_sources(tmp_path):
     assert "dual-source alignment failed" in proc.stderr
 
 
+def test_builder_rejects_mismatched_invocation_keys_even_when_kernel_ids_match(tmp_path):
+    bad_features = tmp_path / "bad_features.json"
+    data = json.loads(FEATURES_JSON.read_text())
+    feature_records = data["feature_records"]
+    feature_records[0]["source_invocation_key"] = "mismatched_key"
+    bad_features.write_text(json.dumps(data))
+
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--identity-json",
+            str(IDENTITY_JSON),
+            "--features-json",
+            str(bad_features),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "mismatched source_invocation_key" in proc.stderr
+
+
 def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
     proc = subprocess.run(
         [

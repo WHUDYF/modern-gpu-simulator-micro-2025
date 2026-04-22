@@ -152,6 +152,43 @@ def test_invalid_rule_config_mechanism_evidence_raises():
     assert "squash segments mismatch" in message
 
 
+def test_invalid_rule_config_mixed_anchor_shapes_raises():
+    config = yaml.safe_load(DEFAULT_RULE_CONFIG.read_text())
+    config["families"][0]["anchors"][0]["kernel_ids"] = [1, 2, 3, 11]
+    config["families"][0]["anchors"][0]["expected_squash_segments"] = [0, 3]
+    config["families"][0]["anchors"][3]["kernel_ids"] = [4]
+    config["families"][0]["anchors"][3]["expected_squash_segments"] = [0]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_config_path = Path(tmpdir) / "bad_rules.yaml"
+        bad_config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+        try:
+            build_middle_layer_artifacts(REPO_ROOT, bad_config_path)
+        except ValueError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Expected ValueError for heterogeneous anchor launch shapes")
+
+    assert "heterogeneous launch shapes" in message
+
+
+def test_invalid_rule_config_duplicate_regime_ids_raises():
+    config = yaml.safe_load(DEFAULT_RULE_CONFIG.read_text())
+    config["families"][0]["regimes"][1]["regime_id"] = config["families"][0]["regimes"][0]["regime_id"]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_config_path = Path(tmpdir) / "bad_rules.yaml"
+        bad_config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+        try:
+            build_middle_layer_artifacts(REPO_ROOT, bad_config_path)
+        except ValueError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Expected ValueError for duplicate regime ids")
+
+    assert "duplicate regime ids" in message
+
+
 def test_importance_scoring_sheet_and_writeback_records_exist_and_align():
     bundle = build_middle_layer_artifacts(REPO_ROOT)
 

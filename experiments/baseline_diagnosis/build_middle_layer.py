@@ -182,6 +182,29 @@ def _validate_anchor_mechanism_evidence(
         raise ValueError("Invalid middle-layer mechanism evidence: " + "; ".join(errors))
 
 
+def _validate_anchor_member_shapes(members: list[dict[str, Any]], anchor_id: str) -> None:
+    grid_dims = {member["dynamic_stats"]["grid_dim"] for member in members}
+    block_dims = {member["dynamic_stats"]["block_dim"] for member in members}
+    raw_names = {member["kernel_name"] for member in members}
+    if len(grid_dims) != 1 or len(block_dims) != 1 or len(raw_names) != 1:
+        raise ValueError(
+            "Invalid middle-layer anchor membership: "
+            f"{anchor_id} mixes heterogeneous launch shapes or raw kernels "
+            f"(grid={sorted(grid_dims)}, block={sorted(block_dims)}, raw={sorted(raw_names)})"
+        )
+    return None
+
+
+def _validate_unique_regime_ids(rules: dict[str, Any]) -> None:
+    regime_ids: list[str] = []
+    for family in rules["families"]:
+        for regime in family["regimes"]:
+            regime_ids.append(regime["regime_id"])
+    duplicate_regime_ids = sorted({regime_id for regime_id in regime_ids if regime_ids.count(regime_id) > 1})
+    if duplicate_regime_ids:
+        raise ValueError(f"Invalid middle-layer rule config: duplicate regime ids: {duplicate_regime_ids}")
+
+
 def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list[dict[str, Any]]:
     per_kernel = _per_kernel_by_id(sources["full"])
     ape_table = sources["baseline_ape"]["ape_table"]
@@ -214,6 +237,7 @@ def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list
     for spec in anchor_specs:
         kernel_ids = spec["kernel_ids"]
         members = [per_kernel[kernel_id] for kernel_id in kernel_ids]
+        _validate_anchor_member_shapes(members, spec["anchor_id"])
         primary = members[0]
         grid_dim = primary["dynamic_stats"]["grid_dim"]
         block_dim = primary["dynamic_stats"]["block_dim"]
@@ -336,6 +360,7 @@ def build_regime_records(
     family_by_id = {family["family_id"]: family for family in families}
     total_coverage_count = sum(anchor["coverage_count"] for anchor in anchors)
     total_weighted_cycles = sum(anchor["weighted_elapsed_cycles"] for anchor in anchors)
+    _validate_unique_regime_ids(rules)
 
     regimes: list[dict[str, Any]] = []
     for family in rules["families"]:

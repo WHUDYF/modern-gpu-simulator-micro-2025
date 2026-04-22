@@ -5,11 +5,17 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+REPO_ROOT = ROOT.parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 SCRIPT = ROOT / "build_invocation_table.py"
 PIPELINE = ROOT / "build_frontend_anchor_outputs.py"
 FULL_JSON = ROOT.parent / "mini_transformer" / "mini_transformer_v4_full.json"
 SQUASH_JSON = ROOT.parent / "mini_transformer" / "mechanisms" / "squash.json"
+
+from experiments.baseline_diagnosis.frontend_anchor.selector import run_selector
+from experiments.baseline_diagnosis.frontend_anchor.invocation_table import build_records_from_full_json
 
 
 def run_builder(tmp_path, *extra):
@@ -122,5 +128,19 @@ def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
 
     assert anchor_table
     assert {"rep_kernel_id", "kernel_name", "cluster_id", "member_invocations", "coverage_weight", "time_weight"} <= set(anchor_table[0].keys())
+    assert anchor_table[0]["output_role"] == "mainline_anchor"
     assert any(row["method"] == "hybrid" for row in methods)
+    assert all(row["output_role"] == "evidence_only" for row in methods)
     assert "Representative split cases" in case_note
+    assert "evidence_only" in case_note
+
+
+def test_selector_rejects_unknown_mode():
+    records = build_records_from_full_json(FULL_JSON)["records"]
+
+    try:
+        run_selector(records, "unknown-mode")
+    except ValueError as exc:
+        assert "unknown selector mode" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown selector mode")

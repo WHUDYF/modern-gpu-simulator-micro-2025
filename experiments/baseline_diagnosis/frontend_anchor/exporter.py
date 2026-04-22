@@ -22,6 +22,7 @@ def export_anchor_table(selector_groups: list[dict[str, Any]]) -> list[dict[str,
         member_exec = [m.get("exec_time") or 0 for m in members]
         table.append(
             {
+                "output_role": "mainline_anchor",
                 "rep_kernel_id": f"rep-{group['method']}-{idx}",
                 "kernel_name": anchor["kernel_name"],
                 "cluster_id": group["cluster_id"],
@@ -48,6 +49,7 @@ def export_anchor_table(selector_groups: list[dict[str, Any]]) -> list[dict[str,
                 "notes": group.get("guardrail_note"),
             }
         )
+    _validate_anchor_table(table)
     return table
 
 
@@ -55,6 +57,33 @@ def _safe_variance(values: list[float]) -> float:
     if len(values) < 2:
         return 0.0
     return float(variance(values))
+
+
+def _validate_anchor_table(table: list[dict[str, Any]]) -> None:
+    required = {
+        "rep_kernel_id",
+        "kernel_name",
+        "cluster_id",
+        "member_invocations",
+        "coverage_count",
+        "coverage_weight",
+        "time_weight",
+    }
+    forbidden = {
+        "family_id",
+        "regime_id",
+        "route_primitive",
+        "execution_template",
+        "execution_template_label",
+        "simulator_lane_id",
+    }
+    for row in table:
+        missing = required - set(row.keys())
+        if missing:
+            raise ValueError(f"anchor table row missing required fields: {sorted(missing)}")
+        leaked = forbidden & set(row.keys())
+        if leaked:
+            raise ValueError(f"anchor table row contains forbidden downstream keys: {sorted(leaked)}")
 
 
 def build_comparison_table(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
@@ -88,6 +117,7 @@ def build_comparison_table(all_groups_by_method: dict[str, list[dict[str, Any]]]
         split_count = sum(1 for count in split_tracker.values() if count > 1)
         table.append(
             {
+                "output_role": "evidence_only",
                 "method": method,
                 "num_anchors": len(groups),
                 "time_weight_covered": top3_coverage,
@@ -103,15 +133,19 @@ def build_comparison_table(all_groups_by_method: dict[str, list[dict[str, Any]]]
 
 
 def build_case_note(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> str:
-    by_method = {
-        method: {}
-        for method in all_groups_by_method
-    }
+    by_method = {method: {} for method in all_groups_by_method}
     for method, groups in all_groups_by_method.items():
         for group in groups:
             by_method[method].setdefault(group["anchor_record"]["kernel_name"], []).append(group)
 
-    lines = ["# Frontend Anchor Case Note", "", "## Representative split cases", ""]
+    lines = [
+        "# Frontend Anchor Case Note",
+        "",
+        "_Output role: evidence_only_",
+        "",
+        "## Representative split cases",
+        "",
+    ]
     for kernel_name, hybrid_groups in by_method.get("hybrid", {}).items():
         coarse_groups = by_method.get("pka-like-coarse", {}).get(kernel_name, [])
         name_groups = by_method.get("name-only", {}).get(kernel_name, [])

@@ -1,5 +1,6 @@
 [
   {
+    "output_role": "evidence_only",
     "method": "name-only",
     "num_anchors": 6,
     "time_weight_covered": 0.977059652179158,
@@ -11,6 +12,7 @@
     "notes": "evidence-only output; not a downstream mainline table"
   },
   {
+    "output_role": "evidence_only",
     "method": "pka-like-coarse",
     "num_anchors": 7,
     "time_weight_covered": 0.9348858212451963,
@@ -22,6 +24,7 @@
     "notes": "evidence-only output; not a downstream mainline table"
   },
   {
+    "output_role": "evidence_only",
     "method": "hybrid",
     "num_anchors": 8,
     "time_weight_covered": 0.8769047486954318,

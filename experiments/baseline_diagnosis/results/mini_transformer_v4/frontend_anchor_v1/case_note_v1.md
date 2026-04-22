@@ -1,5 +1,7 @@
 # Frontend Anchor Case Note
 
+_Output role: evidence_only_
+
 ## Representative split cases
 
 ### _Z10gemm_tiledPKfS0_Pfiii

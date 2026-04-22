@@ -1,5 +1,6 @@
 [
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-1",
     "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
     "cluster_id": "hybrid-1",
@@ -28,6 +29,7 @@
     "notes": "members span multiple kernel squash segments"
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-2",
     "kernel_name": "_Z15attention_scorePKfS0_Pfiii",
     "cluster_id": "hybrid-2",
@@ -52,6 +54,7 @@
     "notes": null
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-3",
     "kernel_name": "_Z14softmax_kernelPfii",
     "cluster_id": "hybrid-3",
@@ -76,6 +79,7 @@
     "notes": null
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-4",
     "kernel_name": "_Z11context_mulPKfS0_Pfiii",
     "cluster_id": "hybrid-4",
@@ -100,6 +104,7 @@
     "notes": null
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-5",
     "kernel_name": "_Z12residual_addPfPKfi",
     "cluster_id": "hybrid-5",
@@ -125,6 +130,7 @@
     "notes": "members span multiple kernel squash segments"
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-6",
     "kernel_name": "_Z16layernorm_kernelPfii",
     "cluster_id": "hybrid-6",
@@ -150,6 +156,7 @@
     "notes": "members span multiple kernel squash segments"
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-7",
     "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
     "cluster_id": "hybrid-7",
@@ -174,6 +181,7 @@
     "notes": null
   },
   {
+    "output_role": "mainline_anchor",
     "rep_kernel_id": "rep-hybrid-8",
     "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
     "cluster_id": "hybrid-8",

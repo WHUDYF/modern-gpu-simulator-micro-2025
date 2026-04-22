@@ -1,0 +1,128 @@
+{
+  "regime_status": [
+    {
+      "regime_id": "R1_projection_dense",
+      "family_id": "F1_dense_tiled",
+      "validation_role": "main-object",
+      "canonical_status": "stable",
+      "current_status": "selected",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    },
+    {
+      "regime_id": "R2_attention_score_dense",
+      "family_id": "F1_dense_tiled",
+      "validation_role": "main-object",
+      "canonical_status": "weak-share",
+      "current_status": "pending",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    },
+    {
+      "regime_id": "R3_softmax_reduction",
+      "family_id": "F2_reduction_normalize",
+      "validation_role": "main-object",
+      "canonical_status": "stable-with-context-split",
+      "current_status": "pending",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    },
+    {
+      "regime_id": "R5_context_streaming",
+      "family_id": "F3_streaming_aggregation",
+      "validation_role": "main-object",
+      "canonical_status": "stable-singleton",
+      "current_status": "pending",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    },
+    {
+      "regime_id": "R4_layernorm_reduction",
+      "family_id": "F2_reduction_normalize",
+      "validation_role": "review-object",
+      "canonical_status": "review-needed",
+      "current_status": "pending-review",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    },
+    {
+      "regime_id": "R6_residual_elementwise",
+      "family_id": "F4_elementwise_fusion",
+      "validation_role": "constraint-object",
+      "canonical_status": "absorbed-with-bottleneck-note",
+      "current_status": "pending",
+      "review_status": "no-review",
+      "priority_sources": [
+        "importance-guided",
+        "time-only",
+        "name-based",
+        "no-priority"
+      ]
+    }
+  ],
+  "family_status": [
+    {
+      "family_id": "F1_dense_tiled",
+      "regime_ids": [
+        "R1_projection_dense",
+        "R2_attention_score_dense"
+      ],
+      "review_needed_regimes": [],
+      "validated_regimes": [],
+      "failed_regimes": []
+    },
+    {
+      "family_id": "F2_reduction_normalize",
+      "regime_ids": [
+        "R3_softmax_reduction",
+        "R4_layernorm_reduction"
+      ],
+      "review_needed_regimes": [],
+      "validated_regimes": [],
+      "failed_regimes": []
+    },
+    {
+      "family_id": "F3_streaming_aggregation",
+      "regime_ids": [
+        "R5_context_streaming"
+      ],
+      "review_needed_regimes": [],
+      "validated_regimes": [],
+      "failed_regimes": []
+    },
+    {
+      "family_id": "F4_elementwise_fusion",
+      "regime_ids": [
+        "R6_residual_elementwise"
+      ],
+      "review_needed_regimes": [],
+      "validated_regimes": [],
+      "failed_regimes": []
+    }
+  ]
+}

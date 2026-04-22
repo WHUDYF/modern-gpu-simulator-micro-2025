@@ -1,0 +1,87 @@
+{
+  "comparison_scope": "family -> regime",
+  "budget_policy": {
+    "family_preselection": "Top-3 families (recommended target)",
+    "main_object_scenarios": "up to 2",
+    "review_object_scenarios": "1",
+    "constraint_object_scenarios": "1, budget tail"
+  },
+  "strategies": {
+    "importance-guided": {
+      "selected_families": [
+        "F1_dense_tiled",
+        "F2_reduction_normalize",
+        "F3_streaming_aggregation"
+      ],
+      "selected_regimes": [
+        "R1_projection_dense",
+        "R1_projection_dense",
+        "R2_attention_score_dense",
+        "R2_attention_score_dense",
+        "R3_softmax_reduction",
+        "R3_softmax_reduction",
+        "R5_context_streaming",
+        "R4_layernorm_reduction",
+        "R6_residual_elementwise"
+      ],
+      "run_count": 9
+    },
+    "time-only": {
+      "selected_families": [
+        "F1_dense_tiled",
+        "F2_reduction_normalize",
+        "F3_streaming_aggregation"
+      ],
+      "selected_regimes": [
+        "R1_projection_dense",
+        "R1_projection_dense",
+        "R5_context_streaming",
+        "R2_attention_score_dense",
+        "R2_attention_score_dense",
+        "R3_softmax_reduction",
+        "R3_softmax_reduction",
+        "R4_layernorm_reduction",
+        "R6_residual_elementwise"
+      ],
+      "run_count": 9
+    },
+    "name-based": {
+      "selected_families": [
+        "F1_dense_tiled",
+        "F2_reduction_normalize",
+        "F3_streaming_aggregation"
+      ],
+      "selected_regimes": [
+        "R1_projection_dense",
+        "R1_projection_dense",
+        "R2_attention_score_dense",
+        "R2_attention_score_dense",
+        "R3_softmax_reduction",
+        "R3_softmax_reduction",
+        "R4_layernorm_reduction",
+        "R5_context_streaming",
+        "R6_residual_elementwise"
+      ],
+      "run_count": 9
+    },
+    "no-priority": {
+      "selected_families": [
+        "F1_dense_tiled",
+        "F2_reduction_normalize",
+        "F3_streaming_aggregation"
+      ],
+      "selected_regimes": [
+        "R1_projection_dense",
+        "R1_projection_dense",
+        "R2_attention_score_dense",
+        "R2_attention_score_dense",
+        "R3_softmax_reduction",
+        "R3_softmax_reduction",
+        "R4_layernorm_reduction",
+        "R5_context_streaming",
+        "R6_residual_elementwise"
+      ],
+      "run_count": 9
+    }
+  }
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+    "object_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "regime_id": "R1_projection_dense",
+    "priority_source": "importance-guided",
+    "parameter_scenario_id": "S1_register_pressure",
+    "observed_metric_values": {},
+    "baseline_delta": {},
+    "sensitivity_score": null,
+    "coverage_gain": null,
+    "tuning_gain": null,
+    "result_status": "inconclusive",
+    "notes": "Template sample row. Duplicate and fill with real execution results."
+  }
+]

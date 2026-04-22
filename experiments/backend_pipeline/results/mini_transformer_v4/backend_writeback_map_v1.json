@@ -1,0 +1,196 @@
+[
+  {
+    "writeback_id": "W_R1_projection_dense_S1_register_pressure",
+    "simulator_lane_id": "L1_dense_projection",
+    "regime_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "rep_kernel_ids": [
+      "A1"
+    ],
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii_1",
+      "_Z10gemm_tiledPKfS0_Pfiii_2",
+      "_Z10gemm_tiledPKfS0_Pfiii_3",
+      "_Z10gemm_tiledPKfS0_Pfiii_4",
+      "_Z10gemm_tiledPKfS0_Pfiii_8",
+      "_Z10gemm_tiledPKfS0_Pfiii_11",
+      "_Z10gemm_tiledPKfS0_Pfiii_12"
+    ],
+    "parameter_scenario_id": "S1_register_pressure",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R1_projection_dense_S2_occupancy_balance",
+    "simulator_lane_id": "L1_dense_projection",
+    "regime_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "rep_kernel_ids": [
+      "A1"
+    ],
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii_1",
+      "_Z10gemm_tiledPKfS0_Pfiii_2",
+      "_Z10gemm_tiledPKfS0_Pfiii_3",
+      "_Z10gemm_tiledPKfS0_Pfiii_4",
+      "_Z10gemm_tiledPKfS0_Pfiii_8",
+      "_Z10gemm_tiledPKfS0_Pfiii_11",
+      "_Z10gemm_tiledPKfS0_Pfiii_12"
+    ],
+    "parameter_scenario_id": "S2_occupancy_balance",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R2_attention_score_dense_S1_register_pressure",
+    "simulator_lane_id": "L2_attention_score",
+    "regime_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "rep_kernel_ids": [
+      "A2"
+    ],
+    "member_invocations": [
+      "_Z15attention_scorePKfS0_Pfiii_5"
+    ],
+    "parameter_scenario_id": "S1_register_pressure",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R2_attention_score_dense_S5_shared_memory_coupling",
+    "simulator_lane_id": "L2_attention_score",
+    "regime_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "rep_kernel_ids": [
+      "A2"
+    ],
+    "member_invocations": [
+      "_Z15attention_scorePKfS0_Pfiii_5"
+    ],
+    "parameter_scenario_id": "S5_shared_memory_coupling",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R3_softmax_reduction_S3_cache_capacity",
+    "simulator_lane_id": "L3_softmax",
+    "regime_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "rep_kernel_ids": [
+      "A3"
+    ],
+    "member_invocations": [
+      "_Z14softmax_kernelPfii_6"
+    ],
+    "parameter_scenario_id": "S3_cache_capacity",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R3_softmax_reduction_S4_reduction_path",
+    "simulator_lane_id": "L3_softmax",
+    "regime_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "rep_kernel_ids": [
+      "A3"
+    ],
+    "member_invocations": [
+      "_Z14softmax_kernelPfii_6"
+    ],
+    "parameter_scenario_id": "S4_reduction_path",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R5_context_streaming_S6_locality_path",
+    "simulator_lane_id": "L5_context_mul",
+    "regime_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "rep_kernel_ids": [
+      "A4"
+    ],
+    "member_invocations": [
+      "_Z11context_mulPKfS0_Pfiii_7"
+    ],
+    "parameter_scenario_id": "S6_locality_path",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R4_layernorm_reduction_S4_reduction_path",
+    "simulator_lane_id": "L4_layernorm",
+    "regime_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "rep_kernel_ids": [
+      "A5"
+    ],
+    "member_invocations": [
+      "_Z16layernorm_kernelPfii_10",
+      "_Z16layernorm_kernelPfii_14"
+    ],
+    "parameter_scenario_id": "S4_reduction_path",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending-review",
+    "review_status_update": "keep-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  },
+  {
+    "writeback_id": "W_R6_residual_elementwise_S7_constraint_regression",
+    "simulator_lane_id": "L6_residual_add",
+    "regime_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "rep_kernel_ids": [
+      "A6"
+    ],
+    "member_invocations": [
+      "_Z12residual_addPfPKfi_9",
+      "_Z12residual_addPfPKfi_13"
+    ],
+    "parameter_scenario_id": "S7_constraint_regression",
+    "observed_response": null,
+    "sensitivity_score": null,
+    "decision_update": null,
+    "importance_update": null,
+    "validation_status_update": "pending",
+    "review_status_update": "no-review",
+    "workload_explanation_note": "Pending writeback from result summary."
+  }
+]

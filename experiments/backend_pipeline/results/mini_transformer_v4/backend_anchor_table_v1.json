@@ -1,0 +1,136 @@
+[
+  {
+    "rep_kernel_id": "A1",
+    "kernel_name": "gemm_tiled",
+    "cluster_id": "C_dense_main",
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii_1",
+      "_Z10gemm_tiledPKfS0_Pfiii_2",
+      "_Z10gemm_tiledPKfS0_Pfiii_3",
+      "_Z10gemm_tiledPKfS0_Pfiii_4",
+      "_Z10gemm_tiledPKfS0_Pfiii_8",
+      "_Z10gemm_tiledPKfS0_Pfiii_11",
+      "_Z10gemm_tiledPKfS0_Pfiii_12"
+    ],
+    "coverage_count": 7,
+    "coverage_weight": 0.5,
+    "time_weight": 0.876905,
+    "count_weight": 0.5,
+    "inst_weight": 0.859129,
+    "trace_order_summary": "1, 2, 3, 4, 8, 11, 12",
+    "phase_id": "Phase A",
+    "grid_dim_summary": "192x32x1; 48x32x1",
+    "block_dim_summary": "16x16x1",
+    "shape_hint_summary": "projection-like dense M/N/K region",
+    "route_hint": "Dense Projection/Transform",
+    "template_hint": "Dense Tiled Compute",
+    "canonical_status": "stable"
+  },
+  {
+    "rep_kernel_id": "A2",
+    "kernel_name": "attention_score",
+    "cluster_id": "C_dense_attention",
+    "member_invocations": [
+      "_Z15attention_scorePKfS0_Pfiii_5"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.071429,
+    "time_weight": 0.042174,
+    "count_weight": 0.071429,
+    "inst_weight": 0.05606,
+    "trace_order_summary": "5",
+    "phase_id": "Phase B",
+    "grid_dim_summary": "32x32x12",
+    "block_dim_summary": "16x16x1",
+    "shape_hint_summary": "attention-score dense region",
+    "route_hint": "Pairwise Score",
+    "template_hint": "Dense Tiled Compute",
+    "canonical_status": "weak-share"
+  },
+  {
+    "rep_kernel_id": "A3",
+    "kernel_name": "softmax_kernel",
+    "cluster_id": "C_reduce_attention",
+    "member_invocations": [
+      "_Z14softmax_kernelPfii_6"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.071429,
+    "time_weight": 0.014965,
+    "count_weight": 0.071429,
+    "inst_weight": 0.006052,
+    "trace_order_summary": "6",
+    "phase_id": "Phase B",
+    "grid_dim_summary": "24x1x1",
+    "block_dim_summary": "256x1x1",
+    "shape_hint_summary": "softmax row-wise normalize region",
+    "route_hint": "Reduction / Normalize",
+    "template_hint": "Reduction Template",
+    "canonical_status": "stable-with-context-split"
+  },
+  {
+    "rep_kernel_id": "A4",
+    "kernel_name": "context_mul",
+    "cluster_id": "C_streaming_attention",
+    "member_invocations": [
+      "_Z11context_mulPKfS0_Pfiii_7"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.071429,
+    "time_weight": 0.057981,
+    "count_weight": 0.071429,
+    "inst_weight": 0.073517,
+    "trace_order_summary": "7",
+    "phase_id": "Phase B",
+    "grid_dim_summary": "4x32x12",
+    "block_dim_summary": "16x16x1",
+    "shape_hint_summary": "attention aggregation region",
+    "route_hint": "Weighted Aggregation",
+    "template_hint": "Streaming Aggregation Template",
+    "canonical_status": "stable-singleton"
+  },
+  {
+    "rep_kernel_id": "A5",
+    "kernel_name": "layernorm_kernel",
+    "cluster_id": "C_reduce_norm",
+    "member_invocations": [
+      "_Z16layernorm_kernelPfii_10",
+      "_Z16layernorm_kernelPfii_14"
+    ],
+    "coverage_count": 2,
+    "coverage_weight": 0.142857,
+    "time_weight": 0.004817,
+    "count_weight": 0.142857,
+    "inst_weight": 0.004765,
+    "trace_order_summary": "10, 14",
+    "phase_id": "Phase C",
+    "grid_dim_summary": "512x1x1",
+    "block_dim_summary": "256x1x1",
+    "shape_hint_summary": "layernorm reduction region",
+    "route_hint": "Reduction / Normalize",
+    "template_hint": "Reduction Template",
+    "canonical_status": "canonically-absorbed-review-needed"
+  },
+  {
+    "rep_kernel_id": "A6",
+    "kernel_name": "residual_add",
+    "cluster_id": "C_elementwise_residual",
+    "member_invocations": [
+      "_Z12residual_addPfPKfi_9",
+      "_Z12residual_addPfPKfi_13"
+    ],
+    "coverage_count": 2,
+    "coverage_weight": 0.142857,
+    "time_weight": 0.003158,
+    "count_weight": 0.142857,
+    "inst_weight": 0.000478,
+    "trace_order_summary": "9, 13",
+    "phase_id": "Phase C",
+    "grid_dim_summary": "1536x1x1",
+    "block_dim_summary": "256x1x1",
+    "shape_hint_summary": "residual elementwise region",
+    "route_hint": "Elementwise Fusion",
+    "template_hint": "Elementwise Template",
+    "canonical_status": "canonically-absorbed-with-bottleneck-note"
+  }
+]

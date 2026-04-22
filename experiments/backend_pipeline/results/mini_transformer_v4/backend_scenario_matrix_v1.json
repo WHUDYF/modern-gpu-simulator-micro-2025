@@ -1,0 +1,254 @@
+[
+  {
+    "object_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L1_dense_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L2_attention_score",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S5_shared_memory_coupling"
+    ]
+  },
+  {
+    "object_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_softmax",
+    "parameter_scenario_ids": [
+      "S3_cache_capacity",
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_context_mul",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ]
+  },
+  {
+    "object_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "importance-guided",
+    "validation_role": "review-object",
+    "simulator_lane_id": "L4_layernorm",
+    "parameter_scenario_ids": [
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "priority_source": "importance-guided",
+    "validation_role": "constraint-object",
+    "simulator_lane_id": "L6_residual_add",
+    "parameter_scenario_ids": [
+      "S7_constraint_regression"
+    ]
+  },
+  {
+    "object_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L1_dense_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_context_mul",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ]
+  },
+  {
+    "object_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L2_attention_score",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S5_shared_memory_coupling"
+    ]
+  },
+  {
+    "object_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_softmax",
+    "parameter_scenario_ids": [
+      "S3_cache_capacity",
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "time-only",
+    "validation_role": "review-object",
+    "simulator_lane_id": "L4_layernorm",
+    "parameter_scenario_ids": [
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "priority_source": "time-only",
+    "validation_role": "constraint-object",
+    "simulator_lane_id": "L6_residual_add",
+    "parameter_scenario_ids": [
+      "S7_constraint_regression"
+    ]
+  },
+  {
+    "object_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L1_dense_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L2_attention_score",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S5_shared_memory_coupling"
+    ]
+  },
+  {
+    "object_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_softmax",
+    "parameter_scenario_ids": [
+      "S3_cache_capacity",
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "name-based",
+    "validation_role": "review-object",
+    "simulator_lane_id": "L4_layernorm",
+    "parameter_scenario_ids": [
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_context_mul",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ]
+  },
+  {
+    "object_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "priority_source": "name-based",
+    "validation_role": "constraint-object",
+    "simulator_lane_id": "L6_residual_add",
+    "parameter_scenario_ids": [
+      "S7_constraint_regression"
+    ]
+  },
+  {
+    "object_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L1_dense_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L2_attention_score",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S5_shared_memory_coupling"
+    ]
+  },
+  {
+    "object_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_softmax",
+    "parameter_scenario_ids": [
+      "S3_cache_capacity",
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "priority_source": "no-priority",
+    "validation_role": "review-object",
+    "simulator_lane_id": "L4_layernorm",
+    "parameter_scenario_ids": [
+      "S4_reduction_path"
+    ]
+  },
+  {
+    "object_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_context_mul",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ]
+  },
+  {
+    "object_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "priority_source": "no-priority",
+    "validation_role": "constraint-object",
+    "simulator_lane_id": "L6_residual_add",
+    "parameter_scenario_ids": [
+      "S7_constraint_regression"
+    ]
+  }
+]

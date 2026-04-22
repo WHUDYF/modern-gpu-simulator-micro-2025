@@ -1,0 +1,90 @@
+[
+  {
+    "family_id": "F1_dense_tiled",
+    "phase_scope": [
+      "Phase A",
+      "Phase B"
+    ],
+    "route_primitive": "Dense Projection/Transform + Pairwise Score",
+    "hardware_template": "Dense Tiled Compute",
+    "member_rep_kernels": [
+      "A1",
+      "A2"
+    ],
+    "member_count": 2,
+    "canonical_status": "weak-share",
+    "boundary_status": "weak_share",
+    "coverage_weight": 0.571429,
+    "time_weight": 0.919079,
+    "decision_weight": 1.0,
+    "decision_weight_label": "High",
+    "importance_score": 0.83906,
+    "priority_class": "High",
+    "recommended_tuning_target": "register-sensitive, occupancy-sensitive, tiled compute path"
+  },
+  {
+    "family_id": "F2_reduction_normalize",
+    "phase_scope": [
+      "Phase B",
+      "Phase C"
+    ],
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "member_rep_kernels": [
+      "A3",
+      "A5"
+    ],
+    "member_count": 2,
+    "canonical_status": "absorbed-with-review",
+    "boundary_status": "strong_share_with_context_split",
+    "coverage_weight": 0.214286,
+    "time_weight": 0.019782,
+    "decision_weight": 1.0,
+    "decision_weight_label": "High",
+    "importance_score": 0.372199,
+    "priority_class": "Low",
+    "recommended_tuning_target": "cache-capacity, reduction behavior, normalization path sensitivity"
+  },
+  {
+    "family_id": "F3_streaming_aggregation",
+    "phase_scope": [
+      "Phase B"
+    ],
+    "route_primitive": "Weighted Aggregation",
+    "hardware_template": "Streaming Aggregation Template",
+    "member_rep_kernels": [
+      "A4"
+    ],
+    "member_count": 1,
+    "canonical_status": "stable-singleton",
+    "boundary_status": "stable_singleton",
+    "coverage_weight": 0.071429,
+    "time_weight": 0.057981,
+    "decision_weight": 0.75,
+    "decision_weight_label": "Medium-High",
+    "importance_score": 0.269621,
+    "priority_class": "Low",
+    "recommended_tuning_target": "locality-sensitive, aggregation path validation"
+  },
+  {
+    "family_id": "F4_elementwise_fusion",
+    "phase_scope": [
+      "Phase C"
+    ],
+    "route_primitive": "Elementwise Fusion",
+    "hardware_template": "Elementwise Template",
+    "member_rep_kernels": [
+      "A6"
+    ],
+    "member_count": 1,
+    "canonical_status": "absorbed-with-bottleneck-note",
+    "boundary_status": "stable_singleton",
+    "coverage_weight": 0.142857,
+    "time_weight": 0.003158,
+    "decision_weight": 0.45,
+    "decision_weight_label": "Low-Medium",
+    "importance_score": 0.17912,
+    "priority_class": "Low",
+    "recommended_tuning_target": "constraint / regression checking with DRAM-side note retention"
+  }
+]

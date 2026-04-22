@@ -1,0 +1,134 @@
+[
+  {
+    "regime_id": "R1_projection_dense",
+    "family_id": "F1_dense_tiled",
+    "phase_id": "Phase A",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "source_rep_kernels": [
+      "A1"
+    ],
+    "canonical_status": "stable",
+    "shape_regime": "projection-like dense M/N/K region",
+    "context_scope": "QKV / output projection / FFN projection context",
+    "resource_signature": "register-limited compute-heavy",
+    "coverage_weight": 0.5,
+    "time_weight": 0.876905,
+    "family_importance_score": 0.83906,
+    "local_decision_weight": 1.0,
+    "local_decision_weight_label": "High",
+    "regime_priority_score": 0.803991,
+    "simulator_lane_id": "L1_dense_projection",
+    "validation_status": "pending"
+  },
+  {
+    "regime_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled",
+    "phase_id": "Phase B",
+    "route_primitive": "Pairwise Score",
+    "hardware_template": "Dense Tiled Compute",
+    "source_rep_kernels": [
+      "A2"
+    ],
+    "canonical_status": "weak-share",
+    "shape_regime": "attention-score dense region",
+    "context_scope": "attention readout",
+    "resource_signature": "register + shmem coupled dense compute",
+    "coverage_weight": 0.071429,
+    "time_weight": 0.042174,
+    "family_importance_score": 0.83906,
+    "local_decision_weight": 1.0,
+    "local_decision_weight_label": "High",
+    "regime_priority_score": 0.488166,
+    "simulator_lane_id": "L2_attention_score",
+    "validation_status": "pending"
+  },
+  {
+    "regime_id": "R3_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "phase_id": "Phase B",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "source_rep_kernels": [
+      "A3"
+    ],
+    "canonical_status": "stable-with-context-split",
+    "shape_regime": "softmax row-wise normalize region",
+    "context_scope": "attention readout",
+    "resource_signature": "cache-capacity-sensitive / DRAM-pressure",
+    "coverage_weight": 0.071429,
+    "time_weight": 0.014965,
+    "family_importance_score": 0.372199,
+    "local_decision_weight": 1.0,
+    "local_decision_weight_label": "High",
+    "regime_priority_score": 0.364648,
+    "simulator_lane_id": "L3_softmax",
+    "validation_status": "pending"
+  },
+  {
+    "regime_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "phase_id": "Phase B",
+    "route_primitive": "Weighted Aggregation",
+    "hardware_template": "Streaming Aggregation Template",
+    "source_rep_kernels": [
+      "A4"
+    ],
+    "canonical_status": "stable-singleton",
+    "shape_regime": "attention aggregation region",
+    "context_scope": "attention readout",
+    "resource_signature": "L1-resident / locality-dominated streaming",
+    "coverage_weight": 0.071429,
+    "time_weight": 0.057981,
+    "family_importance_score": 0.269621,
+    "local_decision_weight": 0.75,
+    "local_decision_weight_label": "Medium-High",
+    "regime_priority_score": 0.287258,
+    "simulator_lane_id": "L5_context_mul",
+    "validation_status": "pending"
+  },
+  {
+    "regime_id": "R4_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "phase_id": "Phase C",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "source_rep_kernels": [
+      "A5"
+    ],
+    "canonical_status": "review-needed",
+    "shape_regime": "layernorm reduction region",
+    "context_scope": "normalization path",
+    "resource_signature": "reduction / normalization dominated",
+    "coverage_weight": 0.142857,
+    "time_weight": 0.004817,
+    "family_importance_score": 0.372199,
+    "local_decision_weight": 0.6,
+    "local_decision_weight_label": "Medium",
+    "regime_priority_score": 0.279968,
+    "simulator_lane_id": "L4_layernorm",
+    "validation_status": "pending-review"
+  },
+  {
+    "regime_id": "R6_residual_elementwise",
+    "family_id": "F4_elementwise_fusion",
+    "phase_id": "Phase C",
+    "route_primitive": "Elementwise Fusion",
+    "hardware_template": "Elementwise Template",
+    "source_rep_kernels": [
+      "A6"
+    ],
+    "canonical_status": "absorbed-with-bottleneck-note",
+    "shape_regime": "residual fusion region",
+    "context_scope": "residual path",
+    "resource_signature": "dram-dominated elementwise path",
+    "coverage_weight": 0.142857,
+    "time_weight": 0.003158,
+    "family_importance_score": 0.17912,
+    "local_decision_weight": 0.3,
+    "local_decision_weight_label": "Low",
+    "regime_priority_score": 0.156284,
+    "simulator_lane_id": "L6_residual_add",
+    "validation_status": "pending"
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "validation_round_id": "mini_transformer_v4_backend_v1",
+  "target_scope": "mini_transformer_v4",
+  "baseline_defs": [
+    {
+      "baseline_id": "B0_no_priority",
+      "name": "No Priority"
+    },
+    {
+      "baseline_id": "B1_time_only",
+      "name": "Time-Only Priority"
+    },
+    {
+      "baseline_id": "B2_name_based",
+      "name": "Name-Based / Manual Priority"
+    },
+    {
+      "baseline_id": "OURS_importance_guided",
+      "name": "Importance-Guided Priority"
+    }
+  ],
+  "budget_definition": {
+    "family_preselection": "Top-3 families (recommended target)",
+    "comparison_strategies": [
+      "importance-guided",
+      "time-only",
+      "name-based",
+      "no-priority"
+    ]
+  },
+  "parameter_scenarios": [
+    {
+      "scenario_id": "S1_register_pressure",
+      "focus": "register-sensitive"
+    },
+    {
+      "scenario_id": "S2_occupancy_balance",
+      "focus": "occupancy-sensitive"
+    },
+    {
+      "scenario_id": "S3_cache_capacity",
+      "focus": "cache-sensitive"
+    },
+    {
+      "scenario_id": "S4_reduction_path",
+      "focus": "reduction-sensitive"
+    },
+    {
+      "scenario_id": "S5_shared_memory_coupling",
+      "focus": "shared-memory-coupled"
+    },
+    {
+      "scenario_id": "S6_locality_path",
+      "focus": "locality-sensitive"
+    },
+    {
+      "scenario_id": "S7_constraint_regression",
+      "focus": "constraint / regression"
+    }
+  ],
+  "notes": "First validation pass uses family -> regime expansion."
+}

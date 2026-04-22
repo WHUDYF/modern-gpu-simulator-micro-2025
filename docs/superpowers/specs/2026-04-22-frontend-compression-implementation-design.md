@@ -419,7 +419,195 @@ v1 不只交主线 anchor 表，
 
 ---
 
-## 11. v1 的完成标准
+## 11. squash 相关特征在前端中的角色
+
+### 11.1 为什么前端需要关心 squash
+
+当前仓库中的 `squash` 机制负责：
+
+- 对 workload 的 kernel 序列做 temporal segmentation
+- 对 kernel 内部 TB 序列做 segmentation
+- 输出 `squash_segments`、`boundary_count`、`cohesion_score`、`representative_kernel / representative_tb`
+
+这些信息本质上是在描述：
+
+- 时间结构
+- 段内稳定性
+- 显著 boundary
+
+因此，`squash` 对前端 anchor 线的重要性在于：
+
+- 它可以帮助识别某个 coarse bucket 或 cluster 是否内部不稳定
+- 它可以提供时间结构相关的辅助上下文
+
+### 11.2 为什么 squash 不能变成前端主轴
+
+尽管 `squash` 很重要，v1 仍然不应把它直接提升为前端压缩的主特征轴。
+
+原因是：
+
+- 当前主线已把 `squash + batch` 放在中间结构层
+- 前端仍然需要保持 `Constrained PKA Extension` 的角色
+- 如果把 `squash` 主导前端分组，前端很容易越界到 phase / regime 层
+
+因此，v1 中 `squash` 的合理定位是：
+
+- `context-for-family`
+或
+- `heterogeneity-guardrail`
+
+而不是：
+
+- frontend compression 的唯一主判据
+
+### 11.3 v1 中 squash 的使用原则
+
+v1 对 squash 的使用采用下面三个原则：
+
+1. `squash` 可以提供前端辅助信息，但不能直接替代 frontend anchor 主特征
+2. `squash` 可以参与 cluster 稳定性判断，但不直接输出 family 结论
+3. `squash` 产出的信息更适合作为 summary / guardrail，而不是完整机制标签
+
+---
+
+## 12. v1 squash 输入特征设计
+
+### 12.1 总体原则
+
+v1 的 squash 特征采用：
+
+**behavior skeleton + resource behavior + light scale/context**
+
+也就是：
+
+- 行为骨架特征
+- 资源行为特征
+- 轻量规模 / 上下文特征
+
+这三类特征共同作用于：
+
+- temporal segmentation
+- cluster stability observation
+- heterogeneity guarding
+
+### 12.2 v1 推荐的 squash 最小特征集合
+
+v1 不追求一次加入大量 squash 特征，
+而采用一组约 8 个左右的最小集合。
+
+当前推荐采用：
+
+- `ffma_ratio`
+- `fp64_op_ratio`
+- `global_load_ratio`
+- `shared_mem_op_ratio`
+- `compute_utilization`
+- `dram_throughput_pct`
+- `occupancy_pct`
+- `warp_divergence_rate`
+
+这一组属于：
+
+**resource-balanced squash feature set**
+
+它的目标是同时保留：
+
+- 行为骨架识别能力
+- compute vs memory 区分能力
+- 执行稳定性区分能力
+
+### 12.3 两层优先级
+
+为了保证 v1 的可落地性，这 8 个特征进一步分为两层。
+
+#### 第一层：必须尽量真实的 5 个
+
+- `ffma_ratio`
+- `global_load_ratio`
+- `compute_utilization`
+- `dram_throughput_pct`
+- `occupancy_pct`
+
+这组特征构成 v1 squash 的硬骨架。
+
+如果它们失真，segmentation 本身就容易失真。
+
+#### 第二层：允许先近似或缺省的 3 个
+
+- `fp64_op_ratio`
+- `shared_mem_op_ratio`
+- `warp_divergence_rate`
+
+这组特征更像：
+
+- boundary difference amplifier
+- phase distinction enhancer
+
+它们很重要，但不应阻塞 v1 的整体推进。
+
+### 12.4 为什么不用更重的 squash 特征
+
+v1 暂不引入：
+
+- route primitive
+- hardware template
+- family_id
+- regime label
+- importance-related score
+
+这些信息都属于 compression 之后的方法层，
+进入 squash 特征会导致前端越界。
+
+### 12.5 对当前实现的直接要求
+
+由于当前 `extract_squash_features.py` 已经在使用 opcode ratio 与部分 NCU 指标，
+v1 最直接的实现要求不是重写 squash，而是：
+
+1. 检查并对齐 squash 期望字段与 NCU / merged features 的命名
+2. 确认 resource-balanced 特征是否真正进入 squash 向量
+3. 把 squash 输出转成前端可用的 summary / guardrail 字段
+
+---
+
+## 13. squash 输出在前端中的接入方式
+
+### 13.1 推荐接入位置
+
+v1 推荐把 squash 相关结果接入到两个位置：
+
+#### A. `KernelInvocationRecord` 的辅助上下文字段
+
+例如：
+
+- `kernel_squash_segment_id`
+- `kernel_squash_boundary_count`
+- `kernel_squash_cohesion`
+
+#### B. `Representative Anchor Table` 的 guardrail 字段
+
+例如：
+
+- `heterogeneity_flag`
+- `squash_boundary_crossing_flag`
+- `squash_context_note`
+
+### 13.2 不推荐的接入方式
+
+v1 不推荐：
+
+- 直接把 squash 输出作为 anchor_selector 的唯一主输入
+- 直接按 squash segment 替代 frontend clustering
+- 直接把 squash segment 当作 final family / regime
+
+### 13.3 最稳的前端定位
+
+因此，当前最稳的说法是：
+
+**squash 在 v1 中主要用于提供时间结构上下文和 cluster stability guardrail，而不是直接决定前端 anchor 的最终分组。**
+
+---
+
+## 14. v1 的完成标准
 
 v1 不追求完整，
 只追求最小闭环。
@@ -435,7 +623,7 @@ v1 不追求完整，
 
 ---
 
-## 12. 风险与限制
+## 15. 风险与限制
 
 ### 12.1 输入字段仍可能不完整
 
@@ -470,7 +658,7 @@ v1 不追求完整，
 
 ---
 
-## 13. 最终结论
+## 16. 最终结论
 
 前端压缩线 v1 的最稳实现方案是：
 

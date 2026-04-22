@@ -102,14 +102,29 @@ def test_importance_scoring_sheet_and_writeback_records_exist_and_align():
     assert len(writeback_rows) == len(bundle["lanes"])
 
     valid_weight_sources = {"measured", "derived", "provisional", "placeholder"}
+    family_by_id = {family["family_id"]: family for family in bundle["families"]}
+    regime_by_id = {regime["regime_id"]: regime for regime in bundle["regimes"]}
     for row in scoring_rows:
         assert "coverage_weight" in row
         assert "time_weight" in row
         assert "decision_weight" in row
+        assert "family_importance_score" in row
+        assert "local_decision_weight" in row
+        assert "regime_priority_score" in row
         assert set(row["weight_source"].values()).issubset(valid_weight_sources)
+        if row["object_level"] == "family":
+            family = family_by_id[row["object_id"]]
+            assert row["family_importance_score"] == family["importance_score"]
+            assert row["local_decision_weight"] is None
+            assert row["regime_priority_score"] is None
+        else:
+            regime = regime_by_id[row["object_id"]]
+            assert row["family_importance_score"] == regime["family_importance_score"]
+            assert row["local_decision_weight"] == regime["local_decision_weight"]
+            assert row["regime_priority_score"] == regime["regime_priority_score"]
 
     lane_by_id = {lane["lane_id"]: lane for lane in bundle["lanes"]}
-    regime_ids = {regime["regime_id"] for regime in bundle["regimes"]}
+    regime_ids = set(regime_by_id)
     for row in writeback_rows:
         assert row["lane_id"] in lane_by_id
         assert row["target_regime_id"] in regime_ids

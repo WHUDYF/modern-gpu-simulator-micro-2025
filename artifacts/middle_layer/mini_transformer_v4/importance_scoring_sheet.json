@@ -9,6 +9,9 @@
     "time_weight_score": 0.9,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.9,
+    "local_decision_weight": null,
+    "regime_priority_score": null,
     "importance_score": 0.9,
     "priority_class": "High",
     "weight_source": {
@@ -28,6 +31,9 @@
     "time_weight_score": 0.75,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.75,
+    "local_decision_weight": null,
+    "regime_priority_score": null,
     "importance_score": 0.75,
     "priority_class": "High",
     "weight_source": {
@@ -47,6 +53,9 @@
     "time_weight_score": 0.6,
     "decision_weight": "Medium-High",
     "decision_weight_score": 0.75,
+    "family_importance_score": 0.645,
+    "local_decision_weight": null,
+    "regime_priority_score": null,
     "importance_score": 0.645,
     "priority_class": "Medium",
     "weight_source": {
@@ -66,6 +75,9 @@
     "time_weight_score": 0.3,
     "decision_weight": "Low-Medium",
     "decision_weight_score": 0.45,
+    "family_importance_score": 0.525,
+    "local_decision_weight": null,
+    "regime_priority_score": null,
     "importance_score": 0.525,
     "priority_class": "Low",
     "weight_source": {
@@ -85,6 +97,9 @@
     "time_weight_score": 0.9,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.9,
+    "local_decision_weight": "High",
+    "regime_priority_score": 0.9,
     "importance_score": 0.9,
     "priority_class": null,
     "weight_source": {
@@ -104,6 +119,9 @@
     "time_weight_score": 0.75,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.9,
+    "local_decision_weight": "High",
+    "regime_priority_score": 0.7875,
     "importance_score": 0.7875,
     "priority_class": null,
     "weight_source": {
@@ -123,6 +141,9 @@
     "time_weight_score": 0.6,
     "decision_weight": "Medium",
     "decision_weight_score": 0.6,
+    "family_importance_score": 0.9,
+    "local_decision_weight": "Medium",
+    "regime_priority_score": 0.705,
     "importance_score": 0.705,
     "priority_class": null,
     "weight_source": {
@@ -142,6 +163,9 @@
     "time_weight_score": 0.9,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.9,
+    "local_decision_weight": "High",
+    "regime_priority_score": 0.825,
     "importance_score": 0.825,
     "priority_class": null,
     "weight_source": {
@@ -161,6 +185,9 @@
     "time_weight_score": 0.6,
     "decision_weight": "Medium",
     "decision_weight_score": 0.6,
+    "family_importance_score": 0.9,
+    "local_decision_weight": "Medium",
+    "regime_priority_score": 0.705,
     "importance_score": 0.705,
     "priority_class": null,
     "weight_source": {
@@ -180,6 +207,9 @@
     "time_weight_score": 0.75,
     "decision_weight": "High",
     "decision_weight_score": 0.9,
+    "family_importance_score": 0.75,
+    "local_decision_weight": "High",
+    "regime_priority_score": 0.735,
     "importance_score": 0.735,
     "priority_class": null,
     "weight_source": {
@@ -199,6 +229,9 @@
     "time_weight_score": 0.6,
     "decision_weight": "Medium",
     "decision_weight_score": 0.6,
+    "family_importance_score": 0.75,
+    "local_decision_weight": "Medium",
+    "regime_priority_score": 0.6525,
     "importance_score": 0.6525,
     "priority_class": null,
     "weight_source": {
@@ -218,6 +251,9 @@
     "time_weight_score": 0.6,
     "decision_weight": "Medium-High",
     "decision_weight_score": 0.75,
+    "family_importance_score": 0.645,
+    "local_decision_weight": "Medium-High",
+    "regime_priority_score": 0.6382,
     "importance_score": 0.6382,
     "priority_class": null,
     "weight_source": {
@@ -237,6 +273,9 @@
     "time_weight_score": 0.3,
     "decision_weight": "Low",
     "decision_weight_score": 0.3,
+    "family_importance_score": 0.525,
+    "local_decision_weight": "Low",
+    "regime_priority_score": 0.5288,
     "importance_score": 0.5288,
     "priority_class": null,
     "weight_source": {

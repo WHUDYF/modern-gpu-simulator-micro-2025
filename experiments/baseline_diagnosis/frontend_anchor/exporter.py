@@ -153,6 +153,12 @@ def build_case_note(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> st
             f"`PKA-like coarse` groups: {len(coarse_groups)}; "
             f"`hybrid` groups: {len(hybrid_groups)}"
         )
+        for coarse_group in coarse_groups:
+            coarse_member_ids = [m["kernel_invocation_id"] for m in coarse_group["members"]]
+            lines.append(
+                f"- coarse cluster `{coarse_group['cluster_id']}` keeps merged members: "
+                f"{', '.join(coarse_member_ids)}"
+            )
         for group in hybrid_groups:
             members = group["members"]
             member_ids = [m["kernel_invocation_id"] for m in members]
@@ -163,8 +169,9 @@ def build_case_note(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> st
                 f"  - evidence: grid_dim={grid_dims}, dynamic_inst_count={dynamic_insts}"
             )
         lines.append(
-            "  - interpretation: hybrid introduces an extra boundary only when the bucket-internal "
-            "execution signature changes enough to justify splitting anchors within the same coarse group."
+            "  - interpretation: `PKA-like coarse` still merges these invocations inside one coarse bucket, "
+            "while `hybrid` splits out the subgroup(s) whose grid size or dynamic instruction volume diverges "
+            "enough to justify a separate frontend anchor."
         )
         lines.append("")
 

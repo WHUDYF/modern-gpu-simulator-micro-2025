@@ -292,6 +292,8 @@ def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
     assert all(row["output_role"] == "evidence_only" for row in methods)
     assert "Representative split cases" in case_note
     assert "evidence_only" in case_note
+    assert "coarse cluster" in case_note
+    assert "hybrid cluster" in case_note
 
 
 def test_selector_rejects_unknown_mode():

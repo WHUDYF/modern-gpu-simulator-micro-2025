@@ -255,6 +255,12 @@ def test_full_json_mode_preserves_per_kernel_launch_order(tmp_path):
     assert [row["kernel_name"] for row in payload["records"]] == ["kernel_b", "kernel_a"]
 
 
+def test_dual_source_output_normalizes_identity_and_feature_paths():
+    payload = build_records_from_dual_sources(IDENTITY_JSON, FEATURES_JSON)
+    assert payload["identity_source"] == str(IDENTITY_JSON.resolve())
+    assert payload["features_source"] == str(FEATURES_JSON.resolve())
+
+
 def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
     proc = subprocess.run(
         [

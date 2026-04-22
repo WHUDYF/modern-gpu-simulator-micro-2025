@@ -29,6 +29,12 @@ def test_planner_writes_expected_execution_files(tmp_path):
     assert expected.issubset({path.name for path in output_dir.iterdir()})
 
 
+def test_planner_emits_empty_result_summary_template(tmp_path):
+    output_dir = _prepare_outputs(tmp_path)
+    result_summary = json.loads((output_dir / "backend_result_summary_v1.json").read_text())
+    assert result_summary == []
+
+
 def test_planner_marks_review_and_constraint_roles(tmp_path):
     output_dir = _prepare_outputs(tmp_path)
     manifest = json.loads((output_dir / "backend_run_manifest_v1.json").read_text())
@@ -149,7 +155,10 @@ def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regim
     assert plan["budget_policy"]["family_preselection_count"] == 1
     assert plan["budget_policy"]["main_object_max_scenarios"] == 1
     assert plan["budget_policy"]["review_object_max_scenarios"] == 2
-    assert plan["strategies"]["importance-guided"]["selected_families"] == ["F1_dense_tiled"]
+    assert plan["strategies"]["importance-guided"]["selected_families"] == [
+        "F1_dense_tiled",
+        "F4_elementwise_fusion",
+    ]
     assert plan["strategies"]["importance-guided"]["selected_regimes"] == [
         "R1_projection_dense",
         "R2_attention_score_dense",

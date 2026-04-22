@@ -11,7 +11,8 @@
       "selected_families": [
         "F1_dense_tiled",
         "F2_reduction_normalize",
-        "F3_streaming_aggregation"
+        "F3_streaming_aggregation",
+        "F4_elementwise_fusion"
       ],
       "selected_regimes": [
         "R1_projection_dense",
@@ -27,7 +28,8 @@
       "selected_families": [
         "F1_dense_tiled",
         "F3_streaming_aggregation",
-        "F2_reduction_normalize"
+        "F2_reduction_normalize",
+        "F4_elementwise_fusion"
       ],
       "selected_regimes": [
         "R1_projection_dense",
@@ -43,7 +45,8 @@
       "selected_families": [
         "F1_dense_tiled",
         "F2_reduction_normalize",
-        "F3_streaming_aggregation"
+        "F3_streaming_aggregation",
+        "F4_elementwise_fusion"
       ],
       "selected_regimes": [
         "R1_projection_dense",
@@ -59,7 +62,8 @@
       "selected_families": [
         "F1_dense_tiled",
         "F2_reduction_normalize",
-        "F3_streaming_aggregation"
+        "F3_streaming_aggregation",
+        "F4_elementwise_fusion"
       ],
       "selected_regimes": [
         "R1_projection_dense",

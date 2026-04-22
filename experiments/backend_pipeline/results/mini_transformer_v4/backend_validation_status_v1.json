@@ -5,7 +5,7 @@
       "family_id": "F1_dense_tiled",
       "validation_role": "main-object",
       "canonical_status": "stable",
-      "current_status": "selected",
+      "current_status": "pending",
       "review_status": "no-review",
       "priority_sources": [
         "importance-guided",

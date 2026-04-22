@@ -13,6 +13,10 @@ def _load_json(path: str | Path) -> dict[str, Any]:
         return json.load(f)
 
 
+def _normalize_source_path(path: str | Path) -> str:
+    return str(Path(path).expanduser().resolve())
+
+
 def _select_exec_time(hardware_metrics: dict[str, Any]) -> tuple[float | None, str]:
     if "duration_ns" in hardware_metrics:
         return float(hardware_metrics["duration_ns"]), "duration_ns"
@@ -265,8 +269,8 @@ def build_records_from_dual_sources(
         "workload": identity_data.get("workload") or features_data.get("workload"),
         "hardware": identity_data.get("hardware") or features_data.get("hardware"),
         "source_mode": "explicit_dual_source",
-        "identity_source": str(identity_json_path),
-        "features_source": str(features_json_path),
+        "identity_source": _normalize_source_path(identity_json_path),
+        "features_source": _normalize_source_path(features_json_path),
         "records": records,
     }
 

@@ -179,13 +179,16 @@ def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict
     }
     for source in strategies:
         rows = [row for row in run_manifest if row["priority_source"] == source]
-        top_families = _top_families_for_source(priority_lane_table, source, family_limit)
+        selected_families = []
+        for row in rows:
+            if row["family_id"] not in selected_families:
+                selected_families.append(row["family_id"])
         selected_regimes = []
         for row in rows:
             if row["regime_id"] not in selected_regimes:
                 selected_regimes.append(row["regime_id"])
         plan["strategies"][source] = {
-            "selected_families": top_families,
+            "selected_families": selected_families,
             "selected_regimes": selected_regimes,
             "run_count": len(rows),
         }
@@ -193,24 +196,7 @@ def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict
 
 
 def build_result_summary_template(run_manifest: list[dict]) -> list[dict]:
-    if not run_manifest:
-        return []
-    sample = run_manifest[0]
-    return [{
-        "run_id": sample["run_id"],
-        "object_id": sample["object_id"],
-        "family_id": sample["family_id"],
-        "regime_id": sample["regime_id"],
-        "priority_source": sample["priority_source"],
-        "parameter_scenario_id": sample["parameter_scenario_id"],
-        "observed_metric_values": {},
-        "baseline_delta": {},
-        "sensitivity_score": None,
-        "coverage_gain": None,
-        "tuning_gain": None,
-        "result_status": "inconclusive",
-        "notes": "Template sample row. Duplicate and fill with real execution results.",
-    }]
+    return []
 
 
 def main() -> None:

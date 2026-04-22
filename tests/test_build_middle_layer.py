@@ -96,6 +96,15 @@ def test_metadata_records_rule_config_path():
     assert bundle["metadata"]["rule_config_path"] == "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
 
 
+def test_custom_rule_config_path_does_not_crash_metadata_generation():
+    relative_repo_root = Path(".")
+    relative_rule_config = Path("docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml")
+
+    bundle = build_middle_layer_artifacts(relative_repo_root, relative_rule_config)
+
+    assert bundle["metadata"]["rule_config_path"] == "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
+
+
 def test_importance_scoring_sheet_and_writeback_records_exist_and_align():
     bundle = build_middle_layer_artifacts(REPO_ROOT)
 

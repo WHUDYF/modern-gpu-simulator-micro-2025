@@ -43,6 +43,15 @@ def _label_score(label: str) -> float:
     return LABEL_SCORES[label]
 
 
+def _display_rule_config_path(rule_config_path: Path, repo_root: Path) -> str:
+    resolved_config = rule_config_path.resolve()
+    resolved_repo_root = repo_root.resolve()
+    try:
+        return str(resolved_config.relative_to(resolved_repo_root))
+    except ValueError:
+        return str(resolved_config)
+
+
 def _ape_key(short_name: str, grid_dim: str, block_dim: str) -> str:
     grid = f"({grid_dim.replace('x', ', ')})"
     block = f"({block_dim.replace('x', ', ')})"
@@ -382,7 +391,7 @@ def build_middle_layer_artifacts(
         "metadata": {
             "workload": rules["workload"],
             "builder": "experiments/baseline_diagnosis/build_middle_layer.py",
-            "rule_config_path": str(rule_config_path.relative_to(repo_root)),
+            "rule_config_path": _display_rule_config_path(rule_config_path, repo_root),
             "rule_config_version": rules["rule_config_version"],
             "importance_formula": "0.3*coverage_label + 0.4*time_label + 0.3*decision_label",
             "regime_priority_formula": "0.35*family_importance + 0.25*coverage_label + 0.25*time_label + 0.15*local_decision_label",

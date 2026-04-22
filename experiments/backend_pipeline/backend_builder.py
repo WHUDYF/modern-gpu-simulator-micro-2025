@@ -245,13 +245,13 @@ def build_priority_lane_table(family_table: list[dict[str, Any]], regime_table: 
     )
     for source in ["importance-guided", "time-only", "name-based", "no-priority"]:
         if source == "importance-guided":
-            fams = ordered_families
+            fams = family_table[:]
         elif source == "time-only":
             fams = sorted(family_table, key=lambda x: x["time_weight"], reverse=True)
         elif source == "name-based":
             fams = sorted(family_table, key=lambda x: x["family_id"])
         else:
-            fams = family_table[:]
+            fams = ordered_families
         for rank, family in enumerate(fams, start=1):
             rows.append({"priority_item_id": f"P_family_{family['family_id']}_{source.replace('-', '_')}", "object_level": "family", "object_id": family["family_id"], "family_id": family["family_id"], "regime_id": None, "priority_source": source, "priority_rank": rank, "canonical_status": family["canonical_status"], "simulator_lane_id": None, "lane_type": "family-level", "recommended_tuning_target": family["recommended_tuning_target"], "parameter_scenario_ids": [], "expected_signal": "family-level prioritization anchor", "score": family["importance_score"] if source == "importance-guided" else family["time_weight"] if source == "time-only" else 0.0, "status": "planned"})
 

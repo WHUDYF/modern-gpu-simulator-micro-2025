@@ -168,6 +168,6 @@ def build_case_note(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> st
         )
         lines.append("")
 
-    if len(lines) == 4:
+    if len(lines) == 6:
         lines.extend(["No additional hybrid split case was observed on this input.", ""])
     return "\n".join(lines)

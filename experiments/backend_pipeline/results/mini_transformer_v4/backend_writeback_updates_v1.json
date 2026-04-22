@@ -1,9 +1,10 @@
 [
   {
-    "writeback_id": "W_R1_projection_dense_S1_register_pressure",
+    "writeback_id": "W_R1_projection_dense_S1_register_pressure__importance_guided",
     "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
     "regime_id": "R1_projection_dense",
     "family_id": "F1_dense_tiled",
+    "priority_source": "importance-guided",
     "rep_kernel_ids": [
       "A1"
     ],

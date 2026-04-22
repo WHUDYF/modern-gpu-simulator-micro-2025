@@ -85,6 +85,8 @@ def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[
             kernel_id = item.get("kernel_id")
             if kernel_id is None:
                 raise ValueError("identity_json invocation missing kernel_id")
+            if int(kernel_id) in normalized:
+                raise ValueError(f"identity_json contains duplicate kernel_id: {kernel_id}")
             normalized[int(kernel_id)] = {
                 "source_invocation_key": item.get("source_invocation_key", f"kernel_{kernel_id}"),
                 "kernel_name": item["kernel_name"],
@@ -104,6 +106,8 @@ def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[
         kernel_id = item.get("kernel_id")
         if kernel_id is None:
             raise ValueError(f"identity_json entry {source_invocation_key} missing kernel_id")
+        if int(kernel_id) in normalized:
+            raise ValueError(f"identity_json contains duplicate kernel_id: {kernel_id}")
         normalized[int(kernel_id)] = {
             "source_invocation_key": source_invocation_key,
             "kernel_name": item["kernel_name"],
@@ -124,6 +128,8 @@ def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[s
             kernel_id = item.get("kernel_id")
             if kernel_id is None:
                 raise ValueError("features_json feature record missing kernel_id")
+            if int(kernel_id) in normalized:
+                raise ValueError(f"features_json contains duplicate kernel_id: {kernel_id}")
             normalized[int(kernel_id)] = {
                 "source_invocation_key": item.get("source_invocation_key", f"kernel_{kernel_id}"),
                 "kernel_name": item["kernel_name"],
@@ -144,6 +150,8 @@ def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[s
         kernel_id = item.get("kernel_id")
         if kernel_id is None:
             raise ValueError(f"features_json entry {source_invocation_key} missing kernel_id")
+        if int(kernel_id) in normalized:
+            raise ValueError(f"features_json contains duplicate kernel_id: {kernel_id}")
         hardware = item.get("hardware_metrics", {})
         dynamic = item.get("dynamic_stats", {})
         exec_time, exec_time_source = _select_exec_time(hardware)

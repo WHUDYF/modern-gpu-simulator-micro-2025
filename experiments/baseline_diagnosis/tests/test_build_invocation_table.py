@@ -20,7 +20,7 @@ from experiments.baseline_diagnosis.frontend_anchor.selector import run_selector
 from experiments.baseline_diagnosis.frontend_anchor.invocation_table import (
     build_records_from_dual_sources,
 )
-from experiments.baseline_diagnosis.frontend_anchor.exporter import export_anchor_table
+from experiments.baseline_diagnosis.frontend_anchor.exporter import export_anchor_table, build_case_note
 
 
 def run_builder(tmp_path, *extra):
@@ -152,6 +152,33 @@ def test_builder_rejects_mismatched_invocation_keys_even_when_kernel_ids_match(t
     assert "mismatched source_invocation_key" in proc.stderr
 
 
+def test_builder_rejects_duplicate_kernel_ids_in_features_source(tmp_path):
+    bad_features = tmp_path / "bad_features.json"
+    data = json.loads(FEATURES_JSON.read_text())
+    duplicated = dict(data["feature_records"][0])
+    duplicated["source_invocation_key"] = duplicated["source_invocation_key"] + "_dup"
+    data["feature_records"].append(duplicated)
+    bad_features.write_text(json.dumps(data))
+
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--identity-json",
+            str(IDENTITY_JSON),
+            "--features-json",
+            str(bad_features),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "duplicate kernel_id" in proc.stderr
+
+
 def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
     proc = subprocess.run(
         [
@@ -249,3 +276,13 @@ def test_exporter_rejects_missing_required_fields():
         assert "missing required fields" in str(exc)
     else:
         raise AssertionError("expected missing required field rejection")
+
+
+def test_build_case_note_emits_fallback_when_no_hybrid_split_exists():
+    all_groups = {
+        "name-only": [],
+        "pka-like-coarse": [],
+        "hybrid": [],
+    }
+    case_note = build_case_note(all_groups)
+    assert "No additional hybrid split case was observed on this input." in case_note

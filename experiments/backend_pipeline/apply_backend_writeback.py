@@ -114,12 +114,14 @@ def build_writeback_updates(run_manifest: list[dict], result_summary: list[dict]
         writeback_row = writeback_by_key[key]
         validation_role = manifest_row["validation_role"]
         result_status = result["result_status"]
+        writeback_id = f"{writeback_row['writeback_id']}__{result['priority_source'].replace('-', '_')}"
         updates.append(
             {
-                "writeback_id": writeback_row["writeback_id"],
+                "writeback_id": writeback_id,
                 "run_id": result["run_id"],
                 "regime_id": result["regime_id"],
                 "family_id": result["family_id"],
+                "priority_source": result["priority_source"],
                 "rep_kernel_ids": writeback_row["rep_kernel_ids"],
                 "parameter_scenario_id": result["parameter_scenario_id"],
                 "decision_update": _derive_decision_update(result_status, result.get("sensitivity_score")),

@@ -230,8 +230,8 @@
       "route_hint": "Reduction / Normalize",
       "template_hint": "Reduction Template",
       "weighted_elapsed_cycles": 90821.0,
-      "ape_lookup_key": null,
-      "ape_elapsed_cycles_ape": null,
+      "ape_lookup_key": "softmax_kernel|(6144, 1, 1)|(256, 1, 1)",
+      "ape_elapsed_cycles_ape": 95.65,
       "notes": "Reduction family attention-side anchor."
     },
     {

@@ -20,7 +20,7 @@
 - `warp_cyc=25.6`
 - `waves=1.07`
 - `block_limit_registers=10`
-- `shmem=0`
+- `shmem=1024B`
 
 ## Dominant Resource Candidates
 

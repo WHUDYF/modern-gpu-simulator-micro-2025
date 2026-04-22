@@ -112,7 +112,7 @@ def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list
         grid_dim = primary["dynamic_stats"]["grid_dim"]
         block_dim = primary["dynamic_stats"]["block_dim"]
         canonical_kernel_name = spec["canonical_kernel_name"]
-        ape_lookup = _ape_key(canonical_kernel_name, grid_dim, block_dim)
+        ape_lookup = spec.get("ape_lookup_key_override") or _ape_key(canonical_kernel_name, grid_dim, block_dim)
         elapsed_cycles = sum(member["hardware_metrics"]["elapsed_cycles"] for member in members)
         coverage_ratio = len(kernel_ids) / total_invocations
         time_ratio = elapsed_cycles / total_cycles

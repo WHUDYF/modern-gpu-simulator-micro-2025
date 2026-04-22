@@ -47,6 +47,10 @@ def test_anchor_builder_splits_dense_kernel_into_multiple_context_aware_anchors(
         "A9_ffn_contract_dense_48x32",
     ]
 
+    softmax_anchor = next(anchor for anchor in bundle["anchors"] if anchor["anchor_id"] == "A3_softmax_reduce_24x1")
+    assert softmax_anchor["ape_lookup_key"] == "softmax_kernel|(6144, 1, 1)|(256, 1, 1)"
+    assert softmax_anchor["ape_elapsed_cycles_ape"] is not None
+
 
 def test_middle_layer_mappings_are_internally_consistent():
     bundle = build_middle_layer_artifacts(REPO_ROOT)

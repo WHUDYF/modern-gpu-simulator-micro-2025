@@ -299,6 +299,7 @@ families:
       - anchor_id: A3_softmax_reduce_24x1
         canonical_kernel_name: softmax_kernel
         kernel_ids: [6]
+        ape_lookup_key_override: softmax_kernel|(6144, 1, 1)|(256, 1, 1)
         phase_id: Phase B
         context_scope: attention normalization path
         semantic_route: attention_softmax

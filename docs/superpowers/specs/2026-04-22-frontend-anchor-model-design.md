@@ -42,6 +42,48 @@
 
 **前端负责选可信代表对象，后端负责组织解释结构。**
 
+### 2.1 方法定位的正式表述
+
+当前推荐把这版前端明确表述为：
+
+**Constrained PKA Extension**
+
+它的精确定义是：
+
+- 前端以 `PKA-style representative compression` 作为方法主干
+- 前端不是一个新的 sampled simulation 方法
+- 前端只允许引入 compression 之后的方法层不可缺少的最小扩展
+- 前端不允许为了提升自身 compression 能力而无限扩张
+
+因此，前端层的角色不是：
+
+- 替代 PKA
+- 抢占 family / regime 的贡献位置
+- 把后段结论前移到 compression 中
+
+而是：
+
+**以 PKA-compatible 的方式提供一个 reviewer 可接受、后段可消费的输入锚点。**
+
+### 2.2 为什么选择 Constrained PKA Extension
+
+当前不采用 `strict PKA replication`，也不采用 `aggressive frontend redesign`。
+
+原因是：
+
+- 纯复刻虽然安全，但无法保证后续 family / priority 层吃到足够输入
+- 激进重写虽然灵活，但会让前端不再只是锚点，破坏论文的主贡献边界
+
+因此，更稳的中间路线是：
+
+- 保持 PKA 的问题定义与前端角色不变
+- 只在与后段高度相关的信息上做有限扩展
+- 要求每个偏离都必须有明确的方法论理由
+
+一句对外表述可以写成：
+
+**We use a PKA-style frontend anchor and only introduce constrained extensions that are necessary for downstream family organization, importance weighting, and heterogeneity guarding.**
+
 ---
 
 ## 3. 设计边界
@@ -153,6 +195,25 @@
 - 架构上保留 Stage 2 refinement
 - 实现上先完成 Stage 1 coarse compression
 
+### 原则 6：前端只允许补“后段必需的输入”，不允许提前产出“后段应推导的结论”
+
+当前允许前端扩展的唯一理由是：
+
+**如果没有该字段或步骤，后段 `family / weighting / tuning priority` 将失去必要输入。**
+
+因此，前端可以做的是：
+
+- 增加后段必需的权重字段
+- 增加后段必需的最小上下文字段
+- 增加防止 anchor 明显失真的 guardrail
+
+前端不能做的是：
+
+- 提前输出 family 结论
+- 提前输出 regime 结论
+- 提前输出 mechanism truth
+- 把后段应承担的解释工作转化成前端标签
+
 ---
 
 ## 5. 总体方法线
@@ -172,6 +233,83 @@
 3. 进行 coarse clustering / representative selection
 4. 输出 anchor、membership、weights、metadata
 5. 对高风险异质 cluster 仅做标记或保留 refinement 接口
+
+### 5.1 三类允许扩展的信息
+
+当前前端允许引入的新增信息只限于三类：
+
+#### A. `weight-for-priority`
+
+含义：
+
+- 后续 importance weighting / tuning priority 真实需要使用的权重字段
+
+第一版典型字段：
+
+- `time_weight`
+- `count_weight`
+- `inst_weight`
+
+#### B. `context-for-family`
+
+含义：
+
+- 后续 family 层真实需要消费的最小上下文
+
+第一版典型字段：
+
+- `trace_order`
+- `shape_hint`
+- `phase_hint_optional`
+
+#### C. `heterogeneity-guardrail`
+
+含义：
+
+- 用于防止 coarse anchor 在明显异质情况下失真的标记或触发条件
+
+第一版典型形式：
+
+- `heterogeneity_flag`
+- high-variance trigger
+- multi-modal distribution trigger
+
+### 5.2 三类信息在第一版中的优先级
+
+第一版实现优先级明确规定为：
+
+1. `weight-for-priority`
+2. `context-for-family`
+3. `heterogeneity-guardrail`
+
+也就是说，第一版推荐深度是：
+
+- `weight`：完整保留
+- `context`：保留最小必要字段
+- `heterogeneity`：只做轻量 guardrail，不做重型 refinement
+
+这样排序的原因是：
+
+- `weight` 决定后段 priority 链路是否成立
+- `context` 决定后段 family 是否有最基本的上下文可用
+- `heterogeneity` 决定前端是否会在明显风险场景下失真，但第一版不应让它主导复杂度
+
+### 5.3 明确不允许新增的信息
+
+前端第一版明确不允许新增以下类型的信息：
+
+- 任何直接等价于 family 判据的字段
+- 任何直接等价于 regime 判据的字段
+- 任何直接输出 mechanism truth 的标签
+- 任何纯粹为了让前端 clustering 更强、但与后段无直接关系的复杂特征
+- 任何会让前端自身长成独立 sampled simulation 方法的新模块
+
+典型不应进入前端第一版的字段包括：
+
+- `route_primitive`
+- `execution_template_label`
+- `family_membership`
+- `regime_label`
 
 ---
 
@@ -371,6 +509,25 @@ Stage 1 的标准输出对象定义为：
 - 这些 invocations 已经共享同一 mechanism family
 - 这些 invocations 已经属于同一 execution regime
 
+### 10.4 输出对象的正式语义
+
+前端最终输出对象必须同时满足两点：
+
+- 对前看，它仍然是 `PKA-style representative object`
+- 对后看，它已经是一个可进入 family / weighting 层的稳定输入单元
+
+因此，它不应只是：
+
+- 一个被挑中的 kernel
+
+而应被定义为：
+
+**一个带有显式 membership、显式权重、以及最小后段上下文的 representative invocation object。**
+
+一句最稳的定义是：
+
+**A frontend anchor is a weighted representative invocation object with explicit membership and minimal downstream context, but without any baked-in family conclusion.**
+
 ---
 
 ## 11. Stage 2：Heterogeneity Refinement Interface
@@ -440,7 +597,25 @@ Stage 2 在第一版中不是主体实现，而是：
 
 ## 13. 验证要求
 
-前端层第一版只验证三类性质。
+前端层第一版只验证四类性质。
+
+### 13.0 相对 PKA 的偏离协议
+
+任何相对 PKA 新增的字段、步骤或 guardrail，都必须同时通过以下两道检查：
+
+#### 检查 1：`downstream necessity`
+
+问题是：
+
+**如果删掉它，后续 `family / weighting / tuning priority` 是否会失去必要输入？**
+
+#### 检查 2：`non-preemption`
+
+问题是：
+
+**它是否只提供输入，而不提前产出本该由后段推导的结论？**
+
+只有当两道检查都通过时，该偏离才允许进入前端设计。
 
 ### 13.1 压缩率
 
@@ -460,7 +635,13 @@ Stage 2 在第一版中不是主体实现，而是：
 
 - 在小范围参数扰动或随机初始化变化下，anchor 结果是否基本稳定
 
-### 13.4 明确不在前端层验证的内容
+### 13.4 偏离合理性
+
+验证：
+
+- 每个非 PKA 原生字段都能被明确解释为“后段必须需要它”
+
+### 13.5 明确不在前端层验证的内容
 
 前端层不验证：
 

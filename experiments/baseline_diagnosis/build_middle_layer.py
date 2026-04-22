@@ -101,10 +101,50 @@ def _iter_anchor_specs(rules: dict[str, Any]) -> list[dict[str, Any]]:
     return specs
 
 
+def _validate_rule_config_kernel_coverage(
+    per_kernel: dict[int, dict[str, Any]],
+    anchor_specs: list[dict[str, Any]],
+) -> None:
+    configured_kernel_ids = [kernel_id for spec in anchor_specs for kernel_id in spec["kernel_ids"]]
+    expected_kernel_ids = set(per_kernel)
+    configured_kernel_id_set = set(configured_kernel_ids)
+
+    duplicate_kernel_ids = sorted(
+        kernel_id for kernel_id in configured_kernel_id_set if configured_kernel_ids.count(kernel_id) > 1
+    )
+    unknown_kernel_ids = sorted(configured_kernel_id_set - expected_kernel_ids)
+    missing_kernel_ids = sorted(expected_kernel_ids - configured_kernel_id_set)
+
+    errors: list[str] = []
+    if duplicate_kernel_ids:
+        errors.append(f"duplicate kernel ids: {duplicate_kernel_ids}")
+    if unknown_kernel_ids:
+        errors.append(f"unknown kernel ids: {unknown_kernel_ids}")
+    if missing_kernel_ids:
+        errors.append(f"missing kernel ids: {missing_kernel_ids}")
+    if errors:
+        raise ValueError("Invalid middle-layer rule coverage: " + "; ".join(errors))
+
+
 def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list[dict[str, Any]]:
     per_kernel = _per_kernel_by_id(sources["full"])
     ape_table = sources["baseline_ape"]["ape_table"]
     anchor_specs = _iter_anchor_specs(rules)
+    _validate_rule_config_kernel_coverage(per_kernel, anchor_specs)
+
+    anchor_ape_keys: dict[str, str] = {}
+    ape_key_to_anchor_ids: dict[str, list[str]] = {}
+    for spec in anchor_specs:
+        primary = per_kernel[spec["kernel_ids"][0]]
+        grid_dim = primary["dynamic_stats"]["grid_dim"]
+        block_dim = primary["dynamic_stats"]["block_dim"]
+        ape_lookup_key = spec.get("ape_lookup_key_override") or _ape_key(
+            spec["canonical_kernel_name"],
+            grid_dim,
+            block_dim,
+        )
+        anchor_ape_keys[spec["anchor_id"]] = ape_lookup_key
+        ape_key_to_anchor_ids.setdefault(ape_lookup_key, []).append(spec["anchor_id"])
 
     total_invocations = sum(len(spec["kernel_ids"]) for spec in anchor_specs)
     total_cycles = sum(
@@ -121,7 +161,16 @@ def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list
         grid_dim = primary["dynamic_stats"]["grid_dim"]
         block_dim = primary["dynamic_stats"]["block_dim"]
         canonical_kernel_name = spec["canonical_kernel_name"]
-        ape_lookup = spec.get("ape_lookup_key_override") or _ape_key(canonical_kernel_name, grid_dim, block_dim)
+        ape_lookup = anchor_ape_keys[spec["anchor_id"]]
+        ape_evidence_unique = len(ape_key_to_anchor_ids[ape_lookup]) == 1
+        ape_lookup_key = ape_lookup if ape_lookup in ape_table and ape_evidence_unique else None
+        ape_evidence_status = (
+            "unique"
+            if ape_lookup in ape_table and ape_evidence_unique
+            else "shared_across_anchors"
+            if ape_lookup in ape_table
+            else "missing_in_ape_table"
+        )
         elapsed_cycles = sum(member["hardware_metrics"]["elapsed_cycles"] for member in members)
         coverage_ratio = len(kernel_ids) / total_invocations
         time_ratio = elapsed_cycles / total_cycles
@@ -158,10 +207,12 @@ def build_anchor_records(sources: dict[str, Any], rules: dict[str, Any]) -> list
                 "route_hint": spec["route_hint"],
                 "template_hint": spec["template_hint"],
                 "weighted_elapsed_cycles": _round4(elapsed_cycles),
-                "ape_lookup_key": ape_lookup if ape_lookup in ape_table else None,
+                "ape_lookup_key": ape_lookup_key,
+                "ape_lookup_key_candidate": ape_lookup,
+                "ape_evidence_status": ape_evidence_status,
                 "ape_elapsed_cycles_ape": (
                     ape_table[ape_lookup]["metrics"]["elapsed_cycles"]["ape"]
-                    if ape_lookup in ape_table
+                    if ape_lookup in ape_table and ape_evidence_unique
                     else None
                 ),
                 "notes": spec["notes"],

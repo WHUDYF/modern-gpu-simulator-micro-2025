@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import tempfile
 
 import yaml
 
@@ -50,6 +51,18 @@ def test_anchor_builder_splits_dense_kernel_into_multiple_context_aware_anchors(
     softmax_anchor = next(anchor for anchor in bundle["anchors"] if anchor["anchor_id"] == "A3_softmax_reduce_24x1")
     assert softmax_anchor["ape_lookup_key"] == "softmax_kernel|(6144, 1, 1)|(256, 1, 1)"
     assert softmax_anchor["ape_elapsed_cycles_ape"] is not None
+
+    shared_shape_dense = {
+        anchor["anchor_id"]: anchor
+        for anchor in dense_anchors
+        if anchor["anchor_id"] in {
+            "A1_qkv_projection_dense_48x32",
+            "A5_output_projection_dense_48x32",
+            "A9_ffn_contract_dense_48x32",
+        }
+    }
+    assert all(anchor["ape_lookup_key"] is None for anchor in shared_shape_dense.values())
+    assert all(anchor["ape_evidence_status"] == "shared_across_anchors" for anchor in shared_shape_dense.values())
 
 
 def test_middle_layer_mappings_are_internally_consistent():
@@ -103,6 +116,23 @@ def test_custom_rule_config_path_does_not_crash_metadata_generation():
     bundle = build_middle_layer_artifacts(relative_repo_root, relative_rule_config)
 
     assert bundle["metadata"]["rule_config_path"] == "docs/family_criteria/mini_transformer_v4/mini_transformer_middle_layer_rules_v1_2026-04-22.yaml"
+
+
+def test_invalid_rule_config_kernel_coverage_raises():
+    config = yaml.safe_load(DEFAULT_RULE_CONFIG.read_text())
+    config["families"][0]["anchors"][0]["kernel_ids"] = [1, 2, 3]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_config_path = Path(tmpdir) / "bad_rules.yaml"
+        bad_config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+        try:
+            build_middle_layer_artifacts(REPO_ROOT, bad_config_path)
+        except ValueError as exc:
+            message = str(exc)
+        else:
+            raise AssertionError("Expected ValueError for missing kernel coverage")
+
+    assert "missing kernel ids" in message
 
 
 def test_importance_scoring_sheet_and_writeback_records_exist_and_align():

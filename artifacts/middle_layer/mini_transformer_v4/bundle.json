@@ -45,8 +45,10 @@
       "route_hint": "Dense Projection/Transform",
       "template_hint": "Dense Tiled Compute",
       "weighted_elapsed_cycles": 3041626.054,
-      "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 98.36,
+      "ape_lookup_key": null,
+      "ape_lookup_key_candidate": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
+      "ape_evidence_status": "shared_across_anchors",
+      "ape_elapsed_cycles_ape": null,
       "notes": "Dense backbone front-end anchor."
     },
     {
@@ -83,6 +85,8 @@
       "template_hint": "Dense Tiled Compute",
       "weighted_elapsed_cycles": 255911.5,
       "ape_lookup_key": "attention_score|(32, 32, 12)|(16, 16, 1)",
+      "ape_lookup_key_candidate": "attention_score|(32, 32, 12)|(16, 16, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 54.48,
       "notes": "Dense family boundary anchor."
     },
@@ -119,8 +123,10 @@
       "route_hint": "Dense Projection/Transform",
       "template_hint": "Dense Tiled Compute",
       "weighted_elapsed_cycles": 760406.5135,
-      "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 98.36,
+      "ape_lookup_key": null,
+      "ape_lookup_key_candidate": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
+      "ape_evidence_status": "shared_across_anchors",
+      "ape_elapsed_cycles_ape": null,
       "notes": "Post-attention dense projection anchor."
     },
     {
@@ -157,6 +163,8 @@
       "template_hint": "Dense Tiled Compute",
       "weighted_elapsed_cycles": 760406.5135,
       "ape_lookup_key": "gemm_tiled|(192, 32, 1)|(16, 16, 1)",
+      "ape_lookup_key_candidate": "gemm_tiled|(192, 32, 1)|(16, 16, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 97.84,
       "notes": "Dense family heavy back-end anchor."
     },
@@ -193,8 +201,10 @@
       "route_hint": "Dense Projection/Transform",
       "template_hint": "Dense Tiled Compute",
       "weighted_elapsed_cycles": 760406.5135,
-      "ape_lookup_key": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
-      "ape_elapsed_cycles_ape": 98.36,
+      "ape_lookup_key": null,
+      "ape_lookup_key_candidate": "gemm_tiled|(48, 32, 1)|(16, 16, 1)",
+      "ape_evidence_status": "shared_across_anchors",
+      "ape_elapsed_cycles_ape": null,
       "notes": "Dense family contraction anchor."
     },
     {
@@ -231,6 +241,8 @@
       "template_hint": "Reduction Template",
       "weighted_elapsed_cycles": 90821.0,
       "ape_lookup_key": "softmax_kernel|(6144, 1, 1)|(256, 1, 1)",
+      "ape_lookup_key_candidate": "softmax_kernel|(6144, 1, 1)|(256, 1, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 95.65,
       "notes": "Reduction family attention-side anchor."
     },
@@ -269,6 +281,8 @@
       "template_hint": "Reduction Template",
       "weighted_elapsed_cycles": 29125.3334,
       "ape_lookup_key": "layernorm_kernel|(512, 1, 1)|(256, 1, 1)",
+      "ape_lookup_key_candidate": "layernorm_kernel|(512, 1, 1)|(256, 1, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 82.68,
       "notes": "Normalization-path reduction anchor."
     },
@@ -306,6 +320,8 @@
       "template_hint": "Streaming Aggregation Template",
       "weighted_elapsed_cycles": 351616.6667,
       "ape_lookup_key": "context_mul|(4, 32, 12)|(16, 16, 1)",
+      "ape_lookup_key_candidate": "context_mul|(4, 32, 12)|(16, 16, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 98.76,
       "notes": "Streaming aggregation anchor."
     },
@@ -344,6 +360,8 @@
       "template_hint": "Elementwise Template",
       "weighted_elapsed_cycles": 19055.5,
       "ape_lookup_key": "residual_add|(1536, 1, 1)|(256, 1, 1)",
+      "ape_lookup_key_candidate": "residual_add|(1536, 1, 1)|(256, 1, 1)",
+      "ape_evidence_status": "unique",
       "ape_elapsed_cycles_ape": 67.14,
       "notes": "High-frequency residual regression anchor."
     }

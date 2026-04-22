@@ -1,0 +1,192 @@
+[
+  {
+    "rep_kernel_id": "rep-hybrid-1",
+    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+    "cluster_id": "hybrid-1",
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii#1",
+      "_Z10gemm_tiledPKfS0_Pfiii#2",
+      "_Z10gemm_tiledPKfS0_Pfiii#3",
+      "_Z10gemm_tiledPKfS0_Pfiii#4",
+      "_Z10gemm_tiledPKfS0_Pfiii#8"
+    ],
+    "coverage_count": 5,
+    "coverage_weight": 0.35714285714285715,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.6263605347824512,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 1,
+      "end": 8
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "48x32x1",
+    "block_dim": "16x16x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-2",
+    "kernel_name": "_Z15attention_scorePKfS0_Pfiii",
+    "cluster_id": "hybrid-2",
+    "member_invocations": [
+      "_Z15attention_scorePKfS0_Pfiii#5"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.07142857142857142,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.0421738309339618,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 5,
+      "end": 5
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "32x32x12",
+    "block_dim": "16x16x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-3",
+    "kernel_name": "_Z14softmax_kernelPfii",
+    "cluster_id": "hybrid-3",
+    "member_invocations": [
+      "_Z14softmax_kernelPfii#6"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.07142857142857142,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.014965371984588657,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 6,
+      "end": 6
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "24x1x1",
+    "block_dim": "256x1x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-4",
+    "kernel_name": "_Z11context_mulPKfS0_Pfiii",
+    "cluster_id": "hybrid-4",
+    "member_invocations": [
+      "_Z11context_mulPKfS0_Pfiii#7"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.07142857142857142,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.05798107254976446,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 7,
+      "end": 7
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "4x32x12",
+    "block_dim": "16x16x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-5",
+    "kernel_name": "_Z12residual_addPfPKfi",
+    "cluster_id": "hybrid-5",
+    "member_invocations": [
+      "_Z12residual_addPfPKfi#9",
+      "_Z12residual_addPfPKfi#13"
+    ],
+    "coverage_count": 2,
+    "coverage_weight": 0.14285714285714285,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.003157610724306412,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 9,
+      "end": 13
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "1536x1x1",
+    "block_dim": "256x1x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-6",
+    "kernel_name": "_Z16layernorm_kernelPfii",
+    "cluster_id": "hybrid-6",
+    "member_invocations": [
+      "_Z16layernorm_kernelPfii#10",
+      "_Z16layernorm_kernelPfii#14"
+    ],
+    "coverage_count": 2,
+    "coverage_weight": 0.14285714285714285,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.004817365111946799,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 10,
+      "end": 14
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "512x1x1",
+    "block_dim": "256x1x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-7",
+    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+    "cluster_id": "hybrid-7",
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii#11"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.07142857142857142,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.12527210695649024,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 11,
+      "end": 11
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "192x32x1",
+    "block_dim": "16x16x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  },
+  {
+    "rep_kernel_id": "rep-hybrid-8",
+    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii",
+    "cluster_id": "hybrid-8",
+    "member_invocations": [
+      "_Z10gemm_tiledPKfS0_Pfiii#12"
+    ],
+    "coverage_count": 1,
+    "coverage_weight": 0.07142857142857142,
+    "coverage_weight_source": "derived_from_member_count",
+    "time_weight": 0.12527210695649024,
+    "time_weight_source": "derived_from_exec_time",
+    "trace_order_summary": {
+      "start": 12,
+      "end": 12
+    },
+    "shape_hint_summary": null,
+    "grid_dim": "48x32x1",
+    "block_dim": "16x16x1",
+    "member_invocations_status": "full_list",
+    "heterogeneity_flag": false,
+    "notes": null
+  }
+]

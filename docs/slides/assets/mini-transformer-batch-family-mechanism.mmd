@@ -1,0 +1,42 @@
+flowchart LR
+    subgraph K[Kernel-Level Objects]
+        direction TB
+        K1[gemm_tiled]
+        K2[attention_score]
+        K3[softmax_kernel]
+        K4[context_mul]
+        K5[layernorm_kernel]
+        K6[residual_add]
+    end
+
+    K --> B[Batch / Family Analysis<br/>identify shared architectural regime]
+
+    subgraph F1[Dense Tiled Compute Family]
+        direction TB
+        F1A[gemm_tiled]
+        F1B[attention_score]
+        F1N[shared template<br/>different route role]
+    end
+
+    subgraph F2[Reduction / Normalize Family]
+        direction TB
+        F2A[softmax_kernel]
+        F2B[layernorm_kernel]
+    end
+
+    subgraph F3[Streaming Aggregation Family]
+        direction TB
+        F3A[context_mul]
+    end
+
+    subgraph F4[Elementwise Fusion Family]
+        direction TB
+        F4A[residual_add]
+    end
+
+    B --> F1
+    B --> F2
+    B --> F3
+    B --> F4
+
+    B -.-> X[Batch is not name-based clustering<br/>it identifies shared mechanism and boundary cases]

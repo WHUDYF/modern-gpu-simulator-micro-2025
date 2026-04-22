@@ -36,7 +36,17 @@
 
 ## How the Family Criteria Framework Works
 
-第一版框架当前可以压缩成三层：
+第一版框架当前更准确地说，可以拆成两层：
+
+- **data-path family 层**
+- **intra-family tuning 层**
+
+前者负责定义“谁属于同一工作模式”，后者负责回答“在同一 family 内应该优先调什么、怎样找平衡点”。
+
+### A. Data-Path Family 层
+
+这一层的目标不是先看单个瓶颈，而是先判断 kernel 是否共享同一类硬件工作模式。  
+当前我们把这层进一步拆成三步。
 
 ### 1. Execution Mode 粗分
 
@@ -48,16 +58,24 @@
 
 这一层只负责粗分，不直接决定 family 边界。
 
-### 2. Dominant Resource 边界
+### 2. Data Movement / Cooperation / Coupling 边界
 
-真正决定 family 边界的是主导资源解释，例如：
+真正决定 family 边界的，不是最终瓶颈项本身，而是更靠近硬件工作模式的三类因素：
 
-- register / occupancy
-- DRAM bandwidth
-- cache-capacity / DRAM-pressure
-- locality / L1-resident
+- 数据移动方式
+- 线程协作方式
+- 计算-访存耦合方式
 
-这一层决定“为什么这些 kernel 该共享同一类解释”。
+例如：
+
+- 是否先搬到 shared memory 再复用
+- 是否以 block 内 reduction 为主
+- 是否主要是 thread-local streaming accumulation
+- 是否属于“先搬数据、再做密集乘加”的模板
+
+这一层回答的是：
+
+**为什么这些 kernel 可以被看成同一条 data path family。**
 
 ### 3. Family / Outlier 收束
 
@@ -68,7 +86,33 @@
 
 因此，这套方法不是“按算子名分组”，而是：
 
-**按共享架构解释分组。**
+**按共享执行模板 / 数据通路分组。**
+
+### B. Intra-Family Tuning 层
+
+当 family 已经由工作模式定义出来以后，才进入下一层：
+
+**同一 family 内应该如何调参。**
+
+在这一层，主导限制项才变得重要，例如：
+
+- register / occupancy
+- DRAM bandwidth
+- cache-capacity / DRAM-pressure
+- locality / L1-resident
+
+也就是说，当前方法不再把瓶颈项直接拿来定义 family，而是把它们作为：
+
+**family 内部调参与平衡优化的依据。**
+
+这意味着：
+
+- family 负责“结构归属”
+- dominant bottleneck 负责“后续调参”
+
+这个分层能避免一个常见错误：
+
+如果一开始就用单个瓶颈项定义 family，那么像 `gemm_tiled` 与 `attention_score` 这种共享工作模式、但次级限制项不同的 kernel，会被拆得过早，失去作为同一 data-path family 的价值。
 
 ## Version-1 Output Structure
 
@@ -133,6 +177,20 @@
 
 **family 的作用是先定义“哪些对象值得共享解释”，再决定“哪些对象值得共享验证主线”。**
 
+而且这里有一个新的关键分层：
+
+- family 不是由“当前瓶颈是什么”直接决定的
+- family 先由共享数据通路 / 执行模板定义
+- 瓶颈项则在下一层用于 family 内部调参
+
+因此，我们现在不再把问题写成：
+
+> 哪些 kernel 的瓶颈相同，所以它们应当归为一类
+
+而是更准确地写成：
+
+> 哪些 kernel 共享同一工作模式，因此应先归为同一 family；随后再利用它们在限制项上的差异去寻找 family 内部最平衡的调参点
+
 这就是它为什么能把后续 simulator 验证从“逐 kernel 猜”压缩成“少数验证主线 + 少量例外”。
 
 ## Version-1 Limits
@@ -156,9 +214,10 @@
 
 1. `batch` 的核心不是按算子名分组，而是识别共享架构解释
 2. family 判据不能直接从单卡静态归纳，必须先经过边界 case 的逼近
-3. analysis cards 与 family cards 只是方法生长过程中的支撑层
-4. synthesis 才是第一版最重要的主交付物，因为它真正说明了方法是如何工作的
+3. family 由共享工作模式定义，而主导限制项应当留给 family 内调参与平衡优化
+4. analysis cards 与 family cards 只是方法生长过程中的支撑层
+5. synthesis 才是第一版最重要的主交付物，因为它真正说明了方法是如何工作的
 
 所以，当前这轮原型真正证明的是：
 
-**从 workload 到 simulator 的端到端视线，确实可以先通过“边界 case -> family 判据 -> family 结构”这条路径长出来。**
+**从 workload 到 simulator 的端到端视线，确实可以先通过“边界 case -> data-path family -> intra-family tuning”这条路径长出来。**

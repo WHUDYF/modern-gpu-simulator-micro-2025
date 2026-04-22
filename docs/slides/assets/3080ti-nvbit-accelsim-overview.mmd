@@ -1,0 +1,17 @@
+flowchart LR
+    A[真实硬件平台<br/>RTX 3080 Ti<br/>SM86 Ampere] --> B[运行 CUDA / AI workload]
+    B --> C[NVBit Tracer 取迹<br/>采集真实执行时的 SASS 动态行为]
+    C --> D[Trace 产物<br/>dynamic_trace.pb<br/>threadblocks<br/>enhanced_execution_info.json]
+
+    D --> E[前期调研阶段<br/>基于 trace 理解 workload 行为]
+    E --> E1[执行路径观察]
+    E --> E2[phase / squash 分析]
+    E --> E3[kernel / family 边界识别]
+    E --> E4[瓶颈与结构特征归纳]
+
+    D --> F[Accel-Sim 基础框架]
+    F --> G[Trace-driven Simulation]
+    G --> H[后续验证框架<br/>配置修改 / 机制验证 / 参数对比]
+
+    E --> I[方法形成<br/>workload-to-simulator 结构化接口]
+    I --> H

@@ -1,0 +1,32 @@
+flowchart LR
+    subgraph L[Mini-Transformer Raw Execution Flow]
+        direction LR
+        A1[QKV Projection]
+        A2[Attention Score]
+        A3[Softmax]
+        A4[Context Mul]
+        A5[Output Projection]
+        A6[Residual + LayerNorm]
+        A7[FFN Up]
+        A8[FFN Down]
+        A9[QKV Projection]
+        A10[Attention Score]
+        A11[Softmax]
+        A12[Context Mul]
+        A13[Output Projection]
+        A14[Residual + LayerNorm]
+        A15[FFN Up]
+        A16[FFN Down]
+    end
+
+    L --> M[Squash<br/>compress long trace<br/>into stable phases]
+
+    M --> P1[Phase A<br/>Dense Projection]
+    M --> P2[Phase B<br/>Attention Readout]
+    M --> P3[Phase C<br/>Residual / Normalize]
+    M --> P4[Phase D<br/>FFN]
+
+    P1 -.-> N1[QKV Projection<br/>Output Projection]
+    P2 -.-> N2[Attention Score<br/>Softmax<br/>Context Mul]
+    P3 -.-> N3[Residual Add<br/>LayerNorm]
+    P4 -.-> N4[FFN Up<br/>FFN Down]

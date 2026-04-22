@@ -122,3 +122,36 @@ def test_planner_fails_on_missing_priority_source_field(tmp_path):
     )
     assert result.returncode != 0
     assert "missing required fields" in result.stderr or "missing required fields" in result.stdout
+
+
+def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regimes(tmp_path):
+    output_dir = tmp_path / "backend"
+    subprocess.run([sys.executable, str(BUILD_SCRIPT), "--input", str(INPUT), "--output-dir", str(output_dir)], check=True)
+    worksheet = json.loads((output_dir / "backend_validation_worksheet_v1.json").read_text())
+    worksheet["budget_definition"]["family_preselection_count"] = 1
+    worksheet["budget_definition"]["main_object_max_scenarios"] = 1
+    worksheet["budget_definition"]["review_object_max_scenarios"] = 2
+    (output_dir / "worksheet_custom.json").write_text(json.dumps(worksheet, indent=2))
+    subprocess.run(
+        [
+            sys.executable,
+            str(PLAN_SCRIPT),
+            "--priority-lane-table",
+            str(output_dir / "backend_priority_lane_table_v1.json"),
+            "--validation-worksheet",
+            str(output_dir / "worksheet_custom.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        check=True,
+    )
+    plan = json.loads((output_dir / "backend_baseline_plan_v1.json").read_text())
+    assert plan["budget_policy"]["family_preselection_count"] == 1
+    assert plan["budget_policy"]["main_object_max_scenarios"] == 1
+    assert plan["budget_policy"]["review_object_max_scenarios"] == 2
+    assert plan["strategies"]["importance-guided"]["selected_families"] == ["F1_dense_tiled"]
+    assert plan["strategies"]["importance-guided"]["selected_regimes"] == [
+        "R1_projection_dense",
+        "R2_attention_score_dense",
+        "R6_residual_elementwise",
+    ]

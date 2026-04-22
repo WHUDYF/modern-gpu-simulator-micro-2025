@@ -166,11 +166,29 @@ def build_scenario_matrix(run_manifest: list[dict]) -> list[dict]:
 def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict], worksheet: dict) -> dict:
     strategies = _required_strategies(worksheet)
     family_limit = _family_preselection_count(worksheet)
-    plan = {"comparison_scope": "family -> regime", "budget_policy": {"family_preselection": "Top-3 families (recommended target)", "main_object_scenarios": "up to 2", "review_object_scenarios": "1", "constraint_object_scenarios": "1, budget tail"}, "strategies": {}}
+    budget = worksheet["budget_definition"]
+    plan = {
+        "comparison_scope": "family -> regime",
+        "budget_policy": {
+            "family_preselection_count": budget["family_preselection_count"],
+            "main_object_max_scenarios": budget["main_object_max_scenarios"],
+            "review_object_max_scenarios": budget["review_object_max_scenarios"],
+            "constraint_object_max_scenarios": budget["constraint_object_max_scenarios"],
+        },
+        "strategies": {},
+    }
     for source in strategies:
         rows = [row for row in run_manifest if row["priority_source"] == source]
         top_families = _top_families_for_source(priority_lane_table, source, family_limit)
-        plan["strategies"][source] = {"selected_families": top_families, "selected_regimes": [row["regime_id"] for row in rows], "run_count": len(rows)}
+        selected_regimes = []
+        for row in rows:
+            if row["regime_id"] not in selected_regimes:
+                selected_regimes.append(row["regime_id"])
+        plan["strategies"][source] = {
+            "selected_families": top_families,
+            "selected_regimes": selected_regimes,
+            "run_count": len(rows),
+        }
     return plan
 
 

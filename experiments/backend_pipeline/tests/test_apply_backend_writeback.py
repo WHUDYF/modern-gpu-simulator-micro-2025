@@ -226,3 +226,45 @@ def test_writeback_fails_on_duplicate_result_rows(tmp_path):
     )
     assert result.returncode != 0
     assert "duplicate result_summary row" in result.stderr or "duplicate result_summary row" in result.stdout
+
+
+def test_writeback_keeps_review_seed_when_result_summary_does_not_touch_review_object(tmp_path):
+    output_dir = _prepare_environment(tmp_path)
+    result_summary = [
+        {
+            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+            "object_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R1_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "observed_metric_values": {},
+            "baseline_delta": {},
+            "sensitivity_score": None,
+            "coverage_gain": None,
+            "tuning_gain": None,
+            "result_status": "inconclusive",
+            "notes": "leave review object untouched",
+        }
+    ]
+    (output_dir / "backend_result_summary_v1.json").write_text(json.dumps(result_summary, indent=2))
+    subprocess.run(
+        [
+            sys.executable,
+            str(WRITEBACK_SCRIPT),
+            "--run-manifest",
+            str(output_dir / "backend_run_manifest_v1.json"),
+            "--result-summary",
+            str(output_dir / "backend_result_summary_v1.json"),
+            "--writeback-map",
+            str(output_dir / "backend_writeback_map_v1.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        check=True,
+    )
+    validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
+    layernorm = next(row for row in validation["regime_status"] if row["regime_id"] == "R4_layernorm_reduction")
+    family = next(row for row in validation["family_status"] if row["family_id"] == "F2_reduction_normalize")
+    assert layernorm["review_status"] == "keep-review"
+    assert family["review_needed_regimes"] == ["R4_layernorm_reduction"]

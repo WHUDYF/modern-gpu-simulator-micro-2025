@@ -140,7 +140,7 @@ def build_writeback_updates(run_manifest: list[dict], result_summary: list[dict]
     return updates
 
 
-def build_validation_status(run_manifest: list[dict], writeback_updates: list[dict]) -> dict:
+def build_validation_status(run_manifest: list[dict], writeback_updates: list[dict], writeback_map: list[dict]) -> dict:
     manifest_by_regime = {}
     for row in run_manifest:
         manifest_by_regime.setdefault(
@@ -154,6 +154,10 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         )
         if row["priority_source"] not in manifest_by_regime[row["regime_id"]]["priority_sources"]:
             manifest_by_regime[row["regime_id"]]["priority_sources"].append(row["priority_source"])
+
+    default_review_by_regime = {}
+    for row in writeback_map:
+        default_review_by_regime.setdefault(row["regime_id"], row.get("review_status_update", "no-review"))
 
     updates_by_regime = {}
     for update in writeback_updates:
@@ -178,7 +182,7 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         elif "keep-review" in review_candidates:
             current_review = "keep-review"
         else:
-            current_review = "no-review"
+            current_review = default_review_by_regime.get(regime_id, "no-review")
 
         regime_status.append(
             {
@@ -237,7 +241,7 @@ def main() -> None:
     writeback_map = load_json(args.writeback_map)
 
     writeback_updates = build_writeback_updates(run_manifest, result_summary, writeback_map)
-    validation_status = build_validation_status(run_manifest, writeback_updates)
+    validation_status = build_validation_status(run_manifest, writeback_updates, writeback_map)
     write_outputs(args.output_dir, writeback_updates, validation_status)
     print(f"[backend-writeback] wrote writeback outputs to {args.output_dir}")
 

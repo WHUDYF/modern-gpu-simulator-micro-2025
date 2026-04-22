@@ -1,10 +1,10 @@
 {
   "comparison_scope": "family -> regime",
   "budget_policy": {
-    "family_preselection": "Top-3 families (recommended target)",
-    "main_object_scenarios": "up to 2",
-    "review_object_scenarios": "1",
-    "constraint_object_scenarios": "1, budget tail"
+    "family_preselection_count": 3,
+    "main_object_max_scenarios": 2,
+    "review_object_max_scenarios": 1,
+    "constraint_object_max_scenarios": 1
   },
   "strategies": {
     "importance-guided": {
@@ -15,10 +15,7 @@
       ],
       "selected_regimes": [
         "R1_projection_dense",
-        "R1_projection_dense",
         "R2_attention_score_dense",
-        "R2_attention_score_dense",
-        "R3_softmax_reduction",
         "R3_softmax_reduction",
         "R5_context_streaming",
         "R4_layernorm_reduction",
@@ -34,11 +31,8 @@
       ],
       "selected_regimes": [
         "R1_projection_dense",
-        "R1_projection_dense",
         "R5_context_streaming",
         "R2_attention_score_dense",
-        "R2_attention_score_dense",
-        "R3_softmax_reduction",
         "R3_softmax_reduction",
         "R4_layernorm_reduction",
         "R6_residual_elementwise"
@@ -53,10 +47,7 @@
       ],
       "selected_regimes": [
         "R1_projection_dense",
-        "R1_projection_dense",
         "R2_attention_score_dense",
-        "R2_attention_score_dense",
-        "R3_softmax_reduction",
         "R3_softmax_reduction",
         "R4_layernorm_reduction",
         "R5_context_streaming",
@@ -72,10 +63,7 @@
       ],
       "selected_regimes": [
         "R1_projection_dense",
-        "R1_projection_dense",
         "R2_attention_score_dense",
-        "R2_attention_score_dense",
-        "R3_softmax_reduction",
         "R3_softmax_reduction",
         "R4_layernorm_reduction",
         "R5_context_streaming",

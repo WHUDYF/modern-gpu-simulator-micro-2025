@@ -62,7 +62,7 @@
       "validation_role": "review-object",
       "canonical_status": "review-needed",
       "current_status": "pending-review",
-      "review_status": "no-review",
+      "review_status": "keep-review",
       "priority_sources": [
         "importance-guided",
         "time-only",
@@ -102,7 +102,9 @@
         "R3_softmax_reduction",
         "R4_layernorm_reduction"
       ],
-      "review_needed_regimes": [],
+      "review_needed_regimes": [
+        "R4_layernorm_reduction"
+      ],
       "validated_regimes": [],
       "failed_regimes": []
     },

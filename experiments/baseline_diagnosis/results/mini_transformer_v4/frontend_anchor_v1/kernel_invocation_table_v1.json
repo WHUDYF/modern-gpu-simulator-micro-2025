@@ -1,7 +1,9 @@
 {
   "workload": "mini-transformer-1layer (hidden=768, seq=512, heads=12)",
   "hardware": "RTX 3080 Ti (SM_86)",
-  "source_mode": "full_json_shortcut",
+  "source_mode": "explicit_dual_source",
+  "identity_source": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/mini_transformer_v4_full.json",
+  "features_source": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/mini_transformer_v4_full.json",
   "records": [
     {
       "kernel_invocation_id": "_Z10gemm_tiledPKfS0_Pfiii#1",
@@ -31,7 +33,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -67,7 +69,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -103,7 +105,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -139,7 +141,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -175,7 +177,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.9190600522193212
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -211,7 +213,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -247,7 +249,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.9190600522193212
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 0,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9331229448217794,
@@ -283,7 +285,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 1,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 1.0,
@@ -319,7 +321,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 2,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 1.0,
@@ -355,7 +357,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 3,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9227390339177678,
@@ -391,7 +393,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 3,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9227390339177678,
@@ -427,7 +429,7 @@
         "full_encoding_fallback_rate": 0.0,
         "shared_pc_sequence_length": 0.0
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 3,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 0.9227390339177678,
@@ -463,7 +465,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 4,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 1.0,
@@ -499,7 +501,7 @@
         "full_encoding_fallback_rate": null,
         "shared_pc_sequence_length": null
       },
-      "feature_source_note": "mini_transformer_v4_full.json shortcut",
+      "feature_source_note": "explicit dual-source features_json",
       "kernel_squash_segment_id": 5,
       "kernel_squash_boundary_count": 5,
       "kernel_squash_cohesion": 1.0,

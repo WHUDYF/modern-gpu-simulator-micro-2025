@@ -23,8 +23,9 @@
     "grid_dim": "48x32x1",
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
-    "heterogeneity_flag": false,
-    "notes": null
+    "heterogeneity_flag": true,
+    "squash_boundary_crossing_flag": false,
+    "notes": "members span multiple kernel squash segments"
   },
   {
     "rep_kernel_id": "rep-hybrid-2",
@@ -47,6 +48,7 @@
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": false,
+    "squash_boundary_crossing_flag": false,
     "notes": null
   },
   {
@@ -70,6 +72,7 @@
     "block_dim": "256x1x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": false,
+    "squash_boundary_crossing_flag": false,
     "notes": null
   },
   {
@@ -93,6 +96,7 @@
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": false,
+    "squash_boundary_crossing_flag": false,
     "notes": null
   },
   {
@@ -116,8 +120,9 @@
     "grid_dim": "1536x1x1",
     "block_dim": "256x1x1",
     "member_invocations_status": "full_list",
-    "heterogeneity_flag": false,
-    "notes": null
+    "heterogeneity_flag": true,
+    "squash_boundary_crossing_flag": false,
+    "notes": "members span multiple kernel squash segments"
   },
   {
     "rep_kernel_id": "rep-hybrid-6",
@@ -140,8 +145,9 @@
     "grid_dim": "512x1x1",
     "block_dim": "256x1x1",
     "member_invocations_status": "full_list",
-    "heterogeneity_flag": false,
-    "notes": null
+    "heterogeneity_flag": true,
+    "squash_boundary_crossing_flag": false,
+    "notes": "members span multiple kernel squash segments"
   },
   {
     "rep_kernel_id": "rep-hybrid-7",
@@ -164,6 +170,7 @@
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": false,
+    "squash_boundary_crossing_flag": false,
     "notes": null
   },
   {
@@ -187,6 +194,7 @@
     "block_dim": "16x16x1",
     "member_invocations_status": "full_list",
     "heterogeneity_flag": false,
+    "squash_boundary_crossing_flag": false,
     "notes": null
   }
 ]

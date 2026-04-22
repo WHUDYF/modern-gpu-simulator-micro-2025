@@ -77,14 +77,69 @@ def _build_tb_level_squash_map(squash_data: dict[str, Any]) -> dict[int, dict[st
     return result
 
 
-def build_records_from_full_json(
-    full_json_path: str | Path,
+def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    per_kernel = identity_data.get("per_kernel", {})
+    if not isinstance(per_kernel, dict) or not per_kernel:
+        raise ValueError("identity_json does not contain a non-empty per_kernel mapping")
+    normalized: dict[int, dict[str, Any]] = {}
+    for source_invocation_key, item in per_kernel.items():
+        kernel_id = item.get("kernel_id")
+        if kernel_id is None:
+            raise ValueError(f"identity_json entry {source_invocation_key} missing kernel_id")
+        normalized[int(kernel_id)] = {
+            "source_invocation_key": source_invocation_key,
+            "kernel_name": item["kernel_name"],
+            "kernel_id": int(kernel_id),
+            "grid_dim": item.get("dynamic_stats", {}).get("grid_dim"),
+            "block_dim": item.get("dynamic_stats", {}).get("block_dim"),
+            "shape_hint": None,
+        }
+    return normalized
+
+
+def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    per_kernel = features_data.get("per_kernel", {})
+    if not isinstance(per_kernel, dict) or not per_kernel:
+        raise ValueError("features_json does not contain a non-empty per_kernel mapping")
+    normalized: dict[int, dict[str, Any]] = {}
+    for source_invocation_key, item in per_kernel.items():
+        kernel_id = item.get("kernel_id")
+        if kernel_id is None:
+            raise ValueError(f"features_json entry {source_invocation_key} missing kernel_id")
+        hardware = item.get("hardware_metrics", {})
+        dynamic = item.get("dynamic_stats", {})
+        exec_time, exec_time_source = _select_exec_time(hardware)
+        normalized[int(kernel_id)] = {
+            "source_invocation_key": source_invocation_key,
+            "kernel_name": item["kernel_name"],
+            "kernel_id": int(kernel_id),
+            "dynamic_inst_count": dynamic.get("total_dynamic_insts"),
+            "exec_time": exec_time,
+            "exec_time_source": exec_time_source,
+            "feature_vector": _feature_vector(item),
+            "feature_source_note": "explicit dual-source features_json",
+        }
+    return normalized
+
+
+def build_records_from_dual_sources(
+    identity_json_path: str | Path,
+    features_json_path: str | Path,
     squash_json_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    full_data = _load_json(full_json_path)
-    per_kernel = full_data.get("per_kernel", {})
-    if not isinstance(per_kernel, dict) or not per_kernel:
-        raise ValueError("full_json does not contain a non-empty per_kernel mapping")
+    identity_data = _load_json(identity_json_path)
+    features_data = _load_json(features_json_path)
+    identity_map = _normalize_identity_source(identity_data)
+    feature_map = _normalize_feature_source(features_data)
+
+    if set(identity_map.keys()) != set(feature_map.keys()):
+        missing_in_features = sorted(set(identity_map.keys()) - set(feature_map.keys()))
+        missing_in_identity = sorted(set(feature_map.keys()) - set(identity_map.keys()))
+        raise ValueError(
+            "dual-source alignment failed: "
+            f"missing_in_features={missing_in_features}, "
+            f"missing_in_identity={missing_in_identity}"
+        )
 
     squash_kernel_map: dict[int, dict[str, Any]] = {}
     squash_tb_map: dict[int, dict[str, Any]] = {}
@@ -93,45 +148,52 @@ def build_records_from_full_json(
         squash_kernel_map = _build_kernel_level_squash_map(squash_data)
         squash_tb_map = _build_tb_level_squash_map(squash_data)
 
-    ordered_items = sorted(
-        per_kernel.items(),
-        key=lambda kv: (int(kv[1].get("kernel_id", 10**9)), kv[0]),
-    )
-
     name_counts: dict[str, int] = defaultdict(int)
     records: list[dict[str, Any]] = []
-    for zero_based_idx, (source_invocation_key, item) in enumerate(ordered_items):
-        kernel_name = item["kernel_name"]
+    ordered_kernel_ids = sorted(identity_map.keys())
+    for zero_based_idx, kernel_id in enumerate(ordered_kernel_ids):
+        identity = identity_map[kernel_id]
+        features = feature_map[kernel_id]
+        kernel_name = identity["kernel_name"]
         name_counts[kernel_name] += 1
         occurrence_index = name_counts[kernel_name]
         trace_order = zero_based_idx + 1
-        dynamic = item.get("dynamic_stats", {})
-        hardware = item.get("hardware_metrics", {})
-        exec_time, exec_time_source = _select_exec_time(hardware)
 
         record = {
             "kernel_invocation_id": f"{kernel_name}#{trace_order}",
-            "source_invocation_key": source_invocation_key,
+            "source_invocation_key": identity["source_invocation_key"],
             "kernel_name": kernel_name,
-            "kernel_id": item.get("kernel_id"),
+            "kernel_id": kernel_id,
             "trace_order": trace_order,
             "kernel_name_occurrence": occurrence_index,
-            "grid_dim": dynamic.get("grid_dim"),
-            "block_dim": dynamic.get("block_dim"),
-            "shape_hint": None,
-            "exec_time": exec_time,
-            "exec_time_source": exec_time_source,
-            "dynamic_inst_count": dynamic.get("total_dynamic_insts"),
-            "feature_vector": _feature_vector(item),
-            "feature_source_note": "mini_transformer_v4_full.json shortcut",
+            "grid_dim": identity["grid_dim"],
+            "block_dim": identity["block_dim"],
+            "shape_hint": identity["shape_hint"],
+            "exec_time": features["exec_time"],
+            "exec_time_source": features["exec_time_source"],
+            "dynamic_inst_count": features["dynamic_inst_count"],
+            "feature_vector": features["feature_vector"],
+            "feature_source_note": features["feature_source_note"],
         }
         record.update(squash_kernel_map.get(zero_based_idx, {}))
-        record.update(squash_tb_map.get(int(item.get("kernel_id", -1)), {}))
+        record.update(squash_tb_map.get(kernel_id, {}))
         records.append(record)
 
     return {
-        "workload": full_data.get("workload"),
-        "hardware": full_data.get("hardware"),
-        "source_mode": "full_json_shortcut",
+        "workload": identity_data.get("workload") or features_data.get("workload"),
+        "hardware": identity_data.get("hardware") or features_data.get("hardware"),
+        "source_mode": "explicit_dual_source",
+        "identity_source": str(identity_json_path),
+        "features_source": str(features_json_path),
         "records": records,
     }
+
+
+def build_records_from_full_json(
+    full_json_path: str | Path,
+    squash_json_path: str | Path | None = None,
+) -> dict[str, Any]:
+    table = build_records_from_dual_sources(full_json_path, full_json_path, squash_json_path)
+    table["source_mode"] = "full_json_shortcut"
+    table["feature_source_note"] = "full_json shortcut path"
+    return table

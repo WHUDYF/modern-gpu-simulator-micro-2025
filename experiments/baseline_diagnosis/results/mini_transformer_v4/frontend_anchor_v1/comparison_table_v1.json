@@ -3,30 +3,33 @@
     "method": "name-only",
     "num_anchors": 6,
     "time_weight_covered": 0.977059652179158,
+    "time_weight_covered_definition": "cumulative time weight covered by the top-3 anchors in this method",
     "avg_cluster_size": 2.3333333333333335,
     "intra_cluster_exec_time_var": 0.0,
     "intra_cluster_inst_var": 3456166360701806.0,
     "split_cases_count": 0,
-    "notes": "time_weight_covered is cumulative coverage of top-3 anchors"
+    "notes": "evidence-only output; not a downstream mainline table"
   },
   {
     "method": "pka-like-coarse",
     "num_anchors": 7,
     "time_weight_covered": 0.9348858212451963,
+    "time_weight_covered_definition": "cumulative time weight covered by the top-3 anchors in this method",
     "avg_cluster_size": 2.0,
     "intra_cluster_exec_time_var": 0.0,
     "intra_cluster_inst_var": 2054254633605997.8,
     "split_cases_count": 1,
-    "notes": "time_weight_covered is cumulative coverage of top-3 anchors"
+    "notes": "evidence-only output; not a downstream mainline table"
   },
   {
     "method": "hybrid",
     "num_anchors": 8,
     "time_weight_covered": 0.8769047486954318,
+    "time_weight_covered_definition": "cumulative time weight covered by the top-3 anchors in this method",
     "avg_cluster_size": 1.75,
     "intra_cluster_exec_time_var": 0.0,
     "intra_cluster_inst_var": 0.0,
     "split_cases_count": 1,
-    "notes": "time_weight_covered is cumulative coverage of top-3 anchors"
+    "notes": "evidence-only output; not a downstream mainline table"
   }
 ]

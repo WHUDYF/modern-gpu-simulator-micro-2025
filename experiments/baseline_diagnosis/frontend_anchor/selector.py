@@ -101,6 +101,15 @@ def _materialize_groups(method: str, groups: dict[tuple[str, ...], list[dict[str
         heterogeneity_flag = False
         if len(exec_times) >= 2:
             heterogeneity_flag = max(exec_times) != min(exec_times)
+        squash_segments = {
+            member.get("kernel_squash_segment_id")
+            for member in members
+            if member.get("kernel_squash_segment_id") is not None
+        }
+        boundary_crossing = len(squash_segments) > 1
+        guardrail_note = None
+        if boundary_crossing:
+            guardrail_note = "members span multiple kernel squash segments"
         result.append(
             {
                 "method": method,
@@ -111,7 +120,8 @@ def _materialize_groups(method: str, groups: dict[tuple[str, ...], list[dict[str
                 "member_count": len(members),
                 "avg_exec_time": mean(exec_times) if exec_times else None,
                 "avg_dynamic_inst_count": mean(inst_counts) if inst_counts else None,
-                "heterogeneity_flag": heterogeneity_flag,
+                "heterogeneity_flag": heterogeneity_flag or boundary_crossing,
+                "guardrail_note": guardrail_note,
             }
         )
     return result
@@ -125,4 +135,3 @@ def run_selector(records: list[dict[str, Any]], mode: str) -> list[dict[str, Any
     if mode == "hybrid":
         return select_hybrid(records)
     raise ValueError(f"unknown selector mode: {mode}")
-

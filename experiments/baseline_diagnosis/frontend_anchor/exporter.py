@@ -39,8 +39,13 @@ def export_anchor_table(selector_groups: list[dict[str, Any]]) -> list[dict[str,
                 "grid_dim": anchor.get("grid_dim"),
                 "block_dim": anchor.get("block_dim"),
                 "member_invocations_status": "full_list",
-                "heterogeneity_flag": group["heterogeneity_flag"],
-                "notes": None,
+                "heterogeneity_flag": group["heterogeneity_flag"] or any(
+                    member.get("kernel_squash_boundary_crossing_flag", False) for member in members
+                ),
+                "squash_boundary_crossing_flag": any(
+                    member.get("kernel_squash_boundary_crossing_flag", False) for member in members
+                ),
+                "notes": group.get("guardrail_note"),
             }
         )
     return table
@@ -86,11 +91,12 @@ def build_comparison_table(all_groups_by_method: dict[str, list[dict[str, Any]]]
                 "method": method,
                 "num_anchors": len(groups),
                 "time_weight_covered": top3_coverage,
+                "time_weight_covered_definition": "cumulative time weight covered by the top-3 anchors in this method",
                 "avg_cluster_size": avg_cluster_size,
                 "intra_cluster_exec_time_var": sum(exec_vars) / max(len(exec_vars), 1),
                 "intra_cluster_inst_var": sum(inst_vars) / max(len(inst_vars), 1),
                 "split_cases_count": split_count,
-                "notes": "time_weight_covered is cumulative coverage of top-3 anchors",
+                "notes": "evidence-only output; not a downstream mainline table",
             }
         )
     return table
@@ -118,11 +124,20 @@ def build_case_note(all_groups_by_method: dict[str, list[dict[str, Any]]]) -> st
             f"`hybrid` groups: {len(hybrid_groups)}"
         )
         for group in hybrid_groups:
-            member_ids = [m["kernel_invocation_id"] for m in group["members"]]
+            members = group["members"]
+            member_ids = [m["kernel_invocation_id"] for m in members]
+            grid_dims = sorted({str(m.get("grid_dim")) for m in members})
+            dynamic_insts = sorted({m.get("dynamic_inst_count") for m in members})
             lines.append(f"- hybrid cluster `{group['cluster_id']}` members: {', '.join(member_ids)}")
+            lines.append(
+                f"  - evidence: grid_dim={grid_dims}, dynamic_inst_count={dynamic_insts}"
+            )
+        lines.append(
+            "  - interpretation: hybrid introduces an extra boundary only when the bucket-internal "
+            "execution signature changes enough to justify splitting anchors within the same coarse group."
+        )
         lines.append("")
 
     if len(lines) == 4:
         lines.extend(["No additional hybrid split case was observed on this input.", ""])
     return "\n".join(lines)
-

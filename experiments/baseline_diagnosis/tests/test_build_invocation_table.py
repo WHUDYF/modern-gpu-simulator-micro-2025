@@ -17,10 +17,12 @@ def run_builder(tmp_path, *extra):
     cmd = [
         sys.executable,
         str(SCRIPT),
-        "--full-json",
-        str(FULL_JSON),
-        "--output",
-        str(out),
+            "--identity-json",
+            str(FULL_JSON),
+            "--features-json",
+            str(FULL_JSON),
+            "--output",
+            str(out),
         *extra,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -31,7 +33,7 @@ def test_builder_writes_records(tmp_path):
     proc, out = run_builder(tmp_path)
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(out.read_text())
-    assert payload["source_mode"] == "full_json_shortcut"
+    assert payload["source_mode"] == "explicit_dual_source"
     assert len(payload["records"]) == 14
     first = payload["records"][0]
     assert first["kernel_invocation_id"] == "_Z10gemm_tiledPKfS0_Pfiii#1"
@@ -54,8 +56,10 @@ def test_builder_rejects_missing_input(tmp_path):
         [
             sys.executable,
             str(SCRIPT),
-            "--full-json",
+            "--identity-json",
             str(tmp_path / "missing.json"),
+            "--features-json",
+            str(FULL_JSON),
             "--output",
             str(out),
         ],
@@ -63,7 +67,33 @@ def test_builder_rejects_missing_input(tmp_path):
         text=True,
     )
     assert proc.returncode != 0
-    assert "full_json not found" in proc.stderr
+    assert "identity_json not found" in proc.stderr
+
+
+def test_builder_rejects_unalignable_sources(tmp_path):
+    bad_features = tmp_path / "bad_features.json"
+    data = json.loads(FULL_JSON.read_text())
+    first_key = next(iter(data["per_kernel"]))
+    data["per_kernel"].pop(first_key)
+    bad_features.write_text(json.dumps(data))
+
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--identity-json",
+            str(FULL_JSON),
+            "--features-json",
+            str(bad_features),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "dual-source alignment failed" in proc.stderr
 
 
 def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
@@ -71,7 +101,9 @@ def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
         [
             sys.executable,
             str(PIPELINE),
-            "--full-json",
+            "--identity-json",
+            str(FULL_JSON),
+            "--features-json",
             str(FULL_JSON),
             "--squash-json",
             str(SQUASH_JSON),

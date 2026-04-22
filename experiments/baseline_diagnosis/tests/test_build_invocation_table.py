@@ -179,6 +179,82 @@ def test_builder_rejects_duplicate_kernel_ids_in_features_source(tmp_path):
     assert "duplicate kernel_id" in proc.stderr
 
 
+def test_builder_rejects_mixed_exec_time_units_in_features_source(tmp_path):
+    bad_features = tmp_path / "bad_features.json"
+    data = json.loads(FEATURES_JSON.read_text())
+    data["feature_records"][0]["exec_time_source"] = "duration_ns"
+    data["feature_records"][1]["exec_time_source"] = "elapsed_cycles"
+    bad_features.write_text(json.dumps(data))
+
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--identity-json",
+            str(IDENTITY_JSON),
+            "--features-json",
+            str(bad_features),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "mixes incompatible exec_time sources" in proc.stderr
+
+
+def test_full_json_mode_preserves_per_kernel_launch_order(tmp_path):
+    custom = tmp_path / "custom_full.json"
+    custom.write_text(
+        json.dumps(
+            {
+                "workload": "demo",
+                "per_kernel": {
+                    "kernel_b": {
+                        "kernel_id": 20,
+                        "kernel_name": "kernel_b",
+                        "dynamic_stats": {
+                            "grid_dim": "1x1x1",
+                            "block_dim": "1x1x1",
+                            "total_dynamic_insts": 20,
+                        },
+                        "hardware_metrics": {"duration_ns": 2.0},
+                    },
+                    "kernel_a": {
+                        "kernel_id": 10,
+                        "kernel_name": "kernel_a",
+                        "dynamic_stats": {
+                            "grid_dim": "1x1x1",
+                            "block_dim": "1x1x1",
+                            "total_dynamic_insts": 10,
+                        },
+                        "hardware_metrics": {"duration_ns": 1.0},
+                    },
+                },
+            }
+        )
+    )
+
+    out = tmp_path / "invocation_table.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--full-json",
+            str(custom),
+            "--output",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(out.read_text())
+    assert [row["kernel_name"] for row in payload["records"]] == ["kernel_b", "kernel_a"]
+
+
 def test_frontend_pipeline_writes_anchor_outputs(tmp_path):
     proc = subprocess.run(
         [

@@ -59,3 +59,21 @@ def test_no_priority_family_baseline_uses_stable_non_importance_order():
         "F3_streaming_aggregation",
         "F4_elementwise_fusion",
     ]
+
+
+def test_no_priority_regime_baseline_uses_original_order():
+    outputs = build_backend_outputs(load_full_features(INPUT))
+    rows = [
+        row
+        for row in outputs["priority_lane_table"]
+        if row["object_level"] == "regime" and row["priority_source"] == "no-priority"
+    ]
+    rows.sort(key=lambda row: row["priority_rank"])
+    assert [row["regime_id"] for row in rows] == [
+        "R1_projection_dense",
+        "R2_attention_score_dense",
+        "R3_softmax_reduction",
+        "R4_layernorm_reduction",
+        "R5_context_streaming",
+        "R6_residual_elementwise",
+    ]

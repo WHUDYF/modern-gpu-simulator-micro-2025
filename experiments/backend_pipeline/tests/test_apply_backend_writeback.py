@@ -268,3 +268,60 @@ def test_writeback_keeps_review_seed_when_result_summary_does_not_touch_review_o
     family = next(row for row in validation["family_status"] if row["family_id"] == "F2_reduction_normalize")
     assert layernorm["review_status"] == "keep-review"
     assert family["review_needed_regimes"] == ["R4_layernorm_reduction"]
+
+
+def test_writeback_preserves_failed_status_even_if_another_run_validates(tmp_path):
+    output_dir = _prepare_environment(tmp_path)
+    result_summary = [
+        {
+            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+            "object_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R1_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "observed_metric_values": {},
+            "baseline_delta": {},
+            "sensitivity_score": 1.0,
+            "coverage_gain": 0.5,
+            "tuning_gain": 0.5,
+            "result_status": "success",
+            "notes": "success case",
+        },
+        {
+            "run_id": "RUN_time_only_R1_projection_dense_S1_register_pressure",
+            "object_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R1_projection_dense",
+            "priority_source": "time-only",
+            "parameter_scenario_id": "S1_register_pressure",
+            "observed_metric_values": {},
+            "baseline_delta": {},
+            "sensitivity_score": 0.0,
+            "coverage_gain": 0.0,
+            "tuning_gain": 0.0,
+            "result_status": "failed",
+            "notes": "failure case",
+        },
+    ]
+    (output_dir / "backend_result_summary_v1.json").write_text(json.dumps(result_summary, indent=2))
+    subprocess.run(
+        [
+            sys.executable,
+            str(WRITEBACK_SCRIPT),
+            "--run-manifest",
+            str(output_dir / "backend_run_manifest_v1.json"),
+            "--result-summary",
+            str(output_dir / "backend_result_summary_v1.json"),
+            "--writeback-map",
+            str(output_dir / "backend_writeback_map_v1.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        check=True,
+    )
+    validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
+    regime = next(row for row in validation["regime_status"] if row["regime_id"] == "R1_projection_dense")
+    family = next(row for row in validation["family_status"] if row["family_id"] == "F1_dense_tiled")
+    assert regime["current_status"] == "failed"
+    assert "R1_projection_dense" in family["failed_regimes"]

@@ -725,34 +725,13 @@
     "status": "planned"
   },
   {
-    "priority_item_id": "P_regime_R5_context_streaming_no_priority",
-    "object_level": "regime",
-    "object_id": "R5_context_streaming",
-    "family_id": "F3_streaming_aggregation",
-    "regime_id": "R5_context_streaming",
-    "priority_source": "no-priority",
-    "priority_rank": 4,
-    "canonical_status": "stable-singleton",
-    "simulator_lane_id": "L5_context_mul",
-    "lane_type": "locality",
-    "recommended_tuning_target": "locality-sensitive, aggregation path validation",
-    "parameter_scenario_ids": [
-      "S6_locality_path"
-    ],
-    "expected_signal": "context_mul responds mainly to locality-sensitive perturbations",
-    "validation_role": "main-object",
-    "original_order": 4,
-    "score": 0.0,
-    "status": "planned"
-  },
-  {
     "priority_item_id": "P_regime_R4_layernorm_reduction_no_priority",
     "object_level": "regime",
     "object_id": "R4_layernorm_reduction",
     "family_id": "F2_reduction_normalize",
     "regime_id": "R4_layernorm_reduction",
     "priority_source": "no-priority",
-    "priority_rank": 5,
+    "priority_rank": 4,
     "canonical_status": "review-needed",
     "simulator_lane_id": "L4_layernorm",
     "lane_type": "reduction-review",
@@ -763,6 +742,27 @@
     "expected_signal": "layernorm confirms whether reduction-path sharing is stable",
     "validation_role": "review-object",
     "original_order": 3,
+    "score": 0.0,
+    "status": "planned"
+  },
+  {
+    "priority_item_id": "P_regime_R5_context_streaming_no_priority",
+    "object_level": "regime",
+    "object_id": "R5_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "regime_id": "R5_context_streaming",
+    "priority_source": "no-priority",
+    "priority_rank": 5,
+    "canonical_status": "stable-singleton",
+    "simulator_lane_id": "L5_context_mul",
+    "lane_type": "locality",
+    "recommended_tuning_target": "locality-sensitive, aggregation path validation",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ],
+    "expected_signal": "context_mul responds mainly to locality-sensitive perturbations",
+    "validation_role": "main-object",
+    "original_order": 4,
     "score": 0.0,
     "status": "planned"
   },

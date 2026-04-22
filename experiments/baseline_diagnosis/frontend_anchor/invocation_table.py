@@ -21,6 +21,19 @@ def _select_exec_time(hardware_metrics: dict[str, Any]) -> tuple[float | None, s
     return None, "missing"
 
 
+def _validate_exec_time_sources(entries: dict[int, dict[str, Any]]) -> None:
+    sources = {
+        entry.get("exec_time_source")
+        for entry in entries.values()
+        if entry.get("exec_time_source") not in {None, "missing", "unknown"}
+    }
+    if len(sources) > 1:
+        raise ValueError(
+            "features_json mixes incompatible exec_time sources: "
+            f"{sorted(sources)}"
+        )
+
+
 def _feature_vector(item: dict[str, Any]) -> dict[str, Any]:
     dynamic = item.get("dynamic_stats", {})
     compression = item.get("compression_features", {})
@@ -88,6 +101,7 @@ def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[
             if int(kernel_id) in normalized:
                 raise ValueError(f"identity_json contains duplicate kernel_id: {kernel_id}")
             normalized[int(kernel_id)] = {
+                "source_position": len(normalized),
                 "source_invocation_key": item.get("source_invocation_key", f"kernel_{kernel_id}"),
                 "kernel_name": item["kernel_name"],
                 "kernel_id": int(kernel_id),
@@ -109,6 +123,7 @@ def _normalize_identity_source(identity_data: dict[str, Any]) -> dict[int, dict[
         if int(kernel_id) in normalized:
             raise ValueError(f"identity_json contains duplicate kernel_id: {kernel_id}")
         normalized[int(kernel_id)] = {
+            "source_position": len(normalized),
             "source_invocation_key": source_invocation_key,
             "kernel_name": item["kernel_name"],
             "kernel_id": int(kernel_id),
@@ -140,6 +155,7 @@ def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[s
                 "feature_vector": item.get("feature_vector", {}),
                 "feature_source_note": item.get("feature_source_note", "feature_records"),
             }
+        _validate_exec_time_sources(normalized)
         return normalized
 
     per_kernel = features_data.get("per_kernel", {})
@@ -165,6 +181,7 @@ def _normalize_feature_source(features_data: dict[str, Any]) -> dict[int, dict[s
             "feature_vector": _feature_vector(item),
             "feature_source_note": "explicit dual-source features_json",
         }
+    _validate_exec_time_sources(normalized)
     return normalized
 
 
@@ -200,8 +217,8 @@ def build_records_from_dual_sources(
         identity_map.values(),
         key=lambda item: (
             item["trace_order"] is None,
-            item["trace_order"] if item["trace_order"] is not None else item["kernel_id"],
-            item["kernel_id"],
+            item["trace_order"] if item["trace_order"] is not None else item.get("source_position", item["kernel_id"]),
+            item.get("source_position", item["kernel_id"]),
         ),
     )
     for zero_based_idx, identity in enumerate(ordered_identity):

@@ -263,7 +263,7 @@ def build_priority_lane_table(family_table: list[dict[str, Any]], regime_table: 
         elif source == "name-based":
             regs = sorted(regime_table, key=lambda x: x["regime_id"])
         else:
-            regs = regime_table[:]
+            regs = sorted(regime_table, key=lambda x: x["original_order"])
         for rank, regime in enumerate(regs, start=1):
             lane_type, scenarios, expected = LANE_SPECS[regime["simulator_lane_id"]]
             rows.append({"priority_item_id": f"P_regime_{regime['regime_id']}_{source.replace('-', '_')}", "object_level": "regime", "object_id": regime["regime_id"], "family_id": regime["family_id"], "regime_id": regime["regime_id"], "priority_source": source, "priority_rank": rank, "canonical_status": regime["canonical_status"], "simulator_lane_id": regime["simulator_lane_id"], "lane_type": lane_type, "recommended_tuning_target": next(f["recommended_tuning_target"] for f in family_table if f["family_id"] == regime["family_id"]), "parameter_scenario_ids": scenarios, "expected_signal": expected, "validation_role": regime["validation_role"], "original_order": regime["original_order"], "score": regime["regime_priority_score"] if source == "importance-guided" else regime["time_weight"] if source == "time-only" else 0.0, "status": "planned"})

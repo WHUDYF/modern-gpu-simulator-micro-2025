@@ -1,0 +1,272 @@
+{
+  "label": "baseline",
+  "ape_table": {
+    "attention_score|(32, 32, 12)|(16, 16, 1)": {
+      "short_name": "attention_score",
+      "grid_size": "(32, 32, 12)",
+      "block_size": "(16, 16, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 95.0717,
+          "sim": 95.3538,
+          "ape": 0.3,
+          "tier": "accurate"
+        },
+        "dram_throughput_pct": {
+          "ncu": 8.9433,
+          "sim": 0.0182,
+          "ape": 99.8,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 96.9067,
+          "sim": 98.76,
+          "ape": 1.91,
+          "tier": "accurate"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 7.1333,
+          "sim": 99.48,
+          "ape": 1294.58,
+          "tier": "fundamental_issue"
+        },
+        "elapsed_cycles": {
+          "ncu": 255911.5,
+          "sim": 116499.0,
+          "ape": 54.48,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "context_mul|(4, 32, 12)|(16, 16, 1)": {
+      "short_name": "context_mul",
+      "grid_size": "(4, 32, 12)",
+      "block_size": "(16, 16, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 89.9917,
+          "sim": 71.9643,
+          "ape": 20.03,
+          "tier": "biased"
+        },
+        "dram_throughput_pct": {
+          "ncu": 7.395,
+          "sim": 0.0196,
+          "ape": 99.73,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 84.8667,
+          "sim": 98.76,
+          "ape": 16.37,
+          "tier": "biased"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 88.4983,
+          "sim": 99.48,
+          "ape": 12.41,
+          "tier": "accurate"
+        },
+        "elapsed_cycles": {
+          "ncu": 351616.6667,
+          "sim": 4355.0,
+          "ape": 98.76,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "gemm_tiled|(192, 32, 1)|(16, 16, 1)": {
+      "short_name": "gemm_tiled",
+      "grid_size": "(192, 32, 1)",
+      "block_size": "(16, 16, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 97.0567,
+          "sim": 96.9451,
+          "ape": 0.11,
+          "tier": "accurate"
+        },
+        "dram_throughput_pct": {
+          "ncu": 31.42,
+          "sim": 0.0204,
+          "ape": 99.94,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 40.1817,
+          "sim": 98.76,
+          "ape": 145.78,
+          "tier": "fundamental_issue"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 19.7617,
+          "sim": 99.48,
+          "ape": 403.4,
+          "tier": "fundamental_issue"
+        },
+        "elapsed_cycles": {
+          "ncu": 1473963.6667,
+          "sim": 31866.0,
+          "ape": 97.84,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "gemm_tiled|(48, 32, 1)|(16, 16, 1)": {
+      "short_name": "gemm_tiled",
+      "grid_size": "(48, 32, 1)",
+      "block_size": "(16, 16, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 88.56,
+          "sim": 90.6294,
+          "ape": 2.34,
+          "tier": "accurate"
+        },
+        "dram_throughput_pct": {
+          "ncu": 4.7039,
+          "sim": 0.0309,
+          "ape": 99.34,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 92.5855,
+          "sim": 98.7543,
+          "ape": 6.66,
+          "tier": "accurate"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 6.1977,
+          "sim": 99.48,
+          "ape": 1505.1,
+          "tier": "fundamental_issue"
+        },
+        "elapsed_cycles": {
+          "ncu": 622298.6774,
+          "sim": 10232.8571,
+          "ape": 98.36,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "layernorm_kernel|(512, 1, 1)|(256, 1, 1)": {
+      "short_name": "layernorm_kernel",
+      "grid_size": "(512, 1, 1)",
+      "block_size": "(256, 1, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 79.4583,
+          "sim": 93.4806,
+          "ape": 17.65,
+          "tier": "biased"
+        },
+        "dram_throughput_pct": {
+          "ncu": 21.4425,
+          "sim": 0.0221,
+          "ape": 99.9,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 50.4042,
+          "sim": 98.76,
+          "ape": 95.94,
+          "tier": "fundamental_issue"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 75.0,
+          "sim": 99.48,
+          "ape": 32.64,
+          "tier": "fundamental_issue"
+        },
+        "elapsed_cycles": {
+          "ncu": 14562.6667,
+          "sim": 2522.0,
+          "ape": 82.68,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "residual_add|(1536, 1, 1)|(256, 1, 1)": {
+      "short_name": "residual_add",
+      "grid_size": "(1536, 1, 1)",
+      "block_size": "(256, 1, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 74.8367,
+          "sim": 78.5506,
+          "ape": 4.96,
+          "tier": "accurate"
+        },
+        "dram_throughput_pct": {
+          "ncu": 58.2692,
+          "sim": 0.0215,
+          "ape": 99.96,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 34.2717,
+          "sim": 98.76,
+          "ape": 188.17,
+          "tier": "fundamental_issue"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 33.1617,
+          "sim": 99.48,
+          "ape": 199.98,
+          "tier": "fundamental_issue"
+        },
+        "elapsed_cycles": {
+          "ncu": 9527.75,
+          "sim": 3131.0,
+          "ape": 67.14,
+          "tier": "fundamental_issue"
+        }
+      }
+    },
+    "softmax_kernel|(6144, 1, 1)|(256, 1, 1)": {
+      "short_name": "softmax_kernel",
+      "grid_size": "(6144, 1, 1)",
+      "block_size": "(256, 1, 1)",
+      "label": "baseline",
+      "metrics": {
+        "achieved_occupancy_pct": {
+          "ncu": 94.0833,
+          "sim": 73.8532,
+          "ape": 21.5,
+          "tier": "biased"
+        },
+        "dram_throughput_pct": {
+          "ncu": 41.18,
+          "sim": 0.0188,
+          "ape": 99.95,
+          "tier": "fundamental_issue"
+        },
+        "l2_hit_rate_pct": {
+          "ncu": 66.7217,
+          "sim": 98.76,
+          "ape": 48.02,
+          "tier": "fundamental_issue"
+        },
+        "l1_hit_rate_pct": {
+          "ncu": 79.9133,
+          "sim": 99.48,
+          "ape": 24.48,
+          "tier": "biased"
+        },
+        "elapsed_cycles": {
+          "ncu": 90821.0,
+          "sim": 3949.0,
+          "ape": 95.65,
+          "tier": "fundamental_issue"
+        }
+      }
+    }
+  },
+  "_missing_sim_keys": []
+}

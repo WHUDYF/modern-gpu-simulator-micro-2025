@@ -1,0 +1,32 @@
+flowchart TB
+    A[真实 GPU 执行<br/>RTX 3080 Ti / SM86] --> B[目标 workload<br/>CUDA 应用 / AI workload]
+
+    B --> C[NVBit Tracer]
+    C --> C1[记录 kernel 启动顺序]
+    C --> C2[记录 warp 指令流 / active mask / memory behavior]
+    C --> C3[提取静态指令与 control 信息]
+
+    C --> D[Trace 文件输出]
+    D --> D1[dynamic_trace.pb]
+    D --> D2[threadblocks/]
+    D --> D3[enhanced_execution_info.json]
+
+    D --> E[前期调研]
+    E --> E1[trace 统计与结构观察]
+    E --> E2[phase / squash]
+    E --> E3[family / primitive / template 分析]
+    E --> E4[representative regime 提取]
+
+    D --> F[Trace Parser]
+    F --> G[Accel-Sim]
+    G --> G1[gpgpusim.config]
+    G --> G2[trace.config]
+    G --> G3[硬件参数与机制调整]
+
+    E --> H[形成结构化假设]
+    H --> G
+
+    G --> I[后续验证]
+    I --> I1[机制敏感性分析]
+    I --> I2[参数修改效果比较]
+    I --> I3[方法闭环验证]

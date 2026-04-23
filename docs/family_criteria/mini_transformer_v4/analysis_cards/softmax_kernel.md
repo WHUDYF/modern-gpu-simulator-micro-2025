@@ -19,7 +19,7 @@
 - `occ=94.1%`
 - `warp_cyc=21.8`
 - `block_limit_registers=10`
-- `shmem=0`
+- `shmem=1024B`
 
 ## Dominant Resource Candidates
 

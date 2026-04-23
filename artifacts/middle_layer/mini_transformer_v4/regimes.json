@@ -1,0 +1,380 @@
+[
+  {
+    "regime_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A1_qkv_projection_dense_48x32"
+    ],
+    "phase_id": "Phase A",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 projection-like dense region",
+    "context_scope": "Q/K/V projection path",
+    "resource_signature": "register-limited dense backbone",
+    "observed_coverage_ratio": 0.2857,
+    "observed_time_ratio": 0.5011,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
+    "coverage_label": "High",
+    "time_label": "High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "This is the front dense backbone regime and should remain the highest-priority projection object.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.9,
+    "simulator_lane_id": "L1_dense_projection",
+    "validation_status": "pending",
+    "notes": "Primary dense regime."
+  },
+  {
+    "regime_id": "R2_attention_score_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A2_attention_score_dense_32x32x12"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Pairwise Score",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "32x32x12 attention-score region",
+    "context_scope": "attention score path",
+    "resource_signature": "register + shmem coupled dense compute",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.0422,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
+    "coverage_label": "Medium",
+    "time_label": "Medium-High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": true,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "attention_score stays in the dense family but must remain an independent regime because it can shift backend parameter direction.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.7875,
+    "simulator_lane_id": "L2_attention_score",
+    "validation_status": "pending",
+    "notes": "Boundary regime that should not be merged into generic dense projection."
+  },
+  {
+    "regime_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A5_output_projection_dense_48x32"
+    ],
+    "phase_id": "Phase B_to_C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 post-attention projection region",
+    "context_scope": "attention output projection path",
+    "resource_signature": "dense transform with post-attention context",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.9,
+    "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Output projection should remain separate to check whether front projection conclusions transfer after attention.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.705,
+    "simulator_lane_id": "L3_output_projection",
+    "validation_status": "pending",
+    "notes": "Checks whether projection lane conclusions transfer after attention."
+  },
+  {
+    "regime_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A8_ffn_expand_dense_192x32"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "192x32 FFN expansion region",
+    "context_scope": "FFN expansion path",
+    "resource_signature": "large-shape dense compute, register-sensitive",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
+    "coverage_label": "Medium",
+    "time_label": "High",
+    "family_importance_score": 0.9,
+    "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "FFN expansion is the heaviest late-stage dense regime and should stay independent for backend prioritization.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.825,
+    "simulator_lane_id": "L4_ffn_expand",
+    "validation_status": "pending",
+    "notes": "Heavy dense regime in later pipeline stage."
+  },
+  {
+    "regime_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "source_anchor_ids": [
+      "A9_ffn_contract_dense_48x32"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Dense Projection/Transform",
+    "hardware_template": "Dense Tiled Compute",
+    "shape_regime": "48x32 FFN contraction region",
+    "context_scope": "FFN contraction path",
+    "resource_signature": "dense contraction with lower local leverage than expansion",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.1253,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.9,
+    "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "FFN contraction should remain explicit, but is expected to have lower standalone leverage than expansion.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.705,
+    "simulator_lane_id": "L5_ffn_contract",
+    "validation_status": "pending",
+    "notes": "Secondary dense regime."
+  },
+  {
+    "regime_id": "R6_softmax_reduction",
+    "family_id": "F2_reduction_normalize",
+    "source_anchor_ids": [
+      "A3_softmax_reduce_24x1"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "shape_regime": "24x1 row-wise normalization region",
+    "context_scope": "attention normalization path",
+    "resource_signature": "cache-capacity-sensitive, DRAM-pressure",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.015,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "local_decision_weight": "High",
+    "local_decision_weight_score": 0.9,
+    "coverage_label": "Medium",
+    "time_label": "Medium-High",
+    "family_importance_score": 0.75,
+    "local_decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "softmax must remain independent because it captures the attention-side reduction behavior most likely to change backend parameter direction.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.735,
+    "simulator_lane_id": "L6_softmax",
+    "validation_status": "pending",
+    "notes": "Primary reduction regime."
+  },
+  {
+    "regime_id": "R7_layernorm_reduction",
+    "family_id": "F2_reduction_normalize",
+    "source_anchor_ids": [
+      "A7_layernorm_reduce_512"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "shape_regime": "512x1 layernorm reduction region",
+    "context_scope": "residual normalization path",
+    "resource_signature": "reduction / normalization dominated",
+    "observed_coverage_ratio": 0.1429,
+    "observed_time_ratio": 0.0048,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium",
+    "local_decision_weight_score": 0.6,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.75,
+    "local_decision_label": "Medium",
+    "decision_weight_factors": {
+      "is_main_path": false,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": true
+    },
+    "decision_weight_note": "layernorm should remain separate as the normalization-path constraint regime rather than a primary tuning object.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.6525,
+    "simulator_lane_id": "L7_layernorm",
+    "validation_status": "pending",
+    "notes": "Normalization-path constraint regime."
+  },
+  {
+    "regime_id": "R8_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "source_anchor_ids": [
+      "A4_context_stream_4x32x12"
+    ],
+    "phase_id": "Phase B",
+    "route_primitive": "Weighted Aggregation",
+    "hardware_template": "Streaming Aggregation Template",
+    "shape_regime": "4x32x12 weighted aggregation region",
+    "context_scope": "attention aggregation path",
+    "resource_signature": "locality-dominated, L1-resident streaming",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.0579,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "local_decision_weight": "Medium-High",
+    "local_decision_weight_score": 0.75,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "family_importance_score": 0.645,
+    "local_decision_label": "Medium-High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Streaming aggregation deserves its own lane because locality-sensitive behavior would be lost inside reduction or dense objects.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.6382,
+    "simulator_lane_id": "L8_context_streaming",
+    "validation_status": "pending",
+    "notes": "Independent streaming regime."
+  },
+  {
+    "regime_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
+    "source_anchor_ids": [
+      "A6_residual_elementwise_1536"
+    ],
+    "phase_id": "Phase C",
+    "route_primitive": "Elementwise Fusion",
+    "hardware_template": "Elementwise Template",
+    "shape_regime": "1536-wide residual elementwise region",
+    "context_scope": "residual path",
+    "resource_signature": "lightweight elementwise memory-side",
+    "observed_coverage_ratio": 0.1429,
+    "observed_time_ratio": 0.0031,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "local_decision_weight": "Low",
+    "local_decision_weight_score": 0.3,
+    "coverage_label": "High",
+    "time_label": "Low",
+    "family_importance_score": 0.525,
+    "local_decision_label": "Low",
+    "decision_weight_factors": {
+      "is_main_path": false,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": true
+    },
+    "decision_weight_note": "Residual elementwise should stay explicit so backend can use it as a regression and constraint lane.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "regime_priority_score": 0.5288,
+    "simulator_lane_id": "L9_residual_regression",
+    "validation_status": "pending",
+    "notes": "Regression / constraint regime."
+  }
+]

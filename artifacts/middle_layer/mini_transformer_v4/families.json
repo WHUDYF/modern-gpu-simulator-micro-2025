@@ -1,0 +1,183 @@
+[
+  {
+    "family_id": "F1_dense_tiled_backbone",
+    "input_anchor_ids": [
+      "A1_qkv_projection_dense_48x32",
+      "A2_attention_score_dense_32x32x12",
+      "A5_output_projection_dense_48x32",
+      "A8_ffn_expand_dense_192x32",
+      "A9_ffn_contract_dense_48x32"
+    ],
+    "phase_scope": [
+      "Phase A",
+      "Phase B",
+      "Phase B_to_C",
+      "Phase C"
+    ],
+    "route_primitive": "Dense Projection/Transform + Pairwise Score",
+    "hardware_template": "Dense Tiled Compute",
+    "boundary_status": "weak_share_but_keep_together",
+    "boundary_notes": "attention_score differs in semantic route and shmem signature, but shares the dense tiled execution template with projection and FFN anchors.",
+    "shape_regime_summary": "48x32 projection/contract, 192x32 expansion, 32x32x12 pairwise score",
+    "resource_signature_summary": "register / occupancy primary; attention_score carries stronger shmem coupling",
+    "observed_coverage_ratio": 0.5714,
+    "observed_time_ratio": 0.9192,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "High",
+    "time_weight_score": 0.9,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "coverage_label": "High",
+    "time_label": "High",
+    "decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": true,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Dense backbone is the main simulator decision object and contains a boundary regime that still justifies family-level priority.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "importance_score": 0.9,
+    "priority_class": "High",
+    "recommended_tuning_target": "register-sensitive, occupancy-sensitive, dense tiled path",
+    "notes": "Most important compute backbone family."
+  },
+  {
+    "family_id": "F2_reduction_normalize",
+    "input_anchor_ids": [
+      "A3_softmax_reduce_24x1",
+      "A7_layernorm_reduce_512"
+    ],
+    "phase_scope": [
+      "Phase B",
+      "Phase C"
+    ],
+    "route_primitive": "Reduction / Normalize",
+    "hardware_template": "Reduction Template",
+    "boundary_status": "strong_share_with_context_split",
+    "boundary_notes": "softmax and layernorm share reduction / normalize structure but should stay split at regime level because their context scopes differ.",
+    "shape_regime_summary": "attention normalization vs residual normalization",
+    "resource_signature_summary": "reduction / synchronization; softmax is more cache-capacity and DRAM-pressure sensitive",
+    "observed_coverage_ratio": 0.2143,
+    "observed_time_ratio": 0.0198,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium-High",
+    "time_weight_score": 0.75,
+    "decision_weight": "High",
+    "decision_weight_score": 0.9,
+    "coverage_label": "Medium",
+    "time_label": "Medium-High",
+    "decision_label": "High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": true,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Reduction family deserves high priority because it combines a high-value attention-side object and a normalization-side constraint object.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "importance_score": 0.75,
+    "priority_class": "High",
+    "recommended_tuning_target": "cache-capacity, reduction behavior, normalization path sensitivity",
+    "notes": "Second-priority family because it captures critical reduction behavior."
+  },
+  {
+    "family_id": "F3_streaming_aggregation",
+    "input_anchor_ids": [
+      "A4_context_stream_4x32x12"
+    ],
+    "phase_scope": [
+      "Phase B"
+    ],
+    "route_primitive": "Weighted Aggregation",
+    "hardware_template": "Streaming Aggregation Template",
+    "boundary_status": "stable_singleton",
+    "boundary_notes": "context_mul currently remains a singleton because no other anchor shares its locality-dominated streaming behavior closely enough.",
+    "shape_regime_summary": "attention aggregation region",
+    "resource_signature_summary": "locality-dominated / L1-resident / streaming accumulation",
+    "observed_coverage_ratio": 0.0714,
+    "observed_time_ratio": 0.0579,
+    "coverage_weight": "Medium",
+    "coverage_weight_score": 0.6,
+    "time_weight": "Medium",
+    "time_weight_score": 0.6,
+    "decision_weight": "Medium-High",
+    "decision_weight_score": 0.75,
+    "coverage_label": "Medium",
+    "time_label": "Medium",
+    "decision_label": "Medium-High",
+    "decision_weight_factors": {
+      "is_main_path": true,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": true,
+      "is_constraint_object": false
+    },
+    "decision_weight_note": "Streaming aggregation remains important because it exposes an attention readout behavior not covered by reduction or generic dense lanes.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "importance_score": 0.645,
+    "priority_class": "Medium",
+    "recommended_tuning_target": "locality-sensitive, aggregation path validation",
+    "notes": "Independent attention aggregation family."
+  },
+  {
+    "family_id": "F4_elementwise_residual",
+    "input_anchor_ids": [
+      "A6_residual_elementwise_1536"
+    ],
+    "phase_scope": [
+      "Phase C"
+    ],
+    "route_primitive": "Elementwise Fusion",
+    "hardware_template": "Elementwise Template",
+    "boundary_status": "stable_singleton",
+    "boundary_notes": "residual_add is currently the stable elementwise constraint object.",
+    "shape_regime_summary": "residual elementwise region",
+    "resource_signature_summary": "lightweight memory-side fusion",
+    "observed_coverage_ratio": 0.1429,
+    "observed_time_ratio": 0.0031,
+    "coverage_weight": "High",
+    "coverage_weight_score": 0.9,
+    "time_weight": "Low",
+    "time_weight_score": 0.3,
+    "decision_weight": "Low-Medium",
+    "decision_weight_score": 0.45,
+    "coverage_label": "High",
+    "time_label": "Low",
+    "decision_label": "Low-Medium",
+    "decision_weight_factors": {
+      "is_main_path": false,
+      "has_independent_lane": true,
+      "is_boundary_case": false,
+      "expected_high_sensitivity": false,
+      "is_constraint_object": true
+    },
+    "decision_weight_note": "Residual elementwise remains important as a regression / constraint object, not as a primary tuning target.",
+    "weight_source": {
+      "coverage": "derived",
+      "time": "derived",
+      "decision": "provisional"
+    },
+    "importance_score": 0.525,
+    "priority_class": "Low",
+    "recommended_tuning_target": "lightweight regression, constraint checking",
+    "notes": "Constraint family rather than main tuning target."
+  }
+]

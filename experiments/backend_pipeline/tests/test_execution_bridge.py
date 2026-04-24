@@ -40,7 +40,8 @@ def test_builtin_profile_loads_existing_repo_assets():
     assert Path(profile["trace_path"]).exists()
     assert Path(profile["gpgpusim_config"]).exists()
     assert Path(profile["trace_config"]).exists()
-    assert profile["extra_cli_args"] == ["-is_extra_traces_enabled", "0"]
+    assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
+    assert "R1_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
 
 
 def test_run_specs_are_stable_for_actual_manifest(tmp_path):

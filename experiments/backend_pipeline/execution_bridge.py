@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import shutil
 import subprocess
+import sys
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -90,6 +90,7 @@ def build_run_specs(
         run_id = row["run_id"]
         output_dir = (runs_root / workload_profile["workload_id"] / run_id).resolve()
         config_dir = output_dir / "configs"
+        trace_dir = output_dir / "trace"
         stdout_path = output_dir / "stdout.log"
         stderr_path = output_dir / "stderr.log"
         metadata_path = output_dir / "run_metadata.json"
@@ -123,18 +124,23 @@ def build_run_specs(
                 "expected_signal": row["expected_signal"],
                 "working_directory": str(output_dir),
                 "simulator_working_directory": workload_profile["working_directory"],
-                "trace_path": workload_profile["trace_path"],
+                "trace_path": str((trace_dir / "dynamic_trace.pb").resolve())
+                if workload_profile.get("smoke_trace_builder")
+                else workload_profile["trace_path"],
                 "gpgpusim_config": str(run_gpgpusim_config),
                 "trace_config": str(run_trace_config),
                 "setup_script": workload_profile["setup_script"],
                 "environment": workload_profile["environment"],
+                "base_trace_path": workload_profile["trace_path"],
                 "base_gpgpusim_config": workload_profile["gpgpusim_config"],
                 "base_trace_config": workload_profile["trace_config"],
                 "scenario_override": workload_profile["scenario_overrides"][scenario_id],
+                "smoke_trace_builder": workload_profile.get("smoke_trace_builder"),
                 "command_argv": command_argv,
                 "command": " ".join(_shell_quote(part) for part in command_argv),
                 "output_dir": str(output_dir),
                 "config_dir": str(config_dir),
+                "trace_dir": str(trace_dir),
                 "stdout_path": str(stdout_path),
                 "stderr_path": str(stderr_path),
                 "metadata_path": str(metadata_path),
@@ -179,6 +185,145 @@ def _apply_config_edits(source_text: str, edits: list[dict[str, str]], target_na
     return updated
 
 
+_PROTO_MODULES: tuple[Any, Any, Any, Any] | None = None
+
+
+def _load_trace_proto_modules() -> tuple[Any, Any, Any, Any]:
+    global _PROTO_MODULES
+    if _PROTO_MODULES is not None:
+        return _PROTO_MODULES
+    proto_root = Path(__file__).resolve().parents[2] / "simulator-remodeled" / "util" / "traces_enhanced" / "dynamic_trace"
+    tmpdir = Path(tempfile.mkdtemp(prefix="backend_trace_proto_"))
+    subprocess.run(
+        ["/home/dyf/opt/protobuf-3.21.12/bin/protoc", "-I", str(proto_root), "--python_out", str(tmpdir), *map(str, proto_root.glob("*.proto"))],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    sys.path.insert(0, str(tmpdir))
+    import trace_pb2  # type: ignore
+    import gpu_device_pb2  # type: ignore
+    import cuda_stream_pb2  # type: ignore
+    import threadblock_pb2  # type: ignore
+
+    _PROTO_MODULES = (trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2)
+    return _PROTO_MODULES
+
+
+def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
+    builder = run_spec["smoke_trace_builder"]
+    regime_id = run_spec["regime_id"]
+    kernel_launch = builder["kernel_launches"].get(regime_id)
+    if kernel_launch is None:
+        raise ValueError(f"smoke_trace_builder is missing regime mapping for {regime_id}")
+
+    trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2 = _load_trace_proto_modules()
+    base_trace_path = Path(run_spec["base_trace_path"])
+    base_trace_dir = base_trace_path.parent
+    trace_dir = Path(run_spec["trace_dir"])
+    (trace_dir / "threadblocks" / "device_0" / "stream_0" / f"kernel_{kernel_launch['kernel_id']}").mkdir(parents=True, exist_ok=True)
+    (trace_dir / "extra_info").mkdir(parents=True, exist_ok=True)
+
+    trace = trace_pb2.Trace()
+    trace.ParseFromString(base_trace_path.read_bytes())
+    orig_stream = trace.gpu_device[0].streams[0]
+    new_trace = trace_pb2.Trace()
+    new_trace.name = trace.name + "_smoke"
+    new_trace.binary_version = trace.binary_version
+    new_trace.nvbit_version = trace.nvbit_version
+    new_trace.accelsim_version = trace.accelsim_version
+    new_trace.is_gathered_registers_values = trace.is_gathered_registers_values
+    new_dev = gpu_device_pb2.gpu_device()
+    new_dev.id = 0
+    new_stream = cuda_stream_pb2.cuda_stream()
+    new_stream.id = 0
+    for event in orig_stream.ordered_cuda_events:
+        if event.startswith("Memcpy"):
+            new_stream.ordered_cuda_events.append(event)
+        elif event.startswith("kernel"):
+            new_stream.ordered_cuda_events.append(event)
+            break
+    original_kernel = orig_stream.kernels[kernel_launch["kernel_id"] - 1]
+    new_kernel = new_stream.kernels.add()
+    new_kernel.CopyFrom(original_kernel)
+    new_kernel.grid_dim.x = 1
+    new_kernel.grid_dim.y = 1
+    new_kernel.grid_dim.z = 1
+    new_dev.streams[0].CopyFrom(new_stream)
+    new_trace.gpu_device[0].CopyFrom(new_dev)
+    Path(run_spec["trace_path"]).write_bytes(new_trace.SerializeToString())
+
+    src_tb = (
+        base_trace_dir
+        / "threadblocks"
+        / "device_0"
+        / "stream_0"
+        / f"kernel_{kernel_launch['kernel_id']}"
+        / kernel_launch["threadblock_file"]
+    )
+    dst_tb = (
+        trace_dir
+        / "threadblocks"
+        / "device_0"
+        / "stream_0"
+        / f"kernel_{kernel_launch['kernel_id']}"
+        / kernel_launch["threadblock_file"]
+    )
+    dst_tb.write_bytes(src_tb.read_bytes())
+
+    tb = threadblock_pb2.threadblock()
+    tb.ParseFromString(src_tb.read_bytes())
+    pcs = sorted({inst.pc for warp in tb.warps.values() for inst in warp.instructions})
+
+    def _dummy_instruction(pc: int) -> dict[str, Any]:
+        return {
+            "pc_string_hex": f"{pc:04x}",
+            "pc_num_dec": pc,
+            "op_code": "NOP",
+            "is_predicated": False,
+            "is_uniform_predicate": False,
+            "is_predicate_negate": False,
+            "predicate_register": 0,
+            "num_destination_registers": 0,
+            "encoded_instruction": ["0x0000000000000000", "0x0000000000000000"],
+            "operands": [],
+            "control_bits": {
+                "stall_count": 0,
+                "is_yield": False,
+                "is_new_read_barrier": False,
+                "is_new_write_barrier": False,
+                "id_new_read_barrier": 7,
+                "id_new_write_barrier": 7,
+                "wait_barrier_bits": 0,
+            },
+            "register_usage": {
+                "num_regular": 0,
+                "num_uniform": 0,
+                "num_regular_predicate": 0,
+                "num_uniform_predicate": 0,
+                "future_max_num_regular": 0,
+                "future_max_num_uniform": 0,
+                "future_max_num_regular_predicate": 0,
+                "future_max_num_uniform_predicate": 0,
+            },
+        }
+
+    extra_info = {
+        "benchmark_name": f"{run_spec['workload_id']}_smoke",
+        "kernels": [
+            {
+                "kernel_name": kernel_launch["kernel_name"],
+                "architecture_version": 86,
+                "is_captured_from_binary": False,
+                "unique_function_id": kernel_launch["function_unique_id"],
+                "function_address": kernel_launch["function_unique_id"] * 0x100000,
+                "instructions": [_dummy_instruction(pc) for pc in pcs],
+            }
+        ],
+    }
+    (trace_dir / "extra_info" / "enhanced_execution_info.json").write_text(json.dumps(extra_info, indent=2))
+
+
 def materialize_run_workspace(run_spec: dict[str, Any]) -> list[str]:
     output_dir = Path(run_spec["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -190,6 +335,8 @@ def materialize_run_workspace(run_spec: dict[str, Any]) -> list[str]:
     config_edits = run_spec["scenario_override"]["config_edits"]
     Path(run_spec["gpgpusim_config"]).write_text(_apply_config_edits(base_gpgpu_text, config_edits, "gpgpusim_config"))
     Path(run_spec["trace_config"]).write_text(_apply_config_edits(base_trace_text, config_edits, "trace_config"))
+    if run_spec.get("smoke_trace_builder"):
+        _materialize_trimmed_smoke_trace(run_spec)
 
     before_files = {
         str(path.relative_to(output_dir))
@@ -393,8 +540,6 @@ def build_result_summary(
     validate_execution_records(run_specs, execution_records)
     run_spec_by_id = {row["run_id"]: row for row in run_specs}
     summary_rows: list[dict[str, Any]] = []
-    reference_config = parser_config.get("reference_metrics")
-    reference_cycles = _load_reference_cycles(reference_config) if reference_config else {}
     for record in execution_records:
         run_spec = run_spec_by_id[record["run_id"]]
         stdout_text = Path(record["stdout_path"]).read_text() if Path(record["stdout_path"]).exists() else ""
@@ -410,22 +555,10 @@ def build_result_summary(
                 parse_note = "Parsed sim_cycles from simulator output."
                 parsed_source = record["stdout_path"]
             else:
-                reference_row = reference_cycles.get(record["regime_id"])
-                if reference_row is not None:
-                    sim_cycles = reference_row["sim_cycles"]
-                    result_status = "success"
-                    parse_status = "reference-fallback"
-                    parse_note = (
-                        "Execution succeeded but simulator output did not expose final cycle stats; "
-                        "used run-local reference_metrics.json derived from mini_transformer_v4_full.json."
-                    )
-                    parsed_source = str(Path(record["output_dir"]) / "reference_metrics.json")
-                    Path(parsed_source).write_text(json.dumps(reference_row, indent=2))
-                else:
-                    result_status = "parse-failed"
-                    parse_status = "missing-metrics"
-                    parse_note = "Execution succeeded but no sim_cycles field was found in the simulator output."
-                    parsed_source = record["stdout_path"]
+                result_status = "parse-failed"
+                parse_status = "missing-metrics"
+                parse_note = "Execution succeeded but no sim_cycles field was found in the simulator output."
+                parsed_source = record["stdout_path"]
         elif record["execution_status"] == "timeout":
             result_status = "failed"
             parse_status = "execution-timeout"
@@ -486,24 +619,3 @@ def write_result_summary(summary_rows: list[dict[str, Any]], path: Path) -> None
     validate_result_summary_rows(summary_rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary_rows, indent=2))
-
-
-def _load_reference_cycles(reference_config: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    full_features = load_json(Path(reference_config["full_features_path"]))
-    writeback_map = load_json(Path(reference_config["writeback_map_path"]))
-    per_kernel = full_features["per_kernel"]
-    result: dict[str, dict[str, Any]] = {}
-    for row in writeback_map:
-        regime_id = row["regime_id"]
-        if regime_id in result:
-            continue
-        for invocation in row["member_invocations"]:
-            if invocation in per_kernel:
-                result[regime_id] = {
-                    "regime_id": regime_id,
-                    "source_type": "reference-metrics-fallback",
-                    "source_invocation": invocation,
-                    "sim_cycles": int(round(per_kernel[invocation]["hardware_metrics"]["elapsed_cycles"])),
-                }
-                break
-    return result

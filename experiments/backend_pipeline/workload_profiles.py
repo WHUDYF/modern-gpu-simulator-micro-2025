@@ -44,9 +44,7 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
             "CUDA_INSTALL_PATH": "/usr/local/cuda-12.8",
             "OMP_NUM_THREADS": "4",
         },
-        # The repository-local mini_transformer trace is missing extra_info metadata.
-        # Disable extra traces so the first smoke execution can still exercise the bridge.
-        "extra_cli_args": ["-is_extra_traces_enabled", "0"],
+        "extra_cli_args": ["-gpgpu_max_cycle", "10"],
         "parser": {
             "sim_cycles_patterns": [
                 r"gpu_tot_sim_cycle\s*=\s*([0-9]+)",
@@ -54,11 +52,8 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
             ],
             "simulation_time_patterns": [
                 r"gpgpu_simulation_time\s*=\s*([0-9]+(?:\.[0-9]+)?)",
+                r"gpgpu_simulation_time\s*=\s*.*\((\d+)\s+sec\)",
             ],
-            "reference_metrics": {
-                "full_features_path": "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "writeback_map_path": "experiments/backend_pipeline/results/mini_transformer_v4/backend_writeback_map_v1.json",
-            },
         },
         "scenario_overrides": {
             "S1_register_pressure": {
@@ -132,6 +127,47 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
                 ],
             },
         },
+        "smoke_trace_builder": {
+            "mode": "trimmed_dummy_extra_info",
+            "kernel_launches": {
+                "R1_projection_dense": {
+                    "kernel_id": 1,
+                    "function_unique_id": 1,
+                    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_1_0,0,0.pb",
+                },
+                "R2_attention_score_dense": {
+                    "kernel_id": 5,
+                    "function_unique_id": 2,
+                    "kernel_name": "_Z15attention_scorePKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_5_0,0,0.pb",
+                },
+                "R3_softmax_reduction": {
+                    "kernel_id": 6,
+                    "function_unique_id": 3,
+                    "kernel_name": "_Z14softmax_kernelPfii___0",
+                    "threadblock_file": "d_0_s_0_k_6_0,0,0.pb",
+                },
+                "R5_context_streaming": {
+                    "kernel_id": 7,
+                    "function_unique_id": 4,
+                    "kernel_name": "_Z11context_mulPKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_7_0,0,0.pb",
+                },
+                "R6_residual_elementwise": {
+                    "kernel_id": 9,
+                    "function_unique_id": 5,
+                    "kernel_name": "_Z12residual_addPfPKfi___0",
+                    "threadblock_file": "d_0_s_0_k_9_0,0,0.pb",
+                },
+                "R4_layernorm_reduction": {
+                    "kernel_id": 10,
+                    "function_unique_id": 6,
+                    "kernel_name": "_Z16layernorm_kernelPfii___0",
+                    "threadblock_file": "d_0_s_0_k_10_0,0,0.pb",
+                },
+            },
+        },
     }
 }
 
@@ -148,6 +184,8 @@ def _validate_profile(profile: dict[str, Any]) -> None:
         raise ValueError("workload profile field 'parser' must be a dict")
     if not isinstance(profile["scenario_overrides"], dict):
         raise ValueError("workload profile field 'scenario_overrides' must be a dict")
+    if "smoke_trace_builder" in profile and not isinstance(profile["smoke_trace_builder"], dict):
+        raise ValueError("workload profile field 'smoke_trace_builder' must be a dict when present")
 
 
 def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
@@ -170,12 +208,6 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
         }
         for scenario_id, payload in normalized["scenario_overrides"].items()
     }
-    if "reference_metrics" in normalized["parser"]:
-        ref = dict(normalized["parser"]["reference_metrics"])
-        for key in ("full_features_path", "writeback_map_path"):
-            if key in ref:
-                ref[key] = _resolve_path(ref[key])
-        normalized["parser"]["reference_metrics"] = ref
     return normalized
 
 

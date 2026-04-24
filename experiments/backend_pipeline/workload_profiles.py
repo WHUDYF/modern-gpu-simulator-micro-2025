@@ -89,12 +89,12 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
                 ],
             },
             "S4_reduction_path": {
-                "description": "Increase memory unit ports for reduction-path probing.",
+                "description": "Increase trace-side miscellaneous queue latency for reduction-path probing.",
                 "config_edits": [
                     {
-                        "target": "gpgpusim_config",
-                        "pattern": r"^-gpgpu_mem_unit_ports\s+.*$",
-                        "replacement": "-gpgpu_mem_unit_ports                    2 # scenario override: reduction path",
+                        "target": "trace_config",
+                        "pattern": r"^-trace_opcode_latency_initiation_miscellaneous_queue\s+.*$",
+                        "replacement": "-trace_opcode_latency_initiation_miscellaneous_queue 4,4 # scenario override: reduction path",
                     }
                 ],
             },
@@ -140,7 +140,7 @@ SMOKE_PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
         "smoke_trace_builder": {
             "mode": "trimmed_dummy_extra_info",
             "kernel_launches": {
-                "R1_projection_dense": {
+                "R1_qkv_projection_dense": {
                     "kernel_id": 1,
                     "function_unique_id": 1,
                     "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii___0",
@@ -152,29 +152,47 @@ SMOKE_PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
                     "kernel_name": "_Z15attention_scorePKfS0_Pfiii___0",
                     "threadblock_file": "d_0_s_0_k_5_0,0,0.pb",
                 },
-                "R3_softmax_reduction": {
+                "R3_output_projection_dense": {
+                    "kernel_id": 8,
+                    "function_unique_id": 1,
+                    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_8_0,0,0.pb",
+                },
+                "R4_ffn_expand_dense": {
+                    "kernel_id": 11,
+                    "function_unique_id": 1,
+                    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_11_0,0,0.pb",
+                },
+                "R5_ffn_contract_dense": {
+                    "kernel_id": 12,
+                    "function_unique_id": 1,
+                    "kernel_name": "_Z10gemm_tiledPKfS0_Pfiii___0",
+                    "threadblock_file": "d_0_s_0_k_12_0,0,0.pb",
+                },
+                "R6_softmax_reduction": {
                     "kernel_id": 6,
                     "function_unique_id": 3,
                     "kernel_name": "_Z14softmax_kernelPfii___0",
                     "threadblock_file": "d_0_s_0_k_6_0,0,0.pb",
                 },
-                "R5_context_streaming": {
+                "R7_layernorm_reduction": {
+                    "kernel_id": 10,
+                    "function_unique_id": 6,
+                    "kernel_name": "_Z16layernorm_kernelPfii___0",
+                    "threadblock_file": "d_0_s_0_k_10_0,0,0.pb",
+                },
+                "R8_context_streaming": {
                     "kernel_id": 7,
                     "function_unique_id": 4,
                     "kernel_name": "_Z11context_mulPKfS0_Pfiii___0",
                     "threadblock_file": "d_0_s_0_k_7_0,0,0.pb",
                 },
-                "R6_residual_elementwise": {
+                "R9_residual_elementwise": {
                     "kernel_id": 9,
                     "function_unique_id": 5,
                     "kernel_name": "_Z12residual_addPfPKfi___0",
                     "threadblock_file": "d_0_s_0_k_9_0,0,0.pb",
-                },
-                "R4_layernorm_reduction": {
-                    "kernel_id": 10,
-                    "function_unique_id": 6,
-                    "kernel_name": "_Z16layernorm_kernelPfii___0",
-                    "threadblock_file": "d_0_s_0_k_10_0,0,0.pb",
                 },
             },
         },

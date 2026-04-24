@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -198,8 +199,11 @@ def _load_trace_proto_modules() -> tuple[Any, Any, Any, Any]:
         return _PROTO_MODULES
     proto_root = Path(__file__).resolve().parents[2] / "simulator-remodeled" / "util" / "traces_enhanced" / "dynamic_trace"
     tmpdir = Path(tempfile.mkdtemp(prefix="backend_trace_proto_"))
+    protoc = shutil.which("protoc")
+    if not protoc:
+        raise FileNotFoundError("protoc not found on PATH; required for smoke trace generation")
     subprocess.run(
-        ["/home/dyf/opt/protobuf-3.21.12/bin/protoc", "-I", str(proto_root), "--python_out", str(tmpdir), *map(str, proto_root.glob("*.proto"))],
+        [protoc, "-I", str(proto_root), "--python_out", str(tmpdir), *map(str, proto_root.glob("*.proto"))],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

@@ -39,8 +39,8 @@ def test_planner_marks_review_and_constraint_roles(tmp_path):
     output_dir = _prepare_outputs(tmp_path)
     manifest = json.loads((output_dir / "backend_run_manifest_v1.json").read_text())
     roles = {row["regime_id"]: row["validation_role"] for row in manifest if row["priority_source"] == "importance-guided"}
-    assert roles["R4_layernorm_reduction"] == "review-object"
-    assert roles["R6_residual_elementwise"] == "constraint-object"
+    assert roles["R7_layernorm_reduction"] == "review-object"
+    assert roles["R9_residual_elementwise"] == "constraint-object"
 
 
 def test_planner_uses_fixed_no_priority_order_and_four_baselines(tmp_path):
@@ -55,7 +55,17 @@ def test_planner_uses_fixed_no_priority_order_and_four_baselines(tmp_path):
     for row in no_priority:
         if row["regime_id"] not in ordered_regimes:
             ordered_regimes.append(row["regime_id"])
-    assert ordered_regimes == ["R1_projection_dense", "R2_attention_score_dense", "R3_softmax_reduction", "R4_layernorm_reduction", "R5_context_streaming", "R6_residual_elementwise"]
+    assert ordered_regimes == [
+        "R1_qkv_projection_dense",
+        "R2_attention_score_dense",
+        "R3_output_projection_dense",
+        "R4_ffn_expand_dense",
+        "R5_ffn_contract_dense",
+        "R6_softmax_reduction",
+        "R7_layernorm_reduction",
+        "R8_context_streaming",
+        "R9_residual_elementwise",
+    ]
 
 
 def test_planner_fails_when_only_one_baseline_strategy_is_present(tmp_path):
@@ -156,11 +166,14 @@ def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regim
     assert plan["budget_policy"]["main_object_max_scenarios"] == 1
     assert plan["budget_policy"]["review_object_max_scenarios"] == 2
     assert plan["strategies"]["importance-guided"]["selected_families"] == [
-        "F1_dense_tiled",
-        "F4_elementwise_fusion",
+        "F1_dense_tiled_backbone",
+        "F4_elementwise_residual",
     ]
     assert plan["strategies"]["importance-guided"]["selected_regimes"] == [
-        "R1_projection_dense",
+        "R1_qkv_projection_dense",
+        "R4_ffn_expand_dense",
         "R2_attention_score_dense",
-        "R6_residual_elementwise",
+        "R3_output_projection_dense",
+        "R5_ffn_contract_dense",
+        "R9_residual_elementwise",
     ]

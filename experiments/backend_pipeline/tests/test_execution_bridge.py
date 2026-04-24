@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -50,7 +51,18 @@ def test_builtin_smoke_profile_enables_trimmed_trace_mode():
     profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
     assert profile["execution_mode"] == "smoke"
     assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
-    assert "R1_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
+    assert "R1_qkv_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
+
+
+def test_all_scenario_overrides_match_profile_configs():
+    profile = load_workload_profile("mini_transformer_v4")
+    target_text = {
+        "gpgpusim_config": Path(profile["gpgpusim_config"]).read_text(),
+        "trace_config": Path(profile["trace_config"]).read_text(),
+    }
+    for payload in profile["scenario_overrides"].values():
+        for edit in payload["config_edits"]:
+            assert re.search(edit["pattern"], target_text[edit["target"]], re.MULTILINE)
 
 
 def test_run_specs_are_stable_for_actual_manifest(tmp_path):
@@ -209,8 +221,8 @@ def test_smoke_runs_do_not_upgrade_to_validation_success(tmp_path):
     rows = [
         {
             "run_id": "RUN_smoke_only",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "priority_rank": 1,
             "simulator_lane_id": "L1_dense_projection",

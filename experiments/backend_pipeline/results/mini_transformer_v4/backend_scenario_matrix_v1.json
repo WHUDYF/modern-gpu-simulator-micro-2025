@@ -1,7 +1,7 @@
 [
   {
-    "object_id": "R1_projection_dense",
-    "family_id": "F1_dense_tiled",
+    "object_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "importance-guided",
     "validation_role": "main-object",
     "simulator_lane_id": "L1_dense_projection",
@@ -11,8 +11,19 @@
     ]
   },
   {
+    "object_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L4_ffn_expand",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
     "object_id": "R2_attention_score_dense",
-    "family_id": "F1_dense_tiled",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "importance-guided",
     "validation_role": "main-object",
     "simulator_lane_id": "L2_attention_score",
@@ -22,49 +33,70 @@
     ]
   },
   {
-    "object_id": "R3_softmax_reduction",
+    "object_id": "R6_softmax_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "importance-guided",
     "validation_role": "main-object",
-    "simulator_lane_id": "L3_softmax",
+    "simulator_lane_id": "L6_softmax",
     "parameter_scenario_ids": [
       "S3_cache_capacity",
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R5_context_streaming",
-    "family_id": "F3_streaming_aggregation",
+    "object_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "importance-guided",
     "validation_role": "main-object",
-    "simulator_lane_id": "L5_context_mul",
+    "simulator_lane_id": "L3_output_projection",
     "parameter_scenario_ids": [
-      "S6_locality_path"
+      "S1_register_pressure",
+      "S2_occupancy_balance"
     ]
   },
   {
-    "object_id": "R4_layernorm_reduction",
+    "object_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_ffn_contract",
+    "parameter_scenario_ids": [
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R7_layernorm_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "importance-guided",
     "validation_role": "review-object",
-    "simulator_lane_id": "L4_layernorm",
+    "simulator_lane_id": "L7_layernorm",
     "parameter_scenario_ids": [
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R6_residual_elementwise",
-    "family_id": "F4_elementwise_fusion",
+    "object_id": "R8_context_streaming",
+    "family_id": "F3_streaming_aggregation",
+    "priority_source": "importance-guided",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L8_context_streaming",
+    "parameter_scenario_ids": [
+      "S6_locality_path"
+    ]
+  },
+  {
+    "object_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
     "priority_source": "importance-guided",
     "validation_role": "constraint-object",
-    "simulator_lane_id": "L6_residual_add",
+    "simulator_lane_id": "L9_residual_regression",
     "parameter_scenario_ids": [
       "S7_constraint_regression"
     ]
   },
   {
-    "object_id": "R1_projection_dense",
-    "family_id": "F1_dense_tiled",
+    "object_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "time-only",
     "validation_role": "main-object",
     "simulator_lane_id": "L1_dense_projection",
@@ -74,18 +106,50 @@
     ]
   },
   {
-    "object_id": "R5_context_streaming",
+    "object_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L4_ffn_expand",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_output_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "time-only",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_ffn_contract",
+    "parameter_scenario_ids": [
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R8_context_streaming",
     "family_id": "F3_streaming_aggregation",
     "priority_source": "time-only",
     "validation_role": "main-object",
-    "simulator_lane_id": "L5_context_mul",
+    "simulator_lane_id": "L8_context_streaming",
     "parameter_scenario_ids": [
       "S6_locality_path"
     ]
   },
   {
     "object_id": "R2_attention_score_dense",
-    "family_id": "F1_dense_tiled",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "time-only",
     "validation_role": "main-object",
     "simulator_lane_id": "L2_attention_score",
@@ -95,39 +159,39 @@
     ]
   },
   {
-    "object_id": "R3_softmax_reduction",
+    "object_id": "R6_softmax_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "time-only",
     "validation_role": "main-object",
-    "simulator_lane_id": "L3_softmax",
+    "simulator_lane_id": "L6_softmax",
     "parameter_scenario_ids": [
       "S3_cache_capacity",
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R4_layernorm_reduction",
+    "object_id": "R7_layernorm_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "time-only",
     "validation_role": "review-object",
-    "simulator_lane_id": "L4_layernorm",
+    "simulator_lane_id": "L7_layernorm",
     "parameter_scenario_ids": [
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R6_residual_elementwise",
-    "family_id": "F4_elementwise_fusion",
+    "object_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
     "priority_source": "time-only",
     "validation_role": "constraint-object",
-    "simulator_lane_id": "L6_residual_add",
+    "simulator_lane_id": "L9_residual_regression",
     "parameter_scenario_ids": [
       "S7_constraint_regression"
     ]
   },
   {
-    "object_id": "R1_projection_dense",
-    "family_id": "F1_dense_tiled",
+    "object_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "name-based",
     "validation_role": "main-object",
     "simulator_lane_id": "L1_dense_projection",
@@ -138,7 +202,7 @@
   },
   {
     "object_id": "R2_attention_score_dense",
-    "family_id": "F1_dense_tiled",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "name-based",
     "validation_role": "main-object",
     "simulator_lane_id": "L2_attention_score",
@@ -148,49 +212,81 @@
     ]
   },
   {
-    "object_id": "R3_softmax_reduction",
+    "object_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_output_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L4_ffn_expand",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "name-based",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_ffn_contract",
+    "parameter_scenario_ids": [
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R6_softmax_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "name-based",
     "validation_role": "main-object",
-    "simulator_lane_id": "L3_softmax",
+    "simulator_lane_id": "L6_softmax",
     "parameter_scenario_ids": [
       "S3_cache_capacity",
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R4_layernorm_reduction",
+    "object_id": "R7_layernorm_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "name-based",
     "validation_role": "review-object",
-    "simulator_lane_id": "L4_layernorm",
+    "simulator_lane_id": "L7_layernorm",
     "parameter_scenario_ids": [
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R5_context_streaming",
+    "object_id": "R8_context_streaming",
     "family_id": "F3_streaming_aggregation",
     "priority_source": "name-based",
     "validation_role": "main-object",
-    "simulator_lane_id": "L5_context_mul",
+    "simulator_lane_id": "L8_context_streaming",
     "parameter_scenario_ids": [
       "S6_locality_path"
     ]
   },
   {
-    "object_id": "R6_residual_elementwise",
-    "family_id": "F4_elementwise_fusion",
+    "object_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
     "priority_source": "name-based",
     "validation_role": "constraint-object",
-    "simulator_lane_id": "L6_residual_add",
+    "simulator_lane_id": "L9_residual_regression",
     "parameter_scenario_ids": [
       "S7_constraint_regression"
     ]
   },
   {
-    "object_id": "R1_projection_dense",
-    "family_id": "F1_dense_tiled",
+    "object_id": "R1_qkv_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "no-priority",
     "validation_role": "main-object",
     "simulator_lane_id": "L1_dense_projection",
@@ -201,7 +297,7 @@
   },
   {
     "object_id": "R2_attention_score_dense",
-    "family_id": "F1_dense_tiled",
+    "family_id": "F1_dense_tiled_backbone",
     "priority_source": "no-priority",
     "validation_role": "main-object",
     "simulator_lane_id": "L2_attention_score",
@@ -211,42 +307,74 @@
     ]
   },
   {
-    "object_id": "R3_softmax_reduction",
+    "object_id": "R3_output_projection_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L3_output_projection",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R4_ffn_expand_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L4_ffn_expand",
+    "parameter_scenario_ids": [
+      "S1_register_pressure",
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R5_ffn_contract_dense",
+    "family_id": "F1_dense_tiled_backbone",
+    "priority_source": "no-priority",
+    "validation_role": "main-object",
+    "simulator_lane_id": "L5_ffn_contract",
+    "parameter_scenario_ids": [
+      "S2_occupancy_balance"
+    ]
+  },
+  {
+    "object_id": "R6_softmax_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "no-priority",
     "validation_role": "main-object",
-    "simulator_lane_id": "L3_softmax",
+    "simulator_lane_id": "L6_softmax",
     "parameter_scenario_ids": [
       "S3_cache_capacity",
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R4_layernorm_reduction",
+    "object_id": "R7_layernorm_reduction",
     "family_id": "F2_reduction_normalize",
     "priority_source": "no-priority",
     "validation_role": "review-object",
-    "simulator_lane_id": "L4_layernorm",
+    "simulator_lane_id": "L7_layernorm",
     "parameter_scenario_ids": [
       "S4_reduction_path"
     ]
   },
   {
-    "object_id": "R5_context_streaming",
+    "object_id": "R8_context_streaming",
     "family_id": "F3_streaming_aggregation",
     "priority_source": "no-priority",
     "validation_role": "main-object",
-    "simulator_lane_id": "L5_context_mul",
+    "simulator_lane_id": "L8_context_streaming",
     "parameter_scenario_ids": [
       "S6_locality_path"
     ]
   },
   {
-    "object_id": "R6_residual_elementwise",
-    "family_id": "F4_elementwise_fusion",
+    "object_id": "R9_residual_elementwise",
+    "family_id": "F4_elementwise_residual",
     "priority_source": "no-priority",
     "validation_role": "constraint-object",
-    "simulator_lane_id": "L6_residual_add",
+    "simulator_lane_id": "L9_residual_regression",
     "parameter_scenario_ids": [
       "S7_constraint_regression"
     ]

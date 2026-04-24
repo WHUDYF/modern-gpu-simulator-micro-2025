@@ -19,10 +19,10 @@ SCRIPT = ROOT / "build_backend_outputs.py"
 
 def test_anchor_table_aggregates_gemm_tiled_real_counts():
     anchors = build_anchor_table(load_full_features(INPUT))
-    gemm = next(anchor for anchor in anchors if anchor["rep_kernel_id"] == "A1")
+    gemm = next(anchor for anchor in anchors if anchor["rep_kernel_id"] == "A1_qkv_projection_dense_48x32")
     assert gemm["kernel_name"] == "gemm_tiled"
-    assert gemm["coverage_count"] == 7
-    assert gemm["coverage_weight"] == 0.5
+    assert gemm["coverage_count"] == 4
+    assert gemm["coverage_weight"] == 0.2857
     assert gemm["canonical_status"] == "stable"
 
 
@@ -30,11 +30,11 @@ def test_backend_outputs_keep_current_canonical_absorptions():
     outputs = build_backend_outputs(load_full_features(INPUT))
     families = {row["family_id"]: row for row in outputs["family_table"]}
     regimes = {row["regime_id"]: row for row in outputs["regime_table"]}
-    assert "A5" in families["F2_reduction_normalize"]["member_rep_kernels"]
+    assert "A7_layernorm_reduce_512" in families["F2_reduction_normalize"]["member_rep_kernels"]
     assert families["F2_reduction_normalize"]["canonical_status"] == "absorbed-with-review"
-    assert regimes["R4_layernorm_reduction"]["canonical_status"] == "review-needed"
-    assert "A6" in families["F4_elementwise_fusion"]["member_rep_kernels"]
-    assert regimes["R6_residual_elementwise"]["resource_signature"] == "dram-dominated elementwise path"
+    assert regimes["R7_layernorm_reduction"]["canonical_status"] == "review-needed"
+    assert "A6_residual_elementwise_1536" in families["F4_elementwise_residual"]["member_rep_kernels"]
+    assert regimes["R9_residual_elementwise"]["resource_signature"] == "lightweight elementwise memory-side"
 
 
 def test_cli_writes_expected_backend_artifacts(tmp_path):
@@ -42,7 +42,7 @@ def test_cli_writes_expected_backend_artifacts(tmp_path):
     expected = {"backend_anchor_table_v1.json", "backend_family_table_v1.json", "backend_regime_table_v1.json", "backend_priority_lane_table_v1.json", "backend_validation_worksheet_v1.json", "backend_writeback_map_v1.json"}
     assert expected == {path.name for path in tmp_path.iterdir()}
     family_table = json.loads((tmp_path / "backend_family_table_v1.json").read_text())
-    assert family_table[0]["family_id"] == "F1_dense_tiled"
+    assert family_table[0]["family_id"] == "F1_dense_tiled_backbone"
 
 
 def test_no_priority_family_baseline_uses_stable_non_importance_order():
@@ -54,10 +54,10 @@ def test_no_priority_family_baseline_uses_stable_non_importance_order():
     ]
     rows.sort(key=lambda row: row["priority_rank"])
     assert [row["family_id"] for row in rows] == [
-        "F1_dense_tiled",
+        "F1_dense_tiled_backbone",
         "F2_reduction_normalize",
         "F3_streaming_aggregation",
-        "F4_elementwise_fusion",
+        "F4_elementwise_residual",
     ]
 
 
@@ -70,10 +70,13 @@ def test_no_priority_regime_baseline_uses_original_order():
     ]
     rows.sort(key=lambda row: row["priority_rank"])
     assert [row["regime_id"] for row in rows] == [
-        "R1_projection_dense",
+        "R1_qkv_projection_dense",
         "R2_attention_score_dense",
-        "R3_softmax_reduction",
-        "R4_layernorm_reduction",
-        "R5_context_streaming",
-        "R6_residual_elementwise",
+        "R3_output_projection_dense",
+        "R4_ffn_expand_dense",
+        "R5_ffn_contract_dense",
+        "R6_softmax_reduction",
+        "R7_layernorm_reduction",
+        "R8_context_streaming",
+        "R9_residual_elementwise",
     ]

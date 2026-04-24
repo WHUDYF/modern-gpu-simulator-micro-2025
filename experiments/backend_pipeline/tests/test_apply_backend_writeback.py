@@ -42,10 +42,10 @@ def _prepare_environment(tmp_path: Path) -> Path:
 def _write_result_summary(output_dir: Path) -> None:
     result_summary = [
         {
-            "run_id": "RUN_importance_guided_R4_layernorm_reduction_S4_reduction_path",
-            "object_id": "R4_layernorm_reduction",
+            "run_id": "RUN_importance_guided_R7_layernorm_reduction_S4_reduction_path",
+            "object_id": "R7_layernorm_reduction",
             "family_id": "F2_reduction_normalize",
-            "regime_id": "R4_layernorm_reduction",
+            "regime_id": "R7_layernorm_reduction",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S4_reduction_path",
             "observed_metric_values": {"demo": 1},
@@ -57,10 +57,10 @@ def _write_result_summary(output_dir: Path) -> None:
             "notes": "review object sample",
         },
         {
-            "run_id": "RUN_importance_guided_R6_residual_elementwise_S7_constraint_regression",
-            "object_id": "R6_residual_elementwise",
-            "family_id": "F4_elementwise_fusion",
-            "regime_id": "R6_residual_elementwise",
+            "run_id": "RUN_importance_guided_R9_residual_elementwise_S7_constraint_regression",
+            "object_id": "R9_residual_elementwise",
+            "family_id": "F4_elementwise_residual",
+            "regime_id": "R9_residual_elementwise",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S7_constraint_regression",
             "observed_metric_values": {"demo": 2},
@@ -72,10 +72,10 @@ def _write_result_summary(output_dir: Path) -> None:
             "notes": "constraint object sample",
         },
         {
-            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
-            "object_id": "R1_projection_dense",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
             "observed_metric_values": {"demo": 3},
@@ -131,7 +131,7 @@ def test_writeback_preserves_review_object_status(tmp_path):
         check=True,
     )
     updates = json.loads((output_dir / "backend_writeback_updates_v1.json").read_text())
-    layernorm = next(row for row in updates if row["regime_id"] == "R4_layernorm_reduction")
+    layernorm = next(row for row in updates if row["regime_id"] == "R7_layernorm_reduction")
     assert layernorm["review_status_update"] == "keep-review"
     assert layernorm["validation_status_update"] == "pending-review"
 
@@ -155,20 +155,20 @@ def test_writeback_preserves_constraint_object_bottleneck_note(tmp_path):
         check=True,
     )
     updates = json.loads((output_dir / "backend_writeback_updates_v1.json").read_text())
-    residual = next(row for row in updates if row["regime_id"] == "R6_residual_elementwise")
+    residual = next(row for row in updates if row["regime_id"] == "R9_residual_elementwise")
     assert "memory-side/constraint" in residual["workload_explanation_note"]
     validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
-    family_status = next(row for row in validation["family_status"] if row["family_id"] == "F4_elementwise_fusion")
-    assert "R6_residual_elementwise" in family_status["regime_ids"]
+    family_status = next(row for row in validation["family_status"] if row["family_id"] == "F4_elementwise_residual")
+    assert "R9_residual_elementwise" in family_status["regime_ids"]
 
 
 def test_writeback_fails_on_mismatched_run_and_regime(tmp_path):
     output_dir = _prepare_environment(tmp_path)
     bad = [
         {
-            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
             "object_id": "R2_attention_score_dense",
-            "family_id": "F1_dense_tiled",
+            "family_id": "F1_dense_tiled_backbone",
             "regime_id": "R2_attention_score_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
@@ -232,10 +232,10 @@ def test_writeback_keeps_review_seed_when_result_summary_does_not_touch_review_o
     output_dir = _prepare_environment(tmp_path)
     result_summary = [
         {
-            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
-            "object_id": "R1_projection_dense",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
             "observed_metric_values": {},
@@ -264,20 +264,20 @@ def test_writeback_keeps_review_seed_when_result_summary_does_not_touch_review_o
         check=True,
     )
     validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
-    layernorm = next(row for row in validation["regime_status"] if row["regime_id"] == "R4_layernorm_reduction")
+    layernorm = next(row for row in validation["regime_status"] if row["regime_id"] == "R7_layernorm_reduction")
     family = next(row for row in validation["family_status"] if row["family_id"] == "F2_reduction_normalize")
     assert layernorm["review_status"] == "keep-review"
-    assert family["review_needed_regimes"] == ["R4_layernorm_reduction"]
+    assert family["review_needed_regimes"] == ["R7_layernorm_reduction"]
 
 
 def test_writeback_preserves_failed_status_even_if_another_run_validates(tmp_path):
     output_dir = _prepare_environment(tmp_path)
     result_summary = [
         {
-            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
-            "object_id": "R1_projection_dense",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
             "observed_metric_values": {},
@@ -289,10 +289,10 @@ def test_writeback_preserves_failed_status_even_if_another_run_validates(tmp_pat
             "notes": "success case",
         },
         {
-            "run_id": "RUN_time_only_R1_projection_dense_S1_register_pressure",
-            "object_id": "R1_projection_dense",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "run_id": "RUN_time_only_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "time-only",
             "parameter_scenario_id": "S1_register_pressure",
             "observed_metric_values": {},
@@ -321,20 +321,20 @@ def test_writeback_preserves_failed_status_even_if_another_run_validates(tmp_pat
         check=True,
     )
     validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
-    regime = next(row for row in validation["regime_status"] if row["regime_id"] == "R1_projection_dense")
-    family = next(row for row in validation["family_status"] if row["family_id"] == "F1_dense_tiled")
+    regime = next(row for row in validation["regime_status"] if row["regime_id"] == "R1_qkv_projection_dense")
+    family = next(row for row in validation["family_status"] if row["family_id"] == "F1_dense_tiled_backbone")
     assert regime["current_status"] == "validated"
-    assert "R1_projection_dense" not in family["failed_regimes"]
+    assert "R1_qkv_projection_dense" not in family["failed_regimes"]
 
 
 def test_writeback_keeps_parse_failed_main_object_pending(tmp_path):
     output_dir = _prepare_environment(tmp_path)
     result_summary = [
         {
-            "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
-            "object_id": "R1_projection_dense",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
             "observed_metric_values": {},
@@ -363,5 +363,5 @@ def test_writeback_keeps_parse_failed_main_object_pending(tmp_path):
         check=True,
     )
     updates = json.loads((output_dir / "backend_writeback_updates_v1.json").read_text())
-    row = next(item for item in updates if item["regime_id"] == "R1_projection_dense")
+    row = next(item for item in updates if item["regime_id"] == "R1_qkv_projection_dense")
     assert row["validation_status_update"] == "pending"

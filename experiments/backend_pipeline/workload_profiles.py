@@ -18,6 +18,7 @@ REQUIRED_PROFILE_FIELDS = {
     "extra_cli_args",
     "setup_script",
     "parser",
+    "scenario_overrides",
 }
 
 
@@ -55,6 +56,78 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
                 r"gpgpu_simulation_time\s*=\s*([0-9]+(?:\.[0-9]+)?)",
             ],
         },
+        "scenario_overrides": {
+            "S1_register_pressure": {
+                "description": "Reduce available registers per shader core for register-pressure probing.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_shader_registers\s+.*$",
+                        "replacement": "-gpgpu_shader_registers                32768 # scenario override: register pressure",
+                    }
+                ],
+            },
+            "S2_occupancy_balance": {
+                "description": "Reduce CTA concurrency to probe occupancy-sensitive behavior.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_shader_cta\s+.*$",
+                        "replacement": "-gpgpu_shader_cta                      16 # scenario override: occupancy balance",
+                    }
+                ],
+            },
+            "S3_cache_capacity": {
+                "description": "Increase L2 associativity for cache-capacity probing.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_cache:dl2\s+.*$",
+                        "replacement": "-gpgpu_cache:dl2     S:64:128:32,L:B:m:L:P,A:192:96,32:0,32 # scenario override: cache capacity",
+                    }
+                ],
+            },
+            "S4_reduction_path": {
+                "description": "Increase memory unit ports for reduction-path probing.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_mem_unit_ports\s+.*$",
+                        "replacement": "-gpgpu_mem_unit_ports                    2 # scenario override: reduction path",
+                    }
+                ],
+            },
+            "S5_shared_memory_coupling": {
+                "description": "Reduce shared memory size to stress shmem-coupled dense behavior.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_shmem_size\s+.*$",
+                        "replacement": "-gpgpu_shmem_size                   65536 # scenario override: shared memory coupling",
+                    }
+                ],
+            },
+            "S6_locality_path": {
+                "description": "Reduce L1D associativity to probe locality-sensitive behavior.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_cache:dl1\s+.*$",
+                        "replacement": "-gpgpu_cache:dl1     S:4:128:64,L:T:m:L:L,A:384:48,32:0,32 # scenario override: locality path",
+                    }
+                ],
+            },
+            "S7_constraint_regression": {
+                "description": "Tighten runtime stat interval for lightweight regression-check runs.",
+                "config_edits": [
+                    {
+                        "target": "gpgpusim_config",
+                        "pattern": r"^-gpgpu_runtime_stat\s+.*$",
+                        "replacement": "-gpgpu_runtime_stat                  1000 # scenario override: constraint regression",
+                    }
+                ],
+            },
+        },
     }
 }
 
@@ -69,6 +142,8 @@ def _validate_profile(profile: dict[str, Any]) -> None:
         raise ValueError("workload profile field 'extra_cli_args' must be a list")
     if not isinstance(profile["parser"], dict):
         raise ValueError("workload profile field 'parser' must be a dict")
+    if not isinstance(profile["scenario_overrides"], dict):
+        raise ValueError("workload profile field 'scenario_overrides' must be a dict")
 
 
 def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
@@ -77,6 +152,20 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
         normalized[field] = _resolve_path(normalized[field])
     normalized["environment"] = {str(k): str(v) for k, v in normalized["environment"].items()}
     normalized["extra_cli_args"] = [str(item) for item in normalized["extra_cli_args"]]
+    normalized["scenario_overrides"] = {
+        str(scenario_id): {
+            "description": str(payload.get("description", "")),
+            "config_edits": [
+                {
+                    "target": str(edit["target"]),
+                    "pattern": str(edit["pattern"]),
+                    "replacement": str(edit["replacement"]),
+                }
+                for edit in payload.get("config_edits", [])
+            ],
+        }
+        for scenario_id, payload in normalized["scenario_overrides"].items()
+    }
     return normalized
 
 

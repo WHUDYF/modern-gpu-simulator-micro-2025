@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -84,20 +85,26 @@ def build_run_specs(
         scenario_id = row["parameter_scenario_id"]
         if scenario_id not in scenario_focus_by_id:
             raise ValueError(f"scenario {scenario_id} is missing from validation worksheet")
+        if scenario_id not in workload_profile["scenario_overrides"]:
+            raise ValueError(f"scenario {scenario_id} is missing from workload profile scenario_overrides")
         run_id = row["run_id"]
         output_dir = (runs_root / workload_profile["workload_id"] / run_id).resolve()
+        config_dir = output_dir / "configs"
         stdout_path = output_dir / "stdout.log"
         stderr_path = output_dir / "stderr.log"
         metadata_path = output_dir / "run_metadata.json"
         command_path = output_dir / "command.sh"
+        parser_report_path = output_dir / "parser_report.json"
+        run_gpgpusim_config = config_dir / "gpgpusim.config"
+        run_trace_config = config_dir / "trace.config"
         command_argv = [
             workload_profile["simulator_binary"],
             "-trace",
             workload_profile["trace_path"],
             "-config",
-            workload_profile["gpgpusim_config"],
+            str(run_gpgpusim_config),
             "-config",
-            workload_profile["trace_config"],
+            str(run_trace_config),
             *workload_profile["extra_cli_args"],
         ]
         run_specs.append(
@@ -114,19 +121,25 @@ def build_run_specs(
                 "recommended_tuning_target": row["recommended_tuning_target"],
                 "validation_role": row["validation_role"],
                 "expected_signal": row["expected_signal"],
-                "working_directory": workload_profile["working_directory"],
+                "working_directory": str(output_dir),
+                "simulator_working_directory": workload_profile["working_directory"],
                 "trace_path": workload_profile["trace_path"],
-                "gpgpusim_config": workload_profile["gpgpusim_config"],
-                "trace_config": workload_profile["trace_config"],
+                "gpgpusim_config": str(run_gpgpusim_config),
+                "trace_config": str(run_trace_config),
                 "setup_script": workload_profile["setup_script"],
                 "environment": workload_profile["environment"],
+                "base_gpgpusim_config": workload_profile["gpgpusim_config"],
+                "base_trace_config": workload_profile["trace_config"],
+                "scenario_override": workload_profile["scenario_overrides"][scenario_id],
                 "command_argv": command_argv,
                 "command": " ".join(_shell_quote(part) for part in command_argv),
                 "output_dir": str(output_dir),
+                "config_dir": str(config_dir),
                 "stdout_path": str(stdout_path),
                 "stderr_path": str(stderr_path),
                 "metadata_path": str(metadata_path),
                 "command_path": str(command_path),
+                "parser_report_path": str(parser_report_path),
             }
         )
     return run_specs
@@ -153,6 +166,39 @@ def render_command_script(run_spec: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _apply_config_edits(source_text: str, edits: list[dict[str, str]], target_name: str) -> str:
+    updated = source_text
+    for edit in edits:
+        if edit["target"] != target_name:
+            continue
+        updated, count = re.subn(edit["pattern"], edit["replacement"], updated, flags=re.MULTILINE)
+        if count == 0:
+            raise ValueError(
+                f"scenario override could not find pattern for {target_name}: {edit['pattern']}"
+            )
+    return updated
+
+
+def materialize_run_workspace(run_spec: dict[str, Any]) -> list[str]:
+    output_dir = Path(run_spec["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = Path(run_spec["config_dir"])
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    base_gpgpu_text = Path(run_spec["base_gpgpusim_config"]).read_text()
+    base_trace_text = Path(run_spec["base_trace_config"]).read_text()
+    config_edits = run_spec["scenario_override"]["config_edits"]
+    Path(run_spec["gpgpusim_config"]).write_text(_apply_config_edits(base_gpgpu_text, config_edits, "gpgpusim_config"))
+    Path(run_spec["trace_config"]).write_text(_apply_config_edits(base_trace_text, config_edits, "trace_config"))
+
+    before_files = {
+        str(path.relative_to(output_dir))
+        for path in output_dir.rglob("*")
+        if path.is_file()
+    }
+    return sorted(before_files)
+
+
 def write_command_plan(run_specs: list[dict[str, Any]], command_plan_path: Path) -> None:
     command_plan_path.parent.mkdir(parents=True, exist_ok=True)
     command_plan_path.write_text(json.dumps(run_specs, indent=2))
@@ -166,7 +212,7 @@ def execute_run_specs(run_specs: list[dict[str, Any]], timeout_seconds: int) -> 
     records: list[dict[str, Any]] = []
     for run_spec in run_specs:
         output_dir = Path(run_spec["output_dir"])
-        output_dir.mkdir(parents=True, exist_ok=True)
+        before_files = materialize_run_workspace(run_spec)
         command_path = Path(run_spec["command_path"])
         command_path.write_text(render_command_script(run_spec))
         command_path.chmod(0o755)
@@ -185,6 +231,9 @@ def execute_run_specs(run_specs: list[dict[str, Any]], timeout_seconds: int) -> 
             "trace_path": run_spec["trace_path"],
             "gpgpusim_config": run_spec["gpgpusim_config"],
             "trace_config": run_spec["trace_config"],
+            "base_gpgpusim_config": run_spec["base_gpgpusim_config"],
+            "base_trace_config": run_spec["base_trace_config"],
+            "scenario_override": run_spec["scenario_override"],
             "command_path": run_spec["command_path"],
             "command": run_spec["command"],
         }
@@ -215,6 +264,15 @@ def execute_run_specs(run_specs: list[dict[str, Any]], timeout_seconds: int) -> 
             exit_code = -1
             failure_reason = f"command exceeded timeout of {timeout_seconds} seconds"
 
+        after_files = {
+            str(path.relative_to(output_dir))
+            for path in output_dir.rglob("*")
+            if path.is_file()
+        }
+        generated_files = sorted(after_files - set(before_files))
+        metadata["generated_files"] = generated_files
+        Path(run_spec["metadata_path"]).write_text(json.dumps(metadata, indent=2))
+
         records.append(
             {
                 "run_id": run_spec["run_id"],
@@ -233,6 +291,7 @@ def execute_run_specs(run_specs: list[dict[str, Any]], timeout_seconds: int) -> 
                 "stdout_path": run_spec["stdout_path"],
                 "stderr_path": run_spec["stderr_path"],
                 "metadata_path": run_spec["metadata_path"],
+                "parser_report_path": run_spec["parser_report_path"],
             }
         )
     return records
@@ -251,11 +310,79 @@ def _extract_first(patterns: list[str], text: str) -> float | None:
     return None
 
 
+REQUIRED_EXECUTION_RECORD_FIELDS = {
+    "run_id",
+    "workload_id",
+    "family_id",
+    "regime_id",
+    "priority_source",
+    "parameter_scenario_id",
+    "execution_status",
+    "exit_code",
+    "elapsed_wall_time",
+    "stdout_path",
+    "stderr_path",
+    "output_dir",
+    "parser_report_path",
+}
+
+
+REQUIRED_SUMMARY_FIELDS = {
+    "run_id",
+    "workload_id",
+    "object_id",
+    "family_id",
+    "regime_id",
+    "priority_source",
+    "parameter_scenario_id",
+    "execution_status",
+    "result_status",
+    "exit_code",
+    "sim_cycles",
+    "elapsed_wall_time",
+    "parse_note",
+}
+
+
+def validate_execution_records(run_specs: list[dict[str, Any]], execution_records: list[dict[str, Any]]) -> None:
+    run_ids = {run_spec["run_id"] for run_spec in run_specs}
+    seen_run_ids = set()
+    for record in execution_records:
+        missing = REQUIRED_EXECUTION_RECORD_FIELDS - set(record.keys())
+        if missing:
+            raise ValueError(f"execution record is missing required fields: {sorted(missing)}")
+        run_id = record["run_id"]
+        if run_id not in run_ids:
+            raise ValueError(f"execution record references unknown run_id: {run_id}")
+        if run_id in seen_run_ids:
+            raise ValueError(f"duplicate execution record for run_id: {run_id}")
+        seen_run_ids.add(run_id)
+
+
+def validate_result_summary_rows(summary_rows: list[dict[str, Any]]) -> None:
+    seen_run_ids = set()
+    valid_execution_statuses = {"success", "run-failed", "timeout"}
+    valid_result_statuses = {"success", "failed", "inconclusive", "parse-failed"}
+    for row in summary_rows:
+        missing = REQUIRED_SUMMARY_FIELDS - set(row.keys())
+        if missing:
+            raise ValueError(f"result summary row is missing required fields: {sorted(missing)}")
+        run_id = row["run_id"]
+        if run_id in seen_run_ids:
+            raise ValueError(f"duplicate result summary row for run_id: {run_id}")
+        seen_run_ids.add(run_id)
+        if row["execution_status"] not in valid_execution_statuses:
+            raise ValueError(f"invalid execution_status in result summary: {row['execution_status']}")
+        if row["result_status"] not in valid_result_statuses:
+            raise ValueError(f"invalid result_status in result summary: {row['result_status']}")
+
+
 def build_result_summary(
     run_specs: list[dict[str, Any]],
     execution_records: list[dict[str, Any]],
     parser_config: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    validate_execution_records(run_specs, execution_records)
     run_spec_by_id = {row["run_id"]: row for row in run_specs}
     summary_rows: list[dict[str, Any]] = []
     for record in execution_records:
@@ -269,16 +396,32 @@ def build_result_summary(
         if record["execution_status"] == "success":
             if sim_cycles is not None:
                 result_status = "success"
+                parse_status = "parsed"
                 parse_note = "Parsed sim_cycles from simulator output."
             else:
-                result_status = "inconclusive"
+                result_status = "parse-failed"
+                parse_status = "missing-metrics"
                 parse_note = "Execution succeeded but no sim_cycles field was found in the simulator output."
         elif record["execution_status"] == "timeout":
             result_status = "failed"
+            parse_status = "execution-timeout"
             parse_note = record["failure_reason"] or "Run timed out."
         else:
             result_status = "failed"
+            parse_status = "execution-failed"
             parse_note = record["failure_reason"] or "Run failed before metrics collection."
+
+        parser_report = {
+            "run_id": record["run_id"],
+            "execution_status": record["execution_status"],
+            "parse_status": parse_status,
+            "sim_cycles": int(sim_cycles) if sim_cycles is not None else None,
+            "simulation_time": simulation_time,
+            "parse_note": parse_note,
+            "stdout_path": record["stdout_path"],
+            "stderr_path": record["stderr_path"],
+        }
+        Path(record["parser_report_path"]).write_text(json.dumps(parser_report, indent=2))
 
         summary_rows.append(
             {
@@ -294,6 +437,7 @@ def build_result_summary(
                 "exit_code": record["exit_code"],
                 "sim_cycles": int(sim_cycles) if sim_cycles is not None else None,
                 "elapsed_wall_time": record["elapsed_wall_time"],
+                "parse_status": parse_status,
                 "parse_note": parse_note,
                 "summary_version": "v1",
                 "observed_metric_values": {
@@ -307,9 +451,11 @@ def build_result_summary(
                 "notes": parse_note,
             }
         )
+    validate_result_summary_rows(summary_rows)
     return summary_rows
 
 
 def write_result_summary(summary_rows: list[dict[str, Any]], path: Path) -> None:
+    validate_result_summary_rows(summary_rows)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary_rows, indent=2))

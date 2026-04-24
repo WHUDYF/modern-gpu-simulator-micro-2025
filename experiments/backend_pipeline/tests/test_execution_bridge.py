@@ -17,6 +17,7 @@ from experiments.backend_pipeline.execution_bridge import (  # noqa: E402
     execute_run_specs,
     scenario_focus_map,
     select_manifest_rows,
+    validate_result_summary_rows,
 )
 from experiments.backend_pipeline.workload_profiles import load_workload_profile  # noqa: E402
 
@@ -53,6 +54,7 @@ def test_run_specs_are_stable_for_actual_manifest(tmp_path):
     assert first["run_id"] in first["output_dir"]
     assert first["parameter_scenario_focus"]
     assert "accel-sim.out" in first["command"]
+    assert run_specs[0]["scenario_override"] != run_specs[1]["scenario_override"]
 
 
 def test_build_run_specs_fails_when_scenario_mapping_is_missing(tmp_path):
@@ -99,6 +101,7 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
                         "sim_cycles_patterns": [r"gpu_tot_sim_cycle\s*=\s*([0-9]+)"],
                         "simulation_time_patterns": [r"gpgpu_simulation_time\s*=\s*([0-9]+(?:\.[0-9]+)?)"],
                     },
+                    "scenario_overrides": {"S1_register_pressure": {"description": "demo", "config_edits": []}},
                 }
             )
         )
@@ -129,6 +132,8 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     assert summary[0]["result_status"] == "success"
     assert summary[0]["sim_cycles"] == 42
     assert summary[0]["observed_metric_values"]["simulation_time"] == 1.25
+    parser_report = json.loads(Path(records[0]["parser_report_path"]).read_text())
+    assert parser_report["parse_status"] == "parsed"
 
 
 def test_execute_run_specs_records_timeout(tmp_path):
@@ -152,12 +157,13 @@ def test_execute_run_specs_records_timeout(tmp_path):
                 "trace_path": str(trace),
                 "gpgpusim_config": str(gpgpu),
                 "trace_config": str(trace_cfg),
-                "environment": {},
-                "extra_cli_args": [],
-                "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
-            }
+                    "environment": {},
+                    "extra_cli_args": [],
+                    "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
+                    "scenario_overrides": {"S1_register_pressure": {"description": "demo", "config_edits": []}},
+                }
+            )
         )
-    )
     profile = load_workload_profile("mini_transformer_v4", profile_path)
     rows = [
         {
@@ -184,6 +190,45 @@ def test_execute_run_specs_records_timeout(tmp_path):
     assert records[0]["execution_status"] == "timeout"
     assert summary[0]["result_status"] == "failed"
     assert "timeout" in summary[0]["parse_note"] or "exceeded timeout" in summary[0]["parse_note"]
+
+
+def test_result_summary_validation_rejects_duplicates():
+    row = {
+        "run_id": "RUN_dup",
+        "workload_id": "mini_transformer_v4",
+        "object_id": "R1_projection_dense",
+        "family_id": "F1_dense_tiled",
+        "regime_id": "R1_projection_dense",
+        "priority_source": "importance-guided",
+        "parameter_scenario_id": "S1_register_pressure",
+        "execution_status": "success",
+        "result_status": "success",
+        "exit_code": 0,
+        "sim_cycles": 1,
+        "elapsed_wall_time": 0.1,
+        "parse_note": "ok",
+    }
+    try:
+        validate_result_summary_rows([row, dict(row)])
+    except ValueError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected duplicate run_id validation to fail")
+    assert "duplicate result summary row" in message
+
+
+def test_result_summary_validation_rejects_missing_required_fields():
+    row = {
+        "run_id": "RUN_missing",
+        "workload_id": "mini_transformer_v4",
+    }
+    try:
+        validate_result_summary_rows([row])
+    except ValueError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected missing field validation to fail")
+    assert "missing required fields" in message
 
 
 def test_cli_plan_only_writes_command_plan(tmp_path):

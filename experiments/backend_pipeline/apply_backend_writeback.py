@@ -176,14 +176,14 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         review_candidates = [item["review_status_update"] for item in updates]
         if "validated" in validation_candidates:
             current_status = "validated"
+        elif "failed" in validation_candidates:
+            current_status = "failed"
         elif "selected" in validation_candidates:
             current_status = "selected"
         elif "pending-review" in validation_candidates:
             current_status = "pending-review"
         elif "pending" in validation_candidates:
             current_status = "pending"
-        elif "failed" in validation_candidates:
-            current_status = "failed"
         else:
             current_status = "pending-review" if base["validation_role"] == "review-object" else "pending"
 

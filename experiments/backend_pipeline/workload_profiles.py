@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 REQUIRED_PROFILE_FIELDS = {
     "workload_id",
+    "execution_mode",
     "simulator_binary",
     "working_directory",
     "trace_path",
@@ -34,6 +35,7 @@ def _resolve_path(path_str: str) -> str:
 DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
     "mini_transformer_v4": {
         "workload_id": "mini_transformer_v4",
+        "execution_mode": "validation",
         "working_directory": "simulator-remodeled",
         "simulator_binary": "simulator-remodeled/gpu-simulator/bin/release/accel-sim.out",
         "setup_script": "simulator-remodeled/gpu-simulator/setup_environment_no_git.sh",
@@ -44,7 +46,7 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
             "CUDA_INSTALL_PATH": "/usr/local/cuda-12.8",
             "OMP_NUM_THREADS": "4",
         },
-        "extra_cli_args": ["-gpgpu_max_cycle", "10"],
+        "extra_cli_args": ["-is_extra_traces_enabled", "0"],
         "parser": {
             "sim_cycles_patterns": [
                 r"gpu_tot_sim_cycle\s*=\s*([0-9]+)",
@@ -127,6 +129,14 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
                 ],
             },
         },
+    }
+}
+
+
+SMOKE_PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
+    "mini_transformer_v4": {
+        "execution_mode": "smoke",
+        "extra_cli_args": ["-gpgpu_max_cycle", "10"],
         "smoke_trace_builder": {
             "mode": "trimmed_dummy_extra_info",
             "kernel_launches": {
@@ -172,6 +182,16 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
 }
 
 
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, Any] = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def _validate_profile(profile: dict[str, Any]) -> None:
     missing = REQUIRED_PROFILE_FIELDS - set(profile.keys())
     if missing:
@@ -211,13 +231,15 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def load_workload_profile(workload_id: str, profile_path: Path | None = None) -> dict[str, Any]:
+def load_workload_profile(workload_id: str, profile_path: Path | None = None, *, smoke_mode: bool = False) -> dict[str, Any]:
     if profile_path is not None:
         raw_profile = json.loads(profile_path.read_text())
     else:
         if workload_id not in DEFAULT_WORKLOAD_PROFILES:
             raise KeyError(f"Unknown workload profile: {workload_id}")
         raw_profile = DEFAULT_WORKLOAD_PROFILES[workload_id]
+        if smoke_mode:
+            raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
     _validate_profile(raw_profile)
     normalized = _normalize_profile(raw_profile)
     if normalized["workload_id"] != workload_id:

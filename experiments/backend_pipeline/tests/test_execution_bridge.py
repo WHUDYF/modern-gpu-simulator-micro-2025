@@ -41,12 +41,20 @@ def test_builtin_profile_loads_existing_repo_assets():
     assert Path(profile["trace_path"]).exists()
     assert Path(profile["gpgpusim_config"]).exists()
     assert Path(profile["trace_config"]).exists()
+    assert profile["execution_mode"] == "validation"
+    assert profile["extra_cli_args"] == ["-is_extra_traces_enabled", "0"]
+    assert "smoke_trace_builder" not in profile
+
+
+def test_builtin_smoke_profile_enables_trimmed_trace_mode():
+    profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
+    assert profile["execution_mode"] == "smoke"
     assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
     assert "R1_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
 
 
 def test_run_specs_are_stable_for_actual_manifest(tmp_path):
-    profile = load_workload_profile("mini_transformer_v4")
+    profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
     rows = select_manifest_rows(_manifest(), max_runs=2)
     run_specs = build_run_specs(rows, profile, scenario_focus_map(_worksheet()), tmp_path / "runs")
     assert len(run_specs) == 2
@@ -89,10 +97,11 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     profile_path = tmp_path / "profile.json"
     profile_path.write_text(
         json.dumps(
-            {
-                "workload_id": "mini_transformer_v4",
-                "working_directory": str(tmp_path),
-                "simulator_binary": str(fake_sim),
+                {
+                    "workload_id": "mini_transformer_v4",
+                    "execution_mode": "validation",
+                    "working_directory": str(tmp_path),
+                    "simulator_binary": str(fake_sim),
                 "setup_script": "",
                 "trace_path": str(trace),
                 "gpgpusim_config": str(gpgpu),
@@ -151,10 +160,11 @@ def test_execute_run_specs_records_timeout(tmp_path):
     profile_path = tmp_path / "profile.json"
     profile_path.write_text(
         json.dumps(
-            {
-                "workload_id": "mini_transformer_v4",
-                "working_directory": str(tmp_path),
-                "simulator_binary": str(fake_sim),
+                {
+                    "workload_id": "mini_transformer_v4",
+                    "execution_mode": "validation",
+                    "working_directory": str(tmp_path),
+                    "simulator_binary": str(fake_sim),
                 "setup_script": "",
                 "trace_path": str(trace),
                 "gpgpusim_config": str(gpgpu),
@@ -192,6 +202,30 @@ def test_execute_run_specs_records_timeout(tmp_path):
     assert records[0]["execution_status"] == "timeout"
     assert summary[0]["result_status"] == "failed"
     assert "timeout" in summary[0]["parse_note"] or "exceeded timeout" in summary[0]["parse_note"]
+
+
+def test_smoke_runs_do_not_upgrade_to_validation_success(tmp_path):
+    profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
+    rows = [
+        {
+            "run_id": "RUN_smoke_only",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R1_projection_dense",
+            "priority_source": "importance-guided",
+            "priority_rank": 1,
+            "simulator_lane_id": "L1_dense_projection",
+            "parameter_scenario_id": "S1_register_pressure",
+            "recommended_tuning_target": "register-sensitive",
+            "validation_role": "main-object",
+            "expected_signal": "demo",
+        }
+    ]
+    run_specs = build_run_specs(rows, profile, {"S1_register_pressure": "register-sensitive"}, tmp_path / "runs")
+    records = execute_run_specs(run_specs, timeout_seconds=30)
+    summary = build_result_summary(run_specs, records, profile["parser"])
+    assert records[0]["execution_status"] == "success"
+    assert summary[0]["parse_status"] == "parsed-smoke"
+    assert summary[0]["result_status"] == "inconclusive"
 
 
 def test_result_summary_validation_rejects_duplicates():
@@ -314,7 +348,7 @@ def test_cli_plan_only_writes_command_plan(tmp_path):
 
 
 def test_builtin_profile_trimmed_trace_uses_selected_kernel_event(tmp_path):
-    profile = load_workload_profile("mini_transformer_v4")
+    profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
     rows = [
         {
             "run_id": "RUN_attention_smoke",

@@ -7,13 +7,14 @@
     "regime_id": "R1_projection_dense",
     "priority_source": "importance-guided",
     "parameter_scenario_id": "S1_register_pressure",
+    "execution_mode": "smoke",
     "execution_status": "success",
-    "result_status": "success",
+    "result_status": "inconclusive",
     "exit_code": 0,
     "sim_cycles": 10,
-    "elapsed_wall_time": 0.715875,
-    "parse_status": "parsed",
-    "parse_note": "Parsed sim_cycles from simulator output.",
+    "elapsed_wall_time": 0.715592,
+    "parse_status": "parsed-smoke",
+    "parse_note": "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation.",
     "summary_version": "v1",
     "observed_metric_values": {
       "sim_cycles": 10,
@@ -23,7 +24,7 @@
     "sensitivity_score": null,
     "coverage_gain": null,
     "tuning_gain": null,
-    "notes": "Parsed sim_cycles from simulator output."
+    "notes": "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation."
   },
   {
     "run_id": "RUN_importance_guided_R1_projection_dense_S2_occupancy_balance",
@@ -33,13 +34,14 @@
     "regime_id": "R1_projection_dense",
     "priority_source": "importance-guided",
     "parameter_scenario_id": "S2_occupancy_balance",
+    "execution_mode": "smoke",
     "execution_status": "success",
-    "result_status": "success",
+    "result_status": "inconclusive",
     "exit_code": 0,
     "sim_cycles": 10,
-    "elapsed_wall_time": 0.715713,
-    "parse_status": "parsed",
-    "parse_note": "Parsed sim_cycles from simulator output.",
+    "elapsed_wall_time": 0.715807,
+    "parse_status": "parsed-smoke",
+    "parse_note": "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation.",
     "summary_version": "v1",
     "observed_metric_values": {
       "sim_cycles": 10,
@@ -49,7 +51,7 @@
     "sensitivity_score": null,
     "coverage_gain": null,
     "tuning_gain": null,
-    "notes": "Parsed sim_cycles from simulator output."
+    "notes": "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation."
   },
   {
     "run_id": "RUN_importance_guided_R2_attention_score_dense_S1_register_pressure",
@@ -59,23 +61,24 @@
     "regime_id": "R2_attention_score_dense",
     "priority_source": "importance-guided",
     "parameter_scenario_id": "S1_register_pressure",
-    "execution_status": "success",
-    "result_status": "success",
-    "exit_code": 0,
-    "sim_cycles": 10,
-    "elapsed_wall_time": 0.765897,
-    "parse_status": "parsed",
-    "parse_note": "Parsed sim_cycles from simulator output.",
+    "execution_mode": "smoke",
+    "execution_status": "run-failed",
+    "result_status": "failed",
+    "exit_code": 1,
+    "sim_cycles": null,
+    "elapsed_wall_time": 0.666466,
+    "parse_status": "execution-failed",
+    "parse_note": "command exited with code 1",
     "summary_version": "v1",
     "observed_metric_values": {
-      "sim_cycles": 10,
-      "simulation_time": 0.0
+      "sim_cycles": null,
+      "simulation_time": null
     },
     "baseline_delta": {},
     "sensitivity_score": null,
     "coverage_gain": null,
     "tuning_gain": null,
-    "notes": "Parsed sim_cycles from simulator output."
+    "notes": "command exited with code 1"
   },
   {
     "run_id": "RUN_importance_guided_R2_attention_score_dense_S5_shared_memory_coupling",
@@ -85,22 +88,23 @@
     "regime_id": "R2_attention_score_dense",
     "priority_source": "importance-guided",
     "parameter_scenario_id": "S5_shared_memory_coupling",
-    "execution_status": "success",
-    "result_status": "success",
-    "exit_code": 0,
-    "sim_cycles": 10,
-    "elapsed_wall_time": 0.715921,
-    "parse_status": "parsed",
-    "parse_note": "Parsed sim_cycles from simulator output.",
+    "execution_mode": "smoke",
+    "execution_status": "run-failed",
+    "result_status": "failed",
+    "exit_code": 1,
+    "sim_cycles": null,
+    "elapsed_wall_time": 0.615448,
+    "parse_status": "execution-failed",
+    "parse_note": "command exited with code 1",
     "summary_version": "v1",
     "observed_metric_values": {
-      "sim_cycles": 10,
-      "simulation_time": 0.0
+      "sim_cycles": null,
+      "simulation_time": null
     },
     "baseline_delta": {},
     "sensitivity_score": null,
     "coverage_gain": null,
     "tuning_gain": null,
-    "notes": "Parsed sim_cycles from simulator output."
+    "notes": "command exited with code 1"
   }
 ]

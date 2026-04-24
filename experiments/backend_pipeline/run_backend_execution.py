@@ -36,11 +36,12 @@ def main() -> None:
     parser.add_argument("--run-id", action="append", dest="run_ids")
     parser.add_argument("--timeout-seconds", type=int, default=120)
     parser.add_argument("--plan-only", action="store_true")
+    parser.add_argument("--smoke-mode", action="store_true")
     args = parser.parse_args()
 
     manifest = load_json(args.run_manifest)
     worksheet = load_json(args.validation_worksheet)
-    profile = load_workload_profile(args.workload_id, args.workload_profile)
+    profile = load_workload_profile(args.workload_id, args.workload_profile, smoke_mode=args.smoke_mode)
     selected = select_manifest_rows(
         manifest,
         max_runs=args.max_runs,

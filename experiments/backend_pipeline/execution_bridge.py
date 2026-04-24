@@ -124,6 +124,7 @@ def build_run_specs(
                 "simulator_lane_id": row["simulator_lane_id"],
                 "parameter_scenario_id": scenario_id,
                 "parameter_scenario_focus": scenario_focus_by_id[scenario_id],
+                "execution_mode": workload_profile["execution_mode"],
                 "recommended_tuning_target": row["recommended_tuning_target"],
                 "validation_role": row["validation_role"],
                 "expected_signal": row["expected_signal"],
@@ -556,9 +557,14 @@ def build_result_summary(
 
         if record["execution_status"] == "success":
             if sim_cycles is not None:
-                result_status = "success"
-                parse_status = "parsed"
-                parse_note = "Parsed sim_cycles from simulator output."
+                if run_spec["execution_mode"] == "smoke":
+                    result_status = "inconclusive"
+                    parse_status = "parsed-smoke"
+                    parse_note = "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation."
+                else:
+                    result_status = "success"
+                    parse_status = "parsed"
+                    parse_note = "Parsed sim_cycles from simulator output."
                 parsed_source = record["stdout_path"]
             else:
                 result_status = "parse-failed"
@@ -579,6 +585,7 @@ def build_result_summary(
         parser_report = {
             "run_id": record["run_id"],
             "execution_status": record["execution_status"],
+            "execution_mode": run_spec["execution_mode"],
             "parse_status": parse_status,
             "sim_cycles": int(sim_cycles) if sim_cycles is not None else None,
             "simulation_time": simulation_time,
@@ -598,6 +605,7 @@ def build_result_summary(
                 "regime_id": record["regime_id"],
                 "priority_source": record["priority_source"],
                 "parameter_scenario_id": record["parameter_scenario_id"],
+                "execution_mode": run_spec["execution_mode"],
                 "execution_status": record["execution_status"],
                 "result_status": result_status,
                 "exit_code": record["exit_code"],

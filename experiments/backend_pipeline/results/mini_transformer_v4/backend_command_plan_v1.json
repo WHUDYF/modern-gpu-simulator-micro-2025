@@ -1,0 +1,42 @@
+[
+  {
+    "run_id": "RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+    "workload_id": "mini_transformer_v4",
+    "family_id": "F1_dense_tiled",
+    "regime_id": "R1_projection_dense",
+    "priority_source": "importance-guided",
+    "priority_rank": 1,
+    "simulator_lane_id": "L1_dense_projection",
+    "parameter_scenario_id": "S1_register_pressure",
+    "parameter_scenario_focus": "register-sensitive",
+    "recommended_tuning_target": "register-sensitive, occupancy-sensitive, tiled compute path",
+    "validation_role": "main-object",
+    "expected_signal": "dense projection responds to register and occupancy perturbations",
+    "working_directory": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled",
+    "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/traces/dynamic_trace.pb",
+    "gpgpusim_config": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3080_TI/gpgpusim.config",
+    "trace_config": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/configs/tested-cfgs/SM86_RTX3080_TI/trace.config",
+    "setup_script": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/setup_environment_no_git.sh",
+    "environment": {
+      "CUDA_INSTALL_PATH": "/usr/local/cuda-12.8",
+      "OMP_NUM_THREADS": "4"
+    },
+    "command_argv": [
+      "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/bin/release/accel-sim.out",
+      "-trace",
+      "/home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/traces/dynamic_trace.pb",
+      "-config",
+      "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3080_TI/gpgpusim.config",
+      "-config",
+      "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/configs/tested-cfgs/SM86_RTX3080_TI/trace.config",
+      "-is_extra_traces_enabled",
+      "0"
+    ],
+    "command": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/bin/release/accel-sim.out -trace /home/dyf/modern-gpu-simulator-micro-2025/experiments/mini_transformer/traces/dynamic_trace.pb -config /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3080_TI/gpgpusim.config -config /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-simulator/configs/tested-cfgs/SM86_RTX3080_TI/trace.config -is_extra_traces_enabled 0",
+    "output_dir": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/backend_pipeline/runs/mini_transformer_v4/RUN_importance_guided_R1_projection_dense_S1_register_pressure",
+    "stdout_path": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/backend_pipeline/runs/mini_transformer_v4/RUN_importance_guided_R1_projection_dense_S1_register_pressure/stdout.log",
+    "stderr_path": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/backend_pipeline/runs/mini_transformer_v4/RUN_importance_guided_R1_projection_dense_S1_register_pressure/stderr.log",
+    "metadata_path": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/backend_pipeline/runs/mini_transformer_v4/RUN_importance_guided_R1_projection_dense_S1_register_pressure/run_metadata.json",
+    "command_path": "/home/dyf/modern-gpu-simulator-micro-2025/experiments/backend_pipeline/runs/mini_transformer_v4/RUN_importance_guided_R1_projection_dense_S1_register_pressure/command.sh"
+  }
+]

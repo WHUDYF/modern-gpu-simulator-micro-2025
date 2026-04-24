@@ -254,6 +254,7 @@ def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
     original_kernel = orig_stream.kernels[kernel_launch["kernel_id"] - 1]
     new_kernel = new_stream.kernels.add()
     new_kernel.CopyFrom(original_kernel)
+    new_kernel.id = 1
     new_kernel.grid_dim.x = 1
     new_kernel.grid_dim.y = 1
     new_kernel.grid_dim.z = 1
@@ -274,9 +275,10 @@ def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
         / "threadblocks"
         / "device_0"
         / "stream_0"
-        / f"kernel_{kernel_launch['kernel_id']}"
-        / kernel_launch["threadblock_file"]
+        / "kernel_1"
+        / kernel_launch["threadblock_file"].replace(f"_k_{kernel_launch['kernel_id']}_", "_k_1_")
     )
+    dst_tb.parent.mkdir(parents=True, exist_ok=True)
     dst_tb.write_bytes(src_tb.read_bytes())
 
     tb = threadblock_pb2.threadblock()

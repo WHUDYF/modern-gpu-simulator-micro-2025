@@ -54,6 +54,34 @@ def test_builtin_smoke_profile_enables_trimmed_trace_mode():
     assert "R1_qkv_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
 
 
+def test_custom_profile_respects_smoke_mode_override(tmp_path):
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "workload_id": "mini_transformer_v4",
+                "execution_mode": "validation",
+                "working_directory": str(tmp_path),
+                "simulator_binary": str(tmp_path / "sim.out"),
+                "setup_script": "",
+                "trace_path": str(tmp_path / "dynamic_trace.pb"),
+                "gpgpusim_config": str(tmp_path / "gpgpusim.config"),
+                "trace_config": str(tmp_path / "trace.config"),
+                "environment": {},
+                "extra_cli_args": [],
+                "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
+                "scenario_overrides": {"S1_register_pressure": {"description": "demo", "config_edits": []}},
+            }
+        )
+    )
+    for name in ["sim.out", "dynamic_trace.pb", "gpgpusim.config", "trace.config"]:
+        (tmp_path / name).write_text("x")
+    profile = load_workload_profile("mini_transformer_v4", profile_path, smoke_mode=True)
+    assert profile["execution_mode"] == "smoke"
+    assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
+    assert "smoke_trace_builder" in profile
+
+
 def test_all_scenario_overrides_match_profile_configs():
     profile = load_workload_profile("mini_transformer_v4")
     target_text = {
@@ -381,5 +409,7 @@ def test_builtin_profile_trimmed_trace_uses_selected_kernel_event(tmp_path):
     trace = trace_pb2.Trace()
     trace.ParseFromString(Path(run_specs[0]["trace_path"]).read_bytes())
     stream = trace.gpu_device[0].streams[0]
-    assert stream.ordered_cuda_events[-1] == "kernel-5.trace"
-    assert stream.kernels[0].id == 5
+    assert stream.ordered_cuda_events[-1] == "kernel-1.trace"
+    assert stream.kernels[0].id == 1
+    tb_file = next((Path(run_specs[0]["trace_path"]).parent / "threadblocks" / "device_0" / "stream_0" / "kernel_1").glob("*.pb"))
+    assert "_k_1_" in tb_file.name

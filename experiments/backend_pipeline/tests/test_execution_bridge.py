@@ -206,7 +206,9 @@ def test_result_summary_validation_rejects_duplicates():
         "exit_code": 0,
         "sim_cycles": 1,
         "elapsed_wall_time": 0.1,
+        "parse_status": "parsed",
         "parse_note": "ok",
+        "summary_version": "v1",
     }
     try:
         validate_result_summary_rows([row, dict(row)])
@@ -228,6 +230,62 @@ def test_result_summary_validation_rejects_missing_required_fields():
         message = str(exc)
     else:
         raise AssertionError("Expected missing field validation to fail")
+    assert "missing required fields" in message
+
+
+def test_validate_execution_records_rejects_missing_selected_run():
+    from experiments.backend_pipeline.execution_bridge import validate_execution_records
+
+    run_specs = [{"run_id": "RUN_a"}, {"run_id": "RUN_b"}]
+    execution_records = [
+        {
+            "run_id": "RUN_a",
+            "workload_id": "mini_transformer_v4",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R1_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "execution_status": "success",
+            "exit_code": 0,
+            "elapsed_wall_time": 0.1,
+            "stdout_path": "stdout.log",
+            "stderr_path": "stderr.log",
+            "output_dir": "run_a",
+            "parser_report_path": "parser_report.json",
+        }
+    ]
+    try:
+        validate_execution_records(run_specs, execution_records)
+    except ValueError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected missing selected run to fail validation")
+    assert "execution records do not match selected run_ids" in message
+
+
+def test_result_summary_validation_requires_summary_version():
+    row = {
+        "run_id": "RUN_missing_summary_version",
+        "workload_id": "mini_transformer_v4",
+        "object_id": "R1_projection_dense",
+        "family_id": "F1_dense_tiled",
+        "regime_id": "R1_projection_dense",
+        "priority_source": "importance-guided",
+        "parameter_scenario_id": "S1_register_pressure",
+        "execution_status": "success",
+        "result_status": "success",
+        "exit_code": 0,
+        "sim_cycles": 1,
+        "elapsed_wall_time": 0.1,
+        "parse_status": "parsed",
+        "parse_note": "ok",
+    }
+    try:
+        validate_result_summary_rows([row])
+    except ValueError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected missing summary_version to fail validation")
     assert "missing required fields" in message
 
 

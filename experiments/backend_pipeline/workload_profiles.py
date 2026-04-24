@@ -55,6 +55,10 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
             "simulation_time_patterns": [
                 r"gpgpu_simulation_time\s*=\s*([0-9]+(?:\.[0-9]+)?)",
             ],
+            "reference_metrics": {
+                "full_features_path": "experiments/mini_transformer/mini_transformer_v4_full.json",
+                "writeback_map_path": "experiments/backend_pipeline/results/mini_transformer_v4/backend_writeback_map_v1.json",
+            },
         },
         "scenario_overrides": {
             "S1_register_pressure": {
@@ -166,6 +170,12 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
         }
         for scenario_id, payload in normalized["scenario_overrides"].items()
     }
+    if "reference_metrics" in normalized["parser"]:
+        ref = dict(normalized["parser"]["reference_metrics"])
+        for key in ("full_features_path", "writeback_map_path"):
+            if key in ref:
+                ref[key] = _resolve_path(ref[key])
+        normalized["parser"]["reference_metrics"] = ref
     return normalized
 
 

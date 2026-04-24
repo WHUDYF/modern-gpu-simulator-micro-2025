@@ -245,15 +245,12 @@ def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
     new_dev.id = 0
     new_stream = cuda_stream_pb2.cuda_stream()
     new_stream.id = 0
-    kernel_event_index = 0
     for event in orig_stream.ordered_cuda_events:
         if event.startswith("Memcpy"):
             new_stream.ordered_cuda_events.append(event)
         elif event.startswith("kernel"):
-            kernel_event_index += 1
-            if kernel_event_index == kernel_launch["kernel_id"]:
-                new_stream.ordered_cuda_events.append(event)
-                break
+            new_stream.ordered_cuda_events.append("kernel-1.trace")
+            break
     original_kernel = orig_stream.kernels[kernel_launch["kernel_id"] - 1]
     new_kernel = new_stream.kernels.add()
     new_kernel.CopyFrom(original_kernel)

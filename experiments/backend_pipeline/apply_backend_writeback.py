@@ -60,6 +60,8 @@ def _derive_validation_status(result_status: str, validation_role: str) -> str:
         return "failed"
     if result_status == "parse-failed":
         return "pending-review" if validation_role == "review-object" else "pending"
+    if result_status == "inconclusive":
+        return "pending-review" if validation_role == "review-object" else "pending"
     if validation_role == "review-object":
         return "pending-review"
     return "selected"

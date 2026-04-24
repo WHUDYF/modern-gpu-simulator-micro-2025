@@ -58,6 +58,8 @@ def _derive_validation_status(result_status: str, validation_role: str) -> str:
         return "selected"
     if result_status == "failed":
         return "failed"
+    if result_status == "parse-failed":
+        return "pending-review" if validation_role == "review-object" else "pending"
     if validation_role == "review-object":
         return "pending-review"
     return "selected"
@@ -170,12 +172,16 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         updates = updates_by_regime.get(regime_id, [])
         validation_candidates = [item["validation_status_update"] for item in updates]
         review_candidates = [item["review_status_update"] for item in updates]
-        if "failed" in validation_candidates:
-            current_status = "failed"
-        elif "validated" in validation_candidates:
+        if "validated" in validation_candidates:
             current_status = "validated"
         elif "selected" in validation_candidates:
             current_status = "selected"
+        elif "pending-review" in validation_candidates:
+            current_status = "pending-review"
+        elif "pending" in validation_candidates:
+            current_status = "pending"
+        elif "failed" in validation_candidates:
+            current_status = "failed"
         else:
             current_status = "pending-review" if base["validation_role"] == "review-object" else "pending"
 

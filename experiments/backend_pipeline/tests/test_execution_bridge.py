@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 
 from experiments.backend_pipeline.execution_bridge import (  # noqa: E402
+    _load_trace_proto_modules,
     build_result_summary,
     build_run_specs,
     execute_run_specs,
@@ -310,3 +311,29 @@ def test_cli_plan_only_writes_command_plan(tmp_path):
     )
     assert (output_dir / "backend_command_plan_v1.json").exists()
     assert not (output_dir / "backend_execution_records_v1.json").exists()
+
+
+def test_builtin_profile_trimmed_trace_uses_selected_kernel_event(tmp_path):
+    profile = load_workload_profile("mini_transformer_v4")
+    rows = [
+        {
+            "run_id": "RUN_attention_smoke",
+            "family_id": "F1_dense_tiled",
+            "regime_id": "R2_attention_score_dense",
+            "priority_source": "importance-guided",
+            "priority_rank": 1,
+            "simulator_lane_id": "L2_attention_score",
+            "parameter_scenario_id": "S1_register_pressure",
+            "recommended_tuning_target": "register-sensitive",
+            "validation_role": "main-object",
+            "expected_signal": "attention smoke",
+        }
+    ]
+    run_specs = build_run_specs(rows, profile, {"S1_register_pressure": "register-sensitive"}, tmp_path / "runs")
+    execute_run_specs(run_specs, timeout_seconds=30)
+    trace_pb2, _, _, _ = _load_trace_proto_modules()
+    trace = trace_pb2.Trace()
+    trace.ParseFromString(Path(run_specs[0]["trace_path"]).read_bytes())
+    stream = trace.gpu_device[0].streams[0]
+    assert stream.ordered_cuda_events[-1] == "kernel-5.trace"
+    assert stream.kernels[0].id == 5

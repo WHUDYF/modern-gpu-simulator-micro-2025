@@ -98,10 +98,15 @@ def build_run_specs(
         parser_report_path = output_dir / "parser_report.json"
         run_gpgpusim_config = config_dir / "gpgpusim.config"
         run_trace_config = config_dir / "trace.config"
+        run_trace_path = (
+            (trace_dir / "dynamic_trace.pb").resolve()
+            if workload_profile.get("smoke_trace_builder")
+            else Path(workload_profile["trace_path"]).resolve()
+        )
         command_argv = [
             workload_profile["simulator_binary"],
             "-trace",
-            workload_profile["trace_path"],
+            str(run_trace_path),
             "-config",
             str(run_gpgpusim_config),
             "-config",
@@ -124,9 +129,7 @@ def build_run_specs(
                 "expected_signal": row["expected_signal"],
                 "working_directory": str(output_dir),
                 "simulator_working_directory": workload_profile["working_directory"],
-                "trace_path": str((trace_dir / "dynamic_trace.pb").resolve())
-                if workload_profile.get("smoke_trace_builder")
-                else workload_profile["trace_path"],
+                "trace_path": str(run_trace_path),
                 "gpgpusim_config": str(run_gpgpusim_config),
                 "trace_config": str(run_trace_config),
                 "setup_script": workload_profile["setup_script"],

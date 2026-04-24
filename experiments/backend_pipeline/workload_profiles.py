@@ -261,7 +261,11 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
     if smoke_mode:
         if workload_id not in SMOKE_PROFILE_OVERRIDES:
             raise KeyError(f"Unknown smoke profile override for workload: {workload_id}")
-        raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
+        if profile_path is not None:
+            raw_profile = _deep_merge(SMOKE_PROFILE_OVERRIDES[workload_id], raw_profile)
+        else:
+            raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
+        raw_profile["execution_mode"] = "smoke"
     _validate_profile(raw_profile)
     normalized = _normalize_profile(raw_profile, base_dir=base_dir)
     if normalized["workload_id"] != workload_id:

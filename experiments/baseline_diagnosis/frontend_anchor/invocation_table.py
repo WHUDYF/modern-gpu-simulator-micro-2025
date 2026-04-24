@@ -225,6 +225,7 @@ def build_records_from_dual_sources(
             item.get("source_position", item["kernel_id"]),
         ),
     )
+    seen_invocation_ids = set()
     for zero_based_idx, identity in enumerate(ordered_identity):
         kernel_id = identity["kernel_id"]
         features = feature_map[kernel_id]
@@ -261,6 +262,12 @@ def build_records_from_dual_sources(
             "feature_vector": features["feature_vector"],
             "feature_source_note": features["feature_source_note"],
         }
+        if record["kernel_invocation_id"] in seen_invocation_ids:
+            raise ValueError(
+                "dual-source alignment failed: "
+                f"duplicate kernel_invocation_id {record['kernel_invocation_id']} generated from repeated trace_order"
+            )
+        seen_invocation_ids.add(record["kernel_invocation_id"])
         record.update(squash_kernel_map.get(zero_based_idx, {}))
         record.update(squash_tb_map.get(kernel_id, {}))
         records.append(record)

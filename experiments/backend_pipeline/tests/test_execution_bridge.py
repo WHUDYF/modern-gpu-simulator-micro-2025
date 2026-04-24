@@ -68,9 +68,20 @@ def test_custom_profile_respects_smoke_mode_override(tmp_path):
                 "gpgpusim_config": "gpgpusim.config",
                 "trace_config": "trace.config",
                 "environment": {},
-                "extra_cli_args": [],
+                "extra_cli_args": ["--custom-flag"],
                 "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
                 "scenario_overrides": {"S1_register_pressure": {"description": "demo", "config_edits": []}},
+                "smoke_trace_builder": {
+                    "mode": "trimmed_dummy_extra_info",
+                    "kernel_launches": {
+                        "R1_qkv_projection_dense": {
+                            "kernel_id": 99,
+                            "function_unique_id": 77,
+                            "kernel_name": "custom_kernel",
+                            "threadblock_file": "custom.pb",
+                        }
+                    },
+                },
             }
         )
     )
@@ -78,8 +89,8 @@ def test_custom_profile_respects_smoke_mode_override(tmp_path):
         (tmp_path / name).write_text("x")
     profile = load_workload_profile("mini_transformer_v4", profile_path, smoke_mode=True)
     assert profile["execution_mode"] == "smoke"
-    assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
-    assert "smoke_trace_builder" in profile
+    assert profile["extra_cli_args"] == ["--custom-flag"]
+    assert profile["smoke_trace_builder"]["kernel_launches"]["R1_qkv_projection_dense"]["kernel_id"] == 99
 
 
 def test_all_scenario_overrides_match_profile_configs():

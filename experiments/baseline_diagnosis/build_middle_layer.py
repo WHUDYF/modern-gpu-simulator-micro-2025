@@ -166,7 +166,12 @@ def _validate_anchor_mechanism_evidence(
         actual_clusters = sorted(
             {kernel_to_batch_cluster[kernel_id] for kernel_id in spec["kernel_ids"] if kernel_id in kernel_to_batch_cluster}
         )
+        outlier_members = [kernel_id for kernel_id in spec["kernel_ids"] if kernel_id in batch_outliers]
         actual_outlier = all(kernel_id in batch_outliers for kernel_id in spec["kernel_ids"])
+        if outlier_members and not actual_outlier:
+            errors.append(
+                f"{spec['anchor_id']} mixes batch outlier kernels {sorted(outlier_members)} with clustered kernels {actual_clusters}"
+            )
         if expected_batch_outlier:
             if not actual_outlier:
                 errors.append(f"{spec['anchor_id']} expected batch outlier membership, got clusters {actual_clusters}")

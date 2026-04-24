@@ -132,8 +132,8 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     rows = [
         {
             "run_id": "RUN_demo",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "priority_rank": 1,
             "simulator_lane_id": "L1_dense_projection",
@@ -192,8 +192,8 @@ def test_execute_run_specs_records_timeout(tmp_path):
     rows = [
         {
             "run_id": "RUN_timeout",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "priority_rank": 1,
             "simulator_lane_id": "L1_dense_projection",
@@ -244,9 +244,9 @@ def test_result_summary_validation_rejects_duplicates():
     row = {
         "run_id": "RUN_dup",
         "workload_id": "mini_transformer_v4",
-        "object_id": "R1_projection_dense",
-        "family_id": "F1_dense_tiled",
-        "regime_id": "R1_projection_dense",
+        "object_id": "R1_qkv_projection_dense",
+        "family_id": "F1_dense_tiled_backbone",
+        "regime_id": "R1_qkv_projection_dense",
         "priority_source": "importance-guided",
         "parameter_scenario_id": "S1_register_pressure",
         "execution_status": "success",
@@ -289,8 +289,8 @@ def test_validate_execution_records_rejects_missing_selected_run():
         {
             "run_id": "RUN_a",
             "workload_id": "mini_transformer_v4",
-            "family_id": "F1_dense_tiled",
-            "regime_id": "R1_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
             "priority_source": "importance-guided",
             "parameter_scenario_id": "S1_register_pressure",
             "execution_status": "success",
@@ -315,9 +315,9 @@ def test_result_summary_validation_requires_summary_version():
     row = {
         "run_id": "RUN_missing_summary_version",
         "workload_id": "mini_transformer_v4",
-        "object_id": "R1_projection_dense",
-        "family_id": "F1_dense_tiled",
-        "regime_id": "R1_projection_dense",
+        "object_id": "R1_qkv_projection_dense",
+        "family_id": "F1_dense_tiled_backbone",
+        "regime_id": "R1_qkv_projection_dense",
         "priority_source": "importance-guided",
         "parameter_scenario_id": "S1_register_pressure",
         "execution_status": "success",

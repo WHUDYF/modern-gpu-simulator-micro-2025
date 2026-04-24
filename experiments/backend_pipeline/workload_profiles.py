@@ -23,13 +23,13 @@ REQUIRED_PROFILE_FIELDS = {
 }
 
 
-def _resolve_path(path_str: str) -> str:
+def _resolve_path(path_str: str, base_dir: Path) -> str:
     if path_str == "":
         return ""
     path = Path(path_str)
     if path.is_absolute():
         return str(path)
-    return str((REPO_ROOT / path).resolve())
+    return str((base_dir / path).resolve())
 
 
 DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
@@ -226,10 +226,10 @@ def _validate_profile(profile: dict[str, Any]) -> None:
         raise ValueError("workload profile field 'smoke_trace_builder' must be a dict when present")
 
 
-def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
+def _normalize_profile(profile: dict[str, Any], *, base_dir: Path) -> dict[str, Any]:
     normalized = dict(profile)
     for field in ("working_directory", "simulator_binary", "setup_script", "trace_path", "gpgpusim_config", "trace_config"):
-        normalized[field] = _resolve_path(normalized[field])
+        normalized[field] = _resolve_path(normalized[field], base_dir)
     normalized["environment"] = {str(k): str(v) for k, v in normalized["environment"].items()}
     normalized["extra_cli_args"] = [str(item) for item in normalized["extra_cli_args"]]
     normalized["scenario_overrides"] = {
@@ -252,16 +252,18 @@ def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
 def load_workload_profile(workload_id: str, profile_path: Path | None = None, *, smoke_mode: bool = False) -> dict[str, Any]:
     if profile_path is not None:
         raw_profile = json.loads(profile_path.read_text())
+        base_dir = profile_path.resolve().parent
     else:
         if workload_id not in DEFAULT_WORKLOAD_PROFILES:
             raise KeyError(f"Unknown workload profile: {workload_id}")
         raw_profile = DEFAULT_WORKLOAD_PROFILES[workload_id]
+        base_dir = REPO_ROOT
     if smoke_mode:
         if workload_id not in SMOKE_PROFILE_OVERRIDES:
             raise KeyError(f"Unknown smoke profile override for workload: {workload_id}")
         raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
     _validate_profile(raw_profile)
-    normalized = _normalize_profile(raw_profile)
+    normalized = _normalize_profile(raw_profile, base_dir=base_dir)
     if normalized["workload_id"] != workload_id:
         raise ValueError(
             f"workload profile mismatch: requested {workload_id}, profile defines {normalized['workload_id']}"

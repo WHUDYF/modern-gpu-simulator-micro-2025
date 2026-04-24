@@ -171,7 +171,7 @@ def render_command_script(run_spec: dict[str, Any]) -> str:
     for key, value in sorted(run_spec["environment"].items()):
         lines.append(f"export {key}={_shell_quote(value)}")
     if run_spec["setup_script"]:
-        lines.append(f"source {_shell_quote(run_spec['setup_script'])} >/dev/null 2>&1 || true")
+        lines.append(f"source {_shell_quote(run_spec['setup_script'])} >/dev/null 2>&1")
     lines.append(run_spec["command"])
     lines.append("")
     return "\n".join(lines)

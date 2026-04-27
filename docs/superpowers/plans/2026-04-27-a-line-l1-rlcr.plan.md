@@ -198,7 +198,19 @@ Every feature carries `{value, status, source}`. If all 12 are `measured`, produ
 
 **Stage 3 — PKA Selector**: Input is the `PkaFeatureTable` (only measured-invocation rows). Group by the 12-dimensional feature vector. Simplest valid grouping: exact-vector equality. Next step: bucketed grouping (e.g., magnitude-bucket `num_instructions` and `num_thread_blocks`, keep others exact). Select representative via `first_chronological` (earliest `trace_order` in cluster). Output `representative_anchor_table_l1.json` with schema validated against the anchor table contract (required fields present, forbidden fields absent).
 
-**Stage 4 — B-line Consumption**: A lightweight stub consumer reads the anchor table, generates family objects (grouping anchors by behavior similarity), regime objects (subdividing families by shape/resource context), and a writeback mapping. The stub does not need to produce correct or optimal family/regime assignments—only structurally complete ones. The consumption report records what was consumed, what was generated, and any schema mismatches.
+**Stage 4 — B-line Consumption**: A lightweight stub consumer reads the anchor table and produces structurally complete downstream objects. The derivation contract is:
+
+1. **Parse and validate**: Read `representative_anchor_table_l1.json`, check every row has the required fields (`rep_kernel_id`, `kernel_name`, `cluster_id`, `member_invocations`, `coverage_count`, `coverage_weight`, `time_weight`), and verify no forbidden downstream keys (`family_id`, `regime_id`, `route_primitive`, `execution_template`, `simulator_lane_id`) are present.
+
+2. **Family derivation (stub)**: Group anchors into families by a simple rule — anchors with the same `kernel_name` prefix up to the first underscore or with similar `shape_hint_summary` values are placed in the same family. Each family gets a deterministic `family_id` (e.g., `F_L1_1`, `F_L1_2`), a member anchor list, and a placeholder `importance_score` (default 1.0). This is intentionally simple; L1 does not require correct family assignments.
+
+3. **Regime derivation (stub)**: Subdivide each family into regimes by `grid_dim` or `block_dim` values from the anchor rows (metadata-only, not grouping). Each regime gets a deterministic `regime_id` (e.g., `R_L1_1_1`), a parent `family_id`, a member anchor list, and a placeholder `validation_role` (default `main-object`).
+
+4. **Writeback mapping (stub)**: For each regime, register a writeback entry containing `(regime_id, family_id, rep_kernel_id, member_invocations, review_status: "pending-l1")`. The writeback structure must match the field contract expected by `apply_backend_writeback.py` but may use placeholder values for execution-derived fields.
+
+5. **Report**: Emit `b_line_consumption_report_l1.md` recording: anchor count consumed, family count generated, regime count generated, writeback entry count, and any schema mismatches or missing fields encountered.
+
+This stub does NOT depend on `artifacts/middle_layer/mini_transformer_v4/bundle.json` or any curated bundle. It operates directly on the anchor table. It does not need to produce semantically correct family/regime assignments — only structurally complete ones that prove the A-line-to-B-line interface is closed.
 
 **Stage 5 — Regression Tests**: Implemented alongside each stage. Tests cover: manifest schema validation (valid + invalid inputs), feature table completeness (12 measured fields + gap routing), selector forbidden-field rejection, anchor table schema validation, B-line parse smoke.
 
@@ -285,16 +297,16 @@ Each task must include exactly one routing tag:
 
 | Task ID | Description | Target AC | Tag | Depends On |
 |---------|-------------|-----------|-----|------------|
-| T1 | Manifest builder: parse L1 manifest document into machine-readable JSON with schema validation and path-existence pre-check | AC-1, AC-1.1, AC-9 | coding | - |
-| T2 | PKA feature extractor: implement 12-feature extraction with per-field `{value, status, source}`, source adapters for microbench/Rodinia/mini-transformer, and acquisition gap routing | AC-2, AC-6, AC-10, AC-12 | coding | T1 |
+| T1 | Manifest builder: parse L1 manifest document into machine-readable JSON with schema validation and path-existence pre-check | AC-1, AC-1.1 | coding | - |
+| T2 | PKA feature extractor: implement 12-feature extraction with per-field `{value, status, source}`, source adapters for microbench/Rodinia/mini-transformer, invocation expansion, `kernel_invocation_id` derivation, and acquisition gap routing | AC-2, AC-6, AC-9, AC-10, AC-12 | coding | T1 |
 | T3 | PKA feature audit generator: produce `pka_feature_audit_l1.md`, `pka_feature_audit_l1.json`, and `pka_acquisition_gap_l1.json` | AC-6, AC-7, AC-12 | coding | T2 |
-| T4 | PKA baseline selector: implement 12-D feature-space-only grouping with forbidden-field guard, representative selection, and anchor table export | AC-3, AC-3.1, AC-8 | coding | T2 |
-| T5 | Stage-gate validator: enforce that selector and B-line stages cannot execute when P0 acquisition gaps exist; enforce anchor table existence before B-line consumption | AC-3.1, AC-4.1, AC-7 | coding | T2, T4 |
-| T6 | B-line stub consumer: parse anchor table, generate minimum family/regime/writeback lineage, and produce consumption report | AC-4, AC-4.1 | coding | T4, T5 |
-| T7 | Regression test suite: manifest schema tests, feature completeness tests, forbidden-field rejection tests, anchor schema tests, B-line smoke tests | AC-1 through AC-12 | coding | T1, T2, T4, T6 |
-| T8 | Codex review of PKA feature extraction completeness: verify all 12 features are correctly mapped from Nsight metrics and that source adapters handle edge cases | AC-2, AC-6 | analyze | T2 |
-| T9 | Codex review of selector forbidden-field isolation: verify no forbidden field leaks into the grouping key and that the 12-D algorithm is coherent | AC-3, AC-8 | analyze | T4 |
-| T10 | Codex review of B-line interface contract: verify anchor table schema is sufficient for downstream consumption and that the stub consumer does not silently drop required fields | AC-4 | analyze | T6 |
+| T4 | Stage-gate validator: enforce that selector (T5) and B-line (T6) stages cannot execute when any P0 invocation has an unresolved acquisition gap; enforce anchor table existence before B-line consumption | AC-3.1, AC-4.1, AC-7 | coding | T2, T3 |
+| T5 | PKA baseline selector: implement 12-D feature-space-only grouping with forbidden-field guard, representative selection, and anchor table export; selector refuses to run if the stage-gate (T4) reports blocking gaps | AC-3, AC-3.1, AC-8 | coding | T2, T4 |
+| T6 | B-line stub consumer: parse anchor table, execute deterministic stub derivation contract (family/regime/writeback lineage), and produce consumption report | AC-4, AC-4.1 | coding | T4, T5 |
+| T7 | Regression test suite: manifest schema tests, feature completeness tests, stage-gate tests, forbidden-field rejection tests, anchor schema tests, B-line smoke tests; each test module runs independently of pipeline stage completion | AC-1 through AC-12 | coding | T1, T2, T4, T5, T6 |
+| T8 | Codex review of PKA feature extraction completeness: verify all 12 features are correctly mapped from Nsight metrics and that source adapters handle edge cases (missing metrics, multi-invocation sources, cross-source alignment) | AC-2, AC-6, AC-9 | analyze | T2 |
+| T9 | Codex review of selector forbidden-field isolation: verify no forbidden field leaks into the grouping key and that the 12-D algorithm is coherent | AC-3, AC-8 | analyze | T5 |
+| T10 | Codex review of B-line interface contract: verify anchor table schema is sufficient for downstream consumption and that the stub derivation contract is structurally complete | AC-4 | analyze | T6 |
 
 ## Claude-Codex Deliberation
 
@@ -416,9 +428,9 @@ The following items were identified during Phase 3 (Codex analysis v1) and Phase
 - Mixed timing units across invocations cause weight computation to abort by default
 
 ### Risk Notes
-- **Acquisition Risk (HIGH)**: Most existing local artifacts were collected with a different metric set than the 12 PKA Nsight metrics. It is very likely that round 1 will stop at Stage 2 (feature extraction) with acquisition gaps for one or more P0 objects. This is the expected and correct behavior per the draft. The gap report is the primary round-1 deliverable in this case.
-- **NCU Data Availability**: The microbench JSON files in `experiments/baseline_diagnosis/results/microbench/` may not contain all 12 Nsight metrics. The 12 metrics are: 3 `l1tex__t_sectors_pipe_lsu_mem_global_op_*`, 6 `smsp__inst_executed_op_*`, 1 `smsp__sass_inst_executed_op_global_atom`, 1 `smsp__inst_executed`, and 1 `smsp__thread_inst_executed_per_inst_executed`. Each missing metric for a P0 object is a blocking gap.
-- **Backend Coupling Risk**: The current B-line (`backend_builder.py`) depends on a curated middle-layer bundle at `artifacts/middle_layer/mini_transformer_v4/bundle.json` with hardcoded anchor/family/regime IDs. The L1 B-line consumer must NOT depend on this curated bundle; it must consume the anchor table directly. This may require a new consumption path or a thin adapter.
+- **Acquisition Risk (CRITICAL)**: The canonical 12 PKA Nsight metric names (e.g., `l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum`, `smsp__sass_inst_executed_op_global_atom.sum`) are likely entirely absent from the existing in-repo artifacts. The current codebase uses a different 13-field feature vector (compute_throughput_pct, dram_throughput_pct, ipc_active, etc.) that is not a subset of the PKA 12. This means round 1 is primarily an acquisition-readiness exercise: it will identify exactly which metrics are missing from which P0 objects, producing a detailed gap report as its primary deliverable. Reaching Stage 3 (selector) or Stage 4 (B-line) in round 1 is unlikely without new NCU data collection. This is not a plan defect — it is the expected behavior of a correctness gate applied to existing data collected under a different feature regime.
+- **NCU Data Availability**: The 12 PKA metrics are: 3 `l1tex__t_sectors_pipe_lsu_mem_global_op_*`, 6 `smsp__inst_executed_op_*`, 1 `smsp__sass_inst_executed_op_global_atom`, 1 `smsp__inst_executed`, and 1 `smsp__thread_inst_executed_per_inst_executed`. Each of these must be present in the source artifact with the exact Nsight metric name to qualify as `measured`. Existing artifacts in `experiments/baseline_diagnosis/results/microbench/` use a different metric vocabulary. A 10-by-12 metric-availability matrix should be the first output of Stage 2 to make the acquisition status immediately visible.
+- **Backend Coupling Risk (HIGH)**: The current B-line (`backend_builder.py`) depends on a curated middle-layer bundle at `artifacts/middle_layer/mini_transformer_v4/bundle.json` with hardcoded anchor/family/regime IDs. The L1 B-line consumer must NOT depend on this curated bundle; it must implement the stub derivation contract described in Stage 4. This is a new code path that shares no code with the existing `backend_builder.py`.
 
 ### Output File Convention
 

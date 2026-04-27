@@ -28,6 +28,8 @@ def _validate_unique_rows(rows: list[dict], key_fields: tuple[str, ...], label: 
 
 
 def _derive_decision_update(result_status: str, sensitivity_score):
+    if result_status not in {"success", "weak", "failed", "inconclusive", "parse-failed"}:
+        raise ValueError(f"unsupported result_status for writeback: {result_status}")
     if result_status == "success":
         return "increase"
     if result_status == "weak":
@@ -40,6 +42,8 @@ def _derive_decision_update(result_status: str, sensitivity_score):
 
 
 def _derive_importance_update(result_status: str, tuning_gain):
+    if result_status not in {"success", "weak", "failed", "inconclusive", "parse-failed"}:
+        raise ValueError(f"unsupported result_status for writeback: {result_status}")
     if result_status == "success":
         return "promote"
     if result_status == "weak":
@@ -52,6 +56,8 @@ def _derive_importance_update(result_status: str, tuning_gain):
 
 
 def _derive_validation_status(result_status: str, validation_role: str) -> str:
+    if result_status not in {"success", "weak", "failed", "inconclusive", "parse-failed"}:
+        raise ValueError(f"unsupported result_status for writeback: {result_status}")
     if result_status == "success":
         return "validated"
     if result_status == "weak":
@@ -68,6 +74,8 @@ def _derive_validation_status(result_status: str, validation_role: str) -> str:
 
 
 def _derive_review_status(current_review: str, result_status: str, validation_role: str) -> str:
+    if result_status not in {"success", "weak", "failed", "inconclusive", "parse-failed"}:
+        raise ValueError(f"unsupported result_status for writeback: {result_status}")
     if validation_role != "review-object":
         return current_review if current_review else "no-review"
     if result_status == "success":

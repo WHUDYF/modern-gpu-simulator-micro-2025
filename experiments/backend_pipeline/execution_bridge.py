@@ -251,7 +251,12 @@ def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
         elif event.startswith("kernel"):
             new_stream.ordered_cuda_events.append("kernel-1.trace")
             break
-    original_kernel = orig_stream.kernels[kernel_launch["kernel_id"] - 1]
+    try:
+        original_kernel = next(kernel for kernel in orig_stream.kernels if kernel.id == kernel_launch["kernel_id"])
+    except StopIteration as exc:
+        raise ValueError(
+            f"smoke_trace_builder could not find kernel id {kernel_launch['kernel_id']} in base trace stream"
+        ) from exc
     new_kernel = new_stream.kernels.add()
     new_kernel.CopyFrom(original_kernel)
     new_kernel.id = 1
@@ -527,7 +532,7 @@ def validate_execution_records(run_specs: list[dict[str, Any]], execution_record
 def validate_result_summary_rows(summary_rows: list[dict[str, Any]]) -> None:
     seen_run_ids = set()
     valid_execution_statuses = {"success", "run-failed", "timeout"}
-    valid_result_statuses = {"success", "failed", "inconclusive", "parse-failed"}
+    valid_result_statuses = {"success", "weak", "failed", "inconclusive", "parse-failed"}
     for row in summary_rows:
         missing = REQUIRED_SUMMARY_FIELDS - set(row.keys())
         if missing:

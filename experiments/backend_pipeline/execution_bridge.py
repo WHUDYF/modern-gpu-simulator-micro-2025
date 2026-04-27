@@ -163,10 +163,11 @@ def _shell_quote(value: str) -> str:
 
 
 def render_command_script(run_spec: dict[str, Any]) -> str:
+    cwd = run_spec.get("simulator_working_directory", run_spec["working_directory"])
     lines = [
         "#!/usr/bin/env bash",
         "set -eo pipefail",
-        f"cd {_shell_quote(run_spec['working_directory'])}",
+        f"cd {_shell_quote(cwd)}",
     ]
     for key, value in sorted(run_spec["environment"].items()):
         lines.append(f"export {key}={_shell_quote(value)}")

@@ -262,7 +262,14 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
         if workload_id not in SMOKE_PROFILE_OVERRIDES:
             raise KeyError(f"Unknown smoke profile override for workload: {workload_id}")
         if profile_path is not None:
-            raw_profile = _deep_merge(SMOKE_PROFILE_OVERRIDES[workload_id], raw_profile)
+            if "smoke_trace_builder" not in raw_profile:
+                raise ValueError(
+                    "Custom workload profile must define its own 'smoke_trace_builder' when smoke-mode is enabled. "
+                    "The built-in smoke_trace_builder is tied to mini_transformer_v4 and cannot be reused for custom profiles."
+                )
+            smoke_overrides = {k: v for k, v in SMOKE_PROFILE_OVERRIDES[workload_id].items()
+                               if k != "smoke_trace_builder"}
+            raw_profile = _deep_merge(smoke_overrides, raw_profile)
         else:
             raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
         raw_profile["execution_mode"] = "smoke"

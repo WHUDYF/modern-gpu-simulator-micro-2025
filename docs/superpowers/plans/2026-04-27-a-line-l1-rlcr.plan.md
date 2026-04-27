@@ -145,14 +145,14 @@ The implementation includes all of the following:
 ### Lower Bound (Minimum Acceptable Scope)
 
 The implementation includes at minimum:
-- A manifest builder that produces `kernel_validation_manifest_l1.json` with at least all 10 P0 objects, passing schema validation
-- A PKA feature extractor with at minimum one source adapter (microbench JSON) that correctly produces the 12 PKA features with `measured` status for microbench P0 objects; remaining source types (Rodinia, mini-transformer) may be adapted incrementally as long as their P0 objects are either fully measured or correctly routed to the acquisition gap report
-- A PKA selector that groups on the 12-dimensional feature space (exact-vector grouping is acceptable as the simplest valid algorithm) and explicitly rejects forbidden fields in its grouping key
-- Representative selection using `first_chronological` as the tie-break rule
-- Audit output that clearly separates measured invocations from acquisition-gap invocations
-- B-line stub consumer that at minimum parses the anchor table schema and reports whether required fields are present (parse-only consumption is acceptable for L1 lower bound)
-- Regression tests covering AC-1 through AC-5 (manifest, feature table, forbidden fields, anchor schema, B-line parse smoke)
+- A manifest builder that produces `kernel_validation_manifest_l1.json` with at least all 10 P0 objects, passing schema validation against the existing `kernel_validation_manifest_schema.json`
+- A PKA feature extractor with source adapters for all three P0-bearing source types (microbench JSON, Rodinia artifacts, mini-transformer JSON). If any P0 invocation cannot produce all 12 measured PKA features, the feature extractor routes it to the acquisition gap report and the pipeline stops at Stage 2. This is the expected lower-bound outcome when acquisition data is insufficient.
+- A PKA feature audit and acquisition gap report that clearly enumerates which P0 invocations are missing which metrics
+- A B-line stub consumer that at minimum parses the anchor table schema and reports whether required fields are present (parse-only consumption is the lower-bound B-line check; this only executes if the pipeline reaches Stage 4, which requires all P0 invocations to pass Stage 2)
+- Regression tests covering AC-1 through AC-5 (manifest, feature table, forbidden fields, anchor schema, B-line parse smoke), with tests designed to pass even when the pipeline stops at Stage 2 (i.e., tests for Stage 2 outputs work independently of Stage 3/4)
 - The existing selector modes are left untouched (neither deprecated nor refactored) but the new PKA selector is clearly separated in its own module
+
+> **Lower Bound Clarification**: The lower bound is **not** "microbench-only adapter with full loop closure." It is "all adapters implemented, with the realistic expectation that the pipeline may stop at Stage 2 (audit/gap) if existing artifacts lack the canonical 12 PKA Nsight metrics." Both outcomes (full closure via Stages 3-4, or audit-only stop at Stage 2) satisfy the lower bound. The lower bound defines the minimum code that must exist; the stage-gate determines which outputs are produced at runtime.
 
 ### Allowed Choices
 
@@ -192,7 +192,7 @@ The implementation follows a strict stage-gate pipeline with five stages. Each s
 
 **Stage 1 — Manifest Builder**: Read the L1 manifest document and produce `kernel_validation_manifest_l1.json`. Each entry maps to a `KernelValidationRecord`-like structure with `validation_id`, `source_type`, `benchmark_name`, `kernel_or_case`, `priority`, `source_path`, `expected_behavior_axis`. Validate against the existing manifest schema. Run a path-existence pre-check: every `source_path` must resolve to an existing file.
 
-**Stage 2 — Feature Extractor + Audit**: For each manifest entry, dispatch to the appropriate source adapter based on `source_type`. Each adapter reads raw data and attempts to extract the 12 PKA features. For microbench JSON, extract from existing hardware_metrics / dynamic_stats fields (mapping existing metric names to PKA metric names where possible). For Rodinia artifacts, parse NCU CSV or trace JSON. For mini-transformer, extract from full/dual-source JSON.
+**Stage 2 — Feature Extractor + Audit**: For each manifest entry, dispatch to the appropriate source adapter based on `source_type`. Each adapter reads raw data and attempts to extract the 12 PKA features. For microbench JSON, check whether the canonical 12 Nsight metric names are present in the source data. If present, extract the value directly with `status: measured`. If absent, the metric is missing and the invocation is routed to the acquisition gap report. No name-mapping, no semantic substitution, no approximate-field fallback is permitted — this would violate the measured-only rule. For Rodinia artifacts, parse NCU CSV or trace JSON. For mini-transformer, extract from full/dual-source JSON.
 
 Every feature carries `{value, status, source}`. If all 12 are `measured`, produce a `PkaFeatureRecord` row. If any is missing, produce an acquisition gap row. The stage-gate checks: are all P0 objects fully measured? If yes, proceed to Stage 3. If no, emit audit/gap artifacts and stop.
 

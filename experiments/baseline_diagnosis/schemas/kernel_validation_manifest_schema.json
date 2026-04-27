@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kernel Validation Manifest",
+  "type": "object",
+  "required": [
+    "manifest_name",
+    "dataset_level",
+    "goal",
+    "entries"
+  ],
+  "properties": {
+    "manifest_name": {
+      "type": "string"
+    },
+    "dataset_level": {
+      "type": "string",
+      "enum": ["L1", "L2"]
+    },
+    "goal": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "id",
+        "source_type",
+        "benchmark_name",
+        "kernel_or_case",
+        "priority",
+        "target_line",
+        "expected_behavior_axis",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "local_microbench",
+            "local_benchmark_result",
+            "local_ai_workload",
+            "external_benchmark_suite",
+            "generated_sweep"
+          ]
+        },
+        "benchmark_name": {
+          "type": "string"
+        },
+        "kernel_or_case": {
+          "type": "string"
+        },
+        "local_input_path": {
+          "type": "string"
+        },
+        "binary_path": {
+          "type": "string"
+        },
+        "run_args": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2"]
+        },
+        "target_line": {
+          "type": "string",
+          "enum": ["A", "B", "A+B"]
+        },
+        "expected_behavior_axis": {
+          "type": "string"
+        },
+        "expected_scale_axis": {
+          "type": "string"
+        },
+        "must_use_features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "forbidden_features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "validation_role": {
+          "type": "string",
+          "enum": [
+            "functionality_gate",
+            "compression_quality_gate",
+            "feature_sanity_gate",
+            "downstream_interface_gate"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready_local",
+            "needs_profile",
+            "needs_acquisition",
+            "blocked"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

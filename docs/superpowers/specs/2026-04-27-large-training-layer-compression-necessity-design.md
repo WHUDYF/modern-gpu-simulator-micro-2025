@@ -1,98 +1,98 @@
-# Large Training Layer Compression Necessity Design
+# 大训练单层压缩必要性实验设计
 
-Date: 2026-04-27
+日期：2026-04-27
 
-## 1. Purpose
+## 1. 目标
 
-This spec defines the first large-training-workload experiment for proving why representative compression is necessary before exact-cycle GPU simulation.
+这份 spec 定义第一轮大训练 workload 实验，用来证明为什么在进入 GPU 精确周期仿真之前必须先做 representative compression。
 
-The experiment is not meant to train a full model, reproduce an MLPerf submission, or immediately run a complete simulator validation. Its job is to create a controlled but realistic scale proof:
+这个实验的目标不是训练完整模型，不是复现 MLPerf 提交结果，也不是立刻完成完整 simulator validation。它的目标是构造一个可控但真实的规模证据：
 
 ```text
-one real large-model training layer -> kernel timeline -> invocation scale -> compression opportunity -> projected simulation cost
+一个真实大模型训练层 -> kernel timeline -> invocation 规模 -> 压缩空间 -> projected simulation cost
 ```
 
-The central claim is:
+核心论点是：
 
-> For modern training workloads, even a single large model layer can produce enough kernel invocations, runtime, and trace volume that direct full-trace exact-cycle simulation is not a practical default path. Representative compression is therefore a prerequisite, not only an optimization.
+> 对现代训练 workload 来说，即使只是一个大模型单层，也可能产生足够多的 kernel invocation、运行时间和 trace 体积，使得直接走 full-trace exact-cycle simulation 不适合作为默认路径。因此 representative compression 不是单纯优化，而是后端精确仿真的前置条件。
 
-## 2. Context
+## 2. 背景
 
-The current repository already has a working small-scale method chain:
+当前仓库已经有一条可运行的小规模方法链：
 
 ```text
 frontend anchor -> middle structure -> backend planning -> execution bridge -> result summary -> writeback
 ```
 
-That chain has been exercised mostly on `mini_transformer_v4`, microbenchmarks, and classic benchmark kernels. Those inputs are useful for correctness gates, schema stability, and interface bring-up, but they are too small to prove the necessity of compression.
+这条链路目前主要在 `mini_transformer_v4`、microbenchmarks 和经典 benchmark kernels 上跑通过。这些输入适合做 correctness gate、schema 稳定性检查和接口 bring-up，但它们太小，无法证明 compression 的必要性。
 
-This experiment shifts the evidence target from "can the method run" to "why must the method exist for modern training workloads".
+本实验把证据目标从“方法链能不能跑”转成“为什么现代训练 workload 必须先压缩”。
 
-## 3. Experiment Unit
+## 3. 实验单元
 
-The first workload unit is one Llama-style decoder block training step:
+第一轮 workload 单元是一个 Llama-style decoder block 的训练 step：
 
 ```text
-single decoder layer, random synthetic tokens/activations, forward + backward
+单个 decoder layer，随机合成 tokens / activations，forward + backward
 ```
 
-The layer should include the main structures of a modern decoder-only Transformer block:
+这一层应包含现代 decoder-only Transformer block 的主要结构：
 
-- RMSNorm or LayerNorm
+- RMSNorm 或 LayerNorm
 - QKV projection
 - attention score computation
 - softmax
-- attention value/context computation
+- attention value / context computation
 - output projection
-- MLP up/gate/down projections
+- MLP up / gate / down projections
 - activation
 - residual paths
 - loss proxy
 - backward pass
 
-The first target shape is:
+第一轮目标形状如下：
 
-| Parameter | Value |
+| 参数 | 数值 |
 |---|---:|
 | batch size | 1 |
 | sequence length | 2048 |
 | hidden size | 4096 |
 | intermediate size | 14336 |
 | attention heads | 32 |
-| dtype | bf16 preferred, fp16 fallback |
+| dtype | 优先 bf16，fallback 为 fp16 |
 | device | CUDA GPU |
-| measured region | one forward + backward after warmup |
+| measured region | warmup 之后的一次 forward + backward |
 
-This shape is large enough to resemble an 8B-class decoder layer, but small enough to fit on a 32GB RTX 5090 without loading a full pretrained model.
+这个形状足够接近 8B 级 decoder layer 的结构和规模，但又不需要加载完整 pretrained model，因此应能在 32GB RTX 5090 上运行。
 
-## 4. Non-Goals
+## 4. 非目标
 
-This experiment deliberately does not attempt to:
+这个实验刻意不做以下事情：
 
-- load full Llama-8B or larger pretrained weights;
-- run a full training step across all model layers;
-- run a full dataset, epoch, or MLPerf benchmark;
-- collect full NCU measured PKA features in the first pass;
-- feed every generated kernel directly into exact-cycle simulation;
-- prove final simulator accuracy.
+- 加载完整 Llama-8B 或更大的 pretrained weights；
+- 跑完整模型所有层的 training step；
+- 跑完整 dataset、epoch 或 MLPerf benchmark；
+- 在第一轮就采集完整 NCU measured PKA features；
+- 把所有生成的 kernel 直接送入 exact-cycle simulation；
+- 证明最终 simulator accuracy。
 
-Those are later stages. The first pass proves scale pressure and compression necessity.
+这些属于后续阶段。第一轮只证明规模压力和 compression necessity。
 
-## 5. Local Environment Assumptions
+## 5. 本地环境假设
 
-Current machine facts observed on 2026-04-27:
+2026-04-27 已观察到的本机事实：
 
-- GPU: two NVIDIA GeForce RTX 5090 devices, each with about 32GB memory.
-- Tools available: `nsys`, `ncu`, and `nvcc`.
-- Current base Python has no PyTorch.
-- Current `trace_gen` environment has CPU-only PyTorch and `transformers`.
-- NCU performance counters are currently blocked by `ERR_NVGPUCTRPERM`.
+- GPU：两张 NVIDIA GeForce RTX 5090，每张约 32GB 显存。
+- 工具：`nsys`、`ncu`、`nvcc` 均可用。
+- 当前 base Python 没有 PyTorch。
+- 当前 `trace_gen` 环境有 CPU-only PyTorch 和 `transformers`。
+- NCU performance counters 当前受 `ERR_NVGPUCTRPERM` 限制。
 
-Therefore the first implementation should create or use a CUDA-enabled PyTorch environment and use Nsight Systems first. Nsight Compute measured feature collection is deferred until performance counter access is available.
+因此第一轮 implementation 应创建或使用 CUDA-enabled PyTorch 环境，并优先使用 Nsight Systems。Nsight Compute measured feature collection 延后到 performance counter 权限可用之后。
 
-## 6. Data Flow
+## 6. 数据流
 
-The experiment data flow is:
+实验数据流如下：
 
 ```text
 large layer harness
@@ -103,9 +103,9 @@ large layer harness
   -> scale proof report
 ```
 
-### 6.1 Harness Output
+### 6.1 Harness 输出
 
-The harness should print a small machine-readable run summary:
+harness 应打印一份小型 machine-readable run summary，至少包括：
 
 - model unit name
 - batch size
@@ -116,12 +116,12 @@ The harness should print a small machine-readable run summary:
 - dtype
 - warmup count
 - profiled iteration count
-- forward/backward wall time
+- forward / backward wall time
 - peak GPU memory if available
 
-### 6.2 Timeline Output
+### 6.2 Timeline 输出
 
-The Nsight Systems output should be converted into a kernel invocation table with at least:
+Nsight Systems 输出应转换成 kernel invocation table，至少包含：
 
 - invocation id
 - kernel name
@@ -132,11 +132,11 @@ The Nsight Systems output should be converted into a kernel invocation table wit
 - stream id if available
 - source profiler path
 
-This table is the scale-proof equivalent of the existing small-workload invocation table.
+这张表是大规模 scale-proof 版本的现有 small-workload invocation table。
 
-### 6.3 Compression Output
+### 6.3 Compression 输出
 
-The first compression summary can be name-and-shape based, because the first objective is scale pressure. It should report:
+第一轮 compression summary 可以先基于 name-and-shape grouping，因为第一目标是证明规模压力。它应报告：
 
 - total kernel invocations
 - unique kernel names
@@ -145,17 +145,17 @@ The first compression summary can be name-and-shape based, because the first obj
 - representative count at several coverage thresholds
 - compression ratio under each grouping policy
 
-Once NCU counter access is available, the same invocation table can be extended into PKA measured feature records.
+等 NCU counter access 可用后，同一张 invocation table 可以继续扩展为 PKA measured feature records。
 
-## 7. Output Artifacts
+## 7. 输出产物
 
-The first implementation should write artifacts under:
+第一轮 implementation 应把实验产物写到：
 
 ```text
 experiments/large_training_layer/
 ```
 
-Recommended files:
+建议新增文件：
 
 - `run_llama_layer_train.py`
 - `run_nsys_layer.sh`
@@ -163,7 +163,7 @@ Recommended files:
 - `summarize_compression_scale.py`
 - `results/llama_layer_b1_s2048_h4096/`
 
-Recommended generated result files:
+建议生成结果文件：
 
 - `run_summary.json`
 - `nsys_report.nsys-rep`
@@ -172,53 +172,53 @@ Recommended generated result files:
 - `compression_scale_summary.json`
 - `scale_proof_report.md`
 
-## 8. Success Criteria
+## 8. 成功标准
 
-The experiment is successful if it produces a report containing:
+实验成功的标准是产出一份 report，其中包含：
 
-| Evidence | Required Meaning |
+| 证据 | 含义 |
 |---|---|
-| total kernel invocations | single-layer training is already non-trivial |
-| unique kernel groups | there is visible heterogeneity and grouping structure |
-| top runtime coverage | a small number of groups likely dominate execution time |
-| trace/report size | full multi-layer tracing would scale poorly |
-| forward/backward wall time | exact-cycle simulation budget can be projected |
-| compressed representative count | representative compression reduces backend candidate count |
+| total kernel invocations | 单层训练已经不是 trivial input |
+| unique kernel groups | 存在明显 heterogeneity 和 grouping structure |
+| top runtime coverage | 少数 groups 可能主导执行时间 |
+| trace / report size | full multi-layer tracing 会明显放大成本 |
+| forward / backward wall time | 可以推导 exact-cycle simulation budget |
+| compressed representative count | representative compression 能减少 backend candidate count |
 
-The first pass does not need to show final simulator speedup. It needs to show that the uncompressed input scale makes a direct backend path unreasonable.
+第一轮不需要证明最终 simulator speedup。它只需要证明未压缩输入规模使直接后端路径不合理。
 
-## 9. Risk Controls
+## 9. 风险控制
 
-### 9.1 Trace Too Large
+### 9.1 Trace 过大
 
-If the first `seq_len=2048` run is too large, reduce sequence length to `1024` while keeping the same hidden size. The report must record the fallback shape.
+如果第一轮 `seq_len=2048` 的 run 太大，则把 sequence length 降到 `1024`，同时保持 hidden size 不变。报告中必须记录 fallback shape。
 
-### 9.2 Out of Memory
+### 9.2 显存不足
 
-If `bf16/fp16` training with backward does not fit, use gradient checkpointing or reduce sequence length before reducing hidden size. The goal is to preserve large-layer structure.
+如果 `bf16/fp16` training with backward 放不下，优先使用 gradient checkpointing 或降低 sequence length，然后才考虑降低 hidden size。目标是尽量保留 large-layer structure。
 
-### 9.3 NCU Counter Permission
+### 9.3 NCU Counter 权限
 
-Do not block the first experiment on NCU. Use `nsys` for timeline and scale evidence first. Mark PKA measured features as a follow-up acquisition step.
+第一轮实验不应阻塞在 NCU 上。先用 `nsys` 生成 timeline 和 scale evidence。PKA measured features 标记为后续 acquisition step。
 
-### 9.4 Synthetic Data Criticism
+### 9.4 Synthetic Data 质疑
 
-The experiment uses synthetic activations/tokens but real layer computation. The report must state this clearly: the proof target is GPU kernel scale and trace burden for a real training layer shape, not model quality or dataset convergence.
+实验使用 synthetic activations / tokens，但 layer computation 是真实的。报告中必须明确这一点：本实验的 proof target 是真实训练层形状下的 GPU kernel scale 和 trace burden，不是模型质量或数据集收敛。
 
-## 10. Follow-Up Path
+## 10. 后续路径
 
-After the first report exists, the next stages are:
+第一份 report 生成后，后续阶段是：
 
-1. Add measured PKA features for representative kernel groups when NCU permissions allow.
-2. Compare compression summaries across `seq_len=1024`, `2048`, and possibly `4096`.
-3. Add one non-Transformer training layer, such as DLRM-style embedding/MLP or RetinaNet-style vision training, to test whether compression difficulty changes across workload families.
-4. Feed only selected representatives into the backend planning path.
+1. 当 NCU 权限可用后，为 representative kernel groups 补 measured PKA features。
+2. 对比 `seq_len=1024`、`2048`，以及可能的 `4096` 下的 compression summary。
+3. 加入一个非 Transformer training layer，例如 DLRM-style embedding / MLP 或 RetinaNet-style vision training，用来观察不同 workload family 下 compression difficulty 是否变化。
+4. 只把 selected representatives 接入 backend planning path。
 
-## 11. Acceptance Gate
+## 11. 验收 Gate
 
-Before implementation starts, this spec should be reviewed for:
+implementation 开始前，应审阅这份 spec 中的以下问题：
 
-- whether the single-layer Llama-style target is the right first workload;
-- whether `seq_len=2048, hidden=4096` is the correct first shape;
-- whether `nsys`-first evidence is sufficient for the first scale proof;
-- whether the output artifacts are enough to connect back to A-line frontend compression.
+- single-layer Llama-style target 是否适合作为第一轮 workload；
+- `seq_len=2048, hidden=4096` 是否适合作为第一轮形状；
+- `nsys`-first evidence 是否足够支撑第一轮 scale proof；
+- 输出产物是否足以接回 A 线 frontend compression。

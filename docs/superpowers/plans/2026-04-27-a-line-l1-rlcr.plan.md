@@ -2,17 +2,15 @@
 
 ## Goal Description
 
-Establish a correctness-gated, feature-sanity-gated, and downstream-interface-gated L1 pipeline that proves the PKA baseline input, 12-dimensional feature extraction, representative anchor output, and B-line consumption interface can close a stable loop on a small set of interpretable kernels.
+Establish a correctness-gated, feature-sanity-gated, and downstream-interface-gated L1 pipeline for the PKA baseline input, 12-dimensional feature extraction, representative anchor output, and B-line consumption interface on a small set of interpretable kernels.
 
-The L1 round is explicitly a **correctness gate**, **feature sanity gate**, and **downstream interface gate**—not a compression quality gate, large-scale benchmark evaluation, or extension superiority proof.
+**L1 has one primary success mode and one valid early-stop mode:**
 
-Key deliverables:
-1. Machine-readable `KernelValidationManifest` from the L1 manifest document
-2. `PkaFeatureTable` with all 12 PKA features in `measured` status for every P0 object
-3. PKA baseline selector that groups solely on the 12-dimensional feature space without forbidden fields
-4. `RepresentativeAnchorTable` consumable by B-line
-5. B-line consumption smoke report proving interface closure
-6. Regression tests covering manifest schema, feature completeness, forbidden-field isolation, anchor schema, and B-line smoke
+1. **Full closure success**: All 10 P0 objects produce 12 measured PKA features, the selector runs successfully on the PKA-only feature space, the anchor table is emitted, and B-line consumption produces family/regime/writeback lineage. This proves the full loop closes on L1 inputs.
+
+2. **Acquisition-gate success**: One or more P0 objects cannot produce all 12 measured PKA features. The pipeline stops at Stage 2 and emits the manifest, feature audit, and acquisition gap report. This is **not a failure** — it is the expected and correct behavior when acquisition is incomplete. The audit and gap report are the primary round-1 deliverables in this case and provide actionable input for the next acquisition iteration.
+
+Both outcomes are valid L1 completions. The key invariant is: **the pipeline never proceeds past an unresolved acquisition gap**. A round that produces only audit/gap artifacts is a successful correctness-gate round. A round that reaches anchor/B-line emission is a successful loop-closure round.
 
 ## Acceptance Criteria
 
@@ -20,20 +18,27 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 
 ### Core Pipeline Criteria
 
+**Object-to-Invocation Cardinality**: One manifest object (e.g., `L1_MB_01`) may map to one or more kernel invocations, depending on the source file. Microbench JSON files typically contain a single invocation. Rodinia trace JSON and mini-transformer full JSON contain multiple invocations, and not all invocations in a source file necessarily correspond to the manifest object's `kernel_or_case`. The feature extractor must filter invocations by matching `kernel_name` (or equivalent identity field) to the manifest object's `kernel_or_case`, then produce one `PkaFeatureRecord` or gap row per matched invocation. `kernel_invocation_id` is derived during invocation expansion (not during manifest parsing) following the rule: `{kernel_or_case}#{occurrence_index}` where `occurrence_index` is 1-based and ordered by `trace_order` (or file order when `trace_order` is absent).
+
+This means:
+- One manifest object -> N invocations -> N `PkaFeatureRecord` rows (if all measured) or N gap rows (if any metric missing)
+- AC-6 applies at the invocation level (per-invocation outcome), not at the manifest-object level
+- The stage-gate checks all invocations of all P0 objects; a gap in any P0 invocation blocks Stage 3
+
 - AC-1: L1 manifest is machine-readable and schema-validated
   - Positive Tests (expected to PASS):
-    - All 10 P0 manifest entries are present in the JSON output with stable `validation_id`, `source_type`, `benchmark_name`, `kernel_or_case`, `priority`, and `source_path`
-    - The manifest JSON passes validation against `kernel_validation_manifest_schema.json`
+    - All 10 P0 manifest entries are present in the JSON output with stable `id` (matching the entry's `L1_*` identifier), `source_type`, `benchmark_name`, `kernel_or_case`, `priority`, and `local_input_path`
+    - The manifest JSON passes validation against `kernel_validation_manifest_schema.json` (the existing schema uses `id` and `local_input_path`; the manifest builder maps the draft's `validation_id` and `source_path` concepts to these schema fields)
     - P1 entries are also present when the manifest builder is configured to include them
     - Each entry has `expected_behavior_axis` populated as a human-readable label (not used for grouping)
   - Negative Tests (expected to FAIL):
-    - Manifest with missing `validation_id` is rejected by schema validation
-    - Manifest with duplicate `validation_id` values is rejected
-    - Manifest entry referencing a non-existent `source_path` fails a path-existence check
+    - Manifest with missing `id` is rejected by schema validation
+    - Manifest with duplicate `id` values is rejected
+    - Manifest entry whose `local_input_path` does not resolve to an existing file fails a path-existence check, with special handling for entries whose source is a multi-kernel file (the file must exist; the specific kernel/case is validated during feature extraction)
     - Manifest entry with an invalid `source_type` value (not in enum) is rejected
-  - AC-1.1: Manifest path-existence pre-check
-    - Positive: All P0 `source_path` values resolve to existing files before feature extraction begins
-    - Negative: Manifest with a broken `source_path` halts pipeline with a clear error message naming the entry and path
+  - AC-1.1: Manifest path-existence and source-type validation
+    - Positive: All P0 `local_input_path` values resolve to existing files; source-type-specific checks confirm the file has the expected structure (e.g., JSON parse succeeds, expected top-level keys present)
+    - Negative: Manifest with a broken `local_input_path` halts pipeline with a clear error message naming the entry and path; a manifest entry with `source_type: local_microbench` pointing to a file that is not valid JSON is rejected
 
 - AC-2: PKA feature table is generated with 12-dimensional measured features for every P0 object
   - Positive Tests (expected to PASS):
@@ -93,9 +98,9 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 
 ### Supplementary Criteria (from Codex review)
 
-- AC-6: Every P0 manifest object yields exactly one of two deterministic outcomes
-  - Positive: Each P0 object produces either one valid `PkaFeatureRecord` with 12 measured features, or one acquisition-gap row enumerating missing metrics and source path
-  - Negative: A P0 object producing both a feature record and a gap row is rejected as ambiguous; a P0 object producing neither halts the pipeline with an error
+- AC-6: Every P0 invocation yields exactly one of two deterministic outcomes
+  - Positive: Each invocation of a P0 object produces either one valid `PkaFeatureRecord` with 12 measured features, or one acquisition-gap row enumerating the missing metrics, invocation identity, and source path. Objects with multiple invocations produce one outcome per invocation; a single object may mix measured rows and gap rows (all gaps block the stage-gate).
+  - Negative: An invocation producing both a feature record and a gap row is rejected as ambiguous; an invocation producing neither halts the pipeline with an error naming the invocation and source file
 
 - AC-7: Acquisition gap blocks downstream artifact emission
   - Positive: When any P0 object appears in the acquisition gap report, `RepresentativeAnchorTable` and `BLineConsumptionReport` are not emitted

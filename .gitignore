@@ -6,3 +6,5 @@ simulator-remodeled/
 **/__pycache__/
 *.pyc
 experiments/backend_pipeline/runs/
+*.pptx
+截图/

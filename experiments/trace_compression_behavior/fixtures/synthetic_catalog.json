@@ -1,0 +1,27 @@
+{
+  "catalog_id": "synthetic_fixture_probe",
+  "description": "Deterministic fixture catalog for necessity probe tests.",
+  "entries": [
+    {
+      "id": "regular_memory_fixture",
+      "label": "regular-memory",
+      "role": "target",
+      "source_path": "experiments/trace_compression_behavior/fixtures/synthetic_records.json",
+      "record_pointer": "/records/regular_memory"
+    },
+    {
+      "id": "irregular_gather_fixture",
+      "label": "irregular-gather",
+      "role": "candidate",
+      "source_path": "experiments/trace_compression_behavior/fixtures/synthetic_records.json",
+      "record_pointer": "/records/irregular_gather"
+    },
+    {
+      "id": "branch_heavy_fixture",
+      "label": "branch-heavy",
+      "role": "candidate",
+      "source_path": "experiments/trace_compression_behavior/fixtures/synthetic_records.json",
+      "record_pointer": "/records/branch_heavy"
+    }
+  ]
+}

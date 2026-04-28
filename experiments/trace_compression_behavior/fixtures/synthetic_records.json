@@ -1,0 +1,61 @@
+{
+  "records": {
+    "regular_memory": {
+      "hardware_metrics": {"duration_ns": 1000.0},
+      "dynamic_stats": {
+        "total_dynamic_insts": 1000000.0,
+        "global_loads": 500000.0,
+        "global_stores": 500000.0,
+        "branch_ops": 1000.0,
+        "num_blocks": 128.0
+      },
+      "compression_features": {
+        "instruction_run_coverage": {"mean": 0.92},
+        "shared_pc_sequence_coverage": {"mean": 0.97},
+        "warp_pc_override_density": {"mean": 0.01},
+        "cross_tb_delta_coverage": {"mean": 0.94},
+        "global_address_offset_coverage": {"mean": 0.95},
+        "address_override_density": {"mean": 0.02},
+        "full_encoding_fallback_rate": {"mean": 0.0}
+      }
+    },
+    "irregular_gather": {
+      "hardware_metrics": {"duration_ns": 1030.0},
+      "dynamic_stats": {
+        "total_dynamic_insts": 1010000.0,
+        "global_loads": 505000.0,
+        "global_stores": 495000.0,
+        "branch_ops": 1200.0,
+        "num_blocks": 128.0
+      },
+      "compression_features": {
+        "instruction_run_coverage": {"mean": 0.55},
+        "shared_pc_sequence_coverage": {"mean": 0.62},
+        "warp_pc_override_density": {"mean": 0.12},
+        "cross_tb_delta_coverage": {"mean": 0.18},
+        "global_address_offset_coverage": {"mean": 0.22},
+        "address_override_density": {"mean": 0.68},
+        "full_encoding_fallback_rate": {"mean": 0.31}
+      }
+    },
+    "branch_heavy": {
+      "hardware_metrics": {"duration_ns": 980.0},
+      "dynamic_stats": {
+        "total_dynamic_insts": 980000.0,
+        "global_loads": 210000.0,
+        "global_stores": 205000.0,
+        "branch_ops": 120000.0,
+        "num_blocks": 128.0
+      },
+      "compression_features": {
+        "instruction_run_coverage": {"mean": 0.34},
+        "shared_pc_sequence_coverage": {"mean": 0.41},
+        "warp_pc_override_density": {"mean": 0.46},
+        "cross_tb_delta_coverage": {"mean": 0.70},
+        "global_address_offset_coverage": {"mean": 0.73},
+        "address_override_density": {"mean": 0.10},
+        "full_encoding_fallback_rate": {"mean": 0.12}
+      }
+    }
+  }
+}

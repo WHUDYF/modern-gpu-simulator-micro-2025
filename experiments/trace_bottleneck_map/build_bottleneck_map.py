@@ -5,6 +5,7 @@ import argparse
 import json
 import sys
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -32,11 +33,11 @@ def _stable_trace_benchmark_source(raw_path: str) -> str:
     if not path.is_absolute():
         return raw_path
 
-    cwd = Path.cwd().resolve()
+    resolved = path.resolve()
     try:
-        return str(path.resolve().relative_to(cwd))
+        return str(resolved.relative_to(REPO_ROOT.resolve()))
     except ValueError:
-        return path.name
+        return str(resolved)
 
 
 def _build_markdown(records: list[dict]) -> str:
@@ -94,11 +95,13 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    trace_benchmark_source = _stable_trace_benchmark_source(args.trace_benchmark_md)
+    measured = [replace(obs, evidence=trace_benchmark_source) for obs in measured]
     all_observations = measured + ESTIMATED_SUITE_OBSERVATIONS
     records = _records_from_observations(all_observations)
     payload = {
         "report_name": "Trace Bottleneck Cost Map",
-        "trace_benchmark_source": _stable_trace_benchmark_source(args.trace_benchmark_md),
+        "trace_benchmark_source": trace_benchmark_source,
         "records": records,
     }
 

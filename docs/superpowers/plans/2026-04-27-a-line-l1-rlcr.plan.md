@@ -1,16 +1,50 @@
 # A-Line L1 RLCR Implementation Plan
 
+Date: 2026-04-27
+
+## Normative References
+
+Implementation, review, and stop-gate decisions for this plan are governed by the following documents and contracts. If descriptions conflict, interpret them in this priority order:
+
+1. Machine-readable schema / interface contract
+   - `experiments/baseline_diagnosis/schemas/kernel_validation_manifest_schema.json`
+2. A-line L1 RLCR main specification
+   - `docs/a-line-l1-rlcr-spec-2026-04-27.md`
+3. L1 input object manifest and local-source constraints
+   - `docs/a-line-l1-validation-manifest-2026-04-26.md`
+4. B-line consumption interface contract
+   - `docs/superpowers/specs/2026-04-27-b-line-optimization-hardening-design.md`
+
+Notes:
+
+- Reference 4 applies only to the Stage 4 B-line consumption contract. It does not authorize falling back to the old `bundle.json` path or reading raw profiling files instead of consuming the anchor table.
+- If this plan's prose uses terms that differ from existing schema field names, the schema field names are authoritative.
+
+## Non-Negotiable Constraints
+
+- Stage 1 manifest output must use the existing schema field names. `validation_id` and `source_path` are draft mapping concepts only and must not appear in the final JSON; final fields must be `id` and `local_input_path`.
+- Stage 2 is measured-only. It accepts only measured NCU source metrics, profiler fields, or launch records. It may resolve a fixed `canonical_metric` to an equivalent `actual_source_metric` found in the current NCU query/profile environment, but it must not use semantic substitution, shortcut name mapping, or approximate fallback.
+- Any unresolved P0 acquisition gap stops the pipeline at Stage 2. In that state, only manifest, audit, gap, and stage-gate artifacts may be emitted; selector, anchor table, and B-line consumption must not run.
+- Stage 3 grouping may read only the 12-dimensional PKA feature space and selector runtime configuration. Metadata and forbidden fields must not participate in cluster assignment. Fields such as `kernel_name`, `grid_dim`, `block_dim`, `family_id`, `regime_id`, `route_primitive`, `execution_template`, and `simulator_lane_id` may appear only in validation or output contexts, never in the grouping key.
+- Representative selection is fixed to `first_chronological`. Changing this requires updating the plan/spec before implementation.
+- Stage 4 is parse-and-validate only: it reads `representative_anchor_table_l1.json`, validates required fields and forbidden downstream fields, and emits `b_line_consumption_report_l1.md`. It must not generate family/regime/writeback lineage and must not depend on `artifacts/middle_layer/mini_transformer_v4/bundle.json`.
+- Regression tests are deliverables for each stage, not cleanup work. At minimum, they must cover valid/invalid manifest, feature completeness, acquisition-gap routing, selector forbidden-field rejection, anchor schema, B-line parse smoke, mixed timing-unit rejection, and malformed source-adapter input.
+
 ## Goal Description
 
 Establish a correctness-gated, feature-sanity-gated, and downstream-interface-gated L1 pipeline for the PKA baseline input, 12-dimensional feature extraction, representative anchor output, and B-line consumption interface on a small set of interpretable kernels.
 
-**L1 has one primary success mode and one valid early-stop mode:**
+**L1 has four valid run statuses:**
 
-1. **Full closure success**: All 10 P0 objects produce 12 measured PKA features, the selector runs successfully on the PKA-only feature space, the anchor table is emitted, and B-line consumption validates the anchor table schema successfully. This proves the full loop closes on L1 inputs.
+1. **Full closure success**: All P0 invocations expanded from all P0 objects produce 12 measured PKA features, the selector runs successfully on the PKA-only feature space, the anchor table is emitted, and B-line consumption validates the anchor table schema successfully. This proves the full loop closes on L1 inputs.
 
-2. **Acquisition-gate success**: One or more P0 objects cannot produce all 12 measured PKA features. The pipeline stops at Stage 2 and emits the manifest, feature audit, and acquisition gap report. This is **not a failure** — it is the expected and correct behavior when acquisition is incomplete. The audit and gap report are the primary round-1 deliverables in this case and provide actionable input for the next acquisition iteration.
+2. **Acquisition-gate success**: One or more P0 invocations cannot produce all 12 measured PKA features. The pipeline stops at Stage 2 and emits the manifest, feature audit, acquisition gap report, and stage-gate report. This is **not a failure** — it is the expected and correct behavior when acquisition is incomplete. The audit and gap report are the primary round-1 deliverables in this case and provide actionable input for the next acquisition iteration.
 
-Both outcomes are valid L1 completions. The key invariant is: **the pipeline never proceeds past an unresolved acquisition gap**. A round that produces only audit/gap artifacts is a successful correctness-gate round. A round that reaches anchor/B-line emission is a successful loop-closure round.
+3. **Selector-insufficient-records success**: All P0 invocations produce 12 measured PKA features, but fewer than two measured records are available for clustering. The pipeline stops at Stage 3, records `selector_insufficient_records`, and does not emit a formal `pka_baseline` anchor table or B-line consumption report.
+
+4. **Weight-unit-conflict stop**: The selector can run, but coverage-weight computation encounters mixed timing units such as `duration_ns` and `elapsed_cycles`. The pipeline records `weight_unit_conflict` and does not emit a formal anchor table because `coverage_weight` and `time_weight` are required anchor fields.
+
+All four statuses are valid L1 outcomes when recorded in `l1_stage_gate_report_l1.json/md`. The key invariant is: **the pipeline never proceeds past an unresolved acquisition gap, insufficient selector input, or unresolved weight-unit conflict**. A round that produces only audit/gap artifacts is a successful correctness-gate round. A round that reaches anchor/B-line emission is a successful loop-closure round.
 
 ## Acceptance Criteria
 
@@ -40,22 +74,28 @@ This means:
     - Positive: All P0 `local_input_path` values resolve to existing files; source-type-specific checks confirm the file has the expected structure (e.g., JSON parse succeeds, expected top-level keys present)
     - Negative: Manifest with a broken `local_input_path` halts pipeline with a clear error message naming the entry and path; a manifest entry with `source_type: local_microbench` pointing to a file that is not valid JSON is rejected
 
-- AC-2: PKA feature table is generated with 12-dimensional measured features for every P0 object
+- AC-2: PKA feature table is generated with 12-dimensional measured features for every eligible P0 invocation
   - Positive Tests (expected to PASS):
     - Every P0 invocation in the feature table has exactly 12 entries under `features`, one per PKA field
-    - Every feature value has `status: "measured"` with a non-null numeric `value` and a non-empty `source` string traceable to an Nsight metric name or launch metadata field
-    - `num_thread_blocks` status is `measured` with source `launch_grid_size` (from profiler or launch record)
+    - Every feature value has `status: "measured"` with a non-null numeric `value`
+    - Every feature records `canonical_metric`, `actual_source_metric`, and `source_artifact_path`
+    - `actual_source_metric` comes from Nsight Compute query/profile output, a profiler field, or launch metadata, and is semantically equivalent to `canonical_metric`
+    - `num_thread_blocks` status is `measured` with actual source `launch_grid_size` (from profiler or launch record)
     - `feature_mode` is set to `pka_l1_measured_only` when all 12 fields are measured
     - Running the feature extractor twice on identical inputs produces identical output (deterministic)
   - Negative Tests (expected to FAIL):
     - An invocation missing any of the 12 PKA fields is absent from `PkaFeatureTable` and appears only in `PkaAcquisitionGap`
     - An invocation with a non-measured feature value (e.g., imputed, default-zero, or semantically substituted) is rejected from the feature table
-    - An invocation whose `num_thread_blocks` is derived from anything other than profiler/launch metadata is rejected from the feature table
-    - A P0 object whose acquisition gap remains unresolved blocks selector execution (AC-3/AC-4 are not reachable)
+    - An invocation whose `num_thread_blocks` does not come from profiler/launch metadata is rejected from the feature table
+    - A P0 invocation whose acquisition gap remains unresolved blocks selector execution (AC-3/AC-4 are not reachable)
 
 - AC-3: PKA baseline selector groups solely on the 12-dimensional feature space, with no forbidden fields in the grouping key
   - Positive Tests (expected to PASS):
     - Selector output includes `feature_mode`, the list of fields actually used, and each field's status
+    - Selector emits `pka_selector_config_l1.json` recording feature order, preprocessing, PCA parameters, k-means parameters, `k` selection rule, and random seed
+    - Selector emits `pka_dimensionality_reduction_report_l1.json/md` recording mean, standard deviation, zero-variance features, component matrix, and explained variance ratio
+    - Selector emits `pka_reduced_feature_table_l1.json` with reduced coordinates for each invocation
+    - Selector emits `pka_cluster_assignment_l1.json` with the cluster id for each record
     - Selector produces identical cluster assignments and anchor choices on identical input (deterministic)
     - Every cluster has an explicit `cluster_id`, member list, representative, and membership count
     - The output anchor table schema is machine-checkable (required fields present, forbidden fields absent)
@@ -64,17 +104,21 @@ This means:
     - Selector that receives `grid_dim` or `block_dim` strings in its grouping key raises a forbidden-field error
     - Selector that receives `cross_tb_offset_coverage`, `squash_boundary_crossing_flag`, or any compression-side field in its grouping key raises a forbidden-field error
     - Selector that receives `family_id`, `regime_id`, `route_primitive`, `execution_template`, or `simulator_lane_id` in its grouping key raises a forbidden-field error
-    - Selector output row containing any of the forbidden fields listed in AC-3 is rejected by the anchor table validator
+    - Anchor table output containing downstream forbidden fields is rejected by the anchor table validator
+    - `kernel_name` may appear only as anchor output metadata and must be proven absent from feature matrix construction, PCA, k-means, cluster assignment, and representative selection
   - AC-3.1: Precondition gate
-    - Positive: Selector only runs when `PkaAcquisitionGap` contains zero blocking P0 objects
-    - Negative: Selector refuses to run when any P0 object still has an unresolved acquisition gap
+    - Positive: Selector only runs when `PkaAcquisitionGap` contains zero blocking P0 invocations
+    - Negative: Selector refuses to run when any P0 invocation still has an unresolved acquisition gap
+    - Negative: Selector stops with `selector_insufficient_records` when the measured record count `N < 2`
 
 - AC-4: Representative anchor table is parseable by B-line with schema validation
   - Positive Tests (expected to PASS):
     - B-line consumer can parse the anchor table JSON without schema errors
     - B-line consumer verifies every anchor row has all required fields (`rep_kernel_id`, `kernel_name`, `cluster_id`, `member_invocations`, `coverage_count`, `coverage_weight`, `time_weight`)
+    - `kernel_name` is treated only as anchor output metadata for reporting and traceability, not as selector input
     - B-line consumer verifies no forbidden downstream keys (`family_id`, `regime_id`, `route_primitive`, `execution_template`, `simulator_lane_id`) are present in any anchor row
     - The consumption report records: anchor count consumed, schema check result (pass/fail per row), and a list of any missing or forbidden fields found
+    - The B-line consumer performs parse-and-validate only and does not generate family/regime/writeback lineage
   - Negative Tests (expected to FAIL):
     - Anchor table missing `rep_kernel_id` is rejected by B-line consumer with a clear error naming the missing field and row
     - Anchor table missing `member_invocations` is rejected by B-line consumer
@@ -103,7 +147,7 @@ This means:
   - Negative: An invocation producing both a feature record and a gap row is rejected as ambiguous; an invocation producing neither halts the pipeline with an error naming the invocation and source file
 
 - AC-7: Acquisition gap blocks downstream artifact emission
-  - Positive: When any P0 object appears in the acquisition gap report, `RepresentativeAnchorTable` and `BLineConsumptionReport` are not emitted
+  - Positive: When any P0 invocation appears in the acquisition gap report, `RepresentativeAnchorTable` and `BLineConsumptionReport` are not emitted
   - Negative: Emission of anchor table while a P0 gap exists is rejected by the stage-gate validator
 
 - AC-8: Selector runtime emits its actual feature allowlist, exactly matching the approved 12 PKA fields
@@ -116,15 +160,18 @@ This means:
 
 - AC-10: Mixed timing units are rejected by default
   - Positive: When all invocations use the same timing unit (all `duration_ns` or all `elapsed_cycles`), weight computation proceeds normally
-  - Negative: When invocations mix `duration_ns` and `elapsed_cycles`, any weight computation aborts with an error naming the conflicting sources; this check runs before selector execution
+  - Negative: When invocations mix `duration_ns` and `elapsed_cycles`, any weight computation aborts with an error naming the conflicting sources; this check runs before anchor table emission
+  - Negative: When weight computation aborts, the run records `weight_unit_conflict` and does not emit a formal `representative_anchor_table_l1.json`
 
 - AC-11: Source adapters are test-covered independently
-  - Positive: A dedicated test exists for the microbench JSON adapter, the Rodinia artifact adapter, and the mini-transformer JSON adapter, each verifying correct extraction of the 12 PKA fields
-  - Negative: An adapter fed a malformed input (missing required metric field) fails with a diagnostic naming the field and the source file
+  - Positive: A dedicated test exists for the microbench JSON adapter, the Rodinia artifact adapter, and the mini-transformer JSON adapter
+  - Positive: Each adapter has a complete measured fixture that verifies correct extraction of the 12 PKA fields
+  - Positive: Each adapter has an incomplete fixture that verifies correct acquisition-gap emission when a required metric is missing
+  - Negative: An adapter fed a malformed input fails with a diagnostic naming the field and the source file. The current in-repo artifacts are not required to satisfy the complete measured fixture.
 
 - AC-12: Audit output records per-feature provenance
-  - Positive: `PkaFeatureAudit` includes for every feature of every P0 invocation: metric name, source artifact path, measured status, and missing-metric reason (when applicable)
-  - Negative: An audit record with a `measured` status but an empty `source` field is rejected by the audit validator
+  - Positive: `PkaFeatureAudit` includes for every feature of every P0 invocation: PKA feature name, canonical metric, actual source metric, source artifact path, measured status, and missing-metric reason (when applicable)
+  - Negative: An audit record with a `measured` status but an empty `canonical_metric`, `actual_source_metric`, or `source_artifact_path` field is rejected by the audit validator
 
 ## Path Boundaries
 
@@ -134,11 +181,11 @@ Path boundaries define the acceptable range of implementation quality and choice
 
 The implementation includes all of the following:
 - A manifest builder that reads the L1 manifest document and produces a schema-validated `kernel_validation_manifest_l1.json` with all P0 and P1 entries, including path-existence pre-checks
-- A PKA feature extractor with dedicated source adapters for microbench JSON, Rodinia NCU/trace artifacts, and mini-transformer full/dual-source JSON, each producing the 12 PKA feature values with per-feature `status` and `source` provenance
-- A PKA baseline selector that groups purely on the 12-dimensional feature space using a deterministic algorithm (bucketed or distance-threshold), with no dependency on `kernel_name`, `grid_dim`, or `block_dim` in its grouping key
+- A PKA feature extractor with dedicated source adapters for microbench JSON, Rodinia NCU/trace artifacts, and mini-transformer full/dual-source JSON, each producing the 12 PKA feature values with per-feature `status`, `canonical_metric`, `actual_source_metric`, and `source_artifact_path` provenance
+- A PKA baseline selector that uses only the 12-dimensional feature space and implements preprocessing, PCA-like dimensionality reduction, and k-means clustering, with no dependency on `kernel_name`, `grid_dim`, or `block_dim` in feature matrix construction, PCA, k-means, cluster assignment, or representative selection
 - A representative selection rule (`first_chronological`) with deterministic tie-breaking, documented and tested
 - Full audit artifacts: `pka_feature_audit_l1.md`, `pka_feature_audit_l1.json`, and `pka_acquisition_gap_l1.json` with per-feature provenance and missing-metric reasons
-- A B-line stub consumer that parses the anchor table, generates at least family/regime/writeback lineage, and produces a consumption report recording every interface check result
+- A B-line stub consumer that parses the anchor table, validates required/forbidden fields, and produces a consumption report recording every interface check result. It does not generate family/regime/writeback lineage.
 - Regression tests covering all 12 ACs with both positive and negative test cases
 - Explicit deprecation or retention markers on the existing non-PKA selector modes (`name-only`, `pka-like-coarse`, `hybrid`) with tests reflecting the boundary
 
@@ -152,11 +199,11 @@ The implementation includes at minimum:
 - Regression tests covering AC-1 through AC-5 (manifest, feature table, forbidden fields, anchor schema, B-line parse smoke), with tests designed to pass even when the pipeline stops at Stage 2 (i.e., tests for Stage 2 outputs work independently of Stage 3/4)
 - The existing selector modes are left untouched (neither deprecated nor refactored) but the new PKA selector is clearly separated in its own module
 
-> **Lower Bound Clarification**: The lower bound is **not** "microbench-only adapter with full loop closure." It is "all adapters implemented, with the realistic expectation that the pipeline may stop at Stage 2 (audit/gap) if existing artifacts lack the canonical 12 PKA Nsight metrics." Both outcomes (full closure via Stages 3-4, or audit-only stop at Stage 2) satisfy the lower bound. The lower bound defines the minimum code that must exist; the stage-gate determines which outputs are produced at runtime.
+> **Lower Bound Clarification**: The lower bound is **not** "microbench-only adapter with full loop closure." It is "all adapters implemented, with the realistic expectation that the pipeline may stop at Stage 2 (audit/gap) if existing artifacts lack measured source metrics for the canonical 12 PKA features." Both full closure and gate-stop outcomes satisfy the lower bound when recorded in the stage-gate report. The lower bound defines the minimum code that must exist; the stage-gate determines which outputs are produced at runtime.
 
 ### Allowed Choices
 
-- Can use: The 12 PKA feature fields and only those fields for grouping; `first_chronological` or `max_exec_time` for representative selection (must be explicitly chosen and documented); exact-vector grouping or bucketed grouping or distance-threshold clustering for the grouping algorithm; Python standard library, existing project JSON utilities, and `pytest` for tests; the existing `kernel_validation_manifest_schema.json` as a base with optional extensions for invocation-level records
+- Can use: The 12 PKA feature fields and only those fields for grouping; `first_chronological` for representative selection; preprocessing plus PCA-like dimensionality reduction plus k-means for the formal `pka_baseline` selector; exact-vector, bucketed, or distance-threshold logic only as debug or unit-test helpers that cannot be labeled as formal `pka_baseline`; Python standard library, existing project JSON utilities, and `pytest` for tests; the existing `kernel_validation_manifest_schema.json` as a base with optional extensions for invocation-level records
 - Cannot use: `kernel_name`, `grid_dim` string, `block_dim` string, `shape_hint`, `trace_order`, `cross_tb_offset_coverage`, `squash_boundary_crossing_flag`, compression-side features, `family_id`, `regime_id`, `route_primitive`, `execution_template`, or `simulator_lane_id` in the PKA baseline grouping key; imputed, default-zero, or semantically-substituted values masquerading as `measured`; the existing curated middle-layer bundle path as the B-line consumption target (L1 B-line consumer must operate on the anchor table directly)
 
 > **Note on Deterministic Designs**: The 12 PKA feature set is fixed per `docs/a-line-pka-feature-general-spec-2026-04-27.md`. The two-layer object design (`KernelValidationRecord` -> `PkaFeatureRecord`) is fixed per the draft. The stage-gate execution order is fixed. The allowed choices above reflect these deterministic constraints—upper and lower bounds differ mainly in adapter breadth and B-line consumption depth, not in core contract.
@@ -179,6 +226,7 @@ The implementation follows a strict stage-gate pipeline with five stages. Each s
   manifest_l1.json       feature_table_l1.json      anchor_table_l1.json
                          feature_audit_l1.json
                          acquisition_gap_l1.json
+                         stage_gate_report_l1.json
                                                               |
                                                               v
 +-------------------+                               +-------------------+
@@ -190,15 +238,15 @@ The implementation follows a strict stage-gate pipeline with five stages. Each s
                                                   consumption_report_l1.md
 ```
 
-**Stage 1 — Manifest Builder**: Read the L1 manifest document and produce `kernel_validation_manifest_l1.json`. Each entry maps to a `KernelValidationRecord`-like structure with `validation_id`, `source_type`, `benchmark_name`, `kernel_or_case`, `priority`, `source_path`, `expected_behavior_axis`. Validate against the existing manifest schema. Run a path-existence pre-check: every `source_path` must resolve to an existing file.
+**Stage 1 — Manifest Builder**: Read the L1 manifest document and produce `kernel_validation_manifest_l1.json`. The final JSON uses the existing schema field names (`id`, `local_input_path`); draft terms such as `validation_id` and `source_path` are mapping concepts only. Validate against the existing manifest schema. Run a path-existence pre-check: every P0 `local_input_path` must resolve to an existing file.
 
-**Stage 2 — Feature Extractor + Audit**: For each manifest entry, dispatch to the appropriate source adapter based on `source_type`. Each adapter reads raw data and attempts to extract the 12 PKA features. For microbench JSON, check whether the canonical 12 Nsight metric names are present in the source data. If present, extract the value directly with `status: measured`. If absent, the metric is missing and the invocation is routed to the acquisition gap report. No name-mapping, no semantic substitution, no approximate-field fallback is permitted — this would violate the measured-only rule. For Rodinia artifacts, parse NCU CSV or trace JSON. For mini-transformer, extract from full/dual-source JSON.
+**Stage 2 — Feature Extractor + Audit**: For each manifest entry, dispatch to the appropriate source adapter based on `source_type`. Each adapter reads raw data and attempts to extract the 12 PKA features. PKA feature names and canonical metrics are fixed, but the extractor may resolve a canonical metric to an equivalent `actual_source_metric` available in the current Nsight Compute / GPU environment through NCU query/profile output, profiler fields, or launch metadata. No semantic substitution, approximate fallback, default-zero fill, or shortcut name mapping is permitted. For Rodinia artifacts, parse NCU CSV or trace JSON. For mini-transformer, extract from full/dual-source JSON.
 
-Every feature carries `{value, status, source}`. If all 12 are `measured`, produce a `PkaFeatureRecord` row. If any is missing, produce an acquisition gap row. The stage-gate checks: are all P0 objects fully measured? If yes, proceed to Stage 3. If no, emit audit/gap artifacts and stop.
+Every feature carries `{value, status, canonical_metric, actual_source_metric, source_artifact_path}`. If all 12 are `measured`, produce a `PkaFeatureRecord` row. If any is missing, produce an acquisition gap row. The stage-gate checks all P0 invocations. If all are fully measured, proceed to Stage 3. If not, emit audit/gap artifacts plus `l1_stage_gate_report_l1.json/md` and stop.
 
-**Stage 3 — PKA Selector**: Input is the `PkaFeatureTable` (only measured-invocation rows). The grouping algorithm follows the PKA paper's approach: first apply dimensionality reduction (PCA or similar) to the 12-dimensional feature space, then apply k-means clustering on the reduced space. The number of clusters (k) and PCA components are recorded in the selector output as part of the `feature_mode` metadata. Select representative via `first_chronological` (earliest `trace_order` in cluster). Output `representative_anchor_table_l1.json` with schema validated against the anchor table contract (required fields present, forbidden fields absent).
+**Stage 3 — PKA Selector**: Input is the `PkaFeatureTable` (only measured-invocation rows). Build a fixed-order `N x 12` feature matrix from the 12 measured PKA features only. Apply `log1p` to count-like features, keep `divergence_efficiency` as a raw ratio, then z-score normalize all 12 features. Zero-variance features are retained with normalized value `0` and recorded as `zero_variance_feature`. Apply PCA-like dimensionality reduction with `n_components = min(3, N - 1, 12)`. If `N < 2`, stop with `selector_insufficient_records`. Run k-means on reduced coordinates only; `k` must satisfy `2 <= k <= N`, is preferably specified in selector config, and otherwise defaults to `min(3, N)`. Fix and record the k-means random seed. Select representative via `first_chronological`; `trace_order` may be used only after clustering for representative selection, never for feature matrix construction, PCA, or k-means. Before anchor emission, run the timing-unit check; mixed timing units stop anchor export with `weight_unit_conflict`. Output selector config, dimensionality-reduction report, reduced feature table, cluster assignment table, and `representative_anchor_table_l1.json`.
 
-**Stage 4 — B-line Consumption**: A lightweight consumer reads the anchor table and validates the interface contract. The consumer does NOT generate family/regime/writeback lineage — this is a parse-and-validate check only. The derivation contract is:
+**Stage 4 — B-line Consumption**: A lightweight consumer reads the anchor table and validates the interface contract. The consumer does NOT generate family/regime/writeback lineage — this is a parse-and-validate check only. The consumption contract is:
 
 1. **Parse**: Read `representative_anchor_table_l1.json`, parse all rows.
 2. **Validate required fields**: For every row, verify presence of `rep_kernel_id`, `kernel_name`, `cluster_id`, `member_invocations`, `coverage_count`, `coverage_weight`, `time_weight`. Record any missing fields with row index and field name.
@@ -217,7 +265,7 @@ This consumer does NOT depend on `artifacts/middle_layer/mini_transformer_v4/bun
 
 3. **Forbidden-field isolation**: The grouping key must be mechanically prevented from accessing `kernel_name`, `grid_dim`, `block_dim`, and compression-side fields. Testing must inject these fields and assert rejection.
 
-4. **Stage-gate rigidness**: If any P0 object cannot produce 12 measured features, the pipeline stops at Stage 2. This is intentional—the draft explicitly says "不能把后续步骤当作'尽力而为'的 smoke test."
+4. **Stage-gate rigidness**: If any P0 invocation cannot produce 12 measured features, the pipeline stops at Stage 2. This is intentional—the draft explicitly says "不能把后续步骤当作'尽力而为'的 smoke test."
 
 5. **`first_chronological` representative selection**: Per the PKA feature spec, the representative is the earliest invocation by `trace_order` in the cluster. This differs from the current codebase's `max_exec_time` rule.
 
@@ -241,20 +289,21 @@ This consumer does NOT depend on `artifacts/middle_layer/mini_transformer_v4/bun
 1. Milestone 1: Manifest Builder — Machine-readable L1 input
    - Phase A: Parse the L1 manifest document into structured entries with all required fields
    - Phase B: Write `kernel_validation_manifest_l1.json` and validate against the JSON schema
-   - Phase C: Run path-existence pre-check on all P0 `source_path` values
+   - Phase C: Run path-existence pre-check on all P0 `local_input_path` values
 
 2. Milestone 2: Feature Extractor and Audit — 12-dimensional PKA feature table
-   - Phase A: Implement the PKA feature extraction logic with per-feature `{value, status, source}` structure
+   - Phase A: Implement the PKA feature extraction logic with per-feature `{value, status, canonical_metric, actual_source_metric, source_artifact_path}` structure
    - Phase B: Implement source adapters for microbench JSON, Rodinia artifacts, and mini-transformer JSON
    - Phase C: Generate `PkaFeatureTable` (measured invocations) and `PkaAcquisitionGap` (incomplete invocations)
    - Phase D: Generate `PkaFeatureAudit` with per-feature provenance
-   - Gate: Verify all P0 objects have 12 measured features; if not, emit gap report and stop
+   - Gate: Verify all P0 invocations have 12 measured features; if not, emit gap report, stage-gate report, and stop
 
 3. Milestone 3: PKA Baseline Selector — Forbidden-field-free grouping
-   - Phase A: Implement selector that groups purely on the 12-dimensional feature space
+   - Phase A: Implement fixed-order 12-dimensional feature matrix builder
    - Phase B: Implement forbidden-field guard (reject any grouping key containing banned fields)
-   - Phase C: Implement representative selection with `first_chronological` rule and deterministic tie-breaking
-   - Phase D: Output `RepresentativeAnchorTable` with schema validation (required fields present, forbidden fields absent)
+   - Phase C: Implement preprocessing, PCA-like dimensionality reduction, and k-means clustering
+   - Phase D: Implement representative selection with `first_chronological` rule and deterministic tie-breaking
+   - Phase E: Output selector config, dimensionality-reduction report, reduced feature table, cluster assignment table, and `RepresentativeAnchorTable`
 
 4. Milestone 4: B-line Consumption Check — Interface closure proof
    - Phase A: Implement B-line consumer that parses anchor table and validates schema
@@ -280,7 +329,7 @@ Milestone 1 ──> Milestone 2 ──> Milestone 3 ──> Milestone 4
 ```
 
 - Milestone 2 depends on Milestone 1 (needs manifest to locate input files)
-- Milestone 3 depends on Milestone 2 passing its gate (all P0 objects measured)
+- Milestone 3 depends on Milestone 2 passing its gate (all P0 invocations measured)
 - Milestone 4 depends on Milestone 3 (needs anchor table)
 - Milestone 5 tests can be written alongside each milestone but integration tests depend on all milestones completing
 
@@ -293,10 +342,10 @@ Each task must include exactly one routing tag:
 | Task ID | Description | Target AC | Tag | Depends On |
 |---------|-------------|-----------|-----|------------|
 | T1 | Manifest builder: parse L1 manifest document into machine-readable JSON with schema validation and path-existence pre-check | AC-1, AC-1.1 | coding | - |
-| T2 | PKA feature extractor: implement 12-feature extraction with per-field `{value, status, source}`, source adapters for microbench/Rodinia/mini-transformer, invocation expansion, `kernel_invocation_id` derivation, and acquisition gap routing | AC-2, AC-6, AC-9, AC-10, AC-12 | coding | T1 |
-| T3 | PKA feature audit generator: produce `pka_feature_audit_l1.md`, `pka_feature_audit_l1.json`, and `pka_acquisition_gap_l1.json` | AC-6, AC-7, AC-12 | coding | T2 |
-| T4 | Stage-gate validator: enforce that selector (T5) and B-line (T6) stages cannot execute when any P0 invocation has an unresolved acquisition gap; enforce anchor table existence before B-line consumption | AC-3.1, AC-4.1, AC-7 | coding | T2, T3 |
-| T5 | PKA baseline selector: implement 12-D feature-space-only grouping with forbidden-field guard, representative selection, and anchor table export; selector refuses to run if the stage-gate (T4) reports blocking gaps | AC-3, AC-3.1, AC-8 | coding | T2, T4 |
+| T2 | PKA feature extractor: implement 12-feature extraction with per-field `{value, status, canonical_metric, actual_source_metric, source_artifact_path}`, source adapters for microbench/Rodinia/mini-transformer, invocation expansion, `kernel_invocation_id` derivation, and acquisition gap routing | AC-2, AC-6, AC-9, AC-10, AC-12 | coding | T1 |
+| T3 | PKA feature audit generator: produce `pka_feature_audit_l1.md`, `pka_feature_audit_l1.json`, `pka_acquisition_gap_l1.json`, and `l1_stage_gate_report_l1.json/md` | AC-6, AC-7, AC-12 | coding | T2 |
+| T4 | Stage-gate validator: enforce that selector (T5) and B-line (T6) stages cannot execute when any P0 invocation has an unresolved acquisition gap; record `selector_insufficient_records` and `weight_unit_conflict`; enforce anchor table existence before B-line consumption | AC-3.1, AC-4.1, AC-7, AC-10 | coding | T2, T3 |
+| T5 | PKA baseline selector: implement 12-D feature matrix, preprocessing, PCA-like dimensionality reduction, k-means, forbidden-field guard, representative selection, selector audit artifacts, and anchor table export; selector refuses to run if the stage-gate (T4) reports blocking gaps | AC-3, AC-3.1, AC-8 | coding | T2, T4 |
 | T6 | B-line consumer: parse anchor table, validate required fields and forbidden fields for every row, and produce consumption report with pass/fail results | AC-4, AC-4.1 | coding | T4, T5 |
 | T7 | Regression test suite: manifest schema tests, feature completeness tests, stage-gate tests, forbidden-field rejection tests, anchor schema tests, B-line smoke tests; each test module runs independently of pipeline stage completion | AC-1 through AC-12 | coding | T1, T2, T4, T5, T6 |
 | T8 | Codex review of PKA feature extraction completeness: verify all 12 features are correctly mapped from Nsight metrics and that source adapters handle edge cases (missing metrics, multi-invocation sources, cross-source alignment) | AC-2, AC-6, AC-9 | analyze | T2 |
@@ -342,22 +391,21 @@ Codex identified six categories of concerns:
 |-------|---------------------|---------------------|------------|
 | Object-to-invocation cardinality | Not defined; AC-6 assumed one-object-one-outcome | REQUIRED_CHANGES: multi-invocation sources break AC-6 | resolved — added cardinality definition; AC-6 now per-invocation; `kernel_invocation_id` derives during invocation expansion |
 | Lower bound vs stage gate | Lower bound allowed microbench-only adapter | REQUIRED_CHANGES: microbench-only contradicts stage gate since Rodinia/AI P0s remain | resolved — lower bound redefined: all adapters required; stage-gate determines runtime output; both audit-stop and loop-closure are valid lower-bound outcomes |
-| AC-4/AC-11/T7 consistency | AC-4 required family/regime/writeback; lower bound allowed parse-only | REQUIRED_CHANGES: three sections define different minimums | resolved — lower bound unified: all adapters + full audit; B-line may be parse-only at lower bound; AC-4 now reflects parse-or-generate |
+| AC-4/AC-11/T7 consistency | AC-4 required family/regime/writeback; lower bound allowed parse-only | REQUIRED_CHANGES: three sections define different minimums | resolved — lower bound unified: all adapters + full audit; B-line is parse-and-validate only |
 | Manifest schema contract | Used `validation_id` and `source_path` | REQUIRED_CHANGES: existing schema uses `id` and `local_input_path` | resolved — AC-1 now maps draft concepts to existing schema fields |
-| Stage 2 semantic substitution | "Map existing metric names to PKA metric names where possible" | REQUIRED_CHANGES: this is semantic substitution, violating measured-only rule | resolved — removed mapping language; Stage 2 checks for exact Nsight metric names only; absent metrics route to gap report |
-| B-line derivation contract | "Generate family/regime/writeback lineage" without specification | REQUIRED_CHANGES: not implementable without a concrete contract | resolved — added deterministic 5-step stub derivation contract |
+| Stage 2 semantic substitution | "Map existing metric names to PKA metric names where possible" | REQUIRED_CHANGES: this is semantic substitution, violating measured-only rule | resolved — removed semantic substitution; Stage 2 may only resolve canonical metrics to semantically equivalent measured `actual_source_metric` values from NCU query/profile output, profiler fields, or launch metadata |
+| B-line derivation contract | "Generate family/regime/writeback lineage" without specification | REQUIRED_CHANGES: not implementable without a concrete contract | resolved — replaced lineage generation with a deterministic parse-and-validate consumption contract |
 | Task dependency graph | T5 depended on T4 while gating T4 (circular); AC-9 on T1 | REQUIRED_CHANGES: T4-T5 circular; AC-9 belongs to T2 | resolved — T4 (stage-gate) now precedes T5 (selector); T5 depends on T2+T4; AC-9 moved to T2 |
 | Risk note accuracy | "Likely missing some metrics" | DISAGREE: canonical 12 PKA metrics are likely entirely absent, not just "some" | resolved — risk notes upgraded to CRITICAL; explicitly state metrics are likely absent; 10x12 matrix recommended as first Stage 2 output |
-| Exact-vector grouping sufficiency | "Likely sufficient" for L1 | DISAGREE: near-singletons prove determinism but not behavioral sanity | resolved — noted as a known limitation; upper bound allows bucketed grouping |
+| Exact-vector grouping sufficiency | "Likely sufficient" for L1 | DISAGREE: near-singletons prove determinism but not behavioral sanity | resolved — formal `pka_baseline` now requires preprocessing + PCA-like dimensionality reduction + k-means; exact-vector / bucketed / threshold grouping is debug-only |
 
 **Unresolved (carried to Pending User Decisions):**
-- What counts as L1 success: The plan now defines two valid success modes. The user must confirm this framing.
-- B-line success threshold: The plan defines both parse-only (lower bound) and stub-generation (upper bound). The user must choose.
-- Mixed timing-unit policy: Retained as DEC-9.
+
+No unresolved user decisions remain.
 
 ### Convergence Round 2 (Claude v2 -> Codex v3) — Not Executed
 
-Round 1 resolved all REQUIRED_CHANGES. No DISAGREE items remain unresolved. The two UNRESOLVED items from Codex v2 are carried to Pending User Decisions. Per loop termination rules: no REQUIRED_CHANGES remain and no high-impact DISAGREE remains. Convergence achieved after 1 round.
+Round 1 resolved all REQUIRED_CHANGES. No DISAGREE items remain unresolved. No user decisions remain pending. Per loop termination rules: no REQUIRED_CHANGES remain and no high-impact DISAGREE remains. Convergence achieved after 1 round.
 
 ### Convergence Status
 
@@ -365,7 +413,7 @@ Round 1 resolved all REQUIRED_CHANGES. No DISAGREE items remain unresolved. The 
 - **Rounds Executed**: 1 (of max 3)
 - **Agreements**: Two-layer object model, keeping old selector modes untouched, measured-only policy, forbidden-field isolation — both Claude and Codex agree these are correct
 - **Resolved Disagreements**: 7 REQUIRED_CHANGES and 2 DISAGREE items addressed in Claude v2
-- **Carried to User**: 2 UNRESOLVED items (L1 success definition, B-line threshold) merged into Pending User Decisions
+- **Carried to User**: No unresolved user decisions remain
 
 ## Pending User Decisions
 
@@ -375,13 +423,13 @@ The following items were identified during Phase 3 (Codex analysis v1), Phase 4 
 
 - DEC-1: New `pka_baseline` selector implementation strategy → **Resolved**: Implement new selector in separate module; leave current modes untouched. Both Claude and Codex agree.
 - DEC-2: B-line success definition → **Resolved by user**: Parse-only. B-line consumer validates required/forbidden fields in the anchor table; does not generate family/regime/writeback lineage.
-- DEC-3: P0 acquisition gap behavior → **Resolved**: Emit audit/gap artifacts and mark round as "blocked on acquisition" — not a failure. Both valid outcomes captured in the Goal.
+- DEC-3: P0 acquisition gap behavior → **Resolved**: Emit audit/gap artifacts and stage-gate report; mark round as `acquisition_gate_success` — not a failure.
 - DEC-4: Manifest schema strategy → **Resolved**: Reuse existing `kernel_validation_manifest_schema.json` with its field names (`id`, `local_input_path`). New schemas for `KernelValidationRecord` and `PkaFeatureRecord` as needed.
 - DEC-5: Grouping algorithm → **Resolved by user**: PKA paper-faithful — dimensionality reduction (PCA-like) followed by k-means clustering on the reduced feature space.
 - DEC-6: Representative selection rule → **Resolved**: `first_chronological` per PKA feature spec.
 - DEC-7: `num_thread_blocks` provenance → **Resolved by user**: Strict — must come from profiler or launch metadata. No relaxation.
 - DEC-8: P1 objects in manifest → **Resolved**: Include P1 entries in manifest with non-blocking status. P1 gaps do not trigger stage-gate stop.
-- DEC-9: Mixed timing units policy → **Resolved**: Global rejection by default. Weight computation aborts on mixed `duration_ns` / `elapsed_cycles`. Selector does not consume timing, so mixed timing only matters when computing coverage weights.
+- DEC-9: Mixed timing units policy → **Resolved**: Global rejection by default. Weight computation aborts on mixed `duration_ns` / `elapsed_cycles`; the run records `weight_unit_conflict` and does not emit a formal anchor table.
 - DEC-10: Old selector modes disposition → **Resolved**: Retain untouched (neither deprecated nor refactored). New PKA selector is in a separate module.
 
 ### Pending
@@ -397,23 +445,42 @@ No pending user decisions remain. All 10 DEC items are resolved.
 
 ### L1-Specific Constraints
 - All 12 PKA features must be in `measured` status before entering the selector; no imputation, no default values, no semantic substitution
-- `kernel_name` may appear in metadata/audit fields but must not enter the grouping key
+- `kernel_name` may appear in metadata/audit fields and anchor output metadata but must not enter feature matrix construction, PCA, k-means, cluster assignment, or representative selection
 - `expected_behavior_axis` is for human sanity-check only and must not be used for grouping or labeling
-- The stage-gate is rigid: if any P0 object has an unresolved acquisition gap, Stages 3 and 4 must not execute
+- The stage-gate is rigid: if any P0 invocation has an unresolved acquisition gap, Stages 3 and 4 must not execute
 - Output artifacts follow the paths defined in the draft: `artifacts/a_line/l1/` for all L1 outputs
 - The `RepresentativeAnchorTable` must not contain `family_id`, `regime_id`, `route_primitive`, `execution_template`, or `simulator_lane_id` fields
-- Mixed timing units across invocations cause weight computation to abort by default
+- Mixed timing units across invocations cause weight computation and formal anchor-table emission to abort by default
 
 ### Risk Notes
-- **Acquisition Risk (CRITICAL)**: The canonical 12 PKA Nsight metric names (e.g., `l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum`, `smsp__sass_inst_executed_op_global_atom.sum`) are likely entirely absent from the existing in-repo artifacts. The current codebase uses a different 13-field feature vector (compute_throughput_pct, dram_throughput_pct, ipc_active, etc.) that is not a subset of the PKA 12. This means round 1 is primarily an acquisition-readiness exercise: it will identify exactly which metrics are missing from which P0 objects, producing a detailed gap report as its primary deliverable. Reaching Stage 3 (selector) or Stage 4 (B-line) in round 1 is unlikely without new NCU data collection. This is not a plan defect — it is the expected behavior of a correctness gate applied to existing data collected under a different feature regime.
-- **NCU Data Availability**: The 12 PKA metrics are: 3 `l1tex__t_sectors_pipe_lsu_mem_global_op_*`, 6 `smsp__inst_executed_op_*`, 1 `smsp__sass_inst_executed_op_global_atom`, 1 `smsp__inst_executed`, and 1 `smsp__thread_inst_executed_per_inst_executed`. Each of these must be present in the source artifact with the exact Nsight metric name to qualify as `measured`. Existing artifacts in `experiments/baseline_diagnosis/results/microbench/` use a different metric vocabulary. A 10-by-12 metric-availability matrix should be the first output of Stage 2 to make the acquisition status immediately visible.
-- **Backend Coupling Risk (HIGH)**: The current B-line (`backend_builder.py`) depends on a curated middle-layer bundle at `artifacts/middle_layer/mini_transformer_v4/bundle.json` with hardcoded anchor/family/regime IDs. The L1 B-line consumer must NOT depend on this curated bundle; it must implement the stub derivation contract described in Stage 4. This is a new code path that shares no code with the existing `backend_builder.py`.
+- **Acquisition Risk (CRITICAL)**: The current in-repo artifacts likely do not contain measured source metrics for the 12 canonical PKA features. The current codebase uses a different feature vector (compute_throughput_pct, dram_throughput_pct, ipc_active, etc.) that is not a subset of the PKA 12. This means round 1 is primarily an acquisition-readiness exercise: it will identify exactly which metrics are missing from which P0 invocations, producing a detailed gap report as its primary deliverable. Reaching Stage 3 (selector) or Stage 4 (B-line) in round 1 is unlikely without new NCU data collection. This is not a plan defect — it is the expected behavior of a correctness gate applied to existing data collected under a different feature regime.
+- **NCU Data Availability**: The 12 PKA features have fixed canonical metrics, but the actual measured source metric may vary by GPU / Nsight Compute environment. Each feature must resolve to a measured `actual_source_metric` from NCU query/profile output, a profiler field, or launch metadata, and that actual source must be semantically equivalent to the canonical metric. Existing artifacts in `experiments/baseline_diagnosis/results/microbench/` use a different metric vocabulary. A 10-by-12 metric availability / resolution matrix should be the first output of Stage 2 to make acquisition status immediately visible.
+- **Backend Coupling Risk (HIGH)**: The current B-line (`backend_builder.py`) depends on a curated middle-layer bundle at `artifacts/middle_layer/mini_transformer_v4/bundle.json` with hardcoded anchor/family/regime IDs. The L1 B-line consumer must NOT depend on this curated bundle; it must implement the parse-and-validate consumption contract described in Stage 4. This is a new code path that shares no code with the existing `backend_builder.py`.
 
 ### Output File Convention
 
-The translated language variant is not generated (`ALT_PLAN_LANGUAGE` is empty).
+Expected L1 artifacts:
 
---- Original Design Draft Start ---
+- `artifacts/a_line/l1/kernel_validation_manifest_l1.json`
+- `artifacts/a_line/l1/pka_feature_table_l1.json`
+- `artifacts/a_line/l1/pka_feature_audit_l1.md`
+- `artifacts/a_line/l1/pka_feature_audit_l1.json`
+- `artifacts/a_line/l1/pka_acquisition_gap_l1.json`
+- `artifacts/a_line/l1/l1_stage_gate_report_l1.json`
+- `artifacts/a_line/l1/l1_stage_gate_report_l1.md`
+- `artifacts/a_line/l1/pka_selector_config_l1.json`
+- `artifacts/a_line/l1/pka_dimensionality_reduction_report_l1.json`
+- `artifacts/a_line/l1/pka_dimensionality_reduction_report_l1.md`
+- `artifacts/a_line/l1/pka_reduced_feature_table_l1.json`
+- `artifacts/a_line/l1/pka_cluster_assignment_l1.json`
+- `artifacts/a_line/l1/representative_anchor_table_l1.json`
+- `artifacts/a_line/l1/b_line_consumption_report_l1.md`
+
+If Stage 2 is blocked by acquisition gaps, do not emit the anchor table or B-line report. If Stage 3 is blocked by `selector_insufficient_records`, do not emit a formal anchor table or B-line report. If weight computation is blocked by `weight_unit_conflict`, do not emit a formal anchor table or B-line report. `pka_feature_table_l1.json` contains only complete measured records; gap records must not be mixed into it.
+
+--- Historical Original Design Draft Start ---
+
+The appendix below is retained only as historical context for the original Chinese draft. It is non-normative and may contain superseded requirements. The executable contract is the plan above plus the normative references listed at the top of this file.
 
 # A 线 L1 RLCR Spec
 

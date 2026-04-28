@@ -93,6 +93,20 @@ A 线复现 PKA baseline 的第一准则是：
 后处理阶段可以做格式归一化、单位转换或数值化，
 但不能把近似字段、语义替代字段或人工推断字段伪装成 `measured`。
 
+PKA feature schema 固定，
+但具体 NCU source metric 可以按当前 GPU / Nsight Compute 环境解析。
+也就是说：
+
+- `pka_feature_name` 必须固定为本 spec 的 12 个字段之一；
+- `canonical_metric` 记录本 spec 表中列出的标准 metric；
+- `actual_source_metric` 记录当前 profile 中实际采到的 metric；
+- `actual_source_metric` 必须来自 Nsight Compute query / profile report、profiler 字段或 launch metadata；
+- `actual_source_metric` 必须与 `canonical_metric` 在语义上等价；
+- 如果无法找到 measured source metric，则只能进入 acquisition gap report。
+
+该解析机制只允许适配 metric 名称或 profiler 字段来源，
+不允许改变 PKA 12 维 feature 的行为语义。
+
 因此，进入 `PkaFeatureTable` 的每个 feature value 只允许一种状态：
 
 | status | 含义 | 是否可进入正式 PKA selector |
@@ -210,18 +224,18 @@ PKA baseline 的 representative selection 应至少记录：
   "source_path": "string",
   "feature_mode": "pka_complete | pka_l1_measured_only",
   "features": {
-    "coalesced_global_loads": {"value": 0.0, "status": "measured", "source": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum"},
-    "coalesced_global_stores": {"value": 0.0, "status": "measured", "source": "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum"},
-    "coalesced_local_loads": {"value": 0.0, "status": "measured", "source": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum"},
-    "thread_global_loads": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed_op_global_ld.sum"},
-    "thread_global_stores": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed_op_global_st.sum"},
-    "thread_local_loads": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed_op_local_ld.sum"},
-    "thread_shared_loads": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed_op_shared_ld.sum"},
-    "thread_shared_stores": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed_op_shared_st.sum"},
-    "thread_global_atomics": {"value": 0.0, "status": "measured", "source": "smsp__sass_inst_executed_op_global_atom.sum"},
-    "num_instructions": {"value": 0.0, "status": "measured", "source": "smsp__inst_executed.sum"},
-    "divergence_efficiency": {"value": 0.0, "status": "measured", "source": "smsp__thread_inst_executed_per_inst_executed.ratio"},
-    "num_thread_blocks": {"value": 0.0, "status": "measured", "source": "launch_grid_size"}
+    "coalesced_global_loads": {"value": 0.0, "status": "measured", "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum", "actual_source_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum"},
+    "coalesced_global_stores": {"value": 0.0, "status": "measured", "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum", "actual_source_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum"},
+    "coalesced_local_loads": {"value": 0.0, "status": "measured", "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum", "actual_source_metric": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum"},
+    "thread_global_loads": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed_op_global_ld.sum", "actual_source_metric": "smsp__inst_executed_op_global_ld.sum"},
+    "thread_global_stores": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed_op_global_st.sum", "actual_source_metric": "smsp__inst_executed_op_global_st.sum"},
+    "thread_local_loads": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed_op_local_ld.sum", "actual_source_metric": "smsp__inst_executed_op_local_ld.sum"},
+    "thread_shared_loads": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed_op_shared_ld.sum", "actual_source_metric": "smsp__inst_executed_op_shared_ld.sum"},
+    "thread_shared_stores": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed_op_shared_st.sum", "actual_source_metric": "smsp__inst_executed_op_shared_st.sum"},
+    "thread_global_atomics": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__sass_inst_executed_op_global_atom.sum", "actual_source_metric": "smsp__sass_inst_executed_op_global_atom.sum"},
+    "num_instructions": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__inst_executed.sum", "actual_source_metric": "smsp__inst_executed.sum"},
+    "divergence_efficiency": {"value": 0.0, "status": "measured", "canonical_metric": "smsp__thread_inst_executed_per_inst_executed.ratio", "actual_source_metric": "smsp__thread_inst_executed_per_inst_executed.ratio"},
+    "num_thread_blocks": {"value": 0.0, "status": "measured", "canonical_metric": "launch_grid_size", "actual_source_metric": "launch_grid_size"}
   },
   "metadata": {
     "trace_order": 0,

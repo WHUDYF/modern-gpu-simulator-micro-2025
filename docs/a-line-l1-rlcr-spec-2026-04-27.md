@@ -256,22 +256,36 @@ L1 必须以 PKA 12 维信号作为 feature extraction 的目标字段。
 
 - `docs/a-line-pka-feature-general-spec-2026-04-27.md`
 
-目标字段如下：
+目标字段如下。
+表中的 `PKA / Nsight metric name` 是 canonical metric。
+实际采集时允许通过 NCU metric query / profile report 解析到当前环境中的等价 `actual_source_metric`，
+但不能改变 PKA feature 的行为语义。
 
 | 字段 | 含义 | PKA / Nsight metric name | L1 处理要求 |
 |---|---|---|
-| `coalesced_global_loads` | 合并全局加载 | `l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `coalesced_global_stores` | 合并全局存储 | `l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `coalesced_local_loads` | 合并局部加载 | `l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_global_loads` | 线程级全局加载 | `smsp__inst_executed_op_global_ld.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_global_stores` | 线程级全局存储 | `smsp__inst_executed_op_global_st.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_local_loads` | 线程级局部加载 | `smsp__inst_executed_op_local_ld.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_shared_loads` | 线程级共享内存加载 | `smsp__inst_executed_op_shared_ld.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_shared_stores` | 线程级共享内存存储 | `smsp__inst_executed_op_shared_st.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `thread_global_atomics` | 全局原子操作 | `smsp__sass_inst_executed_op_global_atom.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `num_instructions` | 总指令数 | `smsp__inst_executed.sum` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
-| `divergence_efficiency` | 分支发散效率 | `smsp__thread_inst_executed_per_inst_executed.ratio` | 必须通过 NCU 实测；缺失则标记 acquisition incomplete |
+| `coalesced_global_loads` | 合并全局加载 | `l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `coalesced_global_stores` | 合并全局存储 | `l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `coalesced_local_loads` | 合并局部加载 | `l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_global_loads` | 线程级全局加载 | `smsp__inst_executed_op_global_ld.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_global_stores` | 线程级全局存储 | `smsp__inst_executed_op_global_st.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_local_loads` | 线程级局部加载 | `smsp__inst_executed_op_local_ld.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_shared_loads` | 线程级共享内存加载 | `smsp__inst_executed_op_shared_ld.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_shared_stores` | 线程级共享内存存储 | `smsp__inst_executed_op_shared_st.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `thread_global_atomics` | 全局原子操作 | `smsp__sass_inst_executed_op_global_atom.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `num_instructions` | 总指令数 | `smsp__inst_executed.sum` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
+| `divergence_efficiency` | 分支发散效率 | `smsp__thread_inst_executed_per_inst_executed.ratio` | 必须通过 NCU measured source 采集；缺失则标记 acquisition incomplete |
 | `num_thread_blocks` | 线程块数量 | `launch_grid_size` | 必须从 profiler / launch metadata 记录；状态标记为 `measured` |
+
+每个 measured feature 必须记录：
+
+- `canonical_metric`；
+- `actual_source_metric`；
+- `value`；
+- `status = measured`。
+
+如果当前 NCU / GPU 环境没有与 canonical metric 语义等价的 measured source，
+该字段必须进入 acquisition gap，
+不能用近似字段补齐。
 
 ### 4.1 字段状态
 

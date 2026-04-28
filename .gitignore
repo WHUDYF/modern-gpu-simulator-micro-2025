@@ -3,6 +3,7 @@
 hw_run/
 simulator-remodeled/
 .humanize*
+artifacts/a_line/l1/
 **/__pycache__/
 *.pyc
 experiments/backend_pipeline/runs/

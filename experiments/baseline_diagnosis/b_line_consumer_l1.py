@@ -60,12 +60,23 @@ def _check_gate():
 def _validate(table):
     results = []
     for idx, row in enumerate(table):
+        if not isinstance(row, dict):
+            return [{"row_index": idx, "rep_kernel_id": "unknown",
+                     "required_fields_present": False, "missing_required_fields": sorted(REQUIRED),
+                     "forbidden_fields_absent": True, "leaked_forbidden_fields": [],
+                     "type_errors": ["row is not a dict" if not isinstance(row, dict) else ""]}]
         missing = sorted(REQUIRED - set(row.keys()))
+        # Reject None values for required fields
+        for f in REQUIRED:
+            if f in row and row[f] is None and f not in missing:
+                missing.append(f)
         leaked = sorted(FORBIDDEN & set(row.keys()))
         type_errors = []
         for field, expected_type in TYPE_CHECKS.items():
             val = row.get(field)
-            if val is not None and not isinstance(val, expected_type):
+            if val is None:
+                continue  # already caught as missing
+            if not isinstance(val, expected_type):
                 type_errors.append(f"{field}: expected {_type_name(expected_type)}, got {type(val).__name__}")
         results.append({
             "row_index": idx,

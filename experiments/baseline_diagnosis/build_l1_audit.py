@@ -164,18 +164,14 @@ def _stage_gate(records: list[dict], manifest: dict) -> dict:
         s3, s4 = "blocked", "blocked"
         next_action = f"Need >= 2 measured records; currently {len(p0_measured)}."
     else:
-        # Per-record timing provenance: prefer duration_ns over elapsed_cycles
+        # Per-record timing provenance from measured records
         selected_units = set()
         for rec in p0_measured:
-            feats = rec.get("features", {})
-            # Check if features contain timing metadata
-            timing_basis = "unknown"
-            sp = rec.get("source_path", "")
-            if sp.endswith(".json") or "duration_ns" in str(sp):
-                timing_basis = "duration_ns"
-            elif "elapsed_cycles" in str(sp):
-                timing_basis = "elapsed_cycles"
-            selected_units.add(timing_basis)
+            tb = rec.get("timing_basis")
+            if tb:
+                selected_units.add(tb)
+            else:
+                selected_units.add("unknown")
         selected_units.discard("unknown")
 
         if len(selected_units) > 1:
@@ -243,8 +239,6 @@ def main():
     sg = _stage_gate(records, manifest)
     if sg["run_status"] == "validation_failed":
         print(f"Stage gate validation failed: {sg.get('validation_errors', {})}")
-    assert sg["run_status"] in VALID_STATUSES or sg["run_status"] == "validation_failed", \
-        f"Invalid run status: {sg['run_status']}"
 
     # Gate-clean: delete stale downstream artifacts when gate blocks
     if sg["stages"]["stage_3_selector"] == "blocked":
@@ -257,6 +251,8 @@ def main():
     print(f"Stages: {json.dumps(sg['stages'])}")
     if sg["stages"]["stage_3_selector"] == "blocked":
         print(f"Cleaned stale downstream artifacts: {STAGE_3_4_ARTIFACTS}")
+    if sg["run_status"] == "validation_failed":
+        return 3
     return 0
 
 

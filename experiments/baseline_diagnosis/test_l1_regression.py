@@ -157,7 +157,7 @@ def test_selector():
                          "source_artifact_path": f"synthetic/test_{i}.json"}
         records.append({"manifest_id": f"L1_T_{i}", "priority": "P0",
                         "kernel_invocation_id": f"test_{i}#1", "kernel_name": f"kernel_{i}",
-                        "features": feats})
+                        "features": feats, "feature_mode": "pka_l1_measured_only"})
 
     matrix, meta, _ = _build_matrix(records)
     check("matrix 5x12", len(matrix) == 5 and len(matrix[0]) == 12)
@@ -212,6 +212,22 @@ def test_selector():
     check("cluster assignment", (tmp / "pka_cluster_assignment_l1.json").exists())
     check("anchor table", (tmp / "representative_anchor_table_l1.json").exists())
 
+    # Rejection test: invalid feature row should fail matrix construction
+    invalid_records = list(records)
+    bad_rec = dict(invalid_records[0])
+    bad_feats = dict(bad_rec["features"])
+    del bad_feats["coalesced_global_loads"]
+    bad_rec["features"] = bad_feats
+    invalid_records[0] = bad_rec
+    try:
+        _build_matrix(invalid_records)
+        check("selector rejects invalid feature row", False)
+    except ValueError as e:
+        check("selector rejects invalid feature row", "invalid" in str(e).lower())
+
+    # feature_mode presence
+    check("measured record has feature_mode", records[0].get("feature_mode") == "pka_l1_measured_only")
+
 
 # ══════════════════════════════════════════════════════════════════
 # B-line tests
@@ -242,6 +258,12 @@ def test_bline():
     type_row = {**valid_row, "coverage_count": "1", "member_invocations": "not-a-list"}
     results5 = _validate([type_row])
     check("type errors detected", len(results5[0].get("type_errors", [])) >= 2)
+
+    # Null required fields
+    null_row = {**valid_row, "rep_kernel_id": None, "coverage_weight": None}
+    results6 = _validate([null_row])
+    check("null required fields rejected", not results6[0]["required_fields_present"])
+    check("null fields in missing list", "rep_kernel_id" in results6[0]["missing_required_fields"])
 
     report = _report(results)
     check("report has per-row results", "rep_kernel_id" in report)

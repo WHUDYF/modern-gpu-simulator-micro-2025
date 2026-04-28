@@ -77,7 +77,7 @@ def _validate_allowlist(feature_list: list[str]) -> list[str]:
 
 
 def _build_matrix(records: list[dict], timing_unit: str | None = None) -> tuple[list[list[float]], list[dict], list[str]]:
-    matrix, meta = [], []
+    matrix, meta, errors = [], [], []
     for rec in records:
         features = rec.get("features", {})
         row = []
@@ -87,12 +87,15 @@ def _build_matrix(records: list[dict], timing_unit: str | None = None) -> tuple[
             val = f.get("value")
             if val is None or f.get("status") != "measured":
                 ok = False
+                errors.append(f"{rec.get('kernel_invocation_id', '?')}: feature {fn} is not measured")
                 break
             row.append(float(val))
         if ok and len(row) == 12:
             matrix.append(row)
             meta.append(rec)
-    return matrix, meta, []
+    if errors:
+        raise ValueError(f"Feature table contains {len(errors)} invalid rows: {'; '.join(errors[:5])}")
+    return matrix, meta, errors
 
 
 def _mean(vals):
@@ -202,11 +205,15 @@ def _kmeans(data, k, seed=42, max_iters=100):
 
 
 def _select_representative(members, meta):
-    """first_chronological: earliest by trace_order in metadata."""
+    """first_chronological: earliest by top-level trace_order, fallback to input order, then invocation_id."""
     best = None
     best_order = float("inf")
-    for m in members:
-        order = m.get("metadata", {}).get("trace_order", float("inf"))
+    for i, m in enumerate(members):
+        order = m.get("trace_order")
+        if order is None:
+            order = m.get("metadata", {}).get("trace_order")
+        if order is None:
+            order = float(i)  # fallback: input order
         if order < best_order:
             best_order = order
             best = m
@@ -260,6 +267,22 @@ def main() -> int:
     k = min(3, N)
     seed = 42
     assignments = _kmeans(reduced, k, seed)
+
+    # Timing unit check: reject mixed selected bases
+    timing_bases = set()
+    for m in meta:
+        tb = m.get("timing_basis")
+        if tb:
+            timing_bases.add(tb)
+    if len(timing_bases) > 1:
+        print(f"weight_unit_conflict: mixed timing bases {timing_bases}")
+        if SG_PATH.exists():
+            sg = json.loads(SG_PATH.read_text())
+            sg["run_status"] = "weight_unit_conflict"
+            sg["stages"]["stage_3_selector"] = "blocked"
+            sg["stages"]["stage_4_b_line_consumption"] = "blocked"
+            SG_PATH.write_text(json.dumps(sg, indent=2) + "\n")
+        return 5
 
     # Build clusters
     clusters: dict[int, list[int]] = {}

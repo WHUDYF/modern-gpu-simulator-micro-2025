@@ -257,31 +257,53 @@ def _adapt_ncu_csv(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
             except ValueError:
                 pass
         if gs and inv_map[kid]["_grid_size"] is None:
-            nums = re.findall(r'\d+', gs)
+            nums = [int(x) for x in re.findall(r'\d+', gs)]
             if nums:
-                inv_map[kid]["_grid_size"] = int(nums[0])
+                # Use product for 2D/3D grids: (938, 1, 1) -> 938, (16, 8) -> 128
+                prod = 1
+                for n in nums:
+                    prod *= n
+                inv_map[kid]["_grid_size"] = prod
         if kn:
             inv_map[kid]["_kernel_name"] = kn
 
     results = []
     occurrence: dict[str, int] = {}
-    for idx, (kid, inv_data) in enumerate(sorted(inv_map.items())):
+    file_stem = source_path.stem.lower()
+    # Process in first-seen order (natural key order from CSV)
+    ordered_ids = sorted(inv_map.keys(), key=lambda k: int(k) if k.isdigit() else float('inf'))
+    for idx, kid in enumerate(ordered_ids):
+        inv_data = inv_map[kid]
         kn = inv_data["_kernel_name"]
         gs = inv_data["_grid_size"]
         metric_map = inv_data["_metric_map"]
         if gs is not None:
             metric_map["launch_grid_size"] = gs
 
-        # Identity filtering by kernel name
+        # Identity filtering: kernel name OR file-stem fallback
         if kn and not _match_kernel_name(kn, kernel_or_case):
-            continue
+            if kernel_or_case.lower() not in file_stem:
+                continue
 
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
 
+        # Extract timing from Duration/Elapsed Cycles
+        timing_basis = None
+        timing_value = None
+        dur = metric_map.get("Duration")
+        ec = metric_map.get("Elapsed Cycles")
+        if dur is not None:
+            timing_basis = "duration_ns"
+            timing_value = float(dur)
+        elif ec is not None:
+            timing_basis = "elapsed_cycles"
+            timing_value = float(ec)
+
         features = _extract_pka_features(metric_map, str(source_path))
-        results.append(_make_record(entry, invocation_id, kn or kernel_or_case, features, trace_order=idx))
+        results.append(_make_record(entry, invocation_id, kn or kernel_or_case, features,
+                                    trace_order=idx, timing_basis=timing_basis, timing_value=timing_value))
 
     if not results:
         raise ValueError(f"{entry['id']}: NCU CSV produced zero outcomes for {kernel_or_case} in {source_path}")
@@ -339,7 +361,9 @@ ADAPTERS = {
 }
 
 
-def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, features: dict[str, Any], trace_order: int | None = None) -> dict[str, Any]:
+def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, features: dict[str, Any],
+                 trace_order: int | None = None, timing_basis: str | None = None,
+                 timing_value: float | None = None) -> dict[str, Any]:
     first_key = list(features.keys())[0] if features else ""
     rec = {
         "manifest_id": entry["id"],
@@ -355,6 +379,11 @@ def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, fe
         rec["trace_order"] = trace_order
     if _is_fully_measured(features):
         rec["outcome"] = "measured"
+        rec["feature_mode"] = "pka_l1_measured_only"
+        if timing_basis:
+            rec["timing_basis"] = timing_basis
+            if timing_value is not None:
+                rec["timing_value"] = timing_value
     else:
         rec["outcome"] = "acquisition_gap"
         rec["missing_metrics"] = _collect_missing(features)

@@ -84,6 +84,35 @@ def test_builder_normalizes_repo_absolute_provenance(tmp_path):
     )
 
 
+def test_builder_canonicalizes_dot_prefixed_repo_provenance(tmp_path):
+    out_dir = tmp_path / "out"
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--trace-benchmark-md",
+            "./docs/trace-benchmark-2026-04-03.md",
+            "--output-dir",
+            str(out_dir),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads((out_dir / "benchmark_cost_map.json").read_text())
+    assert payload["trace_benchmark_source"] == "docs/trace-benchmark-2026-04-03.md"
+
+    measured = [row for row in payload["records"] if row["status"] == "measured"]
+    assert any(
+        row["representative_case"] == "l2_bw_32f"
+        and row["evidence"] == payload["trace_benchmark_source"]
+        for row in measured
+    )
+
+
 def test_builder_rejects_missing_trace_benchmark(tmp_path):
     out_dir = tmp_path / "out"
     json_path = out_dir / "benchmark_cost_map.json"

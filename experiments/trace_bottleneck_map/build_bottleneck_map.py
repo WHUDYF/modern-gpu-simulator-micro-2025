@@ -9,6 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT_RESOLVED = REPO_ROOT.resolve()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -30,14 +31,11 @@ def _records_from_observations(observations: list[BenchmarkObservation]) -> list
 
 def _stable_trace_benchmark_source(raw_path: str) -> str:
     path = Path(raw_path)
-    if not path.is_absolute():
-        return raw_path
-
-    resolved = path.resolve()
+    resolved = path.resolve() if path.is_absolute() else (Path.cwd() / path).resolve()
     try:
-        return str(resolved.relative_to(REPO_ROOT.resolve()))
+        return str(resolved.relative_to(REPO_ROOT_RESOLVED))
     except ValueError:
-        return str(resolved)
+        return str(resolved) if path.is_absolute() else raw_path
 
 
 def _build_markdown(records: list[dict]) -> str:

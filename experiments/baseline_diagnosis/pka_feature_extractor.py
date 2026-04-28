@@ -1,14 +1,13 @@
 """PKA feature extractor for L1.
 
-Extracts the 12-dimensional PKA feature vector from heterogeneous source types
-(microbench JSON, Rodinia trace/NCU artifacts, mini-transformer full JSON).
-
-Produces PkaFeatureTable (measured invocations) and PkaAcquisitionGap
-(incomplete invocations) following the measured-only policy.
+Extracts the 12-dimensional PKA feature vector from heterogeneous source types.
+Produces PkaFeatureTable (measured invocations) and PkaAcquisitionGap.
+Enforces exactly-one-outcome per P0 invocation.
 """
 
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from pathlib import Path
@@ -19,87 +18,45 @@ MANIFEST_PATH = REPO_ROOT / "artifacts" / "a_line" / "l1" / "kernel_validation_m
 OUTPUT_DIR = REPO_ROOT / "artifacts" / "a_line" / "l1"
 
 PKA_FEATURES: dict[str, dict[str, str]] = {
-    "coalesced_global_loads": {
-        "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum",
-        "category": "coalesced_memory",
-    },
-    "coalesced_global_stores": {
-        "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum",
-        "category": "coalesced_memory",
-    },
-    "coalesced_local_loads": {
-        "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum",
-        "category": "coalesced_memory",
-    },
-    "thread_global_loads": {
-        "canonical_metric": "smsp__inst_executed_op_global_ld.sum",
-        "category": "thread_instruction",
-    },
-    "thread_global_stores": {
-        "canonical_metric": "smsp__inst_executed_op_global_st.sum",
-        "category": "thread_instruction",
-    },
-    "thread_local_loads": {
-        "canonical_metric": "smsp__inst_executed_op_local_ld.sum",
-        "category": "thread_instruction",
-    },
-    "thread_shared_loads": {
-        "canonical_metric": "smsp__inst_executed_op_shared_ld.sum",
-        "category": "thread_instruction",
-    },
-    "thread_shared_stores": {
-        "canonical_metric": "smsp__inst_executed_op_shared_st.sum",
-        "category": "thread_instruction",
-    },
-    "thread_global_atomics": {
-        "canonical_metric": "smsp__sass_inst_executed_op_global_atom.sum",
-        "category": "thread_instruction",
-    },
-    "num_instructions": {
-        "canonical_metric": "smsp__inst_executed.sum",
-        "category": "scale_signal",
-    },
-    "divergence_efficiency": {
-        "canonical_metric": "smsp__thread_inst_executed_per_inst_executed.ratio",
-        "category": "efficiency_signal",
-    },
-    "num_thread_blocks": {
-        "canonical_metric": "launch_grid_size",
-        "category": "scale_signal",
-    },
+    "coalesced_global_loads": {"canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum", "category": "coalesced_memory"},
+    "coalesced_global_stores": {"canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum", "category": "coalesced_memory"},
+    "coalesced_local_loads": {"canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_local_op_ld.sum", "category": "coalesced_memory"},
+    "thread_global_loads": {"canonical_metric": "smsp__inst_executed_op_global_ld.sum", "category": "thread_instruction"},
+    "thread_global_stores": {"canonical_metric": "smsp__inst_executed_op_global_st.sum", "category": "thread_instruction"},
+    "thread_local_loads": {"canonical_metric": "smsp__inst_executed_op_local_ld.sum", "category": "thread_instruction"},
+    "thread_shared_loads": {"canonical_metric": "smsp__inst_executed_op_shared_ld.sum", "category": "thread_instruction"},
+    "thread_shared_stores": {"canonical_metric": "smsp__inst_executed_op_shared_st.sum", "category": "thread_instruction"},
+    "thread_global_atomics": {"canonical_metric": "smsp__sass_inst_executed_op_global_atom.sum", "category": "thread_instruction"},
+    "num_instructions": {"canonical_metric": "smsp__inst_executed.sum", "category": "scale_signal"},
+    "divergence_efficiency": {"canonical_metric": "smsp__thread_inst_executed_per_inst_executed.ratio", "category": "efficiency_signal"},
+    "num_thread_blocks": {"canonical_metric": "launch_grid_size", "category": "scale_signal"},
 }
 
 
-def _extract_pka_features(
-    feature_map: dict[str, Any],
-    source_artifact_path: str,
-) -> dict[str, Any]:
-    """Extract PKA features from a flat feature name -> value map.
-
-    For each of the 12 PKA features, checks if the canonical metric name
-    is present as a key in feature_map. Returns per-feature {value, status,
-    canonical_metric, actual_source_metric, source_artifact_path}.
-    """
-    features: dict[str, Any] = {}
+def _extract_pka_features(metric_map: dict[str, Any], source_path: str) -> dict[str, Any]:
+    features = {}
     for pka_name, spec in PKA_FEATURES.items():
         canonical = spec["canonical_metric"]
-        if canonical in feature_map:
+        if canonical in metric_map:
             features[pka_name] = {
-                "value": float(feature_map[canonical]),
-                "status": "measured",
-                "canonical_metric": canonical,
-                "actual_source_metric": canonical,
-                "source_artifact_path": source_artifact_path,
+                "value": float(metric_map[canonical]), "status": "measured",
+                "canonical_metric": canonical, "actual_source_metric": canonical,
+                "source_artifact_path": source_path,
             }
         else:
             features[pka_name] = {
-                "value": None,
-                "status": "missing",
-                "canonical_metric": canonical,
-                "actual_source_metric": None,
-                "source_artifact_path": source_artifact_path,
+                "value": None, "status": "missing",
+                "canonical_metric": canonical, "actual_source_metric": None,
+                "source_artifact_path": source_path,
+                "missing_reason": _missing_reason(canonical),
             }
     return features
+
+
+def _missing_reason(canonical: str) -> str:
+    if canonical == "launch_grid_size":
+        return "launch_metadata_absent"
+    return "canonical_metric_absent"
 
 
 def _is_fully_measured(features: dict[str, Any]) -> bool:
@@ -110,167 +67,156 @@ def _collect_missing(features: dict[str, Any]) -> list[str]:
     return [name for name, f in features.items() if f["status"] != "measured"]
 
 
-def _adapt_microbench(source_path: Path, kernel_or_case: str) -> list[dict[str, Any]]:
-    """Adapt microbench JSON to PKA feature records.
+def _match_kernel_name(mangled: str, target: str) -> bool:
+    """Match a demangled kernel_or_case against a mangled C++ kernel name."""
+    target_lower = target.lower()
+    mangled_lower = mangled.lower()
+    if target_lower in mangled_lower:
+        return True
+    # Extract base name from mangled: _Z\d+base_name...
+    import re
+    m = re.match(r'_Z\d+(\w+)', mangled)
+    if m:
+        base = m.group(1).lower()
+        if target_lower in base:
+            return True
+    return False
 
-    Each microbench file contains exactly one kernel invocation. The kernel
-    name in the file is C++ mangled (e.g., _Z5l1_bwPjS_PfS0____0), so we
-    do NOT filter by kernel_or_case — the manifest entry's local_input_path
-    already identifies the correct file. We process all kernels found.
-    """
-    data = json.loads(source_path.read_text())
-    eei = data.get("enhanced_execution_info", {})
-    kernels = eei.get("kernels", [])
 
-    results: list[dict[str, Any]] = []
+def _adapt_microbench(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
+    """Adapt microbench JSON. One kernel per file, so we process all kernels found."""
+    kernel_or_case = entry["kernel_or_case"]
+    try:
+        data = json.loads(source_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{entry['id']}: source file is not valid JSON: {source_path}") from exc
+
+    eei = data.get("enhanced_execution_info")
+    if not eei or "kernels" not in eei:
+        raise ValueError(f"{entry['id']}: source file missing enhanced_execution_info.kernels: {source_path}")
+
+    results = []
     occurrence: dict[str, int] = {}
-
-    for idx, kernel in enumerate(kernels):
+    for kernel in eei["kernels"]:
         kernel_name = kernel.get("kernel_name", "")
-
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
 
-        # Collect all available numeric data into a flat metric map
         metric_map: dict[str, Any] = {}
-        # enhanced_execution_info kernel fields that are numeric
         for k, v in kernel.items():
             if isinstance(v, (int, float)) and not isinstance(v, bool):
                 metric_map[k] = v
-        # threadblock_features per-TB data
         tbf = data.get("threadblock_features", {})
-        for tb_key, tb_data in tbf.items():
+        for tb_data in tbf.values():
             if isinstance(tb_data, dict):
-                metric_map.update(
-                    {k: v for k, v in tb_data.items() if isinstance(v, (int, float))}
-                )
+                metric_map.update({k: v for k, v in tb_data.items() if isinstance(v, (int, float))})
 
         features = _extract_pka_features(metric_map, str(source_path))
-        all_measured = _is_fully_measured(features)
+        results.append(_make_record(entry, invocation_id, kernel_name, features))
 
-        if all_measured:
-            results.append({
-                "record_id": f"L1_MB_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "feature_mode": "pka_l1_measured_only",
-                "features": features,
-                "metadata": {
-                    "source_path": str(source_path),
-                    "source_type": "local_microbench",
-                },
-            })
-        else:
-            results.append({
-                "record_id": f"L1_MB_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "outcome": "acquisition_gap",
-                "missing_metrics": _collect_missing(features),
-                "feature_details": features,
-                "source_path": str(source_path),
-            })
-
+    if not results:
+        raise ValueError(f"{entry['id']}: microbench adapter produced zero outcomes for {source_path}")
     return results
 
 
-def _adapt_rodinia(source_path: Path, kernel_or_case: str) -> list[dict[str, Any]]:
-    """Adapt Rodinia trace/NCU artifact to PKA feature records.
+def _adapt_rodinia(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
+    """Adapt Rodinia trace/NCU artifact."""
+    kernel_or_case = entry["kernel_or_case"]
 
-    Rodinia trace JSON has enhanced_execution_info + threadblock_features.
-    Kernel names are C++ mangled (e.g., _Z6euclidPcffPfiii___0 for nn).
-    We process all kernels in the file without strict name filtering since
-    each trace file corresponds to one benchmark.
-    """
     if source_path.suffix == ".md":
-        return [{
-            "record_id": f"L1_RD_{kernel_or_case}",
-            "kernel_invocation_id": f"{kernel_or_case}#1",
-            "kernel_name": kernel_or_case,
-            "outcome": "acquisition_gap",
-            "missing_metrics": list(PKA_FEATURES.keys()),
-            "feature_details": {},
-            "source_path": str(source_path),
-            "gap_reason": "source is a prescription document, not measurement data",
-        }]
+        features = {}
+        for pka_name, spec in PKA_FEATURES.items():
+            features[pka_name] = {
+                "value": None, "status": "missing",
+                "canonical_metric": spec["canonical_metric"],
+                "actual_source_metric": None,
+                "source_artifact_path": str(source_path),
+                "missing_reason": "source_is_prescription_document",
+            }
+        return [_make_record(entry, f"{kernel_or_case}#1", kernel_or_case, features)]
 
-    data = json.loads(source_path.read_text())
-    eei = data.get("enhanced_execution_info", {})
-    kernels = eei.get("kernels", [])
+    if source_path.suffix == ".csv":
+        return _adapt_ncu_csv(entry, source_path)
 
-    results: list[dict[str, Any]] = []
+    try:
+        data = json.loads(source_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{entry['id']}: source file is not valid JSON: {source_path}") from exc
+
+    eei = data.get("enhanced_execution_info")
+    if not eei or "kernels" not in eei:
+        raise ValueError(f"{entry['id']}: source file missing enhanced_execution_info.kernels: {source_path}")
+
+    results = []
     occurrence: dict[str, int] = {}
-
-    for kernel in kernels:
+    for kernel in eei["kernels"]:
         kernel_name = kernel.get("kernel_name", "")
-
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
 
-        # Collect all available data
         metric_map: dict[str, Any] = {}
         for k, v in kernel.items():
             if isinstance(v, (int, float)) and not isinstance(v, bool):
                 metric_map[k] = v
         tbf = data.get("threadblock_features", {})
-        for tb_key, tb_data in tbf.items():
+        for tb_data in tbf.values():
             if isinstance(tb_data, dict):
-                metric_map.update(
-                    {k: v for k, v in tb_data.items() if isinstance(v, (int, float))}
-                )
+                metric_map.update({k: v for k, v in tb_data.items() if isinstance(v, (int, float))})
 
         features = _extract_pka_features(metric_map, str(source_path))
-        all_measured = _is_fully_measured(features)
+        results.append(_make_record(entry, invocation_id, kernel_name, features))
 
-        if all_measured:
-            results.append({
-                "record_id": f"L1_RD_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "feature_mode": "pka_l1_measured_only",
-                "features": features,
-                "metadata": {"source_path": str(source_path), "source_type": "local_benchmark_result"},
-            })
-        else:
-            results.append({
-                "record_id": f"L1_RD_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "outcome": "acquisition_gap",
-                "missing_metrics": _collect_missing(features),
-                "feature_details": features,
-                "source_path": str(source_path),
-            })
-
+    if not results:
+        raise ValueError(f"{entry['id']}: rodinia adapter produced zero outcomes for {source_path}")
     return results
 
 
-def _adapt_mini_transformer(source_path: Path, kernel_or_case: str) -> list[dict[str, Any]]:
-    """Adapt mini-transformer full JSON to PKA feature records.
+def _adapt_ncu_csv(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
+    """Parse Rodinia NCU CSV with metric_name, metric_value columns."""
+    kernel_or_case = entry["kernel_or_case"]
+    metric_map: dict[str, Any] = {}
+    with open(source_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row.get("metric_name", "").strip()
+            val = row.get("metric_value", "").strip()
+            if name and val:
+                try:
+                    metric_map[name] = float(val)
+                except ValueError:
+                    pass
+    # Also check for launch grid from CSV metadata
+    features = _extract_pka_features(metric_map, str(source_path))
+    return [_make_record(entry, f"{kernel_or_case}#1", kernel_or_case, features)]
 
-    Mini-transformer JSON has per_kernel format with hardware_metrics
-    and dynamic_stats. The hardware_metrics use a different vocabulary
-    (achieved_occupancy_pct, compute_throughput_pct, etc.) than the
-    canonical 12 PKA Nsight metric names.
-    """
-    data = json.loads(source_path.read_text())
-    per_kernel = data.get("per_kernel", {})
 
-    results: list[dict[str, Any]] = []
+def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
+    """Adapt mini-transformer full JSON."""
+    kernel_or_case = entry["kernel_or_case"]
+    try:
+        data = json.loads(source_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{entry['id']}: source file is not valid JSON: {source_path}") from exc
+
+    per_kernel = data.get("per_kernel")
+    if not per_kernel:
+        raise ValueError(f"{entry['id']}: source file missing per_kernel: {source_path}")
+
+    results = []
     occurrence: dict[str, int] = {}
-
-    for source_key, item in per_kernel.items():
+    # Sort by source key to get stable trace_order
+    for source_key in sorted(per_kernel.keys()):
+        item = per_kernel[source_key]
         kernel_name = item.get("kernel_name", "")
-        if kernel_or_case not in kernel_name:
+        if not _match_kernel_name(kernel_name, kernel_or_case):
             continue
 
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
 
-        # Merge all available numeric fields into a flat metric map
         metric_map: dict[str, Any] = {}
         for section in ("hardware_metrics", "dynamic_stats", "compression_features"):
             section_data = item.get(section, {})
@@ -282,40 +228,10 @@ def _adapt_mini_transformer(source_path: Path, kernel_or_case: str) -> list[dict
                         metric_map[k] = v["mean"]
 
         features = _extract_pka_features(metric_map, str(source_path))
+        results.append(_make_record(entry, invocation_id, kernel_name, features))
 
-        # Special handling for num_thread_blocks: check dynamic_stats.num_blocks
-        # but only accept if actual launch_grid_size metric exists
-        if features["num_thread_blocks"]["status"] != "measured":
-            dyn_blocks = (
-                item.get("dynamic_stats", {}).get("num_blocks")
-            )
-            if dyn_blocks is not None and isinstance(dyn_blocks, (int, float)):
-                # num_blocks != launch_grid_size in general;
-                # marking as missing to follow the strict contract
-                pass
-
-        all_measured = _is_fully_measured(features)
-
-        if all_measured:
-            results.append({
-                "record_id": f"L1_AI_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "feature_mode": "pka_l1_measured_only",
-                "features": features,
-                "metadata": {"source_path": str(source_path), "source_type": "local_ai_workload"},
-            })
-        else:
-            results.append({
-                "record_id": f"L1_AI_{kernel_or_case}",
-                "kernel_invocation_id": invocation_id,
-                "kernel_name": kernel_name,
-                "outcome": "acquisition_gap",
-                "missing_metrics": _collect_missing(features),
-                "feature_details": features,
-                "source_path": str(source_path),
-            })
-
+    if not results:
+        raise ValueError(f"{entry['id']}: mini-transformer adapter produced zero outcomes for kernel_or_case={kernel_or_case} in {source_path}")
     return results
 
 
@@ -326,21 +242,61 @@ ADAPTERS = {
 }
 
 
-def _build_metric_availability_matrix(
-    all_records: list[dict[str, Any]],
-    manifest_entries: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Build a 10x12 availability matrix for P0 entries."""
-    p0_ids = [e["id"] for e in manifest_entries if e["priority"] == "P0"]
-    matrix: dict[str, dict[str, str]] = {}
-    for record in all_records:
-        rec_id = record.get("record_id", "")
-        if rec_id not in [f"L1_MB_{e['kernel_or_case']}" for e in manifest_entries if e["priority"] == "P0"]:
-            # Map record_id to manifest id
-            pass
-        # Use kernel_invocation_id as a more stable key
-        kid = record.get("kernel_invocation_id", record.get("record_id", "unknown"))
-        features = record.get("features", record.get("feature_details", {}))
+def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, features: dict[str, Any]) -> dict[str, Any]:
+    rec = {
+        "manifest_id": entry["id"],
+        "priority": entry["priority"],
+        "source_type": entry["source_type"],
+        "kernel_or_case": entry["kernel_or_case"],
+        "kernel_invocation_id": invocation_id,
+        "kernel_name": kernel_name,
+        "source_path": features.get(list(features.keys())[0], {}).get("source_artifact_path", ""),
+        "features": features,
+    }
+    if _is_fully_measured(features):
+        rec["outcome"] = "measured"
+    else:
+        rec["outcome"] = "acquisition_gap"
+        rec["missing_metrics"] = _collect_missing(features)
+    return rec
+
+
+def _validate_outcomes(records: list[dict[str, Any]], manifest: dict[str, Any]) -> list[str]:
+    """Post-adapter validation: exactly one outcome per P0 invocation, no duplicates."""
+    errors = []
+    p0_entries = {e["id"]: e for e in manifest["entries"] if e["priority"] == "P0"}
+    p0_outcomes: dict[str, list[dict]] = {}
+
+    for rec in records:
+        mid = rec.get("manifest_id", "")
+        if mid in p0_entries:
+            p0_outcomes.setdefault(mid, []).append(rec)
+
+    # Check each P0 entry has at least one outcome
+    for mid in p0_entries:
+        if mid not in p0_outcomes:
+            errors.append(f"{mid}: P0 manifest entry has zero outcomes")
+        else:
+            outcomes = p0_outcomes[mid]
+            # Check for duplicate invocation_ids
+            seen = set()
+            for rec in outcomes:
+                kid = rec.get("kernel_invocation_id", "")
+                if kid in seen:
+                    errors.append(f"{mid}: duplicate kernel_invocation_id: {kid}")
+                seen.add(kid)
+                # Check for ambiguous outcome
+                if rec.get("outcome") not in ("measured", "acquisition_gap"):
+                    errors.append(f"{mid}: invalid outcome type: {rec.get('outcome')}")
+
+    return errors
+
+
+def _build_availability_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
+    matrix = {}
+    for rec in records:
+        kid = rec.get("kernel_invocation_id", "unknown")
+        features = rec.get("features", {})
         matrix[kid] = {}
         for pka_name in PKA_FEATURES:
             f = features.get(pka_name, {})
@@ -349,10 +305,7 @@ def _build_metric_availability_matrix(
         "pka_features": list(PKA_FEATURES.keys()),
         "availability": matrix,
         "total_invocations": len(matrix),
-        "fully_measured_count": sum(
-            1 for row in matrix.values()
-            if all(v == "measured" for v in row.values())
-        ),
+        "fully_measured_count": sum(1 for row in matrix.values() if all(v == "measured" for v in row.values())),
     }
 
 
@@ -360,81 +313,57 @@ def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text())
     entries = manifest["entries"]
 
-    all_feature_records: list[dict[str, Any]] = []
-    all_gap_records: list[dict[str, Any]] = []
+    all_records = []
+    adapter_errors = []
 
     for entry in entries:
         source_type = entry["source_type"]
-        source_path = REPO_ROOT / entry["local_input_path"]
-        kernel_or_case = entry["kernel_or_case"]
-
+        source_path = REPO_ROOT / entry.get("local_input_path", "")
         adapter = ADAPTERS.get(source_type)
         if adapter is None:
             print(f"Warning: no adapter for source_type={source_type}, entry={entry['id']}")
             continue
+        try:
+            records = adapter(entry, source_path)
+            all_records.extend(records)
+        except (ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+            adapter_errors.append(str(exc))
 
-        records = adapter(source_path, kernel_or_case)
+    if adapter_errors:
+        print("Adapter errors:")
+        for err in adapter_errors:
+            print(f"  - {err}")
+        return 1
 
-        for rec in records:
-            if rec.get("outcome") == "acquisition_gap":
-                all_gap_records.append(rec)
-            else:
-                all_feature_records.append(rec)
+    outcome_errors = _validate_outcomes(all_records, manifest)
+    if outcome_errors:
+        print("Outcome validation failed:")
+        for err in outcome_errors:
+            print(f"  - {err}")
+        return 1
+
+    measured = [r for r in all_records if r["outcome"] == "measured"]
+    gaps = [r for r in all_records if r["outcome"] == "acquisition_gap"]
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Write PkaFeatureTable (measured invocations only)
-    feature_table_path = OUTPUT_DIR / "pka_feature_table_l1.json"
-    feature_table_path.write_text(
-        json.dumps(all_feature_records, indent=2, ensure_ascii=False) + "\n"
-    )
+    (OUTPUT_DIR / "pka_feature_table_l1.json").write_text(json.dumps(measured, indent=2, ensure_ascii=False) + "\n")
+    (OUTPUT_DIR / "pka_acquisition_gap_l1.json").write_text(json.dumps(gaps, indent=2, ensure_ascii=False) + "\n")
 
-    # Write PkaAcquisitionGap
-    gap_path = OUTPUT_DIR / "pka_acquisition_gap_l1.json"
-    gap_path.write_text(
-        json.dumps(all_gap_records, indent=2, ensure_ascii=False) + "\n"
-    )
+    matrix = _build_availability_matrix(all_records)
+    (OUTPUT_DIR / "pka_metric_availability_matrix_l1.json").write_text(json.dumps(matrix, indent=2, ensure_ascii=False) + "\n")
 
-    # Write metric availability matrix
-    matrix = _build_metric_availability_matrix(
-        all_feature_records + all_gap_records, entries
-    )
-    matrix_path = OUTPUT_DIR / "pka_metric_availability_matrix_l1.json"
-    matrix_path.write_text(
-        json.dumps(matrix, indent=2, ensure_ascii=False) + "\n"
-    )
-
-    # Determine P0 gap status
-    p0_entries = [e for e in entries if e["priority"] == "P0"]
-    p0_gap_records = [
-        r for r in all_gap_records
-        if any(r.get("record_id", "").endswith(e["kernel_or_case"]) for e in p0_entries)
-    ]
+    p0_gaps = [r for r in gaps if r["priority"] == "P0"]
 
     print(f"Feature extraction complete:")
-    print(f"  Measured invocations: {len(all_feature_records)}")
-    print(f"  Acquisition gap invocations: {len(all_gap_records)}")
-    print(f"  P0 gap invocations: {len(p0_gap_records)}")
+    print(f"  Measured invocations: {len(measured)}")
+    print(f"  Acquisition gap invocations: {len(gaps)}")
+    print(f"  P0 gap invocations: {len(p0_gaps)}")
     print(f"  Metric availability: {matrix['fully_measured_count']}/{matrix['total_invocations']} fully measured")
 
-    if p0_gap_records:
-        print()
-        print("BLOCKED: P0 acquisition gaps detected. Selector (T5) and B-line (T6) must not run.")
-        print("Gap invocations:")
-        for r in p0_gap_records:
-            print(f"  - {r.get('kernel_invocation_id', r.get('record_id'))}: "
-                  f"missing {len(r.get('missing_metrics', []))} metrics")
-        print()
-        print("Outputs written:")
-        print(f"  {feature_table_path}")
-        print(f"  {gap_path}")
-        print(f"  {matrix_path}")
-        return 2  # signal: blocked on acquisition
-
-    print(f"Outputs written:")
-    print(f"  {feature_table_path}")
-    print(f"  {gap_path}")
-    print(f"  {matrix_path}")
+    if p0_gaps:
+        print("\nBLOCKED: P0 acquisition gaps detected.")
+        return 2
     return 0
 
 

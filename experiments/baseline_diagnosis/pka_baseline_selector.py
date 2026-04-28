@@ -1,29 +1,24 @@
 """PKA baseline selector for L1.
 
-Reads the PKA feature table and runs PKA-style grouping (PCA-like dimensionality
-reduction + k-means clustering) on the 12-dimensional feature space. Forbidden
-fields (kernel_name, grid_dim, block_dim, compression-side, family/regime/lane)
-must not enter the grouping key.
-
-For L1, the selector is gate-protected: it reads the stage-gate report and
-refuses to run when P0 acquisition gaps exist.
+Reads PkaFeatureTable, runs PCA-like dimensionality reduction + k-means
+clustering on the 12-D feature space. Forbidden fields must not enter
+the grouping key. Emits selector config, dimensionality reduction report,
+reduced feature table, cluster assignment, and anchor table.
 """
 
 from __future__ import annotations
 
-import json
-import sys
+import json, math, sys
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACT_DIR = REPO_ROOT / "artifacts" / "a_line" / "l1"
 
-FEATURE_TABLE_PATH = ARTIFACT_DIR / "pka_feature_table_l1.json"
-STAGE_GATE_PATH = ARTIFACT_DIR / "l1_stage_gate_report_l1.json"
-OUTPUT_PATH = ARTIFACT_DIR / "representative_anchor_table_l1.json"
+FT_PATH = ARTIFACT_DIR / "pka_feature_table_l1.json"
+SG_PATH = ARTIFACT_DIR / "l1_stage_gate_report_l1.json"
 
-FORBIDDEN_FIELDS = frozenset({
+FORBIDDEN = frozenset({
     "kernel_name", "grid_dim", "block_dim", "shape_hint", "trace_order",
     "cross_tb_offset_coverage", "squash_boundary_crossing_flag",
     "family_id", "regime_id", "route_primitive", "execution_template",
@@ -33,102 +28,305 @@ FORBIDDEN_FIELDS = frozenset({
 })
 
 ALLOWED_FEATURES = [
-    "coalesced_global_loads",
-    "coalesced_global_stores",
-    "coalesced_local_loads",
-    "thread_global_loads",
-    "thread_global_stores",
-    "thread_local_loads",
-    "thread_shared_loads",
-    "thread_shared_stores",
-    "thread_global_atomics",
-    "num_instructions",
-    "divergence_efficiency",
-    "num_thread_blocks",
+    "coalesced_global_loads", "coalesced_global_stores", "coalesced_local_loads",
+    "thread_global_loads", "thread_global_stores", "thread_local_loads",
+    "thread_shared_loads", "thread_shared_stores", "thread_global_atomics",
+    "num_instructions", "divergence_efficiency", "num_thread_blocks",
 ]
 
+COUNT_FEATURES = {
+    "coalesced_global_loads", "coalesced_global_stores", "coalesced_local_loads",
+    "thread_global_loads", "thread_global_stores", "thread_local_loads",
+    "thread_shared_loads", "thread_shared_stores", "thread_global_atomics",
+    "num_instructions", "num_thread_blocks",
+}
 
-def _check_stage_gate() -> tuple[bool, str]:
-    """Check if the stage gate allows selector execution."""
-    if not STAGE_GATE_PATH.exists():
+RATIO_FEATURES = {"divergence_efficiency"}
+
+
+def _check_gate() -> tuple[bool, str]:
+    if not SG_PATH.exists():
         return False, "stage gate report not found"
-    report = json.loads(STAGE_GATE_PATH.read_text())
-    stage_3 = report.get("stages", {}).get("stage_3_selector", "unknown")
-    if stage_3 == "blocked":
-        return False, report.get("next_action", "blocked by stage gate")
+    sg = json.loads(SG_PATH.read_text())
+    s3 = sg.get("stages", {}).get("stage_3_selector", "unknown")
+    if s3 == "blocked":
+        return False, sg.get("next_action", "blocked")
     return True, ""
 
 
-def _validate_forbidden_fields(feature_space: list[str]) -> list[str]:
-    """Return list of forbidden fields found in the feature space."""
-    return sorted(set(feature_space) & set(FORBIDDEN_FIELDS))
+def _validate_allowlist(feature_list: list[str]) -> list[str]:
+    allow_set = set(feature_list)
+    expected = set(ALLOWED_FEATURES)
+    extra = sorted(allow_set - expected)
+    missing = sorted(expected - allow_set)
+    errors = []
+    if extra:
+        errors.append(f"Extra features not in PKA spec: {extra}")
+    if missing:
+        errors.append(f"Missing required PKA features: {missing}")
+    forbidden = sorted(set(feature_list) & FORBIDDEN)
+    if forbidden:
+        errors.append(f"Forbidden fields in allowlist: {forbidden}")
+    return errors
 
 
-def _build_feature_matrix(records: list[dict[str, Any]]) -> tuple[list[list[float]], list[dict[str, Any]]]:
-    """Build numeric feature matrix from PkaFeatureRecords."""
-    matrix = []
-    meta = []
+def _build_matrix(records: list[dict], timing_unit: str | None = None) -> tuple[list[list[float]], list[dict], list[str]]:
+    matrix, meta = [], []
     for rec in records:
         features = rec.get("features", {})
         row = []
-        valid = True
-        for feat_name in ALLOWED_FEATURES:
-            f = features.get(feat_name, {})
+        ok = True
+        for fn in ALLOWED_FEATURES:
+            f = features.get(fn, {})
             val = f.get("value")
             if val is None or f.get("status") != "measured":
-                valid = False
+                ok = False
                 break
             row.append(float(val))
-        if valid and len(row) == 12:
+        if ok and len(row) == 12:
             matrix.append(row)
             meta.append(rec)
-    return matrix, meta
+    return matrix, meta, []
 
 
-def _select_first_chronological(members: list[dict[str, Any]]) -> dict[str, Any]:
-    """Select representative by earliest trace_order (first_chronological rule)."""
-    return min(
-        members,
-        key=lambda r: (
-            r.get("metadata", {}).get("trace_order")
-            if r.get("metadata", {}).get("trace_order") is not None
-            else float("inf")
-        ),
-    )
+def _mean(vals):
+    return sum(vals) / len(vals)
+
+
+def _std(vals, m):
+    return math.sqrt(sum((x - m) ** 2 for x in vals) / len(vals))
+
+
+def _standardize(matrix):
+    N = len(matrix)
+    if N == 0:
+        return matrix, [], []
+    D = len(matrix[0])
+    means = [_mean([matrix[i][j] for i in range(N)]) for j in range(D)]
+    stds = [_std([matrix[i][j] for i in range(N)], means[j]) for j in range(D)]
+    zero_var = [j for j in range(D) if stds[j] == 0]
+    for j in zero_var:
+        stds[j] = 1.0
+    result = [[(matrix[i][j] - means[j]) / stds[j] for j in range(D)] for i in range(N)]
+    return result, means, stds, zero_var
+
+
+def _covariance(matrix):
+    N, D = len(matrix), len(matrix[0]) if matrix else 0
+    cov = [[0.0] * D for _ in range(D)]
+    for i in range(D):
+        for j in range(D):
+            cov[i][j] = sum(matrix[k][i] * matrix[k][j] for k in range(N)) / (N - 1) if N > 1 else 0.0
+    return cov
+
+
+def _power_iteration(cov, iters=100):
+    D = len(cov)
+    v = [1.0 / math.sqrt(D)] * D
+    for _ in range(iters):
+        mv = [sum(cov[i][j] * v[j] for j in range(D)) for i in range(D)]
+        norm = math.sqrt(sum(x * x for x in mv))
+        if norm < 1e-12:
+            break
+        v = [x / norm for x in mv]
+    eigval = sum(v[i] * sum(cov[i][j] * v[j] for j in range(D)) for i in range(D))
+    return eigval, v
+
+
+def _pca_reduce(matrix, n_components):
+    N, D = len(matrix), len(matrix[0]) if matrix else 0
+    if N < 2 or D == 0:
+        return matrix, [], [], 0.0
+    cov = _covariance(matrix)
+    components = []
+    eigvals = []
+    residual = [row[:] for row in cov]
+    for _ in range(min(n_components, D)):
+        eigval, vec = _power_iteration(residual)
+        eigvals.append(eigval)
+        components.append(vec)
+        for i in range(D):
+            for j in range(D):
+                residual[i][j] -= eigval * vec[i] * vec[j]
+    total_var = sum(eigvals)
+    explained = []
+    for ev in eigvals:
+        explained.append(ev / total_var if total_var > 0 else 0.0)
+    reduced = [[sum(matrix[i][j] * components[c][j] for j in range(D)) for c in range(len(components))] for i in range(N)]
+    return reduced, components, explained, sum(explained)
+
+
+def _kmeans(data, k, seed=42, max_iters=100):
+    import random
+    rng = random.Random(seed)
+    N = len(data)
+    if N == 0:
+        return []
+    k = min(k, N)
+    centers = [data[i][:] for i in rng.sample(range(N), k)]
+    assignments = [0] * N
+    for _ in range(max_iters):
+        changed = False
+        for i in range(N):
+            best_c, best_d = -1, float("inf")
+            for c in range(k):
+                d = sum((data[i][j] - centers[c][j]) ** 2 for j in range(len(data[i])))
+                if d < best_d:
+                    best_d = d
+                    best_c = c
+            if assignments[i] != best_c:
+                assignments[i] = best_c
+                changed = True
+        if not changed:
+            break
+        counts = [0] * k
+        new_centers = [[0.0] * len(data[0]) for _ in range(k)]
+        for i in range(N):
+            c = assignments[i]
+            counts[c] += 1
+            for j in range(len(data[i])):
+                new_centers[c][j] += data[i][j]
+        for c in range(k):
+            if counts[c] > 0:
+                new_centers[c] = [x / counts[c] for x in new_centers[c]]
+            else:
+                new_centers[c] = centers[c][:]
+        centers = new_centers
+    return assignments
+
+
+def _select_representative(members, meta):
+    """first_chronological: earliest by trace_order in metadata."""
+    best = None
+    best_order = float("inf")
+    for m in members:
+        order = m.get("metadata", {}).get("trace_order", float("inf"))
+        if order < best_order:
+            best_order = order
+            best = m
+    return best if best else members[0]
 
 
 def main() -> int:
-    ok, reason = _check_stage_gate()
+    ok, reason = _check_gate()
     if not ok:
-        print(f"Selector blocked by stage gate: {reason}")
-        print("The selector will not execute until all P0 acquisition gaps are resolved.")
+        print(f"Selector blocked: {reason}")
         return 2
 
-    feature_records = json.loads(FEATURE_TABLE_PATH.read_text())
-
-    if len(feature_records) < 2:
-        print(f"Selector blocked: only {len(feature_records)} measured records available (minimum 2 required).")
-        print("status: selector_insufficient_records")
+    records = json.loads(FT_PATH.read_text())
+    if len(records) < 2:
+        print(f"selector_insufficient_records: {len(records)} measured records")
         return 3
 
-    # Validate no forbidden fields in input
-    forbidden = _validate_forbidden_fields(ALLOWED_FEATURES)
-    if forbidden:
-        print(f"Selector rejected: forbidden fields found in feature space: {forbidden}")
+    # Validate allowlist
+    errs = _validate_allowlist(ALLOWED_FEATURES)
+    if errs:
+        print(f"Allowlist validation failed: {errs}")
         return 4
 
-    # Build feature matrix
-    matrix, meta = _build_feature_matrix(feature_records)
-    print(f"Feature matrix: {len(matrix)} records x {len(ALLOWED_FEATURES)} features")
+    # Build matrix with log1p for count features
+    matrix, meta, _ = _build_matrix(records)
+    N, D = len(matrix), len(matrix[0])
+    if N < 2:
+        print(f"selector_insufficient_records: {N} valid rows")
+        return 3
 
-    # Phase 1: Standardize (z-score)
-    means = [sum(col) / len(col) for col in zip(*matrix)]
-    # ... (full PCA + k-means implementation goes here)
-    # For L1 skeleton, we stop at validation
+    # log1p transform count features, keep ratio as-is
+    for i in range(N):
+        for j, fn in enumerate(ALLOWED_FEATURES):
+            if fn in COUNT_FEATURES:
+                matrix[i][j] = math.log1p(matrix[i][j])
 
-    print("Selector skeleton validation passed. Full PCA + k-means implementation pending.")
-    print(f"Allowlist: {ALLOWED_FEATURES}")
-    print(f"Forbidden fields validated: 0 violations")
+    # Standardize
+    std_matrix, means, stds, zero_var = _standardize(matrix)
+
+    # PCA
+    n_comp = min(3, N - 1, D)
+    reduced, components, explained_var, total_explained = _pca_reduce(std_matrix, n_comp)
+
+    # k-means
+    k = min(3, N)
+    seed = 42
+    assignments = _kmeans(reduced, k, seed)
+
+    # Build clusters
+    clusters: dict[int, list[int]] = {}
+    for i, c in enumerate(assignments):
+        clusters.setdefault(c, []).append(i)
+
+    # Select representatives
+    anchor_table = []
+    clist = sorted(clusters.items())
+    for cluster_idx, (_, member_idxs) in enumerate(clist, 1):
+        members = [meta[i] for i in member_idxs]
+        rep = _select_representative(members, meta)
+        member_ids = [m["kernel_invocation_id"] for m in members]
+        anchor_table.append({
+            "output_role": "mainline_anchor",
+            "rep_kernel_id": f"rep-pka-baseline-{cluster_idx}",
+            "kernel_name": rep.get("kernel_name", ""),
+            "cluster_id": f"pka-baseline-{cluster_idx}",
+            "member_invocations": member_ids,
+            "coverage_count": len(member_ids),
+            "coverage_weight": len(member_ids) / N,
+            "coverage_weight_source": "derived_from_member_count",
+            "time_weight": 1.0 / len(clist),
+            "time_weight_source": "uniform_no_timing_data",
+        })
+
+    # Emit selector config
+    config = {
+        "feature_allowlist": ALLOWED_FEATURES,
+        "allowlist_validated": True,
+        "preprocessing": {"log1p_features": sorted(COUNT_FEATURES), "ratio_features": sorted(RATIO_FEATURES)},
+        "standardization": {"zero_variance_columns": zero_var},
+        "pca": {"n_components": n_comp, "explained_variance_ratio": explained_var, "total_explained_variance": total_explained},
+        "kmeans": {"k": k, "seed": seed},
+        "representative_selection": "first_chronological",
+    }
+    (ARTIFACT_DIR / "pka_selector_config_l1.json").write_text(json.dumps(config, indent=2) + "\n")
+
+    # Dimensionality reduction report
+    dim_report = {
+        "n_components": n_comp, "explained_variance_ratio": explained_var,
+        "total_explained_variance": total_explained, "component_matrix": components,
+        "zero_variance_columns": zero_var, "feature_order": ALLOWED_FEATURES,
+        "mean": means, "std_deviation": stds,
+    }
+    (ARTIFACT_DIR / "pka_dimensionality_reduction_report_l1.json").write_text(json.dumps(dim_report, indent=2) + "\n")
+    dim_md = ["# PKA Dimensionality Reduction", "", f"Components: {n_comp}",
+              f"Total explained variance: {total_explained:.4f}", "",
+              "| PC | Explained Variance |", "|----|-------------------|"]
+    for i, ev in enumerate(explained_var, 1):
+        dim_md.append(f"| PC{i} | {ev:.4f} |")
+    if zero_var:
+        dim_md.extend(["", f"Zero-variance columns (kept as zero): {zero_var}"])
+    (ARTIFACT_DIR / "pka_dimensionality_reduction_report_l1.md").write_text("\n".join(dim_md) + "\n")
+
+    # Reduced feature table
+    reduced_table = []
+    for i in range(N):
+        row = {"kernel_invocation_id": meta[i]["kernel_invocation_id"]}
+        for c in range(n_comp):
+            row[f"PC{c+1}"] = reduced[i][c]
+        reduced_table.append(row)
+    (ARTIFACT_DIR / "pka_reduced_feature_table_l1.json").write_text(json.dumps(reduced_table, indent=2) + "\n")
+
+    # Cluster assignments
+    cluster_assign = []
+    for i in range(N):
+        cluster_assign.append({
+            "kernel_invocation_id": meta[i]["kernel_invocation_id"],
+            "cluster_id": f"pka-baseline-{assignments[i]+1}",
+        })
+    (ARTIFACT_DIR / "pka_cluster_assignment_l1.json").write_text(json.dumps(cluster_assign, indent=2) + "\n")
+
+    # Anchor table
+    (ARTIFACT_DIR / "representative_anchor_table_l1.json").write_text(json.dumps(anchor_table, indent=2) + "\n")
+
+    print(f"Selector complete: {N} records -> {k} clusters ({n_comp} PCA components)")
+    print(f"Explained variance: {total_explained:.4f}")
+    print(f"Clusters: {sorted([len(v) for v in clusters.values()])} members each")
     return 0
 
 

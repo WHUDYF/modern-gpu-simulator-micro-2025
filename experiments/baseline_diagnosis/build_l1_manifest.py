@@ -1,127 +1,160 @@
 """Build L1 kernel validation manifest JSON from the manifest document.
 
-Reads docs/a-line-l1-validation-manifest-2026-04-26.md and produces
-artifacts/a_line/l1/kernel_validation_manifest_l1.json.
+Parses the markdown table in docs/a-line-l1-validation-manifest-2026-04-26.md
+and produces artifacts/a_line/l1/kernel_validation_manifest_l1.json.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+MANIFEST_DOC = REPO_ROOT / "docs" / "a-line-l1-validation-manifest-2026-04-26.md"
 SCHEMA_PATH = REPO_ROOT / "experiments" / "baseline_diagnosis" / "schemas" / "kernel_validation_manifest_schema.json"
 OUTPUT_PATH = REPO_ROOT / "artifacts" / "a_line" / "l1" / "kernel_validation_manifest_l1.json"
 
 SOURCE_TYPE_MAP = {
     "microbench": "local_microbench",
     "rodinia": "local_benchmark_result",
+    "ai workload": "local_ai_workload",
     "ai_workload": "local_ai_workload",
 }
 
-
-def _make_entry(
-    entry_id: str,
-    source: str,
-    benchmark_name: str,
-    kernel_or_case: str,
-    local_path: str,
-    priority: str,
-    expected_behavior_axis: str,
-    expected_scale_axis: str | None = None,
-    validation_role: str | None = None,
-    notes: str | None = None,
-) -> dict:
-    entry = {
-        "id": entry_id,
-        "source_type": SOURCE_TYPE_MAP[source],
-        "benchmark_name": benchmark_name,
-        "kernel_or_case": kernel_or_case,
-        "local_input_path": local_path,
-        "priority": priority,
-        "target_line": "A+B",
-        "expected_behavior_axis": expected_behavior_axis,
-        "status": "ready_local",
-    }
-    if expected_scale_axis is not None:
-        entry["expected_scale_axis"] = expected_scale_axis
-    if validation_role is not None:
-        entry["validation_role"] = validation_role
-    if notes is not None:
-        entry["notes"] = notes
-    return entry
+# Per-source-type required top-level keys in the source file
+SOURCE_REQUIRED_KEYS = {
+    "local_microbench": ["enhanced_execution_info"],
+    "local_benchmark_result": ["enhanced_execution_info"],
+    "local_ai_workload": ["per_kernel"],
+}
 
 
-P0_ENTRIES = [
-    _make_entry("L1_MB_01", "microbench", "l1_bw_32f", "l1_bw_32f",
-                "experiments/baseline_diagnosis/results/microbench/l1_bw_32f.json",
-                "P0", "L1 bandwidth / coalesced load-heavy",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_MB_02", "microbench", "l2_bw_32f", "l2_bw_32f",
-                "experiments/baseline_diagnosis/results/microbench/l2_bw_32f.json",
-                "P0", "L2 / global-memory bandwidth",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_MB_03", "microbench", "mem_bw", "mem_bw",
-                "experiments/baseline_diagnosis/results/microbench/mem_bw.json",
-                "P0", "global-memory bandwidth",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_MB_04", "microbench", "mem_lat", "mem_lat",
-                "experiments/baseline_diagnosis/results/microbench/mem_lat.json",
-                "P0", "global-memory latency",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_MB_05", "microbench", "shared_bw", "shared_bw",
-                "experiments/baseline_diagnosis/results/microbench/shared_bw.json",
-                "P0", "shared-memory throughput",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_MB_09", "microbench", "MaxFlops", "MaxFlops",
-                "experiments/baseline_diagnosis/results/microbench/MaxFlops.json",
-                "P0", "compute-bound",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_RD_01", "rodinia", "nn", "nn",
-                "experiments/baseline_diagnosis/results/rodinia/nn_trace.json",
-                "P0", "distance / memory-sensitive / possible uncoalesced global access",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_AI_01", "ai_workload", "gemm_tiled", "gemm_tiled",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P0", "dense compute backbone",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_AI_02", "ai_workload", "attention_score", "attention_score",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P0", "pairwise score / dense compute",
-                validation_role="feature_sanity_gate"),
-    _make_entry("L1_AI_03", "ai_workload", "softmax_kernel", "softmax_kernel",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P0", "reduction / normalize",
-                validation_role="feature_sanity_gate"),
-]
+def _parse_markdown_table(md_text: str) -> list[dict[str, str]]:
+    """Parse the L1 validation manifest markdown table.
 
-P1_ENTRIES = [
-    _make_entry("L1_MB_06", "microbench", "shared_lat", "shared_lat",
-                "experiments/baseline_diagnosis/results/microbench/shared_lat.json",
-                "P1", "shared-memory latency"),
-    _make_entry("L1_MB_07", "microbench", "atomic_add_bw", "atomic_add_bw",
-                "experiments/baseline_diagnosis/results/microbench/atomic_add_bw.json",
-                "P1", "atomic-heavy / serialization-sensitive"),
-    _make_entry("L1_MB_08", "microbench", "atomic_add_lat", "atomic_add_lat",
-                "experiments/baseline_diagnosis/results/microbench/atomic_add_lat.json",
-                "P1", "atomic latency / contention-sensitive"),
-    _make_entry("L1_RD_02", "rodinia", "backprop", "backprop",
-                "experiments/baseline_diagnosis/results/rodinia/backprop_4096_prescription_v1.md",
-                "P1", "dense numeric / low-divergence"),
-    _make_entry("L1_AI_04", "ai_workload", "context_mul", "context_mul",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P1", "streaming aggregation"),
-    _make_entry("L1_AI_05", "ai_workload", "layernorm_kernel", "layernorm_kernel",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P1", "reduction / normalize"),
-    _make_entry("L1_AI_06", "ai_workload", "residual_add", "residual_add",
-                "experiments/mini_transformer/mini_transformer_v4_full.json",
-                "P1", "elementwise / lightweight"),
-]
+    Standard markdown table format: | cell1 | cell2 | ... |
+    """
+    lines = md_text.split("\n")
+
+    def _cells(line: str) -> list[str]:
+        s = line.strip().strip("|")
+        return [c.strip() for c in s.split("|")]
+
+    # Find header line followed by a separator line (|---|...)
+    header_idx = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("|"):
+            cells = _cells(stripped)
+            # Check if any cell contains only dashes (separator line)
+            if all(c.replace("-", "").strip() == "" for c in cells if c.strip()):
+                header_idx = i - 1
+                break
+
+    if header_idx is None or header_idx < 0:
+        raise ValueError("No markdown table found in manifest document")
+
+    headers = _cells(lines[header_idx].strip())
+    if not headers:
+        raise ValueError("Failed to parse table headers")
+
+    rows = []
+    for line in lines[header_idx + 2:]:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            break
+        cells = _cells(stripped)
+        if len(cells) < len(headers):
+            continue
+        # Build dict from header positions
+        row = {}
+        for idx, h in enumerate(headers):
+            if idx < len(cells):
+                row[h] = cells[idx]
+        eid = row.get("ID", "").strip("`")
+        if eid.startswith("L1_"):
+            # Normalize keys
+            row["id"] = eid
+            row["来源"] = row.get("来源", row.get("来源 ", ""))
+            row["对象"] = row.get("对象", "").strip("`")
+            row["本地路径 / 来源路径"] = row.get("本地路径 / 来源路径", row.get("本地路径 / 来源路径 ", ""))
+            row["优先级"] = row.get("优先级", "").strip("`")
+            row["面向线路"] = row.get("面向线路", "").strip("`")
+            row["预期行为轴"] = row.get("预期行为轴", "").strip("`")
+            row["当前状态"] = row.get("当前状态", "").strip("`")
+            rows.append(row)
+    return rows
 
 
-def _validate_schema(manifest: dict, schema: dict) -> list[str]:
+def _extract_path_from_md_link(cell: str) -> str:
+    """Extract the path from a markdown link like [fname.json](/path/to/fname.json)."""
+    m = re.search(r'\]\(([^)]+)\)', cell)
+    if m:
+        return m.group(1)
+    # If not a link, use the cell text directly
+    return cell.strip()
+
+
+def _map_source_type(raw: str) -> str:
+    raw_lower = raw.strip().lower()
+    return SOURCE_TYPE_MAP.get(raw_lower, raw_lower)
+
+
+def _map_target_line(raw: str) -> str:
+    raw_upper = raw.strip().upper()
+    if "A+B" in raw_upper or "A + B" in raw_upper:
+        return "A+B"
+    if raw_upper == "A":
+        return "A"
+    if raw_upper == "B":
+        return "B"
+    return "A+B"
+
+
+def _map_status(raw: str) -> str:
+    raw_lower = raw.strip().lower()
+    if "ready_local" in raw_lower or "ready" in raw_lower:
+        return "ready_local"
+    if "need" in raw_lower and "profile" in raw_lower:
+        return "needs_profile"
+    if "need" in raw_lower and "acquisition" in raw_lower:
+        return "needs_acquisition"
+    if "block" in raw_lower:
+        return "blocked"
+    return "ready_local"
+
+
+def _build_entries(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    entries = []
+    for row in rows:
+        entry_id = row["id"].strip()
+        source_type = _map_source_type(row["来源"])
+        local_path = _extract_path_from_md_link(row["本地路径 / 来源路径"])
+
+        # Remove repo root prefix if present (absolute paths in md links)
+        repo_prefix = str(REPO_ROOT) + "/"
+        if local_path.startswith(repo_prefix):
+            local_path = local_path[len(repo_prefix):]
+
+        entry = {
+            "id": entry_id,
+            "source_type": source_type,
+            "benchmark_name": row["对象"].strip(),
+            "kernel_or_case": row["对象"].strip(),
+            "local_input_path": local_path,
+            "priority": row["优先级"].strip(),
+            "target_line": _map_target_line(row["面向线路"]),
+            "expected_behavior_axis": row["预期行为轴"].strip(),
+            "status": _map_status(row["当前状态"]),
+        }
+        entries.append(entry)
+    return entries
+
+
+def _validate_manifest(manifest: dict, schema: dict) -> list[str]:
     errors = []
     required_top = schema.get("required", [])
     for field in required_top:
@@ -137,62 +170,86 @@ def _validate_schema(manifest: dict, schema: dict) -> list[str]:
     entry_required = entry_schema.get("required", [])
     entry_props = entry_schema.get("properties", {})
 
+    seen_ids = set()
     for idx, entry in enumerate(manifest.get("entries", [])):
+        eid = entry.get("id")
+        if eid in seen_ids:
+            errors.append(f"entries[{idx}] duplicate id: {eid}")
+        seen_ids.add(eid)
+
         for field in entry_required:
             if field not in entry:
-                errors.append(f"entries[{idx}] missing required field: {field}")
+                errors.append(f"entries[{idx}] ({eid}) missing required field: {field}")
 
-        source_type = entry.get("source_type")
-        allowed_st = entry_props.get("source_type", {}).get("enum", [])
-        if source_type not in allowed_st:
-            errors.append(f"entries[{idx}] source_type '{source_type}' not in {allowed_st}")
-
-        priority = entry.get("priority")
-        allowed_pr = entry_props.get("priority", {}).get("enum", [])
-        if priority not in allowed_pr:
-            errors.append(f"entries[{idx}] priority '{priority}' not in {allowed_pr}")
-
-        target_line = entry.get("target_line")
-        allowed_tl = entry_props.get("target_line", {}).get("enum", [])
-        if target_line not in allowed_tl:
-            errors.append(f"entries[{idx}] target_line '{target_line}' not in {allowed_tl}")
-
-        status = entry.get("status")
-        allowed_sta = entry_props.get("status", {}).get("enum", [])
-        if status not in allowed_sta:
-            errors.append(f"entries[{idx}] status '{status}' not in {allowed_sta}")
+        for field, allowed in [
+            ("source_type", entry_props.get("source_type", {}).get("enum", [])),
+            ("priority", entry_props.get("priority", {}).get("enum", [])),
+            ("target_line", entry_props.get("target_line", {}).get("enum", [])),
+            ("status", entry_props.get("status", {}).get("enum", [])),
+        ]:
+            val = entry.get(field)
+            if val is not None and val not in allowed:
+                errors.append(f"entries[{idx}] ({eid}) invalid {field}: {val}")
 
         validation_role = entry.get("validation_role")
         if validation_role is not None:
             allowed_vr = entry_props.get("validation_role", {}).get("enum", [])
-            if validation_role not in allowed_vr:
-                errors.append(f"entries[{idx}] validation_role '{validation_role}' not in {allowed_vr}")
+            if allowed_vr and validation_role not in allowed_vr:
+                errors.append(f"entries[{idx}] ({eid}) invalid validation_role: {validation_role}")
 
     return errors
 
 
-def _check_paths(entries: list[dict], repo_root: Path) -> list[str]:
+def _check_paths_and_structure(entries: list[dict], repo_root: Path) -> list[str]:
     errors = []
     for entry in entries:
+        eid = entry["id"]
         local_path = entry.get("local_input_path", "")
+        source_type = entry.get("source_type", "")
+
+        if not local_path:
+            if source_type in SOURCE_REQUIRED_KEYS:
+                errors.append(f"{eid}: local_input_path is empty but source_type={source_type} requires a local file")
+            continue
+
         full_path = repo_root / local_path
         if not full_path.exists():
-            errors.append(
-                f"{entry['id']}: local_input_path does not exist: {full_path}"
-            )
-        elif entry["id"].startswith("L1_RD_02"):
-            # L1_RD_02 points to a .md prescription file — warn but don't block
-            if full_path.suffix not in (".json",):
-                pass  # accepted: prescription file marks acquisition-needed
+            errors.append(f"{eid}: local_input_path does not exist: {full_path}")
+            continue
+
+        # Source-type-specific structure validation
+        if full_path.suffix == ".md":
+            # Prescription file — accepted, no content validation
+            continue
+
+        if full_path.suffix == ".json":
+            try:
+                data = json.loads(full_path.read_text())
+            except json.JSONDecodeError as exc:
+                errors.append(f"{eid}: local_input_path is not valid JSON: {full_path} — {exc}")
+                continue
+
+            required_keys = SOURCE_REQUIRED_KEYS.get(source_type)
+            if required_keys:
+                missing_keys = [k for k in required_keys if k not in data]
+                if missing_keys:
+                    errors.append(
+                        f"{eid}: source_type={source_type} requires top-level keys {missing_keys} "
+                        f"in {full_path}"
+                    )
+
     return errors
 
 
-def _build_manifest(include_p1: bool = True) -> dict:
-    entries = list(P0_ENTRIES)
-    if include_p1:
-        entries.extend(P1_ENTRIES)
+def main() -> int:
+    md_text = MANIFEST_DOC.read_text()
+    rows = _parse_markdown_table(md_text)
+    if not rows:
+        print("Error: no table entries found in manifest document")
+        return 1
 
-    return {
+    entries = _build_entries(rows)
+    manifest = {
         "manifest_name": "L1 Kernel Validation Manifest",
         "dataset_level": "L1",
         "goal": (
@@ -201,41 +258,35 @@ def _build_manifest(include_p1: bool = True) -> dict:
             "B-line consumption on a small set of interpretable kernels."
         ),
         "notes": (
-            "Generated from docs/a-line-l1-validation-manifest-2026-04-26.md. "
+            "Parsed from docs/a-line-l1-validation-manifest-2026-04-26.md. "
             "P0 entries block stage-gate; P1 entries are non-blocking."
         ),
         "entries": entries,
     }
 
-
-def main() -> int:
     schema = json.loads(SCHEMA_PATH.read_text())
-    manifest = _build_manifest(include_p1=True)
-
-    schema_errors = _validate_schema(manifest, schema)
+    schema_errors = _validate_manifest(manifest, schema)
     if schema_errors:
         print("Schema validation failed:")
         for err in schema_errors:
             print(f"  - {err}")
         return 1
 
-    path_errors = _check_paths(manifest["entries"], REPO_ROOT)
-    blocking_errors = [e for e in path_errors if not e.startswith("L1_RD_02")]
-    if blocking_errors:
-        print("Path existence check failed (blocking):")
-        for err in blocking_errors:
+    path_errors = _check_paths_and_structure(manifest["entries"], REPO_ROOT)
+    blocking = [e for e in path_errors]
+    if blocking:
+        print("Path and structure validation failed:")
+        for err in blocking:
             print(f"  - {err}")
         return 1
-    if path_errors:
-        print("Path existence check: non-blocking notes:")
-        for err in path_errors:
-            print(f"  - {err}")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    p0 = sum(1 for e in entries if e["priority"] == "P0")
+    p1 = sum(1 for e in entries if e["priority"] == "P1")
     print(f"Manifest written: {OUTPUT_PATH}")
-    print(f"  P0 entries: {len([e for e in manifest['entries'] if e['priority'] == 'P0'])}")
-    print(f"  P1 entries: {len([e for e in manifest['entries'] if e['priority'] == 'P1'])}")
+    print(f"  P0 entries: {p0}")
+    print(f"  P1 entries: {p1}")
     return 0
 
 

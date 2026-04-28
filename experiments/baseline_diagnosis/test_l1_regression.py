@@ -295,6 +295,18 @@ def test_stagegate():
                     "pka_reduced_feature_table_l1.json"]:
             check(f"stale artifact absent: {fn}", not (artifact_dir / fn).exists())
 
+    # provenance rejection: empty actual_source_metric detected
+    from pka_feature_extractor import _extract_pka_features, PKA_FEATURES, _make_record
+    prov_rec = _make_record(
+        {"id": "L1_PRV", "priority": "P0", "source_type": "local_microbench", "kernel_or_case": "test"},
+        "test#1", "k", _extract_pka_features(
+            {s["canonical_metric"]: 1.0 for s in PKA_FEATURES.values()}, "test.json"))
+    prov_rec["features"]["coalesced_global_loads"]["actual_source_metric"] = ""
+    from build_l1_audit import _audit_json
+    audit_p = _audit_json([prov_rec])
+    pve_p = audit_p.get("provenance_validation_errors", [])
+    check("audit detects empty provenance", any("actual_source_metric" in e for e in pve_p))
+
 
 # ══════════════════════════════════════════════════════════════════
 

@@ -241,16 +241,27 @@ def main():
 
     audit = _audit_json(records)
     pve = audit.get("provenance_validation_errors", [])
-    if pve:
-        print(f"Audit provenance validation errors: {pve}")
-    # Never allow measured features with empty provenance
-    measured_pve = [e for e in pve if "measured" == audit["entries"][0]["outcome"]] if pve and audit["entries"] else []
     (ARTIFACT_DIR / "pka_feature_audit_l1.json").write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n")
 
     audit_md = _audit_md(audit, manifest, records, _PKA)
     (ARTIFACT_DIR / "pka_feature_audit_l1.md").write_text(audit_md + "\n")
 
-    sg = _stage_gate(records, manifest)
+    # Provenance validation: reject measured features with empty provenance
+    provenance_errors = audit.get("provenance_validation_errors", [])
+    if provenance_errors:
+        print(f"Audit provenance validation errors: {provenance_errors}")
+        _clean_stale_artifacts()
+        sg = {
+            "report_name": "L1 Stage Gate Report", "dataset_level": "L1",
+            "run_status": "validation_failed",
+            "stages": {"stage_1_manifest": "passed", "stage_2_feature_extraction": "failed",
+                       "stage_3_selector": "blocked", "stage_4_b_line_consumption": "blocked",
+                       "stage_5_tests": "pending"},
+            "counts": {}, "validation_errors": {"audit_provenance": provenance_errors},
+            "next_action": f"Fix audit provenance errors: {provenance_errors[:5]}",
+        }
+    else:
+        sg = _stage_gate(records, manifest)
     if sg["run_status"] == "validation_failed":
         print(f"Stage gate validation failed: {sg.get('validation_errors', {})}")
 

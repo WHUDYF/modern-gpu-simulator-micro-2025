@@ -1,3 +1,8 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 from experiments.trace_bottleneck_map.model import (
     BenchmarkObservation,
     classify_seconds,

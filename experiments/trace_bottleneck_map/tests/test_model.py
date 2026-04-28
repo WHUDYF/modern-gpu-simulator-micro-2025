@@ -43,6 +43,15 @@ def test_infer_bottleneck_fixed_overhead_for_tiny_trace():
     assert infer_bottleneck(trace_size_mib=0.288, export_time_s=2.11, sim_time_s=1.26) == "capture / fixed overhead"
 
 
+def test_infer_bottleneck_balanced_for_short_trace_anchors():
+    assert infer_bottleneck(trace_size_mib=2.962, export_time_s=2.24, sim_time_s=1.46) == "balanced / mixed"
+    assert infer_bottleneck(trace_size_mib=8.715, export_time_s=3.52, sim_time_s=1.53) == "balanced / mixed"
+
+
+def test_infer_bottleneck_tiny_trace_missing_times_has_insufficient_evidence():
+    assert infer_bottleneck(trace_size_mib=0.288, export_time_s=None, sim_time_s=None) == "insufficient evidence"
+
+
 def test_record_from_observation_classifies_fields():
     obs = BenchmarkObservation(
         suite="GPU_Microbenchmark",

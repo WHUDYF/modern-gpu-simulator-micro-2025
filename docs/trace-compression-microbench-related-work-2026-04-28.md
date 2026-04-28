@@ -18,7 +18,7 @@
 当前学术线的核心想法是：
 
 ```text
-representative target kernel
+target kernel
   -> trace compression structure
   -> behavior signature
   -> generated microbench
@@ -26,11 +26,11 @@ representative target kernel
 
 这里的关键点是，压缩不是单纯为了减小 trace，而是为了提取 execution regularity、divergence、cross-threadblock similarity 等结构信号。
 
-这和 L1 的区别在于：
+这和现有 representative selection / workload characterization 方法的关系在于：
 
-- L1 负责选 representative target；
+- representative selection 负责选出值得关注的 target；
 - 这条学术线负责解释 target 的 trace-level 行为，并用它指导 microbench synthesis；
-- compression-side feature 不进入 L1 selector。
+- compression-side feature 不需要进入 upstream selector 才能发挥作用。
 
 ---
 
@@ -77,11 +77,11 @@ representative target kernel
 
 ### 3.3 GPU representative sampling / kernel selection
 
-这类工作最接近 L1。
+这类工作最接近 representative target selection。
 
 - **PKA**
   - 选 representative kernels，说明真实 workload 太大时需要先做 representative selection。
-  - 这正是 L1 的方法论基础。
+  - 这为 target selection 提供方法论背景，但不构成本学术线的前提。
 
 - **Sieve**
   - 关注 invocation-level stratification，说明同名 kernel 也可能有明显异质性。

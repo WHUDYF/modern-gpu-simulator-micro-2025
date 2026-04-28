@@ -5,49 +5,45 @@
 
 ## 1. 问题陈述
 
-当前 A 线 L1 RLCR 正在建立一个严格的 PKA measured-only baseline。L1 的目标是从真实 workload 的 kernel / invocation 中选出 representative anchors，并让这些 anchors 能被 B 线读取、校验和规划。
+现有 GPU workload characterization、representative sampling 和 benchmark synthesis 方法通常依赖 flat profile counters、kernel-level summaries 或 static features。这些特征能帮助选择或描述 target kernel，但难以直接表达 trace 内部的 execution regularity、warp-path divergence 和 cross-threadblock memory similarity。
 
-这条路径回答的是：
+这类方法主要回答的是：
 
 > 哪些真实 kernel 值得作为 backend planning / tuning target？
 
-但它没有回答另一个问题：
+但它们没有充分回答另一个问题：
 
-> 对一个 representative target，我们能否构造一个更小、更可控、更透明的 microbench，复现它的关键执行结构？
+> 对一个 target kernel，我们能否构造一个更小、更可控、更透明的 microbench，复现它的关键执行结构？
 
-本 spec 定义一条独立的学术线：将 trace compression 产生的中间结构和退化模式视为 workload behavior signature，用它描述 representative target 的 trace-level 行为，并指导 AI agent 生成 microbench。
+本 spec 定义一条独立的学术线：将 trace compression 产生的中间结构和退化模式视为 workload behavior signature，用它描述 GPU target 的 trace-level 行为，并指导 AI agent 生成 microbench。
 
 核心主张是：
 
 > Trace compression is not only a storage reduction technique. Its intermediate structures and failure modes expose execution regularity, divergence, and cross-threadblock similarity. These signals can become a behavioral target for microbench generation.
 
-## 2. 与 L1 和工程线的边界
+## 2. 与现有流水线和工程线的边界
 
-### 2.1 与 L1 的关系
+### 2.1 与代表性选择流水线的关系
 
-L1 负责选择真实 target：
-
-```text
-真实 workload kernel / invocation
-  -> PKA 12 维 measured features
-  -> representative anchor
-  -> B-line consumption
-```
-
-本学术线负责解释和复现 target 的 trace-level 行为：
+本学术线可以消费任何来源的 target trace：
 
 ```text
-representative target trace
-  -> trace compression structure
+target source
+  -> target kernel / invocation
+  -> trace or compressed trace
   -> behavior signature
   -> generated microbench target
 ```
 
-因此两者的接口是：
+可能的 target source 包括：
 
-- L1 输出 representative target identity；
-- 本学术线读取这些 target 的 trace 或 compressed trace；
-- 本学术线不修改 L1 selector，也不把 compression-side feature 写入 L1 PKA baseline。
+- 代表性选择流水线输出的 kernel；
+- 现有 benchmark suite 中手工挑选的 kernel；
+- microbenchmark / synthetic benchmark；
+- 真实 workload 的 trace 中抽取的 kernel；
+- 后续任意代表性选择实验的输出。
+
+因此，这条学术线不需要绑定某个特定 selector，也不需要以某个特定 baseline 作为前提。
 
 ### 2.2 与工程线的关系
 
@@ -83,13 +79,12 @@ trace compression artifacts
 2. 证明这些 signature 能区分不同 kernel 行为类型，例如 GEMM-like、reduction、elementwise、irregular memory、control-heavy。
 3. 证明 compression failure / fallback 不是纯失败，而是 behavior complexity signal。
 4. 建立 target kernel 与 generated microbench 之间的 signature matching 方法。
-5. 形成一条从 L1 representative target 到 microbench synthesis target 的研究路径。
+5. 形成一条从一般 GPU target trace 到 microbench synthesis target 的研究路径。
 
 ### 3.2 非目标
 
 - 不实现完整 online / streaming trace compression 系统；
-- 不替代 L1 PKA measured-only selector；
-- 不把 compression-side feature 作为 L1 grouping 字段；
+- 不把 compression-side feature 直接混入 flat-profile selector 的 grouping 字段；
 - 不声称 generated microbench 与真实 workload 语义等价；
 - 不要求第一阶段完成自动 agent search；
 - 不要求第一阶段完成 backend simulator 调参闭环。
@@ -100,10 +95,11 @@ trace compression artifacts
 
 Target kernel 是真实 workload 中被选为研究对象的 kernel invocation。它可以来自：
 
-- L1 representative anchor；
+- 代表性选择流水线；
 - mini-transformer trace；
 - microbenchmark trace；
-- 后续大训练 workload trace。
+- benchmark suite；
+- 后续任意真实 workload trace。
 
 Target kernel 是 ground truth observation，不是我们要改写的对象。
 
@@ -233,11 +229,9 @@ Compression signature 能把已知行为类别分开。
 - matching 能把手工挑选的相似 microbench 排在不相似 microbench 前面；
 - matching 不只复制 runtime 或 instruction count。
 
-### H4：L1 anchors provide useful targets
+### H4：Representative targets are useful inputs
 
-L1 representative anchors 是本学术线的自然 target source。
-
-L1 不需要知道 trace compression signature；它只负责提供 target identity。本学术线再对这些 target 做 trace-level analysis。
+来自任何代表性选择或手工挑选流程的 target kernels 都是有用输入，但本学术线不依赖某个特定 pipeline 才成立。
 
 ## 7. 数据流
 
@@ -383,11 +377,11 @@ experiments/trace_compression_behavior/
 3. 至少一个 negative control 被 signature 正确区分；
 4. repeated runs 的 signature 稳定性被报告；
 5. 所有缺失字段和 fallback 均显式记录；
-6. 报告明确声明 signature 不进入 L1 PKA baseline selector。
+6. 报告明确声明 signature 不作为 flat-profile selector 的隐式替代字段。
 
 第二阶段成功条件是：
 
-1. 对至少一个 L1-style target 生成 target signature；
+1. 对至少一个来自真实 workload 或 benchmark suite 的 target 生成 target signature；
 2. 对至少三个 candidate microbench 生成 candidate signatures；
 3. matching report 能给出可解释 ranking；
 4. 排名结果能解释为什么某个 candidate 更像 target；
@@ -421,14 +415,14 @@ Compression signature 只表达 trace structure，不保证 cycle count 或 cach
 - 不把单一压缩率当作全部行为相似度；
 - 将 fallback 视为诊断信号，而不是丢弃样本。
 
-### 12.3 与 L1 baseline 混淆
+### 12.3 与 flat-profile selector 混淆
 
-Compression-side feature 如果进入 L1 selector，会破坏 measured-only PKA baseline。
+Compression-side feature 如果进入 flat-profile selector，会破坏 profile-based target selection 的可解释性。
 
 控制：
 
-- 本学术线只消费 L1 target identity；
-- 不向 L1 selector 回写 compression feature；
+- 本学术线只消费 target trace；
+- 不向 profile-based selector 回写 compression feature；
 - 所有报告必须声明 `scope: trace-compression-behavior-analysis`。
 
 ### 12.4 Microbench 过拟合 signature

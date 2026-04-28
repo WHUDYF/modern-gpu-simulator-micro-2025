@@ -136,3 +136,31 @@ def test_builder_rejects_missing_trace_benchmark(tmp_path):
     assert "trace benchmark file not found" in proc.stderr
     assert not json_path.exists()
     assert not md_path.exists()
+
+
+def test_generated_report_keeps_communication_suites_out_of_measured_main_table(tmp_path):
+    trace_md = tmp_path / "trace-benchmark.md"
+    _write_trace_benchmark(trace_md)
+    out_dir = tmp_path / "out"
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--trace-benchmark-md",
+            str(trace_md),
+            "--output-dir",
+            str(out_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+    payload = json.loads((out_dir / "benchmark_cost_map.json").read_text())
+    communication_rows = [
+        row for row in payload["records"]
+        if row["suite"] in {"NCCL-tests", "OSU micro-benchmarks"}
+    ]
+    assert communication_rows
+    assert all(row["status"] == "excluded" for row in communication_rows)

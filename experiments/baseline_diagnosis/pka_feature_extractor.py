@@ -270,8 +270,8 @@ def _adapt_ncu_csv(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
     results = []
     occurrence: dict[str, int] = {}
     file_stem = source_path.stem.lower()
-    # Process in first-seen order (natural key order from CSV)
-    ordered_ids = sorted(inv_map.keys(), key=lambda k: int(k) if k.isdigit() else float('inf'))
+    # Process in first-seen CSV row order (preserving ID order from file)
+    ordered_ids = list(inv_map.keys())
     for idx, kid in enumerate(ordered_ids):
         inv_data = inv_map[kid]
         kn = inv_data["_kernel_name"]

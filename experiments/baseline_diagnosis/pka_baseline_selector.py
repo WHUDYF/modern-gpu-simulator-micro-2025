@@ -310,9 +310,12 @@ def main() -> int:
         })
 
     # Emit selector config
+    feature_modes = list({m.get("feature_mode", "unknown") for m in meta})
     config = {
         "feature_allowlist": ALLOWED_FEATURES,
         "allowlist_validated": True,
+        "feature_mode": feature_modes[0] if len(feature_modes) == 1 else feature_modes,
+        "per_field_status": {fn: "measured" for fn in ALLOWED_FEATURES},
         "preprocessing": {"log1p_features": sorted(COUNT_FEATURES), "ratio_features": sorted(RATIO_FEATURES)},
         "standardization": {"zero_variance_columns": zero_var},
         "pca": {"n_components": n_comp, "explained_variance_ratio": explained_var, "total_explained_variance": total_explained},

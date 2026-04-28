@@ -55,6 +55,7 @@ def _collect_timing_units(records: list[dict]) -> set[str]:
 
 
 def _audit_json(records):
+    provenance_errors = []
     entries = []
     for rec in records:
         feats = rec.get("features", {})
@@ -78,11 +79,19 @@ def _audit_json(records):
             }
             if "missing_reason" in f:
                 entry["features"][name]["missing_reason"] = f["missing_reason"]
+            # Validate measured provenance
+            if f.get("status") == "measured":
+                if not f.get("canonical_metric"):
+                    provenance_errors.append(f"{rec.get('kernel_invocation_id', '?')}/{name}: empty canonical_metric")
+                if not f.get("actual_source_metric"):
+                    provenance_errors.append(f"{rec.get('kernel_invocation_id', '?')}/{name}: empty actual_source_metric")
+                if not f.get("source_artifact_path"):
+                    provenance_errors.append(f"{rec.get('kernel_invocation_id', '?')}/{name}: empty source_artifact_path")
         entries.append(entry)
     return {"audit_name": "L1 PKA Feature Audit", "dataset_level": "L1", "summary": {
         "total_invocations": len(entries), "fully_measured": sum(1 for e in entries if e["outcome"] == "measured"),
         "acquisition_gap": sum(1 for e in entries if e["outcome"] == "acquisition_gap"),
-    }, "entries": entries}
+    }, "entries": entries, "provenance_validation_errors": provenance_errors}
 
 
 def _audit_md(audit, manifest, records, pka_features):
@@ -231,6 +240,11 @@ def main():
     manifest = json.loads(MF.read_text())
 
     audit = _audit_json(records)
+    pve = audit.get("provenance_validation_errors", [])
+    if pve:
+        print(f"Audit provenance validation errors: {pve}")
+    # Never allow measured features with empty provenance
+    measured_pve = [e for e in pve if "measured" == audit["entries"][0]["outcome"]] if pve and audit["entries"] else []
     (ARTIFACT_DIR / "pka_feature_audit_l1.json").write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n")
 
     audit_md = _audit_md(audit, manifest, records, _PKA)

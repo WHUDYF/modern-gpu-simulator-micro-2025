@@ -49,24 +49,30 @@ def _check_gate() -> tuple[bool, str]:
         return False, "stage gate report not found"
     sg = json.loads(SG_PATH.read_text())
     s3 = sg.get("stages", {}).get("stage_3_selector", "unknown")
-    if s3 == "blocked":
-        return False, sg.get("next_action", "blocked")
+    if s3 != "ready":
+        return False, sg.get("next_action", f"stage_3 is {s3}, not ready")
     return True, ""
 
 
 def _validate_allowlist(feature_list: list[str]) -> list[str]:
-    allow_set = set(feature_list)
-    expected = set(ALLOWED_FEATURES)
-    extra = sorted(allow_set - expected)
-    missing = sorted(expected - allow_set)
     errors = []
-    if extra:
-        errors.append(f"Extra features not in PKA spec: {extra}")
-    if missing:
-        errors.append(f"Missing required PKA features: {missing}")
+    # Exact match: length, order, and members must equal ALLOWED_FEATURES
+    if len(feature_list) != 12:
+        errors.append(f"Allowlist length {len(feature_list)} != 12")
+    if feature_list != ALLOWED_FEATURES:
+        for i, (a, b) in enumerate(zip(feature_list, ALLOWED_FEATURES)):
+            if a != b:
+                errors.append(f"Allowlist mismatch at position {i}: got '{a}', expected '{b}'")
+                break
     forbidden = sorted(set(feature_list) & FORBIDDEN)
     if forbidden:
         errors.append(f"Forbidden fields in allowlist: {forbidden}")
+    dups = [f for f in feature_list if feature_list.count(f) > 1]
+    if dups:
+        errors.append(f"Duplicate features in allowlist: {sorted(set(dups))}")
+    extra = sorted(set(feature_list) - set(ALLOWED_FEATURES))
+    if extra:
+        errors.append(f"Extra features not in PKA spec: {extra}")
     return errors
 
 
@@ -216,6 +222,12 @@ def main() -> int:
     records = json.loads(FT_PATH.read_text())
     if len(records) < 2:
         print(f"selector_insufficient_records: {len(records)} measured records")
+        if SG_PATH.exists():
+            sg = json.loads(SG_PATH.read_text())
+            sg["run_status"] = "selector_insufficient_records"
+            sg["stages"]["stage_3_selector"] = "blocked"
+            sg["stages"]["stage_4_b_line_consumption"] = "blocked"
+            SG_PATH.write_text(json.dumps(sg, indent=2) + "\n")
         return 3
 
     # Validate allowlist

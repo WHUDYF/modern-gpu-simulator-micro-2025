@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -68,18 +69,35 @@ def _collect_missing(features: dict[str, Any]) -> list[str]:
 
 
 def _match_kernel_name(mangled: str, target: str) -> bool:
-    """Match a demangled kernel_or_case against a mangled C++ kernel name."""
+    """Match a kernel_or_case against a mangled C++ kernel name.
+
+    _Z5l1_bwPjS_PfS0____0 -> base="l1_bw" (5 chars after _Z)
+    _Z10gemm_tiledPKfS0_Pfiii -> base="gemm_tiled" (10 chars)
+    """
     target_lower = target.lower()
     mangled_lower = mangled.lower()
     if target_lower in mangled_lower:
         return True
-    # Extract base name from mangled: _Z\d+base_name...
-    import re
-    m = re.match(r'_Z\d+(\w+)', mangled)
-    if m:
-        base = m.group(1).lower()
-        if target_lower in base:
-            return True
+    # Parse Itanium C++ ABI mangling: _Z<N><N-char-name><params>
+    m = re.match(r'_Z(\d+)(\w{' + r'(\d+)' + r'})', mangled)
+    if not m:
+        m = re.match(r'_Z(\d+)', mangled)
+        if m:
+            n = int(m.group(1))
+            rest = mangled[m.end():]
+            base = rest[:n] if len(rest) >= n else rest
+            base_lower = base.lower()
+            if target_lower in base_lower or base_lower in target_lower:
+                return True
+            # Strip underscores for names like max_flops vs MaxFlops
+            if target_lower.replace('_', '') in base_lower.replace('_', '') or \
+               base_lower.replace('_', '') in target_lower.replace('_', ''):
+                return True
+            base_stripped = re.sub(r'[\d_]+$', '', base_lower)
+            target_stripped = re.sub(r'[\d_]+$', '', target_lower)
+            if base_stripped and target_stripped:
+                if base_stripped in target_stripped or target_stripped in base_stripped:
+                    return True
     return False
 
 
@@ -97,8 +115,14 @@ def _adapt_microbench(entry: dict[str, Any], source_path: Path) -> list[dict[str
 
     results = []
     occurrence: dict[str, int] = {}
-    for kernel in eei["kernels"]:
+    all_kernels = eei["kernels"]
+    for trace_idx, kernel in enumerate(all_kernels):
         kernel_name = kernel.get("kernel_name", "")
+        # Identity filtering: match by kernel name
+        # For single-kernel files, accept all kernels regardless of match
+        if len(all_kernels) > 1 and not _match_kernel_name(kernel_name, kernel_or_case):
+            continue
+
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
@@ -113,10 +137,10 @@ def _adapt_microbench(entry: dict[str, Any], source_path: Path) -> list[dict[str
                 metric_map.update({k: v for k, v in tb_data.items() if isinstance(v, (int, float))})
 
         features = _extract_pka_features(metric_map, str(source_path))
-        results.append(_make_record(entry, invocation_id, kernel_name, features))
+        results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
 
     if not results:
-        raise ValueError(f"{entry['id']}: microbench adapter produced zero outcomes for {source_path}")
+        raise ValueError(f"{entry['id']}: microbench adapter produced zero outcomes for {kernel_or_case} in {source_path}")
     return results
 
 
@@ -150,8 +174,13 @@ def _adapt_rodinia(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
 
     results = []
     occurrence: dict[str, int] = {}
-    for kernel in eei["kernels"]:
+    all_kernels_r = eei["kernels"]
+    for trace_idx, kernel in enumerate(all_kernels_r):
         kernel_name = kernel.get("kernel_name", "")
+        # Identity filtering for multi-kernel files
+        if len(all_kernels_r) > 1 and not _match_kernel_name(kernel_name, kernel_or_case):
+            continue
+
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
         invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
@@ -166,28 +195,51 @@ def _adapt_rodinia(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
                 metric_map.update({k: v for k, v in tb_data.items() if isinstance(v, (int, float))})
 
         features = _extract_pka_features(metric_map, str(source_path))
-        results.append(_make_record(entry, invocation_id, kernel_name, features))
+        results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
 
     if not results:
-        raise ValueError(f"{entry['id']}: rodinia adapter produced zero outcomes for {source_path}")
+        raise ValueError(f"{entry['id']}: rodinia adapter produced zero outcomes for {kernel_or_case} in {source_path}")
     return results
 
 
 def _adapt_ncu_csv(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
-    """Parse Rodinia NCU CSV with metric_name, metric_value columns."""
+    """Parse Rodinia NCU CSV with profiler preamble, quoted Metric Name/Value.
+
+    The real NCU CSV has profiler preamble lines before the CSV header:
+      ==PROF== ...
+      (application output)
+      ==ERROR== ...
+      "ID","Process ID",...,"Metric Name","Metric Value",...,"Grid Size",...
+    """
     kernel_or_case = entry["kernel_or_case"]
     metric_map: dict[str, Any] = {}
-    with open(source_path, newline="") as f:
-        reader = csv.DictReader(f)
+    grid_size = None
+    with open(source_path, newline="", errors="replace") as f:
+        reader = csv.reader(f)
+        header = None
         for row in reader:
-            name = row.get("metric_name", "").strip()
-            val = row.get("metric_value", "").strip()
-            if name and val:
-                try:
-                    metric_map[name] = float(val)
-                except ValueError:
-                    pass
-    # Also check for launch grid from CSV metadata
+            if not row or not row[0].startswith('"'):
+                continue
+            if header is None:
+                header = [c.strip().strip('"') for c in row]
+                continue
+            vals = {h: v for h, v in zip(header, row)}
+            metric_name = vals.get("Metric Name", "").strip()
+            metric_value = vals.get("Metric Value", "").strip()
+            grid_raw = vals.get("Grid Size", "").strip()
+            try:
+                if metric_name and metric_value:
+                    metric_map[metric_name] = float(metric_value)
+                if grid_raw and grid_size is None:
+                    # Parse "(938, 1, 1)" -> 938
+                    import re
+                    nums = re.findall(r'\d+', grid_raw)
+                    if nums:
+                        grid_size = int(nums[0])
+            except (ValueError, KeyError):
+                pass
+    if grid_size is not None:
+        metric_map["launch_grid_size"] = grid_size
     features = _extract_pka_features(metric_map, str(source_path))
     return [_make_record(entry, f"{kernel_or_case}#1", kernel_or_case, features)]
 
@@ -207,7 +259,8 @@ def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[di
     results = []
     occurrence: dict[str, int] = {}
     # Sort by source key to get stable trace_order
-    for source_key in sorted(per_kernel.keys()):
+    sorted_keys = sorted(per_kernel.keys())
+    for trace_idx, source_key in enumerate(sorted_keys):
         item = per_kernel[source_key]
         kernel_name = item.get("kernel_name", "")
         if not _match_kernel_name(kernel_name, kernel_or_case):
@@ -228,7 +281,7 @@ def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[di
                         metric_map[k] = v["mean"]
 
         features = _extract_pka_features(metric_map, str(source_path))
-        results.append(_make_record(entry, invocation_id, kernel_name, features))
+        results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
 
     if not results:
         raise ValueError(f"{entry['id']}: mini-transformer adapter produced zero outcomes for kernel_or_case={kernel_or_case} in {source_path}")
@@ -242,7 +295,8 @@ ADAPTERS = {
 }
 
 
-def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, features: dict[str, Any]) -> dict[str, Any]:
+def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, features: dict[str, Any], trace_order: int | None = None) -> dict[str, Any]:
+    first_key = list(features.keys())[0] if features else ""
     rec = {
         "manifest_id": entry["id"],
         "priority": entry["priority"],
@@ -250,9 +304,11 @@ def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, fe
         "kernel_or_case": entry["kernel_or_case"],
         "kernel_invocation_id": invocation_id,
         "kernel_name": kernel_name,
-        "source_path": features.get(list(features.keys())[0], {}).get("source_artifact_path", ""),
+        "source_path": features.get(first_key, {}).get("source_artifact_path", ""),
         "features": features,
     }
+    if trace_order is not None:
+        rec["trace_order"] = trace_order
     if _is_fully_measured(features):
         rec["outcome"] = "measured"
     else:
@@ -262,7 +318,7 @@ def _make_record(entry: dict[str, Any], invocation_id: str, kernel_name: str, fe
 
 
 def _validate_outcomes(records: list[dict[str, Any]], manifest: dict[str, Any]) -> list[str]:
-    """Post-adapter validation: exactly one outcome per P0 invocation, no duplicates."""
+    """Post-adapter validation: exactly one outcome per P0 invocation, global uniqueness."""
     errors = []
     p0_entries = {e["id"]: e for e in manifest["entries"] if e["priority"] == "P0"}
     p0_outcomes: dict[str, list[dict]] = {}
@@ -273,18 +329,22 @@ def _validate_outcomes(records: list[dict[str, Any]], manifest: dict[str, Any]) 
             p0_outcomes.setdefault(mid, []).append(rec)
 
     # Check each P0 entry has at least one outcome
+    global_ids = set()
     for mid in p0_entries:
         if mid not in p0_outcomes:
             errors.append(f"{mid}: P0 manifest entry has zero outcomes")
         else:
             outcomes = p0_outcomes[mid]
-            # Check for duplicate invocation_ids
             seen = set()
             for rec in outcomes:
                 kid = rec.get("kernel_invocation_id", "")
                 if kid in seen:
-                    errors.append(f"{mid}: duplicate kernel_invocation_id: {kid}")
+                    errors.append(f"{mid}: duplicate kernel_invocation_id within entry: {kid}")
                 seen.add(kid)
+                # Global uniqueness across all P0 rows
+                if kid in global_ids:
+                    errors.append(f"{mid}: duplicate kernel_invocation_id across P0 entries: {kid}")
+                global_ids.add(kid)
                 # Check for ambiguous outcome
                 if rec.get("outcome") not in ("measured", "acquisition_gap"):
                     errors.append(f"{mid}: invalid outcome type: {rec.get('outcome')}")

@@ -24,7 +24,22 @@ FORBIDDEN = frozenset({"family_id", "regime_id", "route_primitive", "execution_t
                         "execution_template_label", "simulator_lane_id",
                         "cross_tb_offset_coverage", "squash_boundary_crossing_flag",
                         "address_override_density", "full_encoding_fallback_rate",
-                        "shared_pc_sequence_length"})
+                        "shared_pc_sequence_length",
+                        "dominant_format", "format_counts", "instructions_per_warp_mean",
+                        "num_tb_files", "num_warps", "total_threadblocks",
+                        "kernel_squash_segment_id", "kernel_squash_boundary_count",
+                        "kernel_squash_cohesion", "kernel_squash_behavior_summary",
+                        "tb_squash_segment_count", "tb_squash_boundary_count"})
+
+TYPE_CHECKS = {
+    "rep_kernel_id": str,
+    "kernel_name": str,
+    "cluster_id": str,
+    "member_invocations": list,
+    "coverage_count": (int, float),
+    "coverage_weight": (int, float),
+    "time_weight": (int, float),
+}
 
 
 def _check_gate():
@@ -42,6 +57,11 @@ def _validate(table):
     for idx, row in enumerate(table):
         missing = sorted(REQUIRED - set(row.keys()))
         leaked = sorted(FORBIDDEN & set(row.keys()))
+        type_errors = []
+        for field, expected_type in TYPE_CHECKS.items():
+            val = row.get(field)
+            if val is not None and not isinstance(val, expected_type):
+                type_errors.append(f"{field}: expected {expected_type.__name__}, got {type(val).__name__}")
         results.append({
             "row_index": idx,
             "rep_kernel_id": row.get("rep_kernel_id", f"row-{idx}"),
@@ -49,27 +69,31 @@ def _validate(table):
             "missing_required_fields": missing,
             "forbidden_fields_absent": len(leaked) == 0,
             "leaked_forbidden_fields": leaked,
+            "type_errors": type_errors,
         })
     return results
 
 
 def _report(results):
     total = len(results)
-    failures = [r for r in results if not r["required_fields_present"] or not r["forbidden_fields_absent"]]
+    failures = [r for r in results if not r["required_fields_present"] or not r["forbidden_fields_absent"] or r.get("type_errors")]
     all_pass = len(failures) == 0
 
     lines = ["# B-Line Consumption Report (L1)", "",
              "Mode: parse-and-validate only (no family/regime/writeback generation).", "",
              "## Per-Row Results", "",
-             "| Row | rep_kernel_id | Required OK | Forbidden OK | Missing | Leaked |",
-             "|-----|---------------|-------------|--------------|---------|--------|"]
+             "| Row | rep_kernel_id | Required OK | Forbidden OK | Types OK | Missing | Leaked | Type Errors |",
+             "|-----|---------------|-------------|--------------|----------|---------|--------|-------------|"]
     for r in results:
+        type_ok = len(r.get("type_errors", [])) == 0
         lines.append(
             f"| {r['row_index']} | {r['rep_kernel_id']} | "
             f"{'PASS' if r['required_fields_present'] else 'FAIL'} | "
             f"{'PASS' if r['forbidden_fields_absent'] else 'FAIL'} | "
+            f"{'PASS' if type_ok else 'FAIL'} | "
             f"{'; '.join(r['missing_required_fields']) if r['missing_required_fields'] else '-'} | "
-            f"{'; '.join(r['leaked_forbidden_fields']) if r['leaked_forbidden_fields'] else '-'} |"
+            f"{'; '.join(r['leaked_forbidden_fields']) if r['leaked_forbidden_fields'] else '-'} | "
+            f"{'; '.join(r.get('type_errors', [])) if r.get('type_errors') else '-'} |"
         )
 
     lines.extend(["", "## Summary", "",

@@ -48,6 +48,10 @@ def test_infer_bottleneck_balanced_for_short_trace_anchors():
     assert infer_bottleneck(trace_size_mib=8.715, export_time_s=3.52, sim_time_s=1.53) == "balanced / mixed"
 
 
+def test_infer_bottleneck_small_trace_export_far_above_sim_dominates():
+    assert infer_bottleneck(trace_size_mib=5.0, export_time_s=9.0, sim_time_s=1.0) == "trace export / I/O"
+
+
 def test_infer_bottleneck_tiny_trace_missing_times_has_insufficient_evidence():
     assert infer_bottleneck(trace_size_mib=0.288, export_time_s=None, sim_time_s=None) == "insufficient evidence"
 

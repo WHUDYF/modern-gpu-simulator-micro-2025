@@ -62,12 +62,17 @@ def infer_bottleneck(
         return "trace export / I/O"
     if trace_size_mib is not None and trace_size_mib < 1 and max(export_time_s, sim_time_s) <= 3:
         return "capture / fixed overhead"
-    if trace_size_mib is not None and trace_size_mib < 10 and max(export_time_s, sim_time_s) < 10 and export_time_s >= sim_time_s:
+    if (
+        trace_size_mib is not None
+        and trace_size_mib < 10
+        and max(export_time_s, sim_time_s) < 10
+        and max(export_time_s, sim_time_s) <= 2.5 * min(export_time_s, sim_time_s)
+    ):
         return "balanced / mixed"
-    if export_time_s >= sim_time_s:
-        return "trace export / I/O"
     if sim_time_s >= 1.5 * export_time_s:
         return "simulator throughput"
+    if export_time_s >= 1.5 * sim_time_s:
+        return "trace export / I/O"
     return "balanced / mixed"
 
 

@@ -31,6 +31,11 @@ FORBIDDEN = frozenset({"family_id", "regime_id", "route_primitive", "execution_t
                         "kernel_squash_cohesion", "kernel_squash_behavior_summary",
                         "tb_squash_segment_count", "tb_squash_boundary_count"})
 
+def _type_name(t):
+    if isinstance(t, tuple):
+        return "|".join(x.__name__ for x in t)
+    return t.__name__
+
 TYPE_CHECKS = {
     "rep_kernel_id": str,
     "kernel_name": str,
@@ -61,7 +66,7 @@ def _validate(table):
         for field, expected_type in TYPE_CHECKS.items():
             val = row.get(field)
             if val is not None and not isinstance(val, expected_type):
-                type_errors.append(f"{field}: expected {expected_type.__name__}, got {type(val).__name__}")
+                type_errors.append(f"{field}: expected {_type_name(expected_type)}, got {type(val).__name__}")
         results.append({
             "row_index": idx,
             "rep_kernel_id": row.get("rep_kernel_id", f"row-{idx}"),
@@ -128,10 +133,10 @@ def main():
     report = _report(results)
     OUTPUT_PATH.write_text(report + "\n")
 
-    failures = sum(1 for r in results if not r["required_fields_present"] or not r["forbidden_fields_absent"])
-    print(f"B-line consumption: {len(results)} rows, {failures} with issues")
+    issue_count = sum(1 for r in results if not r["required_fields_present"] or not r["forbidden_fields_absent"] or r.get("type_errors"))
+    print(f"B-line consumption: {len(results)} rows, {issue_count} with issues")
     print(f"Report: {OUTPUT_PATH}")
-    return 0 if failures == 0 else 5
+    return 0 if issue_count == 0 else 5
 
 
 if __name__ == "__main__":

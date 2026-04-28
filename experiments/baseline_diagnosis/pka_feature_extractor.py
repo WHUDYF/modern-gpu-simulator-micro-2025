@@ -119,8 +119,7 @@ def _adapt_microbench(entry: dict[str, Any], source_path: Path) -> list[dict[str
     for trace_idx, kernel in enumerate(all_kernels):
         kernel_name = kernel.get("kernel_name", "")
         # Identity filtering: match by kernel name
-        # For single-kernel files, accept all kernels regardless of match
-        if len(all_kernels) > 1 and not _match_kernel_name(kernel_name, kernel_or_case):
+        if not _match_kernel_name(kernel_name, kernel_or_case):
             continue
 
         occurrence.setdefault(kernel_or_case, 0)
@@ -140,7 +139,13 @@ def _adapt_microbench(entry: dict[str, Any], source_path: Path) -> list[dict[str
         results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
 
     if not results:
-        raise ValueError(f"{entry['id']}: microbench adapter produced zero outcomes for {kernel_or_case} in {source_path}")
+        if entry.get("priority") == "P0":
+            raise ValueError(f"{entry['id']}: microbench adapter produced zero outcomes for {kernel_or_case} in {source_path}")
+        # P1 with no matching kernel: produce a gap record
+        return [_make_record(entry, f"{kernel_or_case}#1", "unknown",
+                {n: {"value": None, "status": "missing", "canonical_metric": s["canonical_metric"],
+                     "actual_source_metric": None, "source_artifact_path": str(source_path),
+                     "missing_reason": "kernel_not_found_in_source"} for n, s in PKA_FEATURES.items()})]
     return results
 
 
@@ -177,9 +182,11 @@ def _adapt_rodinia(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
     all_kernels_r = eei["kernels"]
     for trace_idx, kernel in enumerate(all_kernels_r):
         kernel_name = kernel.get("kernel_name", "")
-        # Identity filtering for multi-kernel files
-        if len(all_kernels_r) > 1 and not _match_kernel_name(kernel_name, kernel_or_case):
-            continue
+        # Match by kernel name or by source file stem
+        file_stem = source_path.stem.lower()
+        if not _match_kernel_name(kernel_name, kernel_or_case):
+            if kernel_or_case.lower() not in file_stem:
+                continue
 
         occurrence.setdefault(kernel_or_case, 0)
         occurrence[kernel_or_case] += 1
@@ -198,50 +205,87 @@ def _adapt_rodinia(entry: dict[str, Any], source_path: Path) -> list[dict[str, A
         results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
 
     if not results:
-        raise ValueError(f"{entry['id']}: rodinia adapter produced zero outcomes for {kernel_or_case} in {source_path}")
+        if entry.get("priority") == "P0":
+            raise ValueError(f"{entry['id']}: rodinia adapter produced zero outcomes for {kernel_or_case} in {source_path}")
+        return [_make_record(entry, f"{kernel_or_case}#1", "unknown",
+                {n: {"value": None, "status": "missing", "canonical_metric": s["canonical_metric"],
+                     "actual_source_metric": None, "source_artifact_path": str(source_path),
+                     "missing_reason": "kernel_not_found_in_source"} for n, s in PKA_FEATURES.items()})]
     return results
 
 
 def _adapt_ncu_csv(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:
-    """Parse Rodinia NCU CSV with profiler preamble, quoted Metric Name/Value.
+    """Parse Rodinia NCU CSV with profiler preamble.
 
-    The real NCU CSV has profiler preamble lines before the CSV header:
-      ==PROF== ...
-      (application output)
-      ==ERROR== ...
-      "ID","Process ID",...,"Metric Name","Metric Value",...,"Grid Size",...
+    The CSV has profiler preamble (~5 lines), then a header row:
+      ID,Process ID,...,Kernel Name,Grid Size,...,Metric Name,Metric Value,...
+
+    csv.reader strips quotes. We skip preamble by finding the header row
+    that starts with 'ID'. Each row is one metric; grouped by invocation.
     """
     kernel_or_case = entry["kernel_or_case"]
-    metric_map: dict[str, Any] = {}
-    grid_size = None
     with open(source_path, newline="", errors="replace") as f:
         reader = csv.reader(f)
         header = None
+        rows = []
         for row in reader:
-            if not row or not row[0].startswith('"'):
+            if not row:
                 continue
+            # Skip profiler preamble: look for 'ID' as first column
             if header is None:
-                header = [c.strip().strip('"') for c in row]
+                if row[0].strip() == 'ID':
+                    header = [c.strip() for c in row]
                 continue
-            vals = {h: v for h, v in zip(header, row)}
-            metric_name = vals.get("Metric Name", "").strip()
-            metric_value = vals.get("Metric Value", "").strip()
-            grid_raw = vals.get("Grid Size", "").strip()
+            if len(row) >= len(header):
+                rows.append({h: v for h, v in zip(header, row)})
+
+    if not header or not rows:
+        raise ValueError(f"{entry['id']}: NCU CSV has no data rows in {source_path}")
+
+    # Collect metrics by kernel invocation
+    inv_map: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        kid = row.get("ID", "0").strip()
+        inv_map.setdefault(kid, {"_metric_map": {}, "_grid_size": None, "_kernel_name": ""})
+        mn = row.get("Metric Name", "").strip()
+        mv = row.get("Metric Value", "").strip()
+        gs = row.get("Grid Size", "").strip()
+        kn = row.get("Kernel Name", "").strip()
+        if mn and mv:
             try:
-                if metric_name and metric_value:
-                    metric_map[metric_name] = float(metric_value)
-                if grid_raw and grid_size is None:
-                    # Parse "(938, 1, 1)" -> 938
-                    import re
-                    nums = re.findall(r'\d+', grid_raw)
-                    if nums:
-                        grid_size = int(nums[0])
-            except (ValueError, KeyError):
+                inv_map[kid]["_metric_map"][mn] = float(mv)
+            except ValueError:
                 pass
-    if grid_size is not None:
-        metric_map["launch_grid_size"] = grid_size
-    features = _extract_pka_features(metric_map, str(source_path))
-    return [_make_record(entry, f"{kernel_or_case}#1", kernel_or_case, features)]
+        if gs and inv_map[kid]["_grid_size"] is None:
+            nums = re.findall(r'\d+', gs)
+            if nums:
+                inv_map[kid]["_grid_size"] = int(nums[0])
+        if kn:
+            inv_map[kid]["_kernel_name"] = kn
+
+    results = []
+    occurrence: dict[str, int] = {}
+    for idx, (kid, inv_data) in enumerate(sorted(inv_map.items())):
+        kn = inv_data["_kernel_name"]
+        gs = inv_data["_grid_size"]
+        metric_map = inv_data["_metric_map"]
+        if gs is not None:
+            metric_map["launch_grid_size"] = gs
+
+        # Identity filtering by kernel name
+        if kn and not _match_kernel_name(kn, kernel_or_case):
+            continue
+
+        occurrence.setdefault(kernel_or_case, 0)
+        occurrence[kernel_or_case] += 1
+        invocation_id = f"{kernel_or_case}#{occurrence[kernel_or_case]}"
+
+        features = _extract_pka_features(metric_map, str(source_path))
+        results.append(_make_record(entry, invocation_id, kn or kernel_or_case, features, trace_order=idx))
+
+    if not results:
+        raise ValueError(f"{entry['id']}: NCU CSV produced zero outcomes for {kernel_or_case} in {source_path}")
+    return results
 
 
 def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[dict[str, Any]]:

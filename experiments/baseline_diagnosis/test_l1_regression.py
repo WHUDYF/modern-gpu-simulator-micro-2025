@@ -259,7 +259,8 @@ def test_stagegate():
     sg = json.loads(sg_path.read_text())
     check("valid run status", sg["run_status"] in {
         "acquisition_gate_success", "full_closure_success",
-        "selector_insufficient_records", "weight_unit_conflict"})
+        "selector_insufficient_records", "weight_unit_conflict",
+        "validation_failed"})
 
     # When acquisition_gate_success, no downstream artifacts should exist
     if sg["run_status"] == "acquisition_gate_success":

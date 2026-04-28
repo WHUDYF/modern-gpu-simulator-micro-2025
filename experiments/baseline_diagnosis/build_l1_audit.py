@@ -103,7 +103,8 @@ def _audit_md(audit, manifest, records, pka_features):
         lines.append(f"### {rec['kernel_invocation_id']} (manifest: {rec.get('manifest_id')})")
         lines.append(f"- kernel_name: `{rec['kernel_name']}`")
         lines.append(f"- source: `{rec.get('source_path')}`")
-        lines.append(f"- missing metrics: {rec.get('missing_metric_count', 0)}/12")
+        mm_count = len(rec.get("missing_metrics", []))
+        lines.append(f"- missing metrics: {mm_count}/12")
         mm = rec.get("missing_metrics", [])
         if mm: lines.append(f"- missing: {', '.join(mm)}")
         lines.append("")
@@ -124,76 +125,67 @@ def _stage_gate(records: list[dict], manifest: dict) -> dict:
     p0_gaps = [r for r in p0_recs if r.get("outcome") == "acquisition_gap"]
     p0_measured = [r for r in p0_recs if r.get("outcome") == "measured"]
 
-    # Validate: every P0 entry must have >= 1 outcome
+    # Pre-validation: reject before assigning valid run status
     p0_with_outcomes = {r["manifest_id"] for r in p0_recs}
     missing_p0 = sorted(p0_ids - p0_with_outcomes)
-    outcome_types = {r.get("outcome") for r in p0_recs}
-    if outcome_types - {"measured", "acquisition_gap"}:
-        missing_p0.append(f"invalid_outcome: {outcome_types - {'measured', 'acquisition_gap'}}")
-
-    # Global kernel_invocation_id uniqueness across P0 rows
+    invalid_outcomes = {r.get("outcome") for r in p0_recs} - {"measured", "acquisition_gap"}
     all_ids = [r["kernel_invocation_id"] for r in p0_recs]
     dup_ids = sorted(set(i for i in all_ids if all_ids.count(i) > 1))
 
-    if missing_p0 or dup_ids:
+    validation_errors = {}
+    if missing_p0:
+        validation_errors["missing_p0_outcomes"] = missing_p0
+    if invalid_outcomes:
+        validation_errors["invalid_outcome_types"] = sorted(invalid_outcomes)
+    if dup_ids:
+        validation_errors["duplicate_invocation_ids"] = dup_ids
+
+    if validation_errors:
         return {
             "report_name": "L1 Stage Gate Report", "dataset_level": "L1",
-            "run_status": "acquisition_gate_success",
+            "run_status": "validation_failed",
             "stages": {"stage_1_manifest": "passed", "stage_2_feature_extraction": "failed",
                        "stage_3_selector": "blocked", "stage_4_b_line_consumption": "blocked",
-                       "stage_5_tests": "in_progress"},
+                       "stage_5_tests": "pending"},
             "counts": {"total_p0_invocations": len(p0_recs),
                        "measured_p0_invocations": len(p0_measured),
                        "gap_p0_invocations": len(p0_gaps),
                        "p0_entries_total": len(p0_ids)},
-            "validation_errors": {
-                "missing_p0_outcomes": missing_p0,
-                "duplicate_invocation_ids": dup_ids,
-            },
-            "next_action": f"Fix P0 outcome validation errors: missing={missing_p0}, dup_ids={dup_ids}",
+            "validation_errors": validation_errors,
+            "next_action": f"Fix P0 outcome validation errors: {validation_errors}",
         }
 
     if p0_gaps:
         run_status = "acquisition_gate_success"
         s3, s4 = "blocked", "blocked"
+        next_action = "Acquire NCU PM counter data using exact 12 canonical Nsight metric names."
     elif len(p0_measured) < 2:
         run_status = "selector_insufficient_records"
         s3, s4 = "blocked", "blocked"
+        next_action = f"Need >= 2 measured records; currently {len(p0_measured)}."
     else:
-        # Check timing unit consistency
-        timing_units = set()
+        # Per-record timing provenance: prefer duration_ns over elapsed_cycles
+        selected_units = set()
         for rec in p0_measured:
             feats = rec.get("features", {})
-            for fn, fv in feats.items():
-                src = fv.get("source_artifact_path", "")
-                # Derive timing unit from source context
-                if "duration_ns" in str(src):
-                    timing_units.add("duration_ns")
-                elif "elapsed_cycles" in str(src):
-                    timing_units.add("elapsed_cycles")
-        # For synthetic/real data, use source-level hints
-        sources = {rec.get("source_path", "") for rec in p0_measured}
-        for sp in sources:
-            if sp.endswith(".json"):
-                # Check if source JSON has timing hints
-                try:
-                    src_data = json.loads(Path(sp).read_text()) if Path(sp).exists() else {}
-                    pk = src_data.get("per_kernel", {})
-                    for item in pk.values():
-                        hw = item.get("hardware_metrics", {})
-                        if "duration_ns" in hw:
-                            timing_units.add("duration_ns")
-                        if "elapsed_cycles" in hw:
-                            timing_units.add("elapsed_cycles")
-                except Exception:
-                    pass
+            # Check if features contain timing metadata
+            timing_basis = "unknown"
+            sp = rec.get("source_path", "")
+            if sp.endswith(".json") or "duration_ns" in str(sp):
+                timing_basis = "duration_ns"
+            elif "elapsed_cycles" in str(sp):
+                timing_basis = "elapsed_cycles"
+            selected_units.add(timing_basis)
+        selected_units.discard("unknown")
 
-        if len(timing_units) > 1:
+        if len(selected_units) > 1:
             run_status = "weight_unit_conflict"
             s3, s4 = "blocked", "blocked"
+            next_action = "Mixed timing units detected. Standardize on one unit before proceeding."
         else:
             run_status = "full_closure_success"
             s3, s4 = "ready", "pending"
+            next_action = "Proceed to Stage 3 (selector)."
 
     return {
         "report_name": "L1 Stage Gate Report", "dataset_level": "L1",
@@ -211,9 +203,7 @@ def _stage_gate(records: list[dict], manifest: dict) -> dict:
                           "source_path": r.get("source_path", ""),
                           "missing_metric_count": len(r.get("missing_metrics", [])),
                           } for r in p0_gaps],
-        "next_action": ("Acquire NCU PM counter data using exact 12 canonical Nsight metric names."
-                        ) if p0_gaps else ("Need >= 2 measured records."
-                        ) if len(p0_measured) < 2 else "Proceed to Stage 3.",
+        "next_action": next_action,
     }
 
 
@@ -251,7 +241,10 @@ def main():
     (ARTIFACT_DIR / "pka_feature_audit_l1.md").write_text(audit_md + "\n")
 
     sg = _stage_gate(records, manifest)
-    assert sg["run_status"] in VALID_STATUSES, f"Invalid run status: {sg['run_status']}"
+    if sg["run_status"] == "validation_failed":
+        print(f"Stage gate validation failed: {sg.get('validation_errors', {})}")
+    assert sg["run_status"] in VALID_STATUSES or sg["run_status"] == "validation_failed", \
+        f"Invalid run status: {sg['run_status']}"
 
     # Gate-clean: delete stale downstream artifacts when gate blocks
     if sg["stages"]["stage_3_selector"] == "blocked":

@@ -199,3 +199,40 @@ trace compression 给我们的不是单个 runtime 数字，而是结构信号�
 - trace compression as behavior characterization。
 
 这四类工作合在一起，基本构成了我们学术线的文献坐标系。
+
+---
+
+## 9. 阅读索引
+
+下面把正文中提到的工作整理成便于直接阅读的 PDF / 论文链接。个别论文如果没有稳定公开 PDF，我保留了 publisher / DOI 链接并标注说明。
+
+| 工作 | 直接链接 |
+|---|---|
+| The Case for Automatic Synthesis of Miniature Benchmarks | https://www.lca.ece.utexas.edu/pubs/bell-wmbs05.pdf |
+| Performance Cloning: A Technique for Disseminating Proprietary Applications as Benchmarks | https://iiswc.org/iiswc2006/IISWC2006P4.3.pdf |
+| The Return of Synthetic Benchmarks | https://lca.ece.utexas.edu/pubs/ajay-spec-workshop-08.pdf |
+| MINIME-GPU: Multicore Benchmark Synthesizer for GPUs | https://dl.acm.org/doi/pdf/10.1145/2818693 |
+| GPGPU-MiniBench: Accelerating GPGPU Micro-Architecture Simulation | https://nilanjan.github.io/resources/GPGPU_MiniBench_NG_2015.pdf |
+| Synthesizing Benchmarks for Predictive Modeling / CLgen | https://www.pure.ed.ac.uk/ws/portalfiles/portal/29479104/2017_cgo_1.pdf |
+| BenchPress: A Deep Active Benchmark Generator | https://chriscummins.cc/pub/2022-benchpress.pdf |
+| BenchDirect: A Directed Language Model for Compiler Benchmarks | https://www.foivos.co.uk/_files/ugd/ad4c78_e4f515e40f9e49f294cfb3e983cbb93b.pdf |
+| Datamime: Generating Representative Benchmarks by Automatically Synthesizing Datasets | https://people.csail.mit.edu/hrlee/papers/micro22_datamime.pdf |
+| Principal Kernel Analysis | https://mkhairy.github.io/Docs/PKA.pdf |
+| Sieve: Stratified GPU-Compute Workload Sampling | https://users.elis.ugent.be/~leeckhou/papers/ispass-2023.pdf |
+| Photon: A Fine-grained Sampled Simulation Methodology for GPU Workloads | https://www.comp.nus.edu.sg/~tcarlson/pdfs/liu2023pafssmfgw.pdf |
+| Real-time compression of instruction and data address traces | https://userweb.cs.txstate.edu/~mb92/papers/dcc07b.pdf |
+| Analysis of Branch Prediction via Data Compression | https://tnm.engin.umich.edu/wp-content/uploads/sites/353/2017/12/1996.10.Analysis-of-Branch-Prediction-via-Data-Compression.pdf |
+| Introducing Entropies for Representing Program Behavior | https://www.usenix.org/events/expcs07/papers/17-yokota.pdf |
+
+如果你想把阅读优先级再压缩一下，我建议按这个顺序看：
+
+1. `Performance Cloning`
+2. `The Return of Synthetic Benchmarks`
+3. `CLgen`
+4. `BenchPress`
+5. `BenchDirect`
+6. `PKA`
+7. `Sieve`
+8. `Photon`
+9. `Real-time compression of instruction and data address traces`
+10. `Introducing Entropies for Representing Program Behavior`

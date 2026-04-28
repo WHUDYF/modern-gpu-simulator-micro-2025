@@ -43,6 +43,18 @@ def test_infer_bottleneck_fixed_overhead_for_tiny_trace():
     assert infer_bottleneck(trace_size_mib=0.288, export_time_s=2.11, sim_time_s=1.26) == "capture / fixed overhead"
 
 
+def test_infer_bottleneck_fixed_overhead_for_shared_latency_like_trace():
+    assert infer_bottleneck(trace_size_mib=0.340, export_time_s=2.18, sim_time_s=1.29) == "capture / fixed overhead"
+
+
+def test_infer_bottleneck_tiny_trace_export_far_above_sim_dominates():
+    assert infer_bottleneck(trace_size_mib=0.3, export_time_s=2.9, sim_time_s=0.1) == "trace export / I/O"
+
+
+def test_infer_bottleneck_tiny_trace_sim_far_above_export_dominates():
+    assert infer_bottleneck(trace_size_mib=0.3, export_time_s=0.1, sim_time_s=2.9) == "simulator throughput"
+
+
 def test_infer_bottleneck_balanced_for_short_trace_anchors():
     assert infer_bottleneck(trace_size_mib=2.962, export_time_s=2.24, sim_time_s=1.46) == "balanced / mixed"
     assert infer_bottleneck(trace_size_mib=8.715, export_time_s=3.52, sim_time_s=1.53) == "balanced / mixed"

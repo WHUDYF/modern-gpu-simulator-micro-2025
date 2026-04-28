@@ -60,7 +60,12 @@ def infer_bottleneck(
         return "simulator throughput"
     if sim_time_s is None:
         return "trace export / I/O"
-    if trace_size_mib is not None and trace_size_mib < 1 and max(export_time_s, sim_time_s) <= 3:
+    if (
+        trace_size_mib is not None
+        and trace_size_mib < 1
+        and max(export_time_s, sim_time_s) <= 3
+        and max(export_time_s, sim_time_s) <= 2.5 * min(export_time_s, sim_time_s)
+    ):
         return "capture / fixed overhead"
     if (
         trace_size_mib is not None

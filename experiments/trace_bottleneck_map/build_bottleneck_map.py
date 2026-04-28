@@ -27,6 +27,18 @@ def _records_from_observations(observations: list[BenchmarkObservation]) -> list
     return [record_from_observation(obs) for obs in observations]
 
 
+def _stable_trace_benchmark_source(raw_path: str) -> str:
+    path = Path(raw_path)
+    if not path.is_absolute():
+        return raw_path
+
+    cwd = Path.cwd().resolve()
+    try:
+        return str(path.resolve().relative_to(cwd))
+    except ValueError:
+        return path.name
+
+
 def _build_markdown(records: list[dict]) -> str:
     counts = Counter(row["dominant_bottleneck"] for row in records if row["status"] == "measured")
     lines = [
@@ -86,7 +98,7 @@ def main() -> int:
     records = _records_from_observations(all_observations)
     payload = {
         "report_name": "Trace Bottleneck Cost Map",
-        "trace_benchmark_source": str(Path(args.trace_benchmark_md).resolve()),
+        "trace_benchmark_source": _stable_trace_benchmark_source(args.trace_benchmark_md),
         "records": records,
     }
 

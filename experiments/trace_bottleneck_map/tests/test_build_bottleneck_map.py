@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 
-SCRIPT = Path("experiments/trace_bottleneck_map/build_bottleneck_map.py")
+SCRIPT = Path(__file__).resolve().parents[1] / "build_bottleneck_map.py"
 
 
 def _write_trace_benchmark(path: Path) -> None:
@@ -30,12 +30,13 @@ def test_builder_writes_json_and_markdown(tmp_path):
             sys.executable,
             str(SCRIPT),
             "--trace-benchmark-md",
-            str(trace_md),
+            "trace-benchmark.md",
             "--output-dir",
-            str(out_dir),
+            "out",
         ],
         capture_output=True,
         text=True,
+        cwd=tmp_path,
     )
 
     assert proc.returncode == 0, proc.stderr
@@ -45,6 +46,7 @@ def test_builder_writes_json_and_markdown(tmp_path):
     assert md_path.exists()
 
     payload = json.loads(json_path.read_text())
+    assert payload["trace_benchmark_source"] == "trace-benchmark.md"
     measured = [row for row in payload["records"] if row["status"] == "measured"]
     assert any(row["representative_case"] == "l2_bw_32f" for row in measured)
     assert any(row["suite"] == "NCCL-tests" and row["status"] == "excluded" for row in payload["records"])
@@ -53,20 +55,22 @@ def test_builder_writes_json_and_markdown(tmp_path):
 
 def test_builder_rejects_missing_trace_benchmark(tmp_path):
     out_dir = tmp_path / "out"
-    missing = tmp_path / "missing.md"
 
     proc = subprocess.run(
         [
             sys.executable,
             str(SCRIPT),
             "--trace-benchmark-md",
-            str(missing),
+            "missing.md",
             "--output-dir",
-            str(out_dir),
+            "out",
         ],
         capture_output=True,
         text=True,
+        cwd=tmp_path,
     )
 
-    assert proc.returncode != 0
+    assert proc.returncode == 2
     assert "trace benchmark file not found" in proc.stderr
+    assert not (out_dir / "benchmark_cost_map.json").exists()
+    assert not (out_dir / "benchmark_cost_map.md").exists()

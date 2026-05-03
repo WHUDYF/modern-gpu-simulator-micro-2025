@@ -22,7 +22,8 @@
       },
       "threadblock_or_warp_count": {
         "tb": 96,
-        "warp": 3072
+        "warp": 3072,
+        "label": "modeled"
       },
       "T_trace_to_sim_s": {
         "value": 10.0,
@@ -63,7 +64,8 @@
       },
       "threadblock_or_warp_count": {
         "tb": 1500,
-        "warp": 48000
+        "warp": 48000,
+        "label": "modeled"
       },
       "T_trace_to_sim_s": {
         "value": 105.0,
@@ -104,7 +106,8 @@
       },
       "threadblock_or_warp_count": {
         "tb": 3200,
-        "warp": 102400
+        "warp": 102400,
+        "label": "modeled"
       },
       "T_trace_to_sim_s": {
         "value": 205.0,
@@ -145,7 +148,8 @@
       },
       "threadblock_or_warp_count": {
         "tb": 48000,
-        "warp": 1536000
+        "warp": 1536000,
+        "label": "modeled"
       },
       "T_trace_to_sim_s": {
         "value": 1005.0,

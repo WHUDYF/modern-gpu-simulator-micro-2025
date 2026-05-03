@@ -159,15 +159,18 @@ def build_evidence_rows():
             row["threadblock_or_warp_count"] = {
                 "tb": red.get("threadblock_count", None),
                 "warp": red.get("warp_trace_count", None),
+                "label": "measured",
             }
             row["kernel_count"] = {"value": red.get("kernel_count", None),
-                                   "label": "measured" if red.get("threadblock_count") else "pending"}
+                                   "label": "measured"}
         elif wid in MODELED_COUNTS:
             mc = MODELED_COUNTS[wid]
-            row["threadblock_or_warp_count"] = {"tb": mc["tb"], "warp": mc["warp"]}
+            row["threadblock_or_warp_count"] = {
+                "tb": mc["tb"], "warp": mc["warp"], "label": "modeled",
+            }
             row["kernel_count"] = {"value": mc["kernel_count"], "label": "modeled"}
         else:
-            row["threadblock_or_warp_count"] = {"tb": None, "warp": None}
+            row["threadblock_or_warp_count"] = {"tb": None, "warp": None, "label": "pending"}
             row["kernel_count"] = {"value": None, "label": "pending"}
 
         rows.append(row)
@@ -248,12 +251,15 @@ def build_markdown(rows, go_no_go, controls):
         red_t = r["reduced_T_trace_to_sim_s"]
         tbc = r.get("threadblock_or_warp_count", {})
         kc = r.get("kernel_count", {})
+        tc_label = tbc.get("label", "pending") if tbc else "pending"
         k_val = kc.get("value", "N/A") if kc else "N/A"
+        k_label = kc.get("label", "pending") if kc else "pending"
         tb_val = tbc.get("tb", "N/A") if tbc else "N/A"
         warp_val = tbc.get("warp", "N/A") if tbc else "N/A"
         lines.append(
             f"| {r['workload']} ({r['slice_type']}) | {r['measurement_unit']} | "
-            f"{ts['value']} ({ts['label']}) | {k_val} | {tb_val} | {warp_val} | "
+            f"{ts['value']} ({ts['label']}) | {k_val} ({k_label}) | {tb_val} ({tc_label}) | "
+            f"{warp_val} ({tc_label}) | "
             f"{tfs['value']} ({tfs['label']}) | {ttot['value']} ({ttot['label']}) | "
             f"{pct['value']} ({pct['label']}) | {red_t['value']} ({red_t['label']}) | "
             f"{r['complete_flow_impact']} |"

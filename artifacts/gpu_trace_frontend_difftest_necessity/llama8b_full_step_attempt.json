@@ -1,11 +1,14 @@
 {
   "attempt_report": "Llama 3.1 8B Full-Step Validation Attempt",
-  "attempt_count": 1,
+  "attempt_count": 0,
   "attempt_date": "2026-05-04",
-  "status": "abandoned",
-  "failure_stage": "trace_generation",
-  "failure_reason": "Llama 3.1 8B full training-step trace generation requires NVBit instrumentation of a full forward+backward pass on a GPU with >= 48 GiB VRAM. No instrumented Llama 3.1 8B binary or pretraining harness is available in this session. The required trace size (~100 GiB) also exceeds available storage and would violate the 500 GiB per-workload ceiling when combined with artifacts.",
-  "command_attempted": null,
+  "status": "not_run_due_to_incomplete_prerequisites",
+  "prerequisites": {
+    "task10_complete": false,
+    "task13_complete": false,
+    "note": "AC-10 requires the optional tail attempt only after the required evidence line is complete (BERT-base full step, Llama 3.1 8B decoder layer slice, formula modeling, complete-flow burden ratio, evidence table). Task10 and task13 are still pending measured AI-training data."
+  },
+  "command_attempted": "not_run",
   "harness": "Would require: NVBit-instrumented Llama 3.1 8B pretraining step with batch_size=1 on A6000 or A100 GPU",
   "partial_artifacts": [],
   "required_artifacts_preserved": [
@@ -17,5 +20,10 @@
     "prototype_equivalence_report.json/.md",
     "resource_bound_config.json/.md"
   ],
-  "notes": "This tail task is non-blocking per AC-10. The required evidence line (BERT-base full step, Llama 3.1 8B decoder layer slice) remains the primary deliverable. A failed attempt with documented reason is acceptable under the plan."
+  "infrastructure_requirements": [
+    "NVBit-instrumented Llama 3.1 8B pretraining harness",
+    "GPU with >= 48 GiB VRAM (A6000 or A100)",
+    ">= 500 GiB storage for trace + artifacts"
+  ],
+  "next_steps": "Complete task10 and task13 with measured AI-training data, then rerun this tail attempt with real Llama 3.1 8B full-step trace."
 }

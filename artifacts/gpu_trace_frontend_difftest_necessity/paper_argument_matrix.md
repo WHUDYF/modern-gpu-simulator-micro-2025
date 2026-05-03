@@ -2,60 +2,42 @@
 
 Generated: 2026-05-03
 
-## Status
+## Go/No-Go
 
-**All values with `placeholder` or `modeled` labels must be recalibrated with measured timing data from simulator instrumentation (task6).**
+**Verdict**: PENDING_MEASUREMENT
+- Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%
+- Detail: All inputs are placeholder or modeled. Run simulator instrumentation to obtain measured data.
 
-## Go/No-Go Summary
+## Evidence Rows
 
-| Metric | Value | Threshold | Result |
-|--------|-------|-----------|--------|
-| P_trace_to_sim (slice) | 27.6% (placeholder) | > 15% | GO |
-| P_trace_to_sim (step) | 14.3% (placeholder) | > 15% | NOT YET |
-| Overall | — | Slice OR Step | GO (pending measured data) |
+| Workload | Unit | Role | Trace Size (GiB) | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Impact |
+|----------|------|------|-----------------|---------------|------------|---------------|-------------------|--------|
+| BERT-base (encoder layer slice) | slice | T1_baseline | 10.0 (modeled) | 8.0 (placeholder) | 29.0 (placeholder) | 27.59 (placeholder) | 2.4 (modeled) | Expected 30% reduction saves 2.4s per run |
+| BERT-base (pretraining full step) | step | T1_baseline | 10.0 (modeled) | 55.0 (placeholder) | 385.0 (placeholder) | 14.29 (placeholder) | 16.5 (modeled) | Expected 30% reduction saves 16.5s per run |
+| Llama 3.1 8B (decoder layer slice) | slice | T2_representative | 20.0 (modeled) | 40.0 (modeled) | 135.0 (modeled) | 29.63 (modeled) | 12.0 (modeled) | Expected 30% reduction saves 12.0s per run |
+| Llama 3.1 8B (pretraining full step) | step | T2_nice_to_have | 20.0 (modeled) | 1200.0 (modeled) | 11100.0 (modeled) | 10.81 (modeled) | 360.0 (modeled) | Expected 30% reduction saves 360.0s per run |
 
-## Evidence Table
+## Control Workloads (Measured, from Existing Bottleneck Map)
 
-| Workload | Unit | Trace Size (GiB) | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Reduced T_frontend (s) | Impact |
-|----------|------|-----------------|---------------|------------|---------------|-------------------|----------------------|--------|
-| BERT-base encoder layer slice | slice | 0.5 (placeholder) | 8.0 (placeholder) | 29.0 (placeholder) | 27.6 (derived_placeholder) | 2.4 (modeled) | 5.6 (modeled) | Moderate: saves ~2.4s per run, ~24s per 10-run sweep at expected 30% reduction |
-| BERT-base pretraining full step | step | 10.0 (placeholder) | 55.0 (placeholder) | 385.0 (placeholder) | 14.3 (derived_placeholder) | 16.5 (modeled) | 38.5 (modeled) | Significant: saves ~16.5s per run, ~82.5s per 5-run sweep at expected 30% reduction |
-| Llama 3.1 8B decoder layer slice | slice | 20.0 (modeled) | 40.0 (modeled) | 135.0 (modeled) | 29.6 (derived_modeled) | 12.0 (modeled) | 28.0 (modeled) | Significant: saves ~12s per run, ~120s per 10-run sweep at expected 30% reduction |
-| T2 scale anchor 100 GiB | modeled_anchor | 100.0 (modeled) | 1005.0 (modeled) | 4000.0 (modeled) | 25.1 (derived_modeled) | 301.5 (modeled) | 703.5 (modeled) | Major: saves ~301.5s per run, ~904.5s per 3-run sweep at expected 30% reduction |
-| T3 scale anchor 500 GiB | modeled_anchor | 500.0 (modeled) | 5005.0 (modeled) | 20000.0 (modeled) | 25.0 (derived_modeled) | 1501.5 (modeled) | 3503.5 (modeled) | Critical: saves ~1501.5s (25 min) per run, ~4504.5s (75 min) per 3-run sweep |
+| Suite | Representative Case | Trace Size (MiB) | Export (s) | Sim (s) |
+|-------|-------------------|-----------------|-----------|--------|
+| GPU_Microbenchmark | MaxFlops | 8.715 | 3.52 | 1.53 |
+| GPU_Microbenchmark | atomic_add_bw | 5.423 | 2.27 | 10.13 |
+| GPU_Microbenchmark | atomic_add_bw_conflict | 3.112 | 2.13 | 10.09 |
+| GPU_Microbenchmark | atomic_add_lat | 0.288 | 2.11 | 1.26 |
+| GPU_Microbenchmark | l1_bw_128 | 24.038 | 6.59 | 2.13 |
+| GPU_Microbenchmark | l1_bw_32f | 2.962 | 2.24 | 1.46 |
+| GPU_Microbenchmark | l1_bw_32f_unroll | 4.544 | 2.56 | 1.49 |
+| GPU_Microbenchmark | l1_bw_32f_unroll_large | 7.511 | 2.79 | 1.69 |
+| GPU_Microbenchmark | l1_bw_64f | 3.026 | 2.29 | 1.49 |
+| GPU_Microbenchmark | l1_lat | 37.759 | 31.05 | 1.57 |
 
-## Control Workloads (from Existing Bottleneck Map)
+## Data Provenance
 
-| Suite | Representative Case | Trace Size (MiB) | Export (s) | Sim (s) | Dominant Bottleneck |
-|-------|-------------------|-----------------|-----------|--------|--------------------|
-| GPU_Microbenchmark | MaxFlops | 8.715 | 3.52 | 1.53 | balanced / mixed |
-| GPU_Microbenchmark | atomic_add_bw | 5.423 | 2.27 | 10.13 | simulator throughput |
-| GPU_Microbenchmark | atomic_add_bw_conflict | 3.112 | 2.13 | 10.09 | simulator throughput |
-| GPU_Microbenchmark | atomic_add_lat | 0.288 | 2.11 | 1.26 | capture / fixed overhead |
-| GPU_Microbenchmark | l1_bw_128 | 24.038 | 6.59 | 2.13 | trace export / I/O |
-| GPU_Microbenchmark | l1_bw_32f | 2.962 | 2.24 | 1.46 | balanced / mixed |
-| GPU_Microbenchmark | l1_bw_32f_unroll | 4.544 | 2.56 | 1.49 | balanced / mixed |
-| GPU_Microbenchmark | l1_bw_32f_unroll_large | 7.511 | 2.79 | 1.69 | balanced / mixed |
-| GPU_Microbenchmark | l1_bw_64f | 3.026 | 2.29 | 1.49 | balanced / mixed |
-| GPU_Microbenchmark | l1_lat | 37.759 | 31.05 | 1.57 | trace export / I/O |
+All evidence rows are merged from:
+- `workload_evidence_table.json` — workload definitions
+- `complete_flow_burden_ratio.json` — timing and burden ratios
+- `difftest_reduction_model.json` — reduction estimates
+- `trace_to_sim_formula.json` — formula-based estimates for scale anchors
 
-## Conclusion (Provisional)
-
-Based on placeholder data:
-- Slice-level P_trace_to_sim exceeds the 15% engineering gate, suggesting frontend restructuring is worth a prototype investigation.
-- Step-level P_trace_to_sim is close to but below 15% with placeholder values; measured data may change this.
-- Scale-anchor modeling suggests frontend cost grows linearly with trace size, making the optimization increasingly valuable at industrial scale.
-- **Next step**: Replace all placeholder values with measured timing data from simulator instrumentation.
-
-## Label Legend
-
-| Label | Meaning |
-|-------|---------|
-| measured | Directly measured from simulator runs |
-| modeled | Estimated from formula or planning model |
-| derived_measured | Computed from measured inputs |
-| derived_modeled | Computed from modeled inputs |
-| placeholder | Placeholder value pending measurement |
-| derived_placeholder | Computed from placeholder values |
-| pending | Measurement not yet available |
-| not_applicable | Not applicable for this workload |
+Labels reflect whether data is `measured` (from simulator instrumentation), `modeled` (from planning formula), or `pending` (not yet available).

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Central evidence table generator.
 
-Merges workload catalog, timing breakdown, formula estimates, burden ratios,
-redundancy metrics, and reduction estimates into a single evidence table.
-Distinguishes measured from modeled values.
+Loads measured and modeled inputs from the artifact pipeline
+and merges them into a single evidence table with provenance labels.
 """
 import json
 import os
@@ -11,218 +10,223 @@ import os
 DATE = "2026-05-03"
 OUT_DIR = "artifacts/gpu_trace_frontend_difftest_necessity"
 
-EVIDENCE_ROWS = [
-    {
-        "workload": "BERT-base encoder layer slice",
-        "measurement_unit": "slice",
-        "model_type": "encoder layer",
-        "trace_size_GiB": {"value": 0.5, "label": "placeholder"},
-        "kernel_count": {"value": None, "label": "pending"},
-        "threadblock_or_warp_count": {"value": None, "label": "pending"},
-        "T_trace_to_sim_s": {"value": 8.0, "label": "placeholder"},
-        "T_kernel_to_sim_done_s": {"value": 29.0, "label": "placeholder"},
-        "P_trace_to_sim_pct": {"value": 27.6, "label": "derived_placeholder"},
-        "est_frontend_reduction_s": {"value": 2.4, "label": "modeled"},
-        "reduced_T_trace_to_sim_s": {"value": 5.6, "label": "modeled"},
-        "complete_flow_impact": "Moderate: saves ~2.4s per run, ~24s per 10-run sweep at expected 30% reduction",
-        "trace_export_included": True,
-        "result_analysis_included": True,
-    },
-    {
-        "workload": "BERT-base pretraining full step",
-        "measurement_unit": "step",
-        "model_type": "pretraining full step",
-        "trace_size_GiB": {"value": 10.0, "label": "placeholder"},
-        "kernel_count": {"value": None, "label": "pending"},
-        "threadblock_or_warp_count": {"value": None, "label": "pending"},
-        "T_trace_to_sim_s": {"value": 55.0, "label": "placeholder"},
-        "T_kernel_to_sim_done_s": {"value": 385.0, "label": "placeholder"},
-        "P_trace_to_sim_pct": {"value": 14.3, "label": "derived_placeholder"},
-        "est_frontend_reduction_s": {"value": 16.5, "label": "modeled"},
-        "reduced_T_trace_to_sim_s": {"value": 38.5, "label": "modeled"},
-        "complete_flow_impact": "Significant: saves ~16.5s per run, ~82.5s per 5-run sweep at expected 30% reduction",
-        "trace_export_included": True,
-        "result_analysis_included": True,
-    },
-    {
-        "workload": "Llama 3.1 8B decoder layer slice",
-        "measurement_unit": "slice",
-        "model_type": "decoder layer",
-        "trace_size_GiB": {"value": 20.0, "label": "modeled"},
-        "kernel_count": {"value": None, "label": "pending"},
-        "threadblock_or_warp_count": {"value": None, "label": "pending"},
-        "T_trace_to_sim_s": {"value": 40.0, "label": "modeled"},
-        "T_kernel_to_sim_done_s": {"value": 135.0, "label": "modeled"},
-        "P_trace_to_sim_pct": {"value": 29.6, "label": "derived_modeled"},
-        "est_frontend_reduction_s": {"value": 12.0, "label": "modeled"},
-        "reduced_T_trace_to_sim_s": {"value": 28.0, "label": "modeled"},
-        "complete_flow_impact": "Significant: saves ~12s per run, ~120s per 10-run sweep at expected 30% reduction",
-        "trace_export_included": True,
-        "result_analysis_included": True,
-    },
-    {
-        "workload": "T2 scale anchor 100 GiB",
-        "measurement_unit": "modeled_anchor",
-        "model_type": "scale extrapolation",
-        "trace_size_GiB": {"value": 100.0, "label": "modeled"},
-        "kernel_count": {"value": None, "label": "not_applicable"},
-        "threadblock_or_warp_count": {"value": None, "label": "not_applicable"},
-        "T_trace_to_sim_s": {"value": 1005.0, "label": "modeled"},
-        "T_kernel_to_sim_done_s": {"value": 4000.0, "label": "modeled"},
-        "P_trace_to_sim_pct": {"value": 25.1, "label": "derived_modeled"},
-        "est_frontend_reduction_s": {"value": 301.5, "label": "modeled"},
-        "reduced_T_trace_to_sim_s": {"value": 703.5, "label": "modeled"},
-        "complete_flow_impact": "Major: saves ~301.5s per run, ~904.5s per 3-run sweep at expected 30% reduction",
-        "trace_export_included": True,
-        "result_analysis_included": True,
-    },
-    {
-        "workload": "T3 scale anchor 500 GiB",
-        "measurement_unit": "modeled_anchor",
-        "model_type": "scale extrapolation",
-        "trace_size_GiB": {"value": 500.0, "label": "modeled"},
-        "kernel_count": {"value": None, "label": "not_applicable"},
-        "threadblock_or_warp_count": {"value": None, "label": "not_applicable"},
-        "T_trace_to_sim_s": {"value": 5005.0, "label": "modeled"},
-        "T_kernel_to_sim_done_s": {"value": 20000.0, "label": "modeled"},
-        "P_trace_to_sim_pct": {"value": 25.0, "label": "derived_modeled"},
-        "est_frontend_reduction_s": {"value": 1501.5, "label": "modeled"},
-        "reduced_T_trace_to_sim_s": {"value": 3503.5, "label": "modeled"},
-        "complete_flow_impact": "Critical: saves ~1501.5s (25 min) per run, ~4504.5s (75 min) per 3-run sweep",
-        "trace_export_included": True,
-        "result_analysis_included": True,
-    },
-]
+def load_json(path):
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        return json.load(f)
 
-
-EXISTING_COST_MAP_PATH = "artifacts/trace_bottleneck_map/benchmark_cost_map.json"
-
-def load_existing_controls():
-    if not os.path.exists(EXISTING_COST_MAP_PATH):
+def load_workload_catalog():
+    """Load the workload evidence table to get the claim-bearing workload list."""
+    data = load_json(f"{OUT_DIR}/workload_evidence_table.json")
+    if not data:
         return []
-    with open(EXISTING_COST_MAP_PATH) as f:
-        data = json.load(f)
+    return data.get("workloads", [])
+
+def load_burden_ratios():
+    """Load per-workload burden ratio data."""
+    data = load_json(f"{OUT_DIR}/complete_flow_burden_ratio.json")
+    if not data:
+        return {}
+    results = data.get("results", [])
+    return {r["workload_id"]: r for r in results}
+
+def load_reduction_estimates():
+    """Load DiffTest-style reduction estimates keyed by workload_id."""
+    data = load_json(f"{OUT_DIR}/difftest_reduction_model.json")
+    if not data:
+        return {}
+    rows = data.get("rows", [])
+    return {r["workload_id"]: r for r in rows}
+
+def load_formula_rows():
+    """Load trace-size formula planning rows."""
+    data = load_json(f"{OUT_DIR}/trace_to_sim_formula.json")
+    if not data:
+        return {}
+    return {r["trace_label"]: r for r in data.get("rows", [])}
+
+def load_controls():
+    """Load measured control workloads from the existing bottleneck map."""
+    data = load_json("artifacts/trace_bottleneck_map/benchmark_cost_map.json")
+    if not data:
+        return []
     controls = []
     for rec in data.get("records", []):
         if rec.get("status") == "measured":
-            controls.append({
-                "suite": rec["suite"],
-                "representative_case": rec["representative_case"],
-                "trace_size_mib": rec.get("trace_size_mib"),
-                "export_time_s": rec.get("export_time_s"),
-                "sim_time_s": rec.get("sim_time_s"),
-                "dominant_bottleneck": rec.get("dominant_bottleneck"),
-            })
+            controls.append(rec)
     return controls
 
-def build_json():
-    return {
-        "report_name": "GPU Trace Frontend Necessity: Central Evidence Table",
-        "description": "Merged evidence from workload catalog, trace-size formula, complete-flow burden ratio, DiffTest reduction model, and existing bottleneck map.",
-        "generated_date": DATE,
-        "evidence_rows": EVIDENCE_ROWS,
-        "control_workloads": load_existing_controls(),
-        "label_legend": {
-            "measured": "Directly measured from simulator runs",
-            "modeled": "Estimated from formula or planning model",
-            "derived_measured": "Computed from measured inputs",
-            "derived_modeled": "Computed from modeled inputs",
-            "placeholder": "Placeholder value pending measurement",
-            "derived_placeholder": "Computed from placeholder values",
-            "pending": "Measurement not yet available",
-            "not_applicable": "Not applicable for this workload",
-        },
-        "go_no_go": {
+def build_evidence_rows():
+    """Merge data from workload catalog, burden ratios, and reduction model."""
+    workloads = load_workload_catalog()
+    burdens = load_burden_ratios()
+    reductions = load_reduction_estimates()
+
+    rows = []
+    for w in workloads:
+        wid = w["workload_id"]
+        row = {
+            "workload": w.get("model", wid),
+            "slice_type": w.get("slice_type", ""),
+            "measurement_unit": w.get("measurement_unit", ""),
+            "role": w.get("role", ""),
+            "trace_size_GiB": {"value": None, "label": "pending"},
+            "kernel_count": {"value": None, "label": "pending"},
+            "threadblock_or_warp_count": {"value": None, "label": "pending"},
+            "T_trace_to_sim_s": {"value": None, "label": "pending"},
+            "T_kernel_to_sim_done_s": {"value": None, "label": "pending"},
+            "P_trace_to_sim_pct": {"value": None, "label": "pending"},
+            "est_frontend_reduction_s": {"value": None, "label": "pending"},
+            "reduced_T_trace_to_sim_s": {"value": None, "label": "pending"},
+            "complete_flow_impact": "Pending — no measured data",
+            "trace_export_included": True,
+            "result_analysis_included": True,
+        }
+
+        # Merge burden ratio data if available
+        if wid in burdens:
+            b = burdens[wid]
+            c = b.get("components", {})
+            dl = b.get("data_labels", {})
+            row["T_trace_to_sim_s"] = {"value": c.get("T_trace_to_sim_s", 0), "label": dl.get("T_trace_to_sim", "pending")}
+            row["T_kernel_to_sim_done_s"] = {"value": b.get("T_kernel_to_sim_done_s", 0), "label": dl.get("T_trace_to_sim", "pending")}
+            row["P_trace_to_sim_pct"] = {"value": b.get("P_trace_to_sim_pct", 0), "label": dl.get("T_trace_to_sim", "pending")}
+
+        # Merge reduction estimates if available
+        if wid in reductions:
+            red = reductions[wid]
+            expected = red.get("saved_expected_per_run_s", 0)
+            reduced_t = red.get("reduced_expected_T_trace_to_sim_s", 0)
+            orig_t = red.get("original_T_trace_to_sim_s", 0)
+            row["est_frontend_reduction_s"] = {"value": expected, "label": "modeled"}
+            row["reduced_T_trace_to_sim_s"] = {"value": reduced_t, "label": "modeled"}
+            if expected > 0:
+                row["complete_flow_impact"] = f"Expected 30% reduction saves {expected:.1f}s per run"
+
+        # Merge formula-based trace size if available (for scale anchors)
+        formula = load_formula_rows()
+        for label_key in formula:
+            if wid in label_key or w.get("model", "") in label_key:
+                row["trace_size_GiB"] = {"value": formula[label_key]["trace_size_GiB"], "label": "modeled"}
+
+        rows.append(row)
+    return rows
+
+def evaluate_go_no_go(rows):
+    """Go/no-go gate: only evaluate when measured data exists."""
+    has_measured = any(
+        r["T_trace_to_sim_s"]["label"] == "measured"
+        for r in rows
+    )
+    if not has_measured:
+        return {
+            "verdict": "PENDING_MEASUREMENT",
             "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-            "slice_pct": 27.6,
-            "step_pct": 14.3,
-            "verdict": "GO — slice-level P_trace_to_sim exceeds 15% threshold",
-            "caveat": "Placeholder data; must be recalibrated with measured timing.",
-        },
+            "detail": "All inputs are placeholder or modeled. Run simulator instrumentation to obtain measured data."
+        }
+
+    slice_rows = [r for r in rows if r["measurement_unit"] == "slice"]
+    step_rows = [r for r in rows if r["measurement_unit"] == "step"]
+    slice_max = max((r["P_trace_to_sim_pct"]["value"] for r in slice_rows if r["P_trace_to_sim_pct"]["value"] is not None), default=0)
+    step_max = max((r["P_trace_to_sim_pct"]["value"] for r in step_rows if r["P_trace_to_sim_pct"]["value"] is not None), default=0)
+    go = slice_max > 15.0 or step_max > 15.0
+    return {
+        "verdict": "GO" if go else "NOT_YET",
+        "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
+        "slice_max_pct": slice_max,
+        "step_max_pct": step_max,
     }
 
-def build_markdown():
+def build_json(rows, go_no_go, controls):
+    return {
+        "report_name": "GPU Trace Frontend Necessity: Central Evidence Table",
+        "generated_date": DATE,
+        "go_no_go": go_no_go,
+        "evidence_rows": rows,
+        "control_workloads": [
+            {
+                "suite": c.get("suite", ""),
+                "representative_case": c.get("representative_case", ""),
+                "trace_size_mib": c.get("trace_size_mib"),
+            }
+            for c in controls
+        ],
+        "provenance": "Evidence rows are merged from workload_evidence_table.json, complete_flow_burden_ratio.json, and difftest_reduction_model.json. All data labels reflect the current measurement status.",
+    }
+
+def build_markdown(rows, go_no_go, controls):
     lines = [
         "# GPU Trace Frontend Necessity: Central Evidence Table",
         "",
         f"Generated: {DATE}",
         "",
-        "## Status",
+        "## Go/No-Go",
         "",
-        "**All values with `placeholder` or `modeled` labels must be recalibrated with measured timing data from simulator instrumentation (task6).**",
-        "",
-        "## Go/No-Go Summary",
-        "",
-        "| Metric | Value | Threshold | Result |",
-        "|--------|-------|-----------|--------|",
-        "| P_trace_to_sim (slice) | 27.6% (placeholder) | > 15% | GO |",
-        "| P_trace_to_sim (step) | 14.3% (placeholder) | > 15% | NOT YET |",
-        "| Overall | — | Slice OR Step | GO (pending measured data) |",
-        "",
-        "## Evidence Table",
-        "",
-        "| Workload | Unit | Trace Size (GiB) | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Reduced T_frontend (s) | Impact |",
-        "|----------|------|-----------------|---------------|------------|---------------|-------------------|----------------------|--------|",
+        f"**Verdict**: {go_no_go['verdict']}",
+        f"- Rule: {go_no_go['rule']}",
     ]
-    for r in EVIDENCE_ROWS:
-        s = r["trace_size_GiB"]
-        t_sim = r["T_trace_to_sim_s"]
-        t_total = r["T_kernel_to_sim_done_s"]
-        p = r["P_trace_to_sim_pct"]
+    if "slice_max_pct" in go_no_go:
+        lines.append(f"- Slice max P_trace_to_sim: {go_no_go['slice_max_pct']:.1f}%")
+        lines.append(f"- Step max P_trace_to_sim: {go_no_go['step_max_pct']:.1f}%")
+    if "detail" in go_no_go:
+        lines.append(f"- Detail: {go_no_go['detail']}")
+
+    lines += [
+        "",
+        "## Evidence Rows",
+        "",
+        "| Workload | Unit | Role | Trace Size (GiB) | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Impact |",
+        "|----------|------|------|-----------------|---------------|------------|---------------|-------------------|--------|",
+    ]
+    for r in rows:
+        ts = r["trace_size_GiB"]
+        tfs = r["T_trace_to_sim_s"]
+        ttot = r["T_kernel_to_sim_done_s"]
+        pct = r["P_trace_to_sim_pct"]
         red = r["est_frontend_reduction_s"]
-        red_t = r["reduced_T_trace_to_sim_s"]
         lines.append(
-            f"| {r['workload']} | {r['measurement_unit']} | "
-            f"{s['value']} ({s['label']}) | {t_sim['value']} ({t_sim['label']}) | "
-            f"{t_total['value']} ({t_total['label']}) | {p['value']} ({p['label']}) | "
-            f"{red['value']} ({red['label']}) | {red_t['value']} ({red_t['label']}) | "
-            f"{r['complete_flow_impact']} |"
+            f"| {r['workload']} ({r['slice_type']}) | {r['measurement_unit']} | {r['role']} | "
+            f"{ts['value']} ({ts['label']}) | {tfs['value']} ({tfs['label']}) | "
+            f"{ttot['value']} ({ttot['label']}) | {pct['value']} ({pct['label']}) | "
+            f"{red['value']} ({red['label']}) | {r['complete_flow_impact']} |"
         )
 
-    controls = load_existing_controls()
     if controls:
         lines += [
             "",
-            "## Control Workloads (from Existing Bottleneck Map)",
+            "## Control Workloads (Measured, from Existing Bottleneck Map)",
             "",
-            "| Suite | Representative Case | Trace Size (MiB) | Export (s) | Sim (s) | Dominant Bottleneck |",
-            "|-------|-------------------|-----------------|-----------|--------|--------------------|",
+            "| Suite | Representative Case | Trace Size (MiB) | Export (s) | Sim (s) |",
+            "|-------|-------------------|-----------------|-----------|--------|",
         ]
-        for c in controls[:10]:  # Top 10 measured controls
+        for c in controls[:10]:
             lines.append(
-                f"| {c['suite']} | {c['representative_case']} | "
-                f"{c['trace_size_mib'] or 'N/A'} | {c['export_time_s'] or 'N/A'} | "
-                f"{c['sim_time_s'] or 'N/A'} | {c['dominant_bottleneck']} |"
+                f"| {c.get('suite', '')} | {c.get('representative_case', '')} | "
+                f"{c.get('trace_size_mib', 'N/A')} | {c.get('export_time_s', 'N/A')} | "
+                f"{c.get('sim_time_s', 'N/A')} |"
             )
 
     lines += [
         "",
-        "## Conclusion (Provisional)",
+        "## Data Provenance",
         "",
-        "Based on placeholder data:",
-        "- Slice-level P_trace_to_sim exceeds the 15% engineering gate, suggesting frontend restructuring is worth a prototype investigation.",
-        "- Step-level P_trace_to_sim is close to but below 15% with placeholder values; measured data may change this.",
-        "- Scale-anchor modeling suggests frontend cost grows linearly with trace size, making the optimization increasingly valuable at industrial scale.",
-        "- **Next step**: Replace all placeholder values with measured timing data from simulator instrumentation.",
+        "All evidence rows are merged from:",
+        "- `workload_evidence_table.json` — workload definitions",
+        "- `complete_flow_burden_ratio.json` — timing and burden ratios",
+        "- `difftest_reduction_model.json` — reduction estimates",
+        "- `trace_to_sim_formula.json` — formula-based estimates for scale anchors",
         "",
-        "## Label Legend",
-        "",
-        "| Label | Meaning |",
-        "|-------|---------|",
-        "| measured | Directly measured from simulator runs |",
-        "| modeled | Estimated from formula or planning model |",
-        "| derived_measured | Computed from measured inputs |",
-        "| derived_modeled | Computed from modeled inputs |",
-        "| placeholder | Placeholder value pending measurement |",
-        "| derived_placeholder | Computed from placeholder values |",
-        "| pending | Measurement not yet available |",
-        "| not_applicable | Not applicable for this workload |",
+        "Labels reflect whether data is `measured` (from simulator instrumentation), `modeled` (from planning formula), or `pending` (not yet available).",
     ]
     return "\n".join(lines) + "\n"
 
 def main():
-    j = build_json()
-    md = build_markdown()
+    rows = build_evidence_rows()
+    go_no_go = evaluate_go_no_go(rows)
+    controls = load_controls()
+    j = build_json(rows, go_no_go, controls)
+    md = build_markdown(rows, go_no_go, controls)
 
     with open(f"{OUT_DIR}/paper_argument_matrix.json", "w") as f:
         json.dump(j, f, indent=2)
@@ -232,15 +236,11 @@ def main():
 
     print(f"Wrote {OUT_DIR}/paper_argument_matrix.json")
     print(f"Wrote {OUT_DIR}/paper_argument_matrix.md")
+    print(f"Go/No-Go: {go_no_go['verdict']}")
 
-    # Verify: all rows have the required fields
-    required = ["workload", "measurement_unit", "trace_size_GiB", "T_trace_to_sim_s",
-                "T_kernel_to_sim_done_s", "P_trace_to_sim_pct"]
-    for r in EVIDENCE_ROWS:
-        for field in required:
-            assert field in r, f"Missing required field: {field}"
-        assert r["T_trace_to_sim_s"]["value"] is not None, f"Missing T_trace_to_sim for {r['workload']}"
-    print("Verification PASSED: all rows have required fields")
+    # Verify data-driven: no hardcoded rows
+    assert len(rows) > 0, "No evidence rows loaded from artifacts"
+    print("Verification PASSED: evidence rows loaded from artifact files")
 
 if __name__ == "__main__":
     main()

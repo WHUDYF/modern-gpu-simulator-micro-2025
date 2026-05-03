@@ -52,6 +52,15 @@ TRACE_SIZE_MAP = {
     "bert-base-pretraining-full-step": 10.0,
     "llama3.1-8b-decoder-layer-slice": 20.0,
     "llama3.1-8b-full-step": 100.0,
+    "rodinia-nn-control": 0.008,
+}
+
+# Modeled kernel/TB/warp counts for claim-bearing workloads (planning estimates).
+MODELED_COUNTS = {
+    "bert-base-encoder-layer-slice": {"kernel_count": 12, "tb": 96, "warp": 3072},
+    "bert-base-pretraining-full-step": {"kernel_count": 180, "tb": 1500, "warp": 48000},
+    "llama3.1-8b-decoder-layer-slice": {"kernel_count": 24, "tb": 3200, "warp": 102400},
+    "llama3.1-8b-full-step": {"kernel_count": 360, "tb": 48000, "warp": 1536000},
 }
 
 def _apply_trace_size(row, wid):
@@ -144,14 +153,19 @@ def build_evidence_rows():
         # Merge formula-based trace size using explicit mapping.
         _apply_trace_size(row, wid)
 
-        # Populate kernel/warp counts from per-workload measured redundancy.
+        # Populate kernel/warp counts: measured > modeled > pending.
         red = load_measured_redundancy_for(wid)
         if red:
             row["threadblock_or_warp_count"] = {
                 "tb": red.get("threadblock_count", None),
                 "warp": red.get("warp_trace_count", None),
             }
-            row["kernel_count"] = {"value": red.get("kernel_count", None), "label": "measured" if red.get("threadblock_count") else "pending"}
+            row["kernel_count"] = {"value": red.get("kernel_count", None),
+                                   "label": "measured" if red.get("threadblock_count") else "pending"}
+        elif wid in MODELED_COUNTS:
+            mc = MODELED_COUNTS[wid]
+            row["threadblock_or_warp_count"] = {"tb": mc["tb"], "warp": mc["warp"]}
+            row["kernel_count"] = {"value": mc["kernel_count"], "label": "modeled"}
         else:
             row["threadblock_or_warp_count"] = {"tb": None, "warp": None}
             row["kernel_count"] = {"value": None, "label": "pending"}

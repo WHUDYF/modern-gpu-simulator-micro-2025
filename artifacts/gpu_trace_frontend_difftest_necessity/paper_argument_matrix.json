@@ -17,12 +17,12 @@
         "label": "modeled"
       },
       "kernel_count": {
-        "value": null,
-        "label": "pending"
+        "value": 12,
+        "label": "modeled"
       },
       "threadblock_or_warp_count": {
-        "tb": null,
-        "warp": null
+        "tb": 96,
+        "warp": 3072
       },
       "T_trace_to_sim_s": {
         "value": 10.0,
@@ -58,12 +58,12 @@
         "label": "modeled"
       },
       "kernel_count": {
-        "value": null,
-        "label": "pending"
+        "value": 180,
+        "label": "modeled"
       },
       "threadblock_or_warp_count": {
-        "tb": null,
-        "warp": null
+        "tb": 1500,
+        "warp": 48000
       },
       "T_trace_to_sim_s": {
         "value": 105.0,
@@ -99,12 +99,12 @@
         "label": "modeled"
       },
       "kernel_count": {
-        "value": null,
-        "label": "pending"
+        "value": 24,
+        "label": "modeled"
       },
       "threadblock_or_warp_count": {
-        "tb": null,
-        "warp": null
+        "tb": 3200,
+        "warp": 102400
       },
       "T_trace_to_sim_s": {
         "value": 205.0,
@@ -140,12 +140,12 @@
         "label": "modeled"
       },
       "kernel_count": {
-        "value": null,
-        "label": "pending"
+        "value": 360,
+        "label": "modeled"
       },
       "threadblock_or_warp_count": {
-        "tb": null,
-        "warp": null
+        "tb": 48000,
+        "warp": 1536000
       },
       "T_trace_to_sim_s": {
         "value": 1005.0,

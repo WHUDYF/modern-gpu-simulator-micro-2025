@@ -12,10 +12,10 @@ Generated: 2026-05-03
 
 | Workload | Unit | Trace Size (GiB) | Kernels | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Reduced T_frontend (s) | Impact |
 |----------|------|-----------------|---------|----------|------------|---------------|------------|---------------|----------------------|--------|
-| BERT-base (encoder layer slice) | slice | 0.5 (modeled) | None | None | None | 10.0 (placeholder) | 31.0 (placeholder) | 32.26 (placeholder) | 7.0 (modeled) | Expected 30% reduction saves 3.0s per run |
-| BERT-base (pretraining full step) | step | 10.0 (modeled) | None | None | None | 105.0 (placeholder) | 435.0 (placeholder) | 24.14 (placeholder) | 73.5 (modeled) | Expected 30% reduction saves 31.5s per run |
-| Llama 3.1 8B (decoder layer slice) | slice | 20.0 (modeled) | None | None | None | 205.0 (modeled) | 300.0 (modeled) | 68.33 (modeled) | 143.5 (modeled) | Expected 30% reduction saves 61.5s per run |
-| Llama 3.1 8B (pretraining full step) | step | 100.0 (modeled) | None | None | None | 1005.0 (modeled) | 10905.0 (modeled) | 9.22 (modeled) | 703.5 (modeled) | Expected 30% reduction saves 301.5s per run |
+| BERT-base (encoder layer slice) | slice | 0.5 (modeled) | 12 | 96 | 3072 | 10.0 (placeholder) | 31.0 (placeholder) | 32.26 (placeholder) | 7.0 (modeled) | Expected 30% reduction saves 3.0s per run |
+| BERT-base (pretraining full step) | step | 10.0 (modeled) | 180 | 1500 | 48000 | 105.0 (placeholder) | 435.0 (placeholder) | 24.14 (placeholder) | 73.5 (modeled) | Expected 30% reduction saves 31.5s per run |
+| Llama 3.1 8B (decoder layer slice) | slice | 20.0 (modeled) | 24 | 3200 | 102400 | 205.0 (modeled) | 300.0 (modeled) | 68.33 (modeled) | 143.5 (modeled) | Expected 30% reduction saves 61.5s per run |
+| Llama 3.1 8B (pretraining full step) | step | 100.0 (modeled) | 360 | 48000 | 1536000 | 1005.0 (modeled) | 10905.0 (modeled) | 9.22 (modeled) | 703.5 (modeled) | Expected 30% reduction saves 301.5s per run |
 
 ## Control Workloads (Measured, from Existing Bottleneck Map)
 

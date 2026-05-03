@@ -93,6 +93,15 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
     - Results stored only in ad hoc console output are rejected.
     - Artifacts without enough metadata to reproduce scenario assumptions are rejected.
 
+- AC-10: Optional Llama 8B full-step validation is attempted only after the required evidence line is complete.
+  - Positive Tests (expected to PASS):
+    - The main deliverables for local full-step measurement, Llama 8B layer-slice measurement, formula modeling, E2E burden ratio, and evidence table are preserved before the optional full-step attempt begins.
+    - The optional Llama 8B full-step attempt records attempt count, failure reason, partial artifacts, and whether the result was measured or abandoned.
+    - Repeated failures in the optional attempt do not invalidate or overwrite the completed required artifacts.
+  - Negative Tests (expected to FAIL):
+    - A run plan that blocks the required evidence table on Llama 8B full-step success is rejected.
+    - An optional full-step attempt that overwrites earlier complete results with partial or failed outputs is rejected.
+
 ## Path Boundaries
 
 ### Upper Bound (Maximum Acceptable Scope)
@@ -181,6 +190,11 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
    - Limit implementation to decoded static-info cache, metadata normalization cache, threadblock chunk staging, and local replay.
    - Run equivalence checks before any performance claim.
 
+7. Nice-to-have Llama 8B full-step validation
+   - Attempt a Llama 8B full training-step run only after the required slice and local-step evidence is complete.
+   - Treat this as an RLCR tail task, not as a blocker for the main result.
+   - If repeated attempts fail because of trace export, storage, simulator runtime, or infrastructure limits, keep the completed required artifacts as the final usable result and record the failure evidence separately.
+
 ## Task Breakdown
 
 Each task includes exactly one routing tag:
@@ -201,6 +215,7 @@ Each task includes exactly one routing tag:
 | task10 | Build central evidence table generator with measured versus modeled labels | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
 | task11 | Draft paper argument matrix connecting external examples to local GPU simulator evidence | AC-7, AC-9 | analyze | task10 |
 | task12 | Define minimal no-semantics prototype gate and equivalence-report checklist | AC-8 | coding | task10, task11 |
+| task13 | Attempt optional Llama 8B full-step validation after required artifacts are complete, preserving fallback results if the attempt fails | AC-10 | coding | task10, task12 |
 
 ## Claude-Codex Deliberation
 
@@ -210,11 +225,13 @@ Each task includes exactly one routing tag:
 - The DiffTest analogy should be limited to structured event transfer, caching, batching, validation, and replay.
 - The local optimization boundary should stay at `trace-parser -> trace-driven -> shader core` and avoid backend timing semantics.
 - Quantitative thresholds are useful as planning thresholds and should be calibrated with measurements.
+- Llama 8B full-step validation is useful as scale evidence, but it should be a tail attempt after the required evidence line is complete.
 
 ### Resolved Disagreements
 
 - Frontend dominance versus design-loop obstruction: the chosen resolution is to prove that `T_trace_to_sim` is large enough to obstruct end-to-end iteration, not that it dominates every simulator bottleneck.
 - Measured-only evidence versus modeled scale anchors: the chosen resolution is to require measured local workloads while allowing explicitly labeled modeled values for T2 and T3 large-scale anchors.
+- Llama 8B full step versus Llama 8B layer slice: the chosen resolution is to require local full-step measurement plus Llama 8B layer-slice evidence, then attempt Llama 8B full-step validation as a non-blocking nice-to-have at the end of the RLCR loop.
 
 ### Convergence Status
 
@@ -259,3 +276,5 @@ Expected files:
 - `prototype_equivalence_report.md`
 - `prototype_equivalence_report.json`
 - `paper_argument_matrix.md`
+- `llama8b_full_step_attempt.md` (optional)
+- `llama8b_full_step_attempt.json` (optional)

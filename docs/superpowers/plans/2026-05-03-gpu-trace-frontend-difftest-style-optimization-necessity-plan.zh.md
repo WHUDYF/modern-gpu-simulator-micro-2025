@@ -93,6 +93,15 @@ spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟�
     - 只存在于临时 console 输出里的结果会被拒绝。
     - 缺少足够元数据、无法复现实验假设的 artifact 会被拒绝。
 
+- AC-10: 可选的 Llama 8B full-step validation 只在必需证据线完成后尝试。
+  - 正向测试（应通过）:
+    - 在可选 full-step 尝试开始之前，必须保留本地 full-step 测量、Llama 8B layer-slice 测量、公式建模、E2E burden ratio 和中央证据表等主线交付物。
+    - 可选的 Llama 8B full-step 尝试需要记录尝试次数、失败原因、部分 artifact，以及该结果是 measured 还是 abandoned。
+    - 可选尝试多次失败时，不会使已经完成的必需 artifact 失效，也不会覆盖它们。
+  - 反向测试（应失败）:
+    - 把必需证据表阻塞在 Llama 8B full-step 成功上的执行计划会被拒绝。
+    - 用可选 full-step 的部分输出或失败输出覆盖早先完整结果的尝试会被拒绝。
+
 ## 路径边界
 
 ### 上界（最大可接受范围）
@@ -181,6 +190,11 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
    - 原型仅限于 decoded static-info cache、metadata normalization cache、threadblock chunk staging 和 local replay。
    - 在做任何性能主张之前先跑等价性检查。
 
+7. nice-to-have 的 Llama 8B full-step validation
+   - 只有在必需的 slice 和 local-step 证据完成后，才尝试 Llama 8B full training-step。
+   - 这项工作作为 RLCR 尾部任务处理，不阻塞主线结果。
+   - 如果因为 trace export、存储、simulator runtime 或基础设施限制导致多次尝试失败，就保留已经完成的必需 artifact 作为最终可用结果，并把失败证据单独记录。
+
 ## 任务拆解
 
 每个任务只包含一个路由标签：
@@ -201,6 +215,7 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 | task10 | 构建带 measured / modeled 标记的中央证据表生成器 | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
 | task11 | 起草论文论点矩阵，把外部例子与本地 GPU simulator 证据连接起来 | AC-7, AC-9 | analyze | task10 |
 | task12 | 定义最小无语义原型的门控条件和等价性报告检查清单 | AC-8 | coding | task10, task11 |
+| task13 | 在必需 artifact 完成后尝试可选的 Llama 8B full-step validation；如果失败，则保留回退结果 | AC-10 | coding | task10, task12 |
 
 ## Claude-Codex 讨论结论
 
@@ -210,11 +225,13 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 - DiffTest 类比应限制在结构化事件传递、缓存、批处理、验证和 replay。
 - 本地优化边界应保持在 `trace-parser -> trace-driven -> shader core`，不要提前进入 backend timing semantics。
 - 定量阈值适合作为规划阈值，并应通过测量校准。
+- Llama 8B full-step validation 对规模证据有帮助，但它应该作为必需证据线完成后的尾部尝试。
 
 ### 已解决的分歧
 
 - 前端主导性 vs 设计循环阻塞：最终选择是证明 `T_trace_to_sim` 大到足以阻塞端到端迭代，而不是证明它压过所有 simulator 瓶颈。
 - 只接受实测 vs 允许规模锚点建模：最终选择是要求本地 workload 必须实测，同时允许对 T2 和 T3 大规模锚点使用明确标注的 modeled 值。
+- Llama 8B full step vs Llama 8B layer slice：最终选择是要求本地 full-step 测量和 Llama 8B layer-slice 证据，然后在 RLCR 末尾把 Llama 8B full-step validation 作为非阻塞 nice-to-have 尝试。
 
 ### 收敛状态
 
@@ -259,3 +276,5 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 - `prototype_equivalence_report.md`
 - `prototype_equivalence_report.json`
 - `paper_argument_matrix.md`
+- `llama8b_full_step_attempt.md`（可选）
+- `llama8b_full_step_attempt.json`（可选）

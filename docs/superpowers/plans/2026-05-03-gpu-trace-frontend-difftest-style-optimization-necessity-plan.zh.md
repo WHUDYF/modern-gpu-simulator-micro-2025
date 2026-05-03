@@ -1,10 +1,42 @@
-# GPU Trace Frontend DiffTest 风格优化必要性计划
+# GPU Trace Frontend 必要性研究计划
+
+## 执行摘要
+
+这份计划是自包含的。执行者不需要预先知道 DiffTest 是什么。
+
+本项目研究一个 trace-driven GPU simulator。当前要回答的不是“能不能加速整个 simulator”，而是：
+
+```text
+当 kernel 或 workload trace 已经存在后，
+把 trace 数据转换成 simulator frontend 可消费输入到底花了多少时间？
+```
+
+计划必须产出证据，而不是假设。第一阶段交付物是一条可证伪的测量与建模流水线，用来判断 `T_trace_to_sim` 是否足够大，从而值得实现 frontend 优化原型。
+
+## 这里的 DiffTest 风格是什么意思
+
+DiffTest 是香山项目使用的 RISC-V 协同仿真与检查框架。香山文档中和本项目相关的部分，不是 RISC-V checker 本身，而是一个方法：高频硬件/软件通信可能成为瓶颈，因此通信路径可以通过 batch、state fusion 或 delta handling、non-blocking transfer、replay 等方式优化。
+
+在本 GPU simulator 项目里，"DiffTest-style" 只表示 frontend input restructuring 的类比：
+
+- batch：把大量小 trace event 聚合成更大的 threadblock、CTA 或 warp chunk 后再交给 simulator 消费；
+- delta/cache：避免反复 decode 或 bind 相同的静态元数据，例如 `(unique_function_id, pc)`；
+- validate/filter：规范化 simulator frontend 真正需要的字段，并提前拒绝格式错误的记录；
+- replay：让 parser-to-frontend chunk 可重放，便于调试和性能回归隔离。
+
+不要移植 RISC-V DiffTest checker。不要比较 RISC-V 架构状态。不要 squash 动态 GPU instruction event。不要改变 SM backend timing semantics。本计划的安全边界是：
+
+```text
+trace-parser -> trace-driven frontend -> shader core input
+```
+
+core timing model、scoreboard 行为、warp issue 顺序和 memory pipeline timing 都不在范围内。
 
 ## 目标描述
 
-建立一条可复现的证据流水线，用来判断 DiffTest 风格的前端输入重构，是否对 trace-driven GPU simulator 来说既必要又可行。
+建立一条可复现的证据流水线，用来判断 trace frontend input restructuring 是否对 trace-driven GPU simulator 来说既必要又可行。
 
-这份计划把设计 spec 转成可执行步骤：测量 `T_trace_to_sim`，构建面向 AI 训练的 workload 证据，估算 DiffTest 风格的降耗空间，并把安全的原型边界限定在 `trace-parser` 与 `trace-driven` 的接口处。第一阶段交付的不是模拟器优化本身，而是一项可证伪的必要性研究，用来判断 trace 到 simulator 的前端准备时间，是否已经成为端到端算法到模拟器迭代中的实质障碍。
+这份计划把设计 spec 转成可执行步骤：测量 `T_trace_to_sim`，构建面向 AI 训练的 workload 证据，估算 frontend-structuring 降耗空间，并把安全的原型边界限定在 `trace-parser` 与 `trace-driven` 的接口处。
 
 spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟到 1 小时、15% / 30% / 50% 的降幅情景，以及 `P_trace_to_sim` 分档，都是建模和规划阈值，不是硬性的性能承诺。后续实测数据可以对它们进行校准。
 
@@ -104,7 +136,7 @@ single complete iteration time: <= 2 hours
     - 如果没有标注 alternate denominator，却把 trace export 或 result analysis 排除在完整流程分母之外，研究会被拒绝。
     - 只报百分比、不报绝对时间的研究会被拒绝。
 
-- AC-5: redundancy profiling 用来判断 DiffTest 风格缓存和 chunking 是否有本地机会。
+- AC-5: redundancy profiling 用来判断 frontend caching 和 chunking 是否有本地机会。
   - 正向测试（应通过）:
     - profile 报告 dynamic instruction count、unique `(unique_function_id, pc)` count、static-info lookup count、threadblock count、warp trace count、metadata object construction count，以及可获得时的 frontend allocation count。
     - profile 计算 `static_reuse_ratio`、`tb_metadata_reuse_ratio` 和 `frontend_allocation_density`。
@@ -113,7 +145,7 @@ single complete iteration time: <= 2 hours
     - 不测 unique static identifiers 却假设存在大量重复的 profile 会被拒绝。
     - 把 dynamic instruction squash 当作第一阶段允许优化的 profile 会被拒绝。
 
-- AC-6: DiffTest 风格降幅模型只作用于 `T_trace_to_sim`。
+- AC-6: DiffTest-style 降幅模型只作用于 `T_trace_to_sim`。
   - 正向测试（应通过）:
     - 模型分别计算保守 15%、预期 30%、乐观 50% 的 `T_trace_to_sim` 降幅。
     - 输出包含 reduced `T_trace_to_sim`、每次运行节省时间，以及每次 sweep 节省时间。
@@ -124,7 +156,7 @@ single complete iteration time: <= 2 hours
 
 - AC-7: 中央证据表把 workload 大小、前端成本、建模节省和论文论点连接起来。
   - 正向测试（应通过）:
-    - 证据表包含 workload、measurement unit、model slice 或 step type、trace size、kernel count、threadblock 或 warp count、`T_trace_to_sim`、`T_kernel_to_sim_done`、`P_trace_to_sim`、估计的 DiffTest 风格降幅、reduced `T_trace_to_sim` 和完整流程影响。
+    - 证据表包含 workload、measurement unit、model slice 或 step type、trace size、kernel count、threadblock 或 warp count、`T_trace_to_sim`、`T_kernel_to_sim_done`、`P_trace_to_sim`、估计的 frontend-structuring 降幅、reduced `T_trace_to_sim` 和完整流程影响。
     - 每一行区分 measured 值和 modeled 值。
     - 这张表既能支撑正面结论，也能支撑负面结论。
   - 反向测试（应失败）:
@@ -213,6 +245,18 @@ P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 
 ### 相关参考
 
+定义类比所需的外部参考：
+
+- 香山 DiffTest 文档：<https://docs.xiangshan.cc/zh-cn/latest/tools/difftest/>。这里只借鉴通信优化思想：batch、delta/state fusion、non-blocking transfer 和 replay。
+- Accel-Sim 项目页：<https://accel-sim.github.io/>。用于说明 trace-driven GPU simulation 是主流方法。
+- Accel-Sim framework 仓库：<https://github.com/accel-sim/accel-sim-framework>。用于参考 GPU trace generation 和 trace-driven simulation workflow。
+- gem5 TraceCPU 文档：<https://www.gem5.org/documentation/general_docs/cpu_models/TraceCPU>。用于说明 replayable trace representation 是体系结构模拟中的常见技术。
+- ChampSim 仓库：<https://github.com/ChampSim/ChampSim>。用于说明 trace input format 和 trace consumption 是 simulator 的一等边界。
+- SMARTS 概览：<https://users.ece.cmu.edu/~jhoe/doku/doku.php?id=smarts_simulation_sampling>。用于说明模拟成本可以通过代表性子集测量来降低；本计划不实现 SMARTS。
+- SimPoint 项目页：<https://cseweb.ucsd.edu/~calder/simpoint/>。用于背景论证：体系结构模拟经常通过代表性执行来降低成本；本计划不实现 SimPoint。
+
+本地参考：
+
 - `docs/superpowers/specs/2026-05-03-gpu-trace-frontend-difftest-style-optimization-necessity-design.md` - 本计划的源 spec。
 - `docs/superpowers/specs/2026-04-28-trace-compression-engineering-bottleneck-map-design.md` - 之前的 bottleneck map 叙事基础。
 - `artifacts/trace_bottleneck_map/benchmark_cost_map.json` - 现有 cost map 输入。
@@ -269,30 +313,26 @@ P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 
 ## 任务拆解
 
-每个任务只包含一个路由标签：
-- `coding`: 由 Claude 实现
-- `analyze`: 由 Codex 执行（`/humanize:ask-codex`）
+将下面任务作为执行单元。输出必须确定、可复现，并以 artifact 为中心。
 
-| 任务 ID | 描述 | 目标 AC | 标签 (`coding`/`analyze`) | 依赖 |
-|---------|------|---------|----------------------------|------|
-| task1 | 创建 workload 目录 schema，并为 BERT-base slice、BERT-base pretraining full step、Llama 3.1 8B decoder layer slice、可选 Llama 3.1 8B full step 和 control workload 填充种子行 | AC-1, AC-10 | coding | - |
-| task2 | 检查现有 bottleneck map artifact，并把可复用字段映射到新的证据 schema | AC-1, AC-7 | analyze | task1 |
-| task3 | 实现 trace-size 公式 calculator，并生成 Markdown / JSON 规划表 | AC-3 | coding | task1 |
-| task4 | 为 slice 和 step 单位实现使用明确 export、frontend、backend 和 analysis 字段的完整流程 burden ratio calculator | AC-4 | coding | task3 |
-| task5 | 找出 parser 和 trace-driven 中适合做 timing 分解的插桩点 | AC-2 | analyze | task1 |
-| task6 | 增加或接入低开销计时器，并输出每次运行的 frontend timing JSON | AC-2, AC-9 | coding | task5 |
-| task7 | 找出可用于 redundancy profiling 的计数器或插入点 | AC-5 | analyze | task5 |
-| task8 | 输出 static reuse、threadblock metadata reuse 和 frontend allocation density 的 redundancy profile | AC-5, AC-9 | coding | task7 |
-| task9 | 实现只作用于 `T_trace_to_sim` 的 DiffTest 风格降幅模型 | AC-6 | coding | task3, task4 |
-| task10 | 构建带 measured / modeled 标记的中央证据表生成器 | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
-| task11 | 起草论文论点矩阵，把外部例子与本地 GPU simulator 证据连接起来 | AC-7, AC-9 | analyze | task10 |
-| task12 | 定义最小无语义原型的门控条件和等价性报告检查清单 | AC-8 | coding | task10, task11 |
-| task13 | 在已确认资源上限下增加 BERT-base batch-scaling 记录和停止条件报告 | AC-11 | coding | task1, task4 |
-| task14 | 在必需 artifact 完成后尝试可选的 Llama 3.1 8B full-step validation；如果失败，则保留回退结果 | AC-10 | coding | task10, task12, task13 |
+| 任务 ID | 描述 | 目标 AC | 依赖 |
+|---------|------|---------|------|
+| task1 | 创建 workload 目录 schema，并为 BERT-base slice、BERT-base pretraining full step、Llama 3.1 8B decoder layer slice、可选 Llama 3.1 8B full step 和 control workload 填充种子行 | AC-1, AC-10 | - |
+| task2 | 检查现有 bottleneck map artifact，并把可复用字段映射到新的证据 schema | AC-1, AC-7 | task1 |
+| task3 | 实现 trace-size 公式 calculator，并生成 Markdown / JSON 规划表 | AC-3 | task1 |
+| task4 | 为 slice 和 step 单位实现使用明确 export、frontend、backend 和 analysis 字段的完整流程 burden ratio calculator | AC-4 | task3 |
+| task5 | 找出 parser 和 trace-driven 中适合做 timing 分解的插桩点 | AC-2 | task1 |
+| task6 | 增加或接入低开销计时器，并输出每次运行的 frontend timing JSON | AC-2, AC-9 | task5 |
+| task7 | 找出可用于 redundancy profiling 的计数器或插入点 | AC-5 | task5 |
+| task8 | 输出 static reuse、threadblock metadata reuse 和 frontend allocation density 的 redundancy profile | AC-5, AC-9 | task7 |
+| task9 | 实现只作用于 `T_trace_to_sim` 的 DiffTest-style 降幅模型 | AC-6 | task3, task4 |
+| task10 | 构建带 measured / modeled 标记的中央证据表生成器 | AC-7, AC-9 | task2, task4, task6, task8, task9 |
+| task11 | 起草论文论点矩阵，把外部例子与本地 GPU simulator 证据连接起来 | AC-7, AC-9 | task10 |
+| task12 | 定义最小无语义原型的门控条件和等价性报告检查清单 | AC-8 | task10, task11 |
+| task13 | 在已确认资源上限下增加 BERT-base batch-scaling 记录和停止条件报告 | AC-11 | task1, task4 |
+| task14 | 在必需 artifact 完成后尝试可选的 Llama 3.1 8B full-step validation；如果失败，则保留回退结果 | AC-10 | task10, task12, task13 |
 
-## Claude-Codex 讨论结论
-
-### 一致意见
+## 决策记录
 
 - 第一阶段应该先证明必要性和可行性，再实施 simulator 优化。
 - DiffTest 类比应限制在结构化事件传递、缓存、批处理、验证和 replay。
@@ -302,18 +342,11 @@ P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 - 第一阶段只要 slice-level 或 step-level `P_trace_to_sim` 任一超过 15%，就足以进入原型研究。
 - 第一轮证据线聚焦 BERT-base 和 Llama 3.1 8B；`GPT-2 small` 太小，不适合作为有意义的 fallback。
 - Llama 3.1 8B full-step validation 对规模证据有帮助，但它应该作为必需证据线完成后的尾部尝试。
-
-### 已解决的分歧
-
 - 前端主导性 vs 设计循环阻塞：最终选择是证明 `T_trace_to_sim` 大到足以阻塞端到端迭代，而不是证明它压过所有 simulator 瓶颈。
 - 只接受实测 vs 允许规模锚点建模：最终选择是要求本地 workload 必须实测，同时允许对 T2 和 T3 大规模锚点使用明确标注的 modeled 值。
 - workload selection：最终选择是 `BERT-base encoder layer slice`、`BERT-base pretraining full step` 和 `Llama 3.1 8B decoder layer slice`，不使用 `GPT-2 small` fallback。
 - Llama 3.1 8B full step vs Llama 3.1 8B layer slice：最终选择是要求 BERT-base full-step 测量和 Llama 3.1 8B layer-slice 证据，然后在 RLCR 末尾把 Llama 3.1 8B full-step validation 作为非阻塞 nice-to-have 尝试。
 - BERT-base batch sizing：最终选择是从小 pretraining batch 开始，逐步放大到已确认资源上限。
-
-### 收敛状态
-
-- 最终状态：`converged`
 
 ## 待用户确认事项
 
@@ -344,8 +377,8 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 - `workload_evidence_table.json`
 - `trace_to_sim_formula.md`
 - `trace_to_sim_formula.json`
-- `e2e_burden_ratio.md`
-- `e2e_burden_ratio.json`
+- `complete_flow_burden_ratio.md`
+- `complete_flow_burden_ratio.json`
 - `frontend_timing_breakdown.md`
 - `frontend_timing_breakdown.json`
 - `redundancy_profile.md`

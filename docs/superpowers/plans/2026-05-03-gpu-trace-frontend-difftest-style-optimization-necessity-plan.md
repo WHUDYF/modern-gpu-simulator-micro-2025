@@ -1,10 +1,42 @@
-# GPU Trace Frontend DiffTest-Style Optimization Necessity Plan
+# GPU Trace Frontend Necessity Study Plan
+
+## Executor Brief
+
+This plan is self-contained. It assumes the executor does not already know what DiffTest is.
+
+The project studies a trace-driven GPU simulator. The immediate question is not "can we speed up the whole simulator?" The immediate question is:
+
+```text
+After a kernel or workload trace exists, how much time is spent turning trace data
+into simulator-ready frontend input before the core timing model consumes it?
+```
+
+The plan must produce evidence, not assumptions. The first deliverable is a falsifiable measurement and modeling pipeline that can show whether `T_trace_to_sim` is large enough to justify a frontend optimization prototype.
+
+## What DiffTest-Style Means Here
+
+DiffTest is a RISC-V co-simulation and checking framework used by XiangShan. In XiangShan's documentation, the relevant optimization idea is that high-frequency hardware/software communication can become the bottleneck, and the communication path can be improved with batching, state fusion or delta handling, non-blocking transfer, and replay.
+
+For this GPU simulator project, "DiffTest-style" is only an analogy for frontend input restructuring:
+
+- batch: group many small trace events into larger threadblock, CTA, or warp chunks before simulator consumption;
+- delta/cache: avoid repeatedly decoding or binding the same static metadata, such as `(unique_function_id, pc)`;
+- validate/filter: normalize the frontend fields that the simulator actually needs and reject malformed records early;
+- replay: make parser-to-frontend chunks replayable for debugging and performance regression isolation.
+
+Do not port the RISC-V DiffTest checker. Do not compare RISC-V architectural state. Do not squash dynamic GPU instruction events. Do not change SM backend timing semantics. The safe boundary for this plan is:
+
+```text
+trace-parser -> trace-driven frontend -> shader core input
+```
+
+The core timing model, scoreboard behavior, warp issue order, and memory pipeline timing are out of scope.
 
 ## Goal Description
 
-Establish a reproducible evidence pipeline for deciding whether DiffTest-style frontend input restructuring is necessary and feasible for the trace-driven GPU simulator.
+Establish a reproducible evidence pipeline for deciding whether trace frontend input restructuring is necessary and feasible for the trace-driven GPU simulator.
 
-The plan turns the design spec into implementation steps for measuring `T_trace_to_sim`, building AI-training-oriented workload evidence, estimating DiffTest-style reductions, and defining a safe prototype boundary at the `trace-parser` and `trace-driven` interface. The first deliverable is not a simulator optimization. The first deliverable is a falsifiable necessity study that shows whether trace-to-simulator frontend preparation is a material obstacle in the end-to-end algorithm-to-simulator loop.
+The plan turns the design spec into implementation steps for measuring `T_trace_to_sim`, building AI-training-oriented workload evidence, estimating frontend-structuring reductions, and defining a safe prototype boundary at the `trace-parser` and `trace-driven` interface.
 
 Quantitative thresholds from the spec, including 30-60 seconds single-run cost, 10 minutes to 1 hour sweep cost, 15% / 30% / 50% reduction scenarios, and `P_trace_to_sim` bands, are planning and modeling thresholds. They are not hard performance guarantees. Later measured data may calibrate them.
 
@@ -104,7 +136,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
     - A study that excludes trace export or result analysis from the complete-flow denominator without labeling an alternate denominator is rejected.
     - A study that ignores absolute time and only reports percentage share is rejected.
 
-- AC-5: Redundancy profiling measures whether DiffTest-style caching and chunking have a local opportunity.
+- AC-5: Redundancy profiling measures whether frontend caching and chunking have a local opportunity.
   - Positive Tests (expected to PASS):
     - The profile reports dynamic instruction count, unique `(unique_function_id, pc)` count, static-info lookup count, threadblock count, warp trace count, metadata object construction count, and frontend allocation count where available.
     - The profile computes `static_reuse_ratio`, `tb_metadata_reuse_ratio`, and `frontend_allocation_density`.
@@ -113,7 +145,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
     - A profile that assumes repetition without measuring unique static identifiers is rejected.
     - A profile that treats dynamic instruction squash as an allowed first-phase optimization is rejected.
 
-- AC-6: DiffTest-style reduction model applies only to `T_trace_to_sim`.
+- AC-6: The DiffTest-style reduction model applies only to `T_trace_to_sim`.
   - Positive Tests (expected to PASS):
     - The model computes conservative 15%, expected 30%, and optimistic 50% reductions against `T_trace_to_sim` only.
     - The output includes reduced `T_trace_to_sim`, saved time per run, and saved time per sweep.
@@ -122,9 +154,9 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
     - A model that applies the reduction rate to total simulator wall time without justification is rejected.
     - A model that presents the 15% / 30% / 50% scenarios as measured speedups before implementation is rejected.
 
-- AC-7: Central evidence table connects workload size, frontend cost, modeled savings, and paper argument.
+- AC-7: The central evidence table connects workload size, frontend cost, modeled savings, and paper argument.
   - Positive Tests (expected to PASS):
-    - The evidence table includes workload, measurement unit, model slice or step type, trace size, kernel count, threadblock or warp count, `T_trace_to_sim`, `T_kernel_to_sim_done`, `P_trace_to_sim`, estimated DiffTest-style reduction, reduced `T_trace_to_sim`, and complete-flow impact.
+    - The evidence table includes workload, measurement unit, model slice or step type, trace size, kernel count, threadblock or warp count, `T_trace_to_sim`, `T_kernel_to_sim_done`, `P_trace_to_sim`, estimated frontend-structuring reduction, reduced `T_trace_to_sim`, and complete-flow impact.
     - Rows distinguish measured values from modeled values.
     - The table can support both positive and negative conclusions about necessity.
   - Negative Tests (expected to FAIL):
@@ -213,6 +245,18 @@ P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 
 ### Relevant References
 
+External references that define the analogy:
+
+- XiangShan DiffTest documentation: <https://docs.xiangshan.cc/zh-cn/latest/tools/difftest/>. Use this only for the communication-optimization ideas: batching, delta/state fusion, non-blocking transfer, and replay.
+- Accel-Sim project page: <https://accel-sim.github.io/>. Use this as evidence that trace-driven GPU simulation is a mainstream method.
+- Accel-Sim framework repository: <https://github.com/accel-sim/accel-sim-framework>. Use this as a reference point for GPU trace generation and trace-driven simulation workflow.
+- gem5 TraceCPU documentation: <https://www.gem5.org/documentation/general_docs/cpu_models/TraceCPU>. Use this as evidence that replayable trace representations are common in architecture simulation.
+- ChampSim repository: <https://github.com/ChampSim/ChampSim>. Use this as evidence that trace input format and trace consumption are first-class simulator boundaries.
+- SMARTS overview: <https://users.ece.cmu.edu/~jhoe/doku/doku.php?id=smarts_simulation_sampling>. Use this as background that simulation cost can be reduced by measuring representative subsets; do not implement SMARTS in this plan.
+- SimPoint project page: <https://cseweb.ucsd.edu/~calder/simpoint/>. Use this as background that architecture simulation often reduces cost by selecting representative execution, but do not implement SimPoint in this plan.
+
+Local references:
+
 - `docs/superpowers/specs/2026-05-03-gpu-trace-frontend-difftest-style-optimization-necessity-design.md` - source design spec for this plan.
 - `docs/superpowers/specs/2026-04-28-trace-compression-engineering-bottleneck-map-design.md` - prior bottleneck map framing.
 - `artifacts/trace_bottleneck_map/benchmark_cost_map.json` - existing cost map input.
@@ -269,30 +313,26 @@ P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 
 ## Task Breakdown
 
-Each task includes exactly one routing tag:
-- `coding`: implemented by Claude
-- `analyze`: executed via Codex (`/humanize:ask-codex`)
+Use the tasks below as execution units. Keep the output deterministic and artifact-driven.
 
-| Task ID | Description | Target AC | Tag (`coding`/`analyze`) | Depends On |
-|---------|-------------|-----------|----------------------------|------------|
-| task1 | Create workload catalog schema and seed rows for BERT-base slice, BERT-base pretraining full step, Llama 3.1 8B decoder layer slice, optional Llama 3.1 8B full step, and control workloads | AC-1, AC-10 | coding | - |
-| task2 | Inspect existing bottleneck map artifacts and map reusable fields into the new evidence schema | AC-1, AC-7 | analyze | task1 |
-| task3 | Implement trace-size formula calculator and generate Markdown / JSON planning tables | AC-3 | coding | task1 |
-| task4 | Implement complete-flow burden ratio calculator using explicit export, frontend, backend, and analysis fields for slice and step units | AC-4 | coding | task3 |
-| task5 | Identify parser and trace-driven instrumentation points for timing decomposition | AC-2 | analyze | task1 |
-| task6 | Add or wire low-overhead timing counters and per-run frontend timing JSON output | AC-2, AC-9 | coding | task5 |
-| task7 | Identify available counters or insertion points for redundancy profiling | AC-5 | analyze | task5 |
-| task8 | Add redundancy profile output for static reuse, threadblock metadata reuse, and frontend allocation density | AC-5, AC-9 | coding | task7 |
-| task9 | Implement DiffTest-style reduction model that applies only to `T_trace_to_sim` | AC-6 | coding | task3, task4 |
-| task10 | Build central evidence table generator with measured versus modeled labels | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
-| task11 | Draft paper argument matrix connecting external examples to local GPU simulator evidence | AC-7, AC-9 | analyze | task10 |
-| task12 | Define minimal no-semantics prototype gate and equivalence-report checklist | AC-8 | coding | task10, task11 |
-| task13 | Add BERT-base batch-scaling records and stop-condition reporting under the confirmed resource ceiling | AC-11 | coding | task1, task4 |
-| task14 | Attempt optional Llama 3.1 8B full-step validation after required artifacts are complete, preserving fallback results if the attempt fails | AC-10 | coding | task10, task12, task13 |
+| Task ID | Description | Target AC | Depends On |
+|---------|-------------|-----------|------------|
+| task1 | Create workload catalog schema and seed rows for BERT-base slice, BERT-base pretraining full step, Llama 3.1 8B decoder layer slice, optional Llama 3.1 8B full step, and control workloads | AC-1, AC-10 | - |
+| task2 | Inspect existing bottleneck map artifacts and map reusable fields into the new evidence schema | AC-1, AC-7 | task1 |
+| task3 | Implement trace-size formula calculator and generate Markdown / JSON planning tables | AC-3 | task1 |
+| task4 | Implement complete-flow burden ratio calculator using explicit export, frontend, backend, and analysis fields for slice and step units | AC-4 | task3 |
+| task5 | Identify parser and trace-driven instrumentation points for timing decomposition | AC-2 | task1 |
+| task6 | Add or wire low-overhead timing counters and per-run frontend timing JSON output | AC-2, AC-9 | task5 |
+| task7 | Identify available counters or insertion points for redundancy profiling | AC-5 | task5 |
+| task8 | Add redundancy profile output for static reuse, threadblock metadata reuse, and frontend allocation density | AC-5, AC-9 | task7 |
+| task9 | Implement DiffTest-style reduction model that applies only to `T_trace_to_sim` | AC-6 | task3, task4 |
+| task10 | Build central evidence table generator with measured versus modeled labels | AC-7, AC-9 | task2, task4, task6, task8, task9 |
+| task11 | Draft paper argument matrix connecting external examples to local GPU simulator evidence | AC-7, AC-9 | task10 |
+| task12 | Define minimal no-semantics prototype gate and equivalence-report checklist | AC-8 | task10, task11 |
+| task13 | Add BERT-base batch-scaling records and stop-condition reporting under the confirmed resource ceiling | AC-11 | task1, task4 |
+| task14 | Attempt optional Llama 3.1 8B full-step validation after required artifacts are complete, preserving fallback results if the attempt fails | AC-10 | task10, task12, task13 |
 
-## Claude-Codex Deliberation
-
-### Agreements
+## Decision Record
 
 - The first milestone should prove necessity and feasibility before implementing simulator optimizations.
 - The DiffTest analogy should be limited to structured event transfer, caching, batching, validation, and replay.
@@ -302,18 +342,11 @@ Each task includes exactly one routing tag:
 - Either slice-level or step-level `P_trace_to_sim` above 15% is sufficient to justify a prototype investigation in the first stage.
 - The first-round evidence line should focus on BERT-base and Llama 3.1 8B; `GPT-2 small` is too small to serve as a meaningful fallback.
 - Llama 3.1 8B full-step validation is useful as scale evidence, but it should be a tail attempt after the required evidence line is complete.
-
-### Resolved Disagreements
-
 - Frontend dominance versus design-loop obstruction: the chosen resolution is to prove that `T_trace_to_sim` is large enough to obstruct end-to-end iteration, not that it dominates every simulator bottleneck.
 - Measured-only evidence versus modeled scale anchors: the chosen resolution is to require measured local workloads while allowing explicitly labeled modeled values for T2 and T3 large-scale anchors.
 - Workload selection: the chosen resolution is `BERT-base encoder layer slice`, `BERT-base pretraining full step`, and `Llama 3.1 8B decoder layer slice`, with no `GPT-2 small` fallback.
 - Llama 3.1 8B full step versus Llama 3.1 8B layer slice: the chosen resolution is to require BERT-base full-step measurement plus Llama 3.1 8B layer-slice evidence, then attempt Llama 3.1 8B full-step validation as a non-blocking nice-to-have at the end of the RLCR loop.
 - BERT-base batch sizing: the chosen resolution is to start from a small pretraining batch and scale upward until the confirmed resource ceiling is reached.
-
-### Convergence Status
-
-- Final Status: `converged`
 
 ## Pending User Decisions
 
@@ -344,8 +377,8 @@ Expected files:
 - `workload_evidence_table.json`
 - `trace_to_sim_formula.md`
 - `trace_to_sim_formula.json`
-- `e2e_burden_ratio.md`
-- `e2e_burden_ratio.json`
+- `complete_flow_burden_ratio.md`
+- `complete_flow_burden_ratio.json`
 - `frontend_timing_breakdown.md`
 - `frontend_timing_breakdown.json`
 - `redundancy_profile.md`

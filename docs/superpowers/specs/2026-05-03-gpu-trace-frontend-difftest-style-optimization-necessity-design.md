@@ -330,6 +330,26 @@ Recommended workload classes:
 - Llama-style decoder-only layer slice
 - MLPerf Training-style reference anchor
 
+Recommended workload tiers:
+
+| tier | workload | approximate scale | recommended trace granularity | expected trace-size tier | role |
+|---|---|---:|---|---|---|
+| T0 sanity | mini-transformer / toy transformer | 1M-50M parameters | 1 step or several kernels | 10 MiB-1 GiB | validate measurement pipeline |
+| T1 local | GPT-2 small train/decode | 124M parameters | 1 decode step or 1 training micro-step | 0.5-10 GiB | locally measurable AI pattern |
+| T1 local | BERT-base / BERT-large layer | 110M / 340M parameters | encoder layer slice | 1-20 GiB | attention + GEMM + layernorm pattern |
+| T2 representative | Llama 3.1 8B layer slice | 8B parameters | decoder layer / attention + MLP slice | 10-100 GiB | modern LLM representative |
+| T2 representative | Llama 2 70B LoRA slice | 70B parameters | fine-tuning step slice | 50-500 GiB | large fine-tuning representative |
+| T2 representative | Megatron-LM GPT training slice | billion+ parameters | tensor/pipeline-parallel layer slice | 50 GiB-1 TiB | large-scale training system representative |
+| T3 scale anchor | MLPerf Training Llama 3.1 405B | 405B parameters | scale anchor, not full first-round trace | 100 GiB-TiB+ | industrial upper-bound argument |
+| T3 scale anchor | full MLPerf LLM training reference | multi-node / multi-GPU | step-level extrapolation | TiB+ | full-workflow feasibility argument |
+
+The minimum recommended evidence set is:
+
+1. one T0 sanity workload to validate the measurement path;
+2. one T1 local workload to produce measured frontend timing and redundancy;
+3. one T2 representative slice to show modern LLM scaling pressure;
+4. one T3 scale anchor to support the paper-level upper-bound argument.
+
 Microbenchmark controls from the existing cost map should remain in the appendix:
 
 - simulator-throughput cases: `atomic_add_bw`, `atomic_add_bw_conflict`, `mem_bw`, `mem_lat`
@@ -369,6 +389,80 @@ Build a table that directly supports the paper argument:
 | MLPerf-style | training reference anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | modelled | modelled | scale argument |
 
 This table is the central artifact. It proves whether trace-to-simulator time is a practical obstacle for end-to-end design iteration. `T_sim_total` is included for context, not as the opponent that frontend optimization must beat.
+
+### Phase 1.6: Trace-Size To Trace-To-Simulator Formula
+
+Before detailed instrumentation exists for every large workload, use a simple planning model:
+
+```text
+T_trace_to_sim ~= C_fixed + S_trace_GiB / R_frontend_GiBps
+```
+
+where:
+
+```text
+S_trace_GiB      = total trace size in GiB
+R_frontend_GiBps = effective trace-to-simulator frontend throughput
+C_fixed          = startup, metadata, and kernel setup overhead
+```
+
+Initial throughput scenarios:
+
+| scenario | `R_frontend_GiBps` | `C_fixed` | interpretation |
+|---|---:|---:|---|
+| fast | 0.5 GiB/s | 2 s | compact binary path with limited fragmentation |
+| expected | 0.1 GiB/s | 5 s | protobuf + metadata + ordinary fragmentation |
+| pessimistic | 0.03 GiB/s | 10 s | many threadblock files and heavy metadata binding |
+
+Under the expected scenario:
+
+```text
+T_trace_to_sim ~= 5 + 10 * S_trace_GiB seconds
+```
+
+Planning table:
+
+| trace size | fast estimate | expected estimate | pessimistic estimate | expected 30% saved time |
+|---:|---:|---:|---:|---:|
+| 0.5 GiB | 3 s | 10 s | 27 s | 3 s |
+| 1 GiB | 4 s | 15 s | 43 s | 4.5 s |
+| 5 GiB | 12 s | 55 s | 177 s | 16.5 s |
+| 10 GiB | 22 s | 105 s | 343 s | 31.5 s |
+| 50 GiB | 102 s | 505 s, 8.4 min | 1677 s, 28 min | 151 s |
+| 100 GiB | 202 s | 1005 s, 16.8 min | 3343 s, 55.7 min | 302 s |
+| 500 GiB | 1002 s, 16.7 min | 5005 s, 83.4 min | 4.6 h | 25 min |
+| 1 TiB | 34.2 min | 2.85 h | 9.5 h | 51 min |
+
+This table is not a substitute for measurement. It is a transparent way to decide which large traces are likely to make trace-to-simulator preparation a material end-to-end cost.
+
+### Phase 1.7: End-To-End Burden Ratio
+
+Compute the trace-to-simulator share of the design loop:
+
+```text
+P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
+```
+
+where:
+
+```text
+T_e2e_iteration =
+  T_trace_export
++ T_trace_to_sim
++ T_sim_backend
++ T_result_analysis
+```
+
+Interpretation:
+
+| `P_trace_to_sim` | interpretation |
+|---:|---|
+| < 1% | hard to justify as a standalone optimization line |
+| 1%-5% | depends on absolute time and sweep count |
+| 5%-15% | clear engineering obstacle |
+| > 15% | strong bottleneck worth a dedicated system optimization |
+
+Absolute time still matters. A 5% share is still important if a design sweep accumulates 30 minutes to 2 hours of trace-to-simulator preparation time.
 
 ### Phase 2: Redundancy Measurement
 
@@ -516,6 +610,10 @@ Expected files:
 
 - `workload_evidence_table.md`
 - `workload_evidence_table.json`
+- `trace_to_sim_formula.md`
+- `trace_to_sim_formula.json`
+- `e2e_burden_ratio.md`
+- `e2e_burden_ratio.json`
 - `frontend_timing_breakdown.json`
 - `frontend_timing_breakdown.md`
 - `redundancy_profile.json`

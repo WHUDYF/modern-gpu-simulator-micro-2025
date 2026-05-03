@@ -330,6 +330,26 @@ Replay 主要用于调试和性能回归隔离，不是新的 timing model。
 - Llama-style decoder-only layer slice
 - MLPerf Training-style reference anchor
 
+推荐 workload 分层：
+
+| tier | workload | approximate scale | recommended trace granularity | expected trace-size tier | role |
+|---|---|---:|---|---|---|
+| T0 sanity | mini-transformer / toy transformer | 1M-50M 参数 | 1 step 或几个 kernel | 10 MiB-1 GiB | 验证测量链路 |
+| T1 local | GPT-2 small train/decode | 124M 参数 | 1 decode step 或 1 training micro-step | 0.5-10 GiB | 本地可测 AI pattern |
+| T1 local | BERT-base / BERT-large layer | 110M / 340M 参数 | encoder layer slice | 1-20 GiB | attention + GEMM + layernorm pattern |
+| T2 representative | Llama 3.1 8B layer slice | 8B 参数 | decoder layer / attention + MLP slice | 10-100 GiB | 现代 LLM 代表 |
+| T2 representative | Llama 2 70B LoRA slice | 70B 参数 | fine-tuning step slice | 50-500 GiB | 大模型微调代表 |
+| T2 representative | Megatron-LM GPT training slice | billion+ 参数 | tensor/pipeline-parallel layer slice | 50 GiB-1 TiB | 大规模训练系统代表 |
+| T3 scale anchor | MLPerf Training Llama 3.1 405B | 405B 参数 | scale anchor，第一轮不完整 trace | 100 GiB-TiB+ | 工业级上界论证 |
+| T3 scale anchor | full MLPerf LLM training reference | multi-node / multi-GPU | step-level extrapolation | TiB+ | 完整 workflow 可行性论证 |
+
+最低推荐证据组合是：
+
+1. 一个 T0 sanity workload，用来验证测量链路；
+2. 一个 T1 local workload，用来产生实测 frontend timing 和 redundancy；
+3. 一个 T2 representative slice，用来说明现代 LLM 的 scale pressure；
+4. 一个 T3 scale anchor，用来支撑论文级上界论证。
+
 现有 cost map 里的 microbenchmark 控制组仍然放在 appendix：
 
 - simulator-throughput 样本：`atomic_add_bw`、`atomic_add_bw_conflict`、`mem_bw`、`mem_lat`
@@ -369,6 +389,80 @@ export-dominated 和 microbenchmark 样本只是控制组。它们不应用来�
 | MLPerf-style | training reference anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | modelled | modelled | scale argument |
 
 这张表是核心 artifact。它证明 trace-to-simulator 时间是否已经成为端到端设计迭代中的实际阻碍。`T_sim_total` 只作为上下文，不是 frontend 优化必须打败的对手。
+
+### Phase 1.6：Trace Size 到 Trace-To-Simulator 时间公式
+
+在所有大型 workload 都有细粒度 instrumentation 之前，先使用一个简单 planning model：
+
+```text
+T_trace_to_sim ~= C_fixed + S_trace_GiB / R_frontend_GiBps
+```
+
+其中：
+
+```text
+S_trace_GiB      = trace 总大小，单位 GiB
+R_frontend_GiBps = trace-to-simulator 前端有效吞吐
+C_fixed          = startup、metadata、kernel setup 等固定成本
+```
+
+初始吞吐场景：
+
+| scenario | `R_frontend_GiBps` | `C_fixed` | interpretation |
+|---|---:|---:|---|
+| fast | 0.5 GiB/s | 2 s | 碎片少的紧凑 binary 路径 |
+| expected | 0.1 GiB/s | 5 s | protobuf + metadata + 普通碎片路径 |
+| pessimistic | 0.03 GiB/s | 10 s | threadblock 小文件多、metadata binding 重 |
+
+在 expected 场景下：
+
+```text
+T_trace_to_sim ~= 5 + 10 * S_trace_GiB seconds
+```
+
+规划表：
+
+| trace size | fast estimate | expected estimate | pessimistic estimate | expected 30% saved time |
+|---:|---:|---:|---:|---:|
+| 0.5 GiB | 3 s | 10 s | 27 s | 3 s |
+| 1 GiB | 4 s | 15 s | 43 s | 4.5 s |
+| 5 GiB | 12 s | 55 s | 177 s | 16.5 s |
+| 10 GiB | 22 s | 105 s | 343 s | 31.5 s |
+| 50 GiB | 102 s | 505 s, 8.4 min | 1677 s, 28 min | 151 s |
+| 100 GiB | 202 s | 1005 s, 16.8 min | 3343 s, 55.7 min | 302 s |
+| 500 GiB | 1002 s, 16.7 min | 5005 s, 83.4 min | 4.6 h | 25 min |
+| 1 TiB | 34.2 min | 2.85 h | 9.5 h | 51 min |
+
+这张表不能替代实测。它只是用透明方式判断：哪些大 trace 可能让 trace-to-simulator preparation 成为端到端成本中的实质部分。
+
+### Phase 1.7：端到端负担比例
+
+计算 trace-to-simulator 在设计闭环中的占比：
+
+```text
+P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
+```
+
+其中：
+
+```text
+T_e2e_iteration =
+  T_trace_export
++ T_trace_to_sim
++ T_sim_backend
++ T_result_analysis
+```
+
+解释标准：
+
+| `P_trace_to_sim` | interpretation |
+|---:|---|
+| < 1% | 很难作为独立优化线支撑 |
+| 1%-5% | 取决于绝对时间和 sweep 次数 |
+| 5%-15% | 明确的工程阻碍 |
+| > 15% | 强瓶颈，值得做专门系统优化 |
+
+绝对时间仍然重要。即使占比只有 5%，如果一次 design sweep 累计了 30 分钟到 2 小时的 trace-to-simulator preparation time，也足以支撑这条线。
 
 ### Phase 2：冗余测量
 
@@ -516,6 +610,10 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 
 - `workload_evidence_table.json`
 - `workload_evidence_table.md`
+- `trace_to_sim_formula.json`
+- `trace_to_sim_formula.md`
+- `e2e_burden_ratio.json`
+- `e2e_burden_ratio.md`
 - `frontend_timing_breakdown.json`
 - `frontend_timing_breakdown.md`
 - `redundancy_profile.json`

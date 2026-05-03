@@ -43,23 +43,6 @@ WORKLOADS = [
         "T_sim_backend_execution_s": {"value": 6000.0, "label": "modeled"},
         "T_result_analysis_s": {"value": 300.0, "label": "modeled"},
     },
-    # Modeled scenario: what if T_trace_to_sim were reduced by 30% (DiffTest-style)
-    {
-        "workload_id": "bert-base-encoder-layer-slice-reduced",
-        "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": {"value": 5.0, "label": "placeholder"},
-        "T_trace_to_sim_s": {"value": 5.6, "label": "modeled"},
-        "T_sim_backend_execution_s": {"value": 15.0, "label": "placeholder"},
-        "T_result_analysis_s": {"value": 1.0, "label": "placeholder"},
-    },
-    {
-        "workload_id": "bert-base-pretraining-full-step-reduced",
-        "measurement_unit": "step",
-        "T_kernel_or_trace_export_s": {"value": 120.0, "label": "placeholder"},
-        "T_trace_to_sim_s": {"value": 38.5, "label": "modeled"},
-        "T_sim_backend_execution_s": {"value": 200.0, "label": "placeholder"},
-        "T_result_analysis_s": {"value": 10.0, "label": "placeholder"},
-    },
 ]
 
 def compute_burden(w):
@@ -90,12 +73,24 @@ def compute_burden(w):
     }
 
 def evaluate_go_no_go(results):
-    slice_results = [r for r in results if r["measurement_unit"] == "slice" and "reduced" not in r["workload_id"]]
-    step_results = [r for r in results if r["measurement_unit"] == "step" and "reduced" not in r["workload_id"]]
+    has_measured = any(r["data_labels"]["T_trace_to_sim"] == "measured" for r in results)
+    if not has_measured:
+        return {
+            "go": None,
+            "verdict": "PENDING_MEASUREMENT — all inputs are placeholder or modeled; measured data required",
+            "slice_go": None,
+            "step_go": None,
+            "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
+            "max_slice_pct": None,
+            "max_step_pct": None,
+        }
+    slice_results = [r for r in results if r["measurement_unit"] == "slice"]
+    step_results = [r for r in results if r["measurement_unit"] == "step"]
     slice_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in slice_results)
     step_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in step_results)
     return {
         "go": slice_go or step_go,
+        "verdict": "GO — proceed to prototype investigation" if (slice_go or step_go) else "NOT YET — gather measured data first",
         "slice_go": slice_go,
         "step_go": step_go,
         "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
@@ -120,7 +115,7 @@ def build_markdown(results, go_no_go):
         "",
         f"Generated: {DATE}",
         "",
-        "**Data Status**: Placeholder values — awaiting measured data from timing instrumentation.",
+        "**Data Status**: All inputs are placeholder or modeled. Measured data from simulator instrumentation required for valid go/no-go.",
         "",
         "## Formula",
         "",
@@ -136,10 +131,21 @@ def build_markdown(results, go_no_go):
         "",
         "## Go/No-Go Rule",
         "",
-        f"- Slice-level gate: P_trace_to_sim_slice > 15% → {'PASS' if go_no_go['slice_go'] else 'NOT YET'} (max: {go_no_go['max_slice_pct']:.1f}%)",
-        f"- Step-level gate: P_trace_to_sim_step > 15% → {'PASS' if go_no_go['step_go'] else 'NOT YET'} (max: {go_no_go['max_step_pct']:.1f}%)",
-        f"- **Overall go/no-go**: {'GO — proceed to prototype investigation' if go_no_go['go'] else 'NOT YET — gather measured data first'}",
-        "",
+    ]
+    if go_no_go["go"] is None:
+        lines += [
+            f"- **Overall verdict**: {go_no_go['verdict']}",
+            f"- Rule: {go_no_go['rule']}",
+            "",
+        ]
+    else:
+        lines += [
+            f"- Slice-level gate: P_trace_to_sim_slice > 15% → {'PASS' if go_no_go['slice_go'] else 'NOT YET'} (max: {go_no_go['max_slice_pct']:.1f}%)",
+            f"- Step-level gate: P_trace_to_sim_step > 15% → {'PASS' if go_no_go['step_go'] else 'NOT YET'} (max: {go_no_go['max_step_pct']:.1f}%)",
+            f"- **Overall go/no-go**: {go_no_go['verdict']}",
+            "",
+        ]
+    lines += [
         "## Per-Workload Results",
         "",
         "| Workload | Unit | T_export (s) | T_frontend (s) | T_backend (s) | T_analysis (s) | T_total (s) | P_frontend (%) | Data Label |",
@@ -201,9 +207,10 @@ def main():
 
     print(f"Wrote {out_dir}/complete_flow_burden_ratio.json")
     print(f"Wrote {out_dir}/complete_flow_burden_ratio.md")
-    print(f"Go/No-Go: {'GO' if go_no_go['go'] else 'NOT YET'}")
-    print(f"  Slice max P: {go_no_go['max_slice_pct']:.1f}%")
-    print(f"  Step max P: {go_no_go['max_step_pct']:.1f}%")
+    print(f"Go/No-Go: {go_no_go['verdict']}")
+    if go_no_go['max_slice_pct'] is not None:
+        print(f"  Slice max P: {go_no_go['max_slice_pct']:.1f}%")
+        print(f"  Step max P: {go_no_go['max_step_pct']:.1f}%")
 
 if __name__ == "__main__":
     main()

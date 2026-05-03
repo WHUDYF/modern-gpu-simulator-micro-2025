@@ -20,8 +20,8 @@
       "expected_trace_size_tier": "medium-to-large",
       "measurement_unit": "slice",
       "role": "T1_baseline",
-      "status": "measured",
-      "notes": "Primary claim-bearing workload at slice granularity. Single transformer encoder layer captures representative compute and memory patterns."
+      "status": "pending_measurement",
+      "notes": "Primary claim-bearing workload at slice granularity. Single transformer encoder layer captures representative compute and memory patterns. Status pending: requires NVBit trace generation and simulator run."
     },
     {
       "workload_id": "bert-base-pretraining-full-step",
@@ -32,7 +32,7 @@
       "expected_trace_size_tier": "large-to-very-large",
       "measurement_unit": "step",
       "role": "T1_baseline",
-      "status": "measured",
+      "status": "pending_measurement",
       "batch_scaling": {
         "start": "small",
         "strategy": "scale upward until resource ceiling reached",

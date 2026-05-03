@@ -9,9 +9,9 @@ import math
 import sys
 
 SCENARIOS = {
-    "fast": {"C_fixed_s": 2.0, "R_frontend_GiBps": 0.2, "label": "Fast (optimistic)"},
+    "fast": {"C_fixed_s": 2.0, "R_frontend_GiBps": 0.5, "label": "Fast (optimistic)"},
     "expected": {"C_fixed_s": 5.0, "R_frontend_GiBps": 0.1, "label": "Expected (baseline)"},
-    "pessimistic": {"C_fixed_s": 10.0, "R_frontend_GiBps": 0.05, "label": "Pessimistic (conservative)"},
+    "pessimistic": {"C_fixed_s": 10.0, "R_frontend_GiBps": 0.03, "label": "Pessimistic (conservative)"},
 }
 
 TRACE_SIZES = [

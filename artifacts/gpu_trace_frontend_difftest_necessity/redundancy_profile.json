@@ -1,8 +1,8 @@
 {
   "report_name": "Redundancy Profiling Counter Specification",
   "generated_date": "2026-05-03",
-  "status": "specification — C++ instrumentation pending simulator source code availability",
-  "simulator_source_note": "The simulator-remodeled/ directory is not present in this repository. Counters must be wired when the source becomes available.",
+  "status": "implemented — C++ instrumentation in simulator repo at /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/",
+  "simulator_source_note": "Counters wired in trace-parser/trace_parser.cc and trace-driven/trace_driven.cc. Emitted via frontend_metrics.h.",
   "counters": [
     {
       "id": "dynamic_insn_count",

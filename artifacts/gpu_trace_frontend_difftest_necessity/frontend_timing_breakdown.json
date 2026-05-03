@@ -69,6 +69,7 @@
   "output_format": {
     "per_run_json": {
       "fields": [
+        "workload_id",
         "trace_read_s",
         "parse_pb_s",
         "static_bind_s",

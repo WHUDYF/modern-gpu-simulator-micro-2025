@@ -1,8 +1,8 @@
 # Redundancy Profiling Counter Specification
 
-Generated: 2026-05-03
+Generated: 2026-05-04
 
-**Status**: Specification only. Counters must be wired in the simulator C++ source when available.
+**Status**: Implemented. C++ counters wired in trace-parser/trace_parser.cc and trace-driven/trace_driven.cc. Emitted per-workload via frontend_metrics.h.
 
 ## Measured Counters
 

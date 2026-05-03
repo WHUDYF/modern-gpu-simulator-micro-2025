@@ -2,9 +2,9 @@
 
 > Engineering / research positioning: this spec defines a falsifiable study for deciding whether DiffTest-style frontend input restructuring is necessary and feasible for the trace-driven GPU simulator. It does not implement a new trace format, does not change simulator timing semantics, and does not claim that the original RISC-V DiffTest checker should be ported directly.
 
-**Goal:** establish whether the current GPU trace-driven simulator has a measurable frontend input bottleneck between trace artifacts and the SM timing model, and whether DiffTest-style preprocess, validate, delta/cache, batch/chunk, and replay ideas can reduce that bottleneck without changing simulation results.
+**Goal:** establish whether trace-to-simulator frontend preparation time is large enough to block end-to-end algorithm-to-simulator design iteration, and whether DiffTest-style preprocess, validate, delta/cache, batch/chunk, and replay ideas can reduce that cost without changing simulation results.
 
-**Architecture:** split the existing simulator wall time into trace read, protobuf parse, static binding, threadblock/warp trace loading, frontend instruction delivery, and core timing model phases. Use that measurement to decide whether a minimal frontend optimization prototype is justified. If justified, introduce optimization hooks only at the `trace-parser` and `trace-driven` boundary: decoded static-info cache, threadblock chunk staging, metadata-level squash, and local replay.
+**Architecture:** split trace-to-simulator cost into trace read, protobuf parse, static binding, threadblock/warp trace loading, frontend instruction delivery, and core timing model context. Build a workload evidence table for representative AI training traces, then estimate conservative / expected / optimistic DiffTest-style reductions on `T_trace_to_sim`. If justified, introduce optimization hooks only at the `trace-parser` and `trace-driven` boundary: decoded static-info cache, threadblock chunk staging, metadata-level squash, and local replay.
 
 **Tech Stack:** existing NVBit-generated trace artifacts, `simulator-remodeled/gpu-simulator/trace-parser`, `simulator-remodeled/gpu-simulator/trace-driven`, existing trace bottleneck cost map artifacts, C++ timing counters, JSON/Markdown measurement reports, and local regression checks on simulator output metrics.
 
@@ -54,6 +54,27 @@ Representative workload slices for later measurement can be organized as:
 
 The goal is not to claim every large workload will be slow. The goal is to test whether AI training workloads systematically amplify the same frontend-input pattern that DiffTest solves in another setting.
 
+### 1.2 End-to-end design-loop obstruction target
+
+This study does not need to prove that frontend restructuring is more important than simulator backend acceleration, kernel-count reduction, or benchmark pruning.
+
+The narrower target is enough:
+
+> Trace-to-simulator preparation time is a material obstacle to the end-to-end workflow that takes an algorithm or optimization idea, generates traces, loads them into the simulator, and evaluates the design.
+
+Therefore the primary metric is not only `frontend_share`. The primary metric is:
+
+```text
+T_trace_to_sim =
+  T_trace_read
++ T_protobuf_parse
++ T_static_bind
++ T_threadblock_warp_load
++ T_frontend_instruction_delivery_preparation
+```
+
+`T_sim_total` remains useful context, but the argument does not require `T_trace_to_sim` to dominate every other optimization opportunity. A large absolute cost, or a large cumulative cost across workload sweeps, is sufficient to justify this line.
+
 ## 2. Main Claim
 
 The claim to test is:
@@ -61,6 +82,8 @@ The claim to test is:
 > Trace-driven GPU simulation has a DiffTest-like frontend input problem if trace events are numerous, fragmented, and repeatedly rebound to static metadata before they reach the core timing model.
 
 This claim is falsifiable. It is false if most simulator wall time is spent inside the core timing model and the parser / trace-driven frontend contributes only negligible overhead. It is true enough to motivate optimization if frontend input handling accounts for a substantial share of simulator time or scales poorly with threadblock count, warp trace count, file count, or dynamic instruction count.
+
+For this engineering line, the claim can also hold when `frontend_share` is moderate but `T_trace_to_sim` is large in absolute or cumulative terms. A 10% frontend share can still be a serious blocker if each design sweep processes many AI training traces or repeated model slices.
 
 ## 3. Mainstream Examples For Paper Motivation
 
@@ -156,9 +179,9 @@ The existing cost map separates measured cases into `simulator throughput`, `tra
 
 ## 5. Research Questions
 
-### RQ1: Does the trace frontend occupy a significant part of simulator time?
+### RQ1: Does trace-to-simulator preparation create a material design-iteration cost?
 
-Measure whether parser and trace-driven frontend work contributes a substantial fraction of `T_sim`.
+Measure whether parser and trace-driven frontend work contributes either a substantial fraction of `T_sim` or a large absolute / cumulative delay in the end-to-end design loop.
 
 Target decomposition:
 
@@ -297,13 +320,23 @@ Replay is for debugging and performance regression isolation. It is not a new ti
 
 ### Phase 0: Baseline Selection
 
-Select measured workloads from the trace bottleneck cost map:
+Use the current trace bottleneck cost map as a calibration baseline, but shift the main evidence table toward AI training and training-adjacent traces.
+
+Recommended workload classes:
+
+- mini-transformer or toy transformer training trace
+- GPT-2 small training or decode trace
+- BERT / transformer encoder layer trace
+- Llama-style decoder-only layer slice
+- MLPerf Training-style reference anchor
+
+Microbenchmark controls from the existing cost map should remain in the appendix:
 
 - simulator-throughput cases: `atomic_add_bw`, `atomic_add_bw_conflict`, `mem_bw`, `mem_lat`
 - export-dominated contrast cases: `l2_bw_32f`, `shared_bw`
 - balanced cases: `l2_bw_128`, `l1_bw_32f`
 
-The export-dominated cases are included only as controls. They should not be used to overclaim simulator frontend optimization.
+The export-dominated and microbenchmark cases are controls. They should not be used to overclaim AI-training frontend optimization, but they help show that this study is intentionally scoped to trace-to-simulator frontend cost.
 
 ### Phase 1: Timing Decomposition
 
@@ -323,6 +356,20 @@ Required output per workload:
 | `core_cycle_s` | remaining core cycle model time |
 | `frontend_share` | frontend categories divided by total sim wall time |
 
+### Phase 1.5: Workload Evidence Table
+
+Build a table that directly supports the paper argument:
+
+| workload | model slice | trace size | kernel count | TB / warp count | `T_trace_to_sim` | `T_sim_total` | frontend share | estimated DiffTest-style reduction | reduced `T_trace_to_sim` | E2E impact |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| mini-transformer | full toy step | measured | measured | measured | measured | measured | measured | modelled | modelled | measured/modelled |
+| GPT-style | decode or small train step | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | modelled | modelled | modelled |
+| BERT-style | encoder layer | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | modelled | modelled | modelled |
+| Llama-style | decoder layer slice | modelled | modelled | modelled | modelled | modelled | modelled | modelled | modelled | modelled |
+| MLPerf-style | training reference anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | modelled | modelled | scale argument |
+
+This table is the central artifact. It proves whether trace-to-simulator time is a practical obstacle for end-to-end design iteration. `T_sim_total` is included for context, not as the opponent that frontend optimization must beat.
+
 ### Phase 2: Redundancy Measurement
 
 Collect redundancy metrics:
@@ -338,6 +385,28 @@ Minimum useful signal:
 - static reuse ratio is much larger than 1
 - frontend allocation density is non-trivial
 - frontend share is high enough to matter
+
+### Phase 2.5: DiffTest-Style Reduction Model
+
+Estimate improvement only on `T_trace_to_sim`, not on the entire simulator wall time.
+
+Use three explicit reduction levels:
+
+| scenario | reduction applied to `T_trace_to_sim` | meaning |
+|---|---:|---|
+| conservative | 15% | safe lower-bound cache / metadata reuse benefit |
+| expected | 30% | cache plus chunking benefit on repeated training traces |
+| optimistic | 50% | strong cache, batch, and replay-locality benefit |
+
+For each workload:
+
+```text
+reduced_T_trace_to_sim = T_trace_to_sim * (1 - reduction_rate)
+saved_time_per_run = T_trace_to_sim - reduced_T_trace_to_sim
+saved_time_per_sweep = saved_time_per_run * number_of_design_runs
+```
+
+This is a planning model, not a performance claim. The actual prototype must later replace these estimates with measured reductions.
 
 ### Phase 3: Minimal No-Semantics Prototype
 
@@ -379,17 +448,18 @@ Performance table:
 
 This research direction is considered justified if all conditions hold:
 
-1. At least one simulator-throughput or balanced workload shows `frontend_share >= 0.20`.
-2. At least one workload shows a high static reuse ratio, with many dynamic instructions mapping to far fewer `(unique_function_id, pc)` pairs.
-3. The no-semantics prototype preserves simulator output metrics on selected traces.
-4. The prototype reduces frontend time by at least 15% on one or more frontend-heavy workloads.
-5. Export-dominated cases are reported as controls and not used to overclaim simulator-side speedup.
+1. At least three representative AI training / training-adjacent workload slices are included in the evidence table.
+2. At least one workload has measured or defensibly modelled `T_trace_to_sim` above a practical single-run threshold, such as 30-60 seconds.
+3. A multi-workload or multi-configuration sweep shows cumulative `T_trace_to_sim` large enough to delay design iteration, such as 10 minutes to 1 hour.
+4. At least one workload shows a high static reuse ratio, with many dynamic instructions mapping to far fewer `(unique_function_id, pc)` pairs.
+5. The conservative / expected / optimistic reduction table shows meaningful saved time on the trace-to-simulator portion.
+6. Export-dominated cases are reported as controls and not used to overclaim simulator-side speedup.
 
 The direction is considered weak or not justified if:
 
-- frontend share is consistently below 5%;
+- absolute and cumulative `T_trace_to_sim` are both negligible;
 - repeated static binding is negligible;
-- most time is inside SM backend timing structures;
+- AI training traces do not show stronger frontend pressure than microbenchmark controls;
 - correctness checks are unstable after frontend-only changes.
 
 ## 9. Non-Goals
@@ -444,10 +514,14 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 
 Expected files:
 
+- `workload_evidence_table.md`
+- `workload_evidence_table.json`
 - `frontend_timing_breakdown.json`
 - `frontend_timing_breakdown.md`
 - `redundancy_profile.json`
 - `redundancy_profile.md`
+- `difftest_reduction_model.md`
+- `difftest_reduction_model.json`
 - `prototype_equivalence_report.json`
 - `prototype_equivalence_report.md`
 - `paper_argument_matrix.md`
@@ -466,10 +540,11 @@ The `paper_argument_matrix.md` should explicitly connect each external example t
 
 After Phase 1 and Phase 2:
 
-- If frontend share and redundancy are high: proceed to minimal prototype.
-- If frontend share is low but export is high: return to trace export / I/O compression line.
-- If frontend share is low but core cycle time is high: prioritize simulator backend throughput.
-- If benchmark sweep dominates: prioritize benchmark selection and family pruning.
+- If `T_trace_to_sim` is high in absolute terms: proceed to minimal prototype even if `frontend_share` is moderate.
+- If single-run `T_trace_to_sim` is moderate but sweep-level cumulative cost is high: proceed to minimal prototype.
+- If `T_trace_to_sim` is low and cumulative cost is low: do not prioritize this line.
+- If export dominates before trace reaches the simulator: report it as export / I/O pressure, not frontend input pressure.
+- If backend simulation dominates but `T_trace_to_sim` is still large enough to block iteration: keep this line as an independent frontend optimization, not as a claim that it replaces backend acceleration.
 
 After Phase 3 and Phase 4:
 

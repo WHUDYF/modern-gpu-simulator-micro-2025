@@ -2,9 +2,9 @@
 
 > 工程 / 研究定位：这份 spec 用来判断，trace-driven GPU simulator 里是否真的需要、也是否适合做 DiffTest 式的前端输入重构。它不实现新的 trace 格式，不改变模拟器时序语义，也不主张直接把原始 RISC-V DiffTest checker 搬到 GPU 里。
 
-**目标：** 判断当前 GPU trace-driven simulator 在 trace artifact 和 SM timing model 之间，是否存在可测的前端输入瓶颈；以及 DiffTest 风格的 preprocess、validate、delta/cache、batch/chunk、replay 思路，是否能在不改变模拟结果的前提下缓解这个瓶颈。
+**目标：** 判断 trace-to-simulator 前端准备时间是否已经大到足以阻碍“算法/优化方法 -> simulator 验证”的端到端设计迭代；以及 DiffTest 风格的 preprocess、validate、delta/cache、batch/chunk、replay 思路，是否能在不改变模拟结果的前提下降低这部分成本。
 
-**架构：** 把现有 simulator wall time 拆成 trace read、protobuf parse、static binding、threadblock/warp trace loading、frontend instruction delivery 和 core timing model 几个阶段。用这组测量决定是否值得做一个最小前端优化原型。如果值得，优化点只放在 `trace-parser` 和 `trace-driven` 边界：decoded static-info cache、threadblock chunk staging、metadata-level squash、local replay。
+**架构：** 把 trace-to-simulator 成本拆成 trace read、protobuf parse、static binding、threadblock/warp trace loading、frontend instruction delivery，以及 core timing model 的上下文成本。针对代表性 AI training trace 建立 workload evidence table，然后在 `T_trace_to_sim` 上估计 conservative / expected / optimistic 三档 DiffTest-style 降低幅度。如果值得推进，优化点只放在 `trace-parser` 和 `trace-driven` 边界：decoded static-info cache、threadblock chunk staging、metadata-level squash、local replay。
 
 **技术栈：** 现有 NVBit 生成的 trace artifact、`simulator-remodeled/gpu-simulator/trace-parser`、`simulator-remodeled/gpu-simulator/trace-driven`、已有的 trace bottleneck cost map artifact、C++ timing counter、JSON/Markdown 测量报告，以及对 simulator 输出指标的本地回归检查。
 
@@ -54,6 +54,27 @@ trace-parser -> trace-driven -> shader core
 
 目标不是声称所有大 workload 都一定慢，而是验证 AI training workload 是否会系统性放大 DiffTest 在另一个场景里解决的那类 frontend-input pattern。
 
+### 1.2 端到端设计闭环阻碍目标
+
+这项研究不需要证明 frontend restructuring 比 simulator backend 加速、减少 kernel 数量或 benchmark pruning 更重要。
+
+更窄的目标已经足够：
+
+> trace-to-simulator preparation time 是端到端 workflow 的实质阻碍；这个 workflow 指的是从算法或优化想法出发，生成 trace，加载到 simulator，并评估设计。
+
+因此主指标不只是 `frontend_share`，而是：
+
+```text
+T_trace_to_sim =
+  T_trace_read
++ T_protobuf_parse
++ T_static_bind
++ T_threadblock_warp_load
++ T_frontend_instruction_delivery_preparation
+```
+
+`T_sim_total` 仍然是有用上下文，但论证不要求 `T_trace_to_sim` 压过所有其他优化机会。只要它的绝对成本足够高，或者在 workload sweep 中累计成本足够高，就足以支撑这条线。
+
 ## 2. 核心主张
 
 要验证的主张是：
@@ -61,6 +82,8 @@ trace-parser -> trace-driven -> shader core
 > 如果 trace event 数量大、碎片化严重，并且在到达 core timing model 之前要反复和静态元数据绑定，那么 trace-driven GPU simulation 就会出现一种 DiffTest 式的前端输入问题。
 
 这个主张是可证伪的。如果大多数 simulator wall time 都花在 core timing model 里面，而 parser / trace-driven frontend 只占很小一部分，那它就是假的。如果前端输入处理在 simulator 时间里占有显著比例，或者随着 threadblock 数、warp trace 数、文件数、dynamic instruction 数扩张而变差，那它就足够支持优化动机。
+
+对这条工程线来说，即使 `frontend_share` 中等，只要 `T_trace_to_sim` 的绝对成本或累计成本足够高，这个主张也仍然成立。比如 frontend 只占 10%，但每轮设计 sweep 要处理大量 AI training trace 或反复跑多个 model slice，它仍然可能成为严重阻碍。
 
 ## 3. 论文动机用的主流例子
 
@@ -156,9 +179,9 @@ SMARTS 和 SimPoint 不是 frontend parser 优化，但它们说明架构模拟�
 
 ## 5. 研究问题
 
-### RQ1：trace frontend 是否占了 simulator 时间里显著的一部分？
+### RQ1：trace-to-simulator preparation 是否造成了实质设计迭代成本？
 
-测量 parser 和 trace-driven frontend 的工作，是否占 `T_sim` 的足够比例。
+测量 parser 和 trace-driven frontend 的工作，是否占 `T_sim` 的足够比例，或者是否在端到端设计闭环中造成足够大的绝对 / 累计延迟。
 
 目标拆解：
 
@@ -297,13 +320,23 @@ Replay 主要用于调试和性能回归隔离，不是新的 timing model。
 
 ### Phase 0：基准选择
 
-从 trace bottleneck cost map 里选已测 workload：
+使用当前 trace bottleneck cost map 作为校准基线，但主要 evidence table 转向 AI training 和 training-adjacent trace。
+
+推荐 workload 类别：
+
+- mini-transformer 或 toy transformer training trace
+- GPT-2 small training 或 decode trace
+- BERT / transformer encoder layer trace
+- Llama-style decoder-only layer slice
+- MLPerf Training-style reference anchor
+
+现有 cost map 里的 microbenchmark 控制组仍然放在 appendix：
 
 - simulator-throughput 样本：`atomic_add_bw`、`atomic_add_bw_conflict`、`mem_bw`、`mem_lat`
 - export-dominated 对照样本：`l2_bw_32f`、`shared_bw`
 - balanced 样本：`l2_bw_128`、`l1_bw_32f`
 
-export-dominated 样本只作为控制组使用，不应拿来过度声称 simulator 前端优化。
+export-dominated 和 microbenchmark 样本只是控制组。它们不应用来过度声称 AI-training frontend 优化，但可以帮助说明这项研究有意聚焦 trace-to-simulator frontend cost。
 
 ### Phase 1：时间拆解
 
@@ -323,6 +356,20 @@ export-dominated 样本只作为控制组使用，不应拿来过度声称 simul
 | `core_cycle_s` | 剩余 core cycle model 时间 |
 | `frontend_share` | frontend 各项时间占 total sim wall time 的比例 |
 
+### Phase 1.5：Workload Evidence Table
+
+建立一张直接支撑论文论点的表：
+
+| workload | model slice | trace size | kernel count | TB / warp count | `T_trace_to_sim` | `T_sim_total` | frontend share | estimated DiffTest-style reduction | reduced `T_trace_to_sim` | E2E impact |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| mini-transformer | full toy step | measured | measured | measured | measured | measured | measured | modelled | modelled | measured/modelled |
+| GPT-style | decode or small train step | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | modelled | modelled | modelled |
+| BERT-style | encoder layer | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | measured/modelled | modelled | modelled | modelled |
+| Llama-style | decoder layer slice | modelled | modelled | modelled | modelled | modelled | modelled | modelled | modelled | modelled |
+| MLPerf-style | training reference anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | scale anchor | modelled | modelled | scale argument |
+
+这张表是核心 artifact。它证明 trace-to-simulator 时间是否已经成为端到端设计迭代中的实际阻碍。`T_sim_total` 只作为上下文，不是 frontend 优化必须打败的对手。
+
 ### Phase 2：冗余测量
 
 统计冗余指标：
@@ -338,6 +385,28 @@ frontend_allocation_density = frontend_allocations / dynamic_instruction_count
 - static reuse ratio 明显大于 1
 - frontend allocation density 不小
 - frontend share 足够高，值得关注
+
+### Phase 2.5：DiffTest-Style Reduction Model
+
+只在 `T_trace_to_sim` 上估计收益，不在整个 simulator wall time 上估计收益。
+
+使用三档显式降低幅度：
+
+| scenario | reduction applied to `T_trace_to_sim` | meaning |
+|---|---:|---|
+| conservative | 15% | 保守的 cache / metadata reuse 下界收益 |
+| expected | 30% | cache 加 chunking 在重复 training trace 上的预期收益 |
+| optimistic | 50% | cache、batch、replay-locality 都较强时的乐观收益 |
+
+对每个 workload：
+
+```text
+reduced_T_trace_to_sim = T_trace_to_sim * (1 - reduction_rate)
+saved_time_per_run = T_trace_to_sim - reduced_T_trace_to_sim
+saved_time_per_sweep = saved_time_per_run * number_of_design_runs
+```
+
+这只是规划模型，不是性能声明。后续原型实现后，必须用实测降低幅度替换这些估计。
 
 ### Phase 3：最小无语义原型
 
@@ -379,17 +448,18 @@ frontend_allocation_density = frontend_allocations / dynamic_instruction_count
 
 如果满足下面所有条件，这条研究方向就算站得住：
 
-1. 至少一个 simulator-throughput 或 balanced workload 的 `frontend_share >= 0.20`。
-2. 至少一个 workload 的 static reuse ratio 很高，说明很多 dynamic instruction 其实对应很少的 `(unique_function_id, pc)`。
-3. 最小无语义原型在选定 trace 上保持 simulator 输出指标不变。
-4. 原型在一个或多个 frontend-heavy workload 上至少减少 15% 的 frontend 时间。
-5. export-dominated 样本只作为控制组，不拿来过度声称 simulator-side 加速。
+1. evidence table 至少包含三个代表性 AI training / training-adjacent workload slice。
+2. 至少一个 workload 的 `T_trace_to_sim` 实测或合理建模后超过实际单次运行阈值，比如 30-60 秒。
+3. 多 workload 或多配置 sweep 中，累计 `T_trace_to_sim` 已经足以拖慢设计迭代，比如达到 10 分钟到 1 小时。
+4. 至少一个 workload 的 static reuse ratio 很高，说明很多 dynamic instruction 其实对应很少的 `(unique_function_id, pc)`。
+5. conservative / expected / optimistic reduction table 显示 trace-to-simulator 部分有明确节省时间。
+6. export-dominated 样本只作为控制组，不拿来过度声称 simulator-side 加速。
 
 如果出现下面这些情况，这个方向就不够强，或者不值得继续：
 
-- frontend share 一直低于 5%
+- `T_trace_to_sim` 的绝对成本和累计成本都可以忽略
 - 重复 static binding 几乎不存在
-- 大部分时间都花在 SM backend 的 timing structure 里
+- AI training trace 没有比 microbenchmark 控制组表现出更强的 frontend pressure
 - 只改 frontend 后正确性测试不稳定
 
 ## 9. 非目标
@@ -444,10 +514,14 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 
 预期文件：
 
+- `workload_evidence_table.json`
+- `workload_evidence_table.md`
 - `frontend_timing_breakdown.json`
 - `frontend_timing_breakdown.md`
 - `redundancy_profile.json`
 - `redundancy_profile.md`
+- `difftest_reduction_model.json`
+- `difftest_reduction_model.md`
 - `prototype_equivalence_report.json`
 - `prototype_equivalence_report.md`
 - `paper_argument_matrix.md`
@@ -466,10 +540,11 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 
 在 Phase 1 和 Phase 2 之后：
 
-- 如果 frontend share 和 redundancy 都高：进入最小原型。
-- 如果 frontend share 低但 export 高：回到 trace export / I/O compression 线。
-- 如果 frontend share 低但 core cycle 高：优先 simulator backend throughput。
-- 如果 benchmark sweep 是主要成本：优先 benchmark selection 和 family pruning。
+- 如果 `T_trace_to_sim` 的绝对成本高：即使 `frontend_share` 中等，也进入最小原型。
+- 如果单次 `T_trace_to_sim` 中等，但 sweep-level 累计成本高：进入最小原型。
+- 如果 `T_trace_to_sim` 低，累计成本也低：不优先推进这条线。
+- 如果 trace 到达 simulator 之前 export 已经主导：把它报告为 export / I/O pressure，而不是 frontend input pressure。
+- 如果 backend simulation 主导，但 `T_trace_to_sim` 仍然大到阻碍迭代：保留这条线作为独立 frontend 优化，不声称它替代 backend acceleration。
 
 在 Phase 3 和 Phase 4 之后：
 

@@ -31,7 +31,8 @@
   },
   "batch_scaling_records": [
     {
-      "batch_size": null,
+      "attempt": 1,
+      "batch_size": 1,
       "per_gpu_memory_used_gib": null,
       "trace_size_gib": null,
       "artifact_size_gib": null,
@@ -39,9 +40,10 @@
       "sim_time_s": null,
       "analysis_time_s": null,
       "total_iteration_time_s": null,
-      "stopped_by": null,
-      "status": "pending_measurement",
-      "notes": "Awaiting BERT-base pretraining full step trace generation and simulation"
+      "stopped_by": "trace_generation_unavailable",
+      "status": "failed",
+      "failure_reason": "BERT-base pretraining forward+backward pass requires NVBit-instrumented PyTorch binary with GPU >= 28 GiB VRAM. No instrumented training harness available in this session. Trace generation is the prerequisite for all downstream timing measurements.",
+      "notes": "First batch attempt (batch_size=1) could not proceed past trace generation. All downstream fields (memory, trace size, timing) depend on successful trace export."
     }
   ]
 }

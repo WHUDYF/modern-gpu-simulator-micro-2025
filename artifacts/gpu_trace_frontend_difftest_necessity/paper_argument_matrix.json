@@ -21,8 +21,8 @@
         "label": "pending"
       },
       "threadblock_or_warp_count": {
-        "value": null,
-        "label": "pending"
+        "tb": null,
+        "warp": null
       },
       "T_trace_to_sim_s": {
         "value": 10.0,
@@ -37,14 +37,14 @@
         "label": "placeholder"
       },
       "est_frontend_reduction_s": {
-        "value": 2.4,
+        "value": 3.0,
         "label": "modeled"
       },
       "reduced_T_trace_to_sim_s": {
-        "value": 5.6,
+        "value": 7.0,
         "label": "modeled"
       },
-      "complete_flow_impact": "Expected 30% reduction saves 2.4s per run",
+      "complete_flow_impact": "Expected 30% reduction saves 3.0s per run",
       "trace_export_included": true,
       "result_analysis_included": true
     },
@@ -62,8 +62,8 @@
         "label": "pending"
       },
       "threadblock_or_warp_count": {
-        "value": null,
-        "label": "pending"
+        "tb": null,
+        "warp": null
       },
       "T_trace_to_sim_s": {
         "value": 105.0,
@@ -78,14 +78,14 @@
         "label": "placeholder"
       },
       "est_frontend_reduction_s": {
-        "value": 16.5,
+        "value": 31.5,
         "label": "modeled"
       },
       "reduced_T_trace_to_sim_s": {
-        "value": 38.5,
+        "value": 73.5,
         "label": "modeled"
       },
-      "complete_flow_impact": "Expected 30% reduction saves 16.5s per run",
+      "complete_flow_impact": "Expected 30% reduction saves 31.5s per run",
       "trace_export_included": true,
       "result_analysis_included": true
     },
@@ -103,8 +103,8 @@
         "label": "pending"
       },
       "threadblock_or_warp_count": {
-        "value": null,
-        "label": "pending"
+        "tb": null,
+        "warp": null
       },
       "T_trace_to_sim_s": {
         "value": 205.0,
@@ -119,14 +119,14 @@
         "label": "modeled"
       },
       "est_frontend_reduction_s": {
-        "value": 12.0,
+        "value": 61.5,
         "label": "modeled"
       },
       "reduced_T_trace_to_sim_s": {
-        "value": 28.0,
+        "value": 143.5,
         "label": "modeled"
       },
-      "complete_flow_impact": "Expected 30% reduction saves 12.0s per run",
+      "complete_flow_impact": "Expected 30% reduction saves 61.5s per run",
       "trace_export_included": true,
       "result_analysis_included": true
     },
@@ -144,8 +144,8 @@
         "label": "pending"
       },
       "threadblock_or_warp_count": {
-        "value": null,
-        "label": "pending"
+        "tb": null,
+        "warp": null
       },
       "T_trace_to_sim_s": {
         "value": 1005.0,
@@ -160,14 +160,14 @@
         "label": "modeled"
       },
       "est_frontend_reduction_s": {
-        "value": 360.0,
+        "value": 301.5,
         "label": "modeled"
       },
       "reduced_T_trace_to_sim_s": {
-        "value": 840.0,
+        "value": 703.5,
         "label": "modeled"
       },
-      "complete_flow_impact": "Expected 30% reduction saves 360.0s per run",
+      "complete_flow_impact": "Expected 30% reduction saves 301.5s per run",
       "trace_export_included": true,
       "result_analysis_included": true
     }

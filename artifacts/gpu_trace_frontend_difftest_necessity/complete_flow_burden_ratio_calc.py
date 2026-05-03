@@ -42,16 +42,35 @@ MODELED_FALLBACKS = {
 }
 
 def load_measured_timing():
-    """Attempt to load measured frontend timing from simulator output."""
+    """Load measured frontend timing from simulator-emitted flat JSON.
+
+    The simulator emits: {trace_read_s, parse_pb_s, static_bind_s, tb_load_s,
+    warp_trace_build_s, get_next_inst_s, core_cycle_s, total_sim_wall_s,
+    frontend_share}.  We compute T_trace_to_sim as the sum of frontend fields.
+    """
     path = os.path.join(ARTIFACT_DIR, "frontend_timing_breakdown.json")
     if not os.path.exists(path):
         return None
     with open(path) as f:
         data = json.load(f)
-    # If the artifact is still a spec stub, it won't have real measured values.
-    if data.get("status") == "specification — C++ instrumentation pending simulator source code availability":
+    # If the file is still a spec stub (has a "status" key), skip.
+    if "status" in data:
         return None
-    return data
+    # Must have at minimum trace_read_s and total_sim_wall_s to be valid.
+    if "trace_read_s" not in data or "total_sim_wall_s" not in data:
+        return None
+    # Compute T_trace_to_sim from non-overlapping frontend buckets.
+    t_frontend = (data.get("trace_read_s", 0) + data.get("parse_pb_s", 0) +
+                  data.get("warp_trace_build_s", 0) + data.get("tb_load_s", 0) +
+                  data.get("get_next_inst_s", 0))
+    return {
+        "T_trace_to_sim_s": t_frontend,
+        "total_sim_wall_s": data["total_sim_wall_s"],
+        "timing_fields": {k: data[k] for k in
+            ["trace_read_s","parse_pb_s","static_bind_s","tb_load_s",
+             "warp_trace_build_s","get_next_inst_s","total_sim_wall_s"]
+            if k in data},
+    }
 
 def build_workloads():
     """Build workload list, preferring measured data over modeled fallbacks."""
@@ -59,23 +78,22 @@ def build_workloads():
     workloads = []
 
     for wid, fb in MODELED_FALLBACKS.items():
-        w = {
-            "workload_id": wid,
-            "measurement_unit": fb["measurement_unit"],
-        }
-        if measured and wid in measured.get("results", {}):
-            m = measured["results"][wid]
-            w.update({k: {"value": v, "label": "measured"} for k, v in m.items()})
+        w = {"workload_id": wid, "measurement_unit": fb["measurement_unit"]}
+        if measured:
+            # Apply measured frontend time; export/backend/analysis still modeled.
+            t_frontend = measured["T_trace_to_sim_s"]
+            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": "modeled"}
+            w["T_trace_to_sim_s"] = {"value": t_frontend, "label": "measured"}
+            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": "modeled"}
+            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": "modeled"}
         else:
-            # Use formula-derived frontend time or fallback
-            t_frontend_s = fb.get("T_trace_to_sim_s", _formula_estimate(wid))
+            t_frontend_s = _formula_estimate(wid)
             label = "modeled" if "llama" in wid else "placeholder"
             w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": label}
             w["T_trace_to_sim_s"] = {"value": t_frontend_s, "label": label}
             w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": label}
             w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": label}
         workloads.append(w)
-
     return workloads
 
 def _formula_estimate(wid):

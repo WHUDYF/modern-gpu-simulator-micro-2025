@@ -14,13 +14,30 @@ REDUCTION_SCENARIOS = [
     {"name": "optimistic", "reduction_pct": 50, "description": "Optimistic: aggressive batching, caching, and delta encoding"},
 ]
 
-# Use the placeholder T_trace_to_sim values from task4's results
+def _load_burden_trace_times():
+    """Load T_trace_to_sim values from complete_flow_burden_ratio.json."""
+    import os as _os
+    path = _os.path.join("artifacts/gpu_trace_frontend_difftest_necessity",
+                         "complete_flow_burden_ratio.json")
+    if not _os.path.exists(path):
+        return {}
+    with open(path) as f:
+        data = json.load(f)
+    result = {}
+    for r in data.get("results", []):
+        c = r.get("components", {})
+        wid = r["workload_id"]
+        result[wid] = c.get("T_trace_to_sim_s", 0)
+    return result
+
+# T_trace_to_sim loaded from burden ratio output (single source of truth).
+_BURDEN_TIMES = _load_burden_trace_times()
+
 WORKLOAD_T_TRACE = [
-    {"workload_id": "bert-base-encoder-layer-slice", "T_trace_to_sim_s": 8.0, "meas_unit": "slice", "runs_per_sweep": 10},
-    {"workload_id": "bert-base-pretraining-full-step", "T_trace_to_sim_s": 55.0, "meas_unit": "step", "runs_per_sweep": 5},
-    {"workload_id": "llama3.1-8b-decoder-layer-slice", "T_trace_to_sim_s": 40.0, "meas_unit": "slice", "runs_per_sweep": 10},
-    {"workload_id": "llama3.1-8b-full-step", "T_trace_to_sim_s": 1200.0, "meas_unit": "step", "runs_per_sweep": 2},
-    # Modeled at scale
+    {"workload_id": "bert-base-encoder-layer-slice", "T_trace_to_sim_s": _BURDEN_TIMES.get("bert-base-encoder-layer-slice", 10.0), "meas_unit": "slice", "runs_per_sweep": 10},
+    {"workload_id": "bert-base-pretraining-full-step", "T_trace_to_sim_s": _BURDEN_TIMES.get("bert-base-pretraining-full-step", 105.0), "meas_unit": "step", "runs_per_sweep": 5},
+    {"workload_id": "llama3.1-8b-decoder-layer-slice", "T_trace_to_sim_s": _BURDEN_TIMES.get("llama3.1-8b-decoder-layer-slice", 205.0), "meas_unit": "slice", "runs_per_sweep": 10},
+    {"workload_id": "llama3.1-8b-full-step", "T_trace_to_sim_s": _BURDEN_TIMES.get("llama3.1-8b-full-step", 1005.0), "meas_unit": "step", "runs_per_sweep": 2},
     {"workload_id": "t2-scale-anchor-100GiB", "T_trace_to_sim_s": 1005.0, "meas_unit": "slice", "runs_per_sweep": 3},
     {"workload_id": "t3-scale-anchor-500GiB", "T_trace_to_sim_s": 5005.0, "meas_unit": "slice", "runs_per_sweep": 3},
 ]

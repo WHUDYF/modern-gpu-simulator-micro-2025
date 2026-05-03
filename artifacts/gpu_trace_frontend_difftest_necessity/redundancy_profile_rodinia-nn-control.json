@@ -1,0 +1,15 @@
+{
+  "workload_id": "rodinia-nn-control",
+  "kernel_count": 4,
+  "dynamic_insn_count": 528465,
+  "unique_static_id_count": 440642,
+  "static_info_lookup_count": 499455,
+  "threadblock_count": 3752,
+  "warp_trace_count": 3752,
+  "metadata_obj_construction_count": 499455,
+  "frontend_allocation_count": 499455,
+  "unique_tb_metadata_shape_count": 1,
+  "static_reuse_ratio": 1.19931,
+  "tb_metadata_reuse_ratio": 3752,
+  "frontend_allocation_density": 0.945105
+}

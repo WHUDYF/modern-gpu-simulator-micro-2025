@@ -1,0 +1,12 @@
+{
+  "workload_id": "rodinia-nn-control",
+  "trace_read_s": 7.3085e-05,
+  "parse_pb_s": 2.18493,
+  "static_bind_s": 0.113089,
+  "tb_load_s": 7.9733e-05,
+  "warp_trace_build_s": 0.181155,
+  "get_next_inst_s": 1.46748,
+  "core_cycle_s": 38187,
+  "total_sim_wall_s": 14.8957,
+  "frontend_share": 0.264962
+}

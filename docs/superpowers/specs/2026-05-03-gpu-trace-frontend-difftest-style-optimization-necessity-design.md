@@ -31,6 +31,29 @@ trace-parser -> trace-driven -> shader core
 
 and explicitly avoids starting with `sm.cc`, `subcore.cc`, `ldst_unit_sm.cc`, scoreboard logic, or memory timing semantics.
 
+### 1.1 AI training workload focus
+
+This study intentionally narrows the target workload class to AI training and training-adjacent traces.
+
+Why this matters:
+
+- AI training steps usually contain many kernels, not one isolated kernel.
+- Layers repeat similar execution structure across forward/backward/update phases.
+- Kernel, threadblock, and warp trace counts are large enough to make frontend overhead visible.
+- Static instruction shapes tend to repeat, which increases the chance that static binding and metadata normalization can be cached.
+
+This gives us a stronger hypothesis:
+
+> AI training workloads are more likely than small microbenchmarks to expose DiffTest-style frontend input pressure, because they combine high event volume with high structural repetition.
+
+Representative workload slices for later measurement can be organized as:
+
+- mini-transformer or toy transformer traces
+- GPT-style decode or small training steps
+- representative layer slices from larger LLM training traces
+
+The goal is not to claim every large workload will be slow. The goal is to test whether AI training workloads systematically amplify the same frontend-input pattern that DiffTest solves in another setting.
+
 ## 2. Main Claim
 
 The claim to test is:

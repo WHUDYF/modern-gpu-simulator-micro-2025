@@ -31,6 +31,29 @@ trace-parser -> trace-driven -> shader core
 
 并且明确不从 `sm.cc`、`subcore.cc`、`ldst_unit_sm.cc`、scoreboard 逻辑或 memory timing 语义开始。
 
+### 1.1 聚焦 AI training workload
+
+这项研究有意把目标 workload 收束到 AI training 以及 training-adjacent trace 上。
+
+原因是：
+
+- AI training step 通常包含很多 kernel，而不是一个孤立 kernel。
+- 多层网络会在 forward、backward、update 阶段反复出现相似执行结构。
+- kernel、threadblock、warp trace 数量足够大，更容易让 frontend overhead 暴露出来。
+- 静态指令形态往往高度重复，因此 static binding 和 metadata normalization 更可能被 cache 复用。
+
+因此我们可以提出一个更强的假设：
+
+> 相比小型 microbenchmark，AI training workload 更容易暴露 DiffTest 式的前端输入压力，因为它同时具备高事件数量和高结构重复。
+
+后续测量可以按下面几层组织代表性 workload slice：
+
+- mini-transformer 或 toy transformer trace
+- GPT-style decode 或小规模 training step
+- 大模型训练 trace 里的代表性 layer slice
+
+目标不是声称所有大 workload 都一定慢，而是验证 AI training workload 是否会系统性放大 DiffTest 在另一个场景里解决的那类 frontend-input pattern。
+
 ## 2. 核心主张
 
 要验证的主张是：

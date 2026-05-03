@@ -1,0 +1,47 @@
+{
+  "config_name": "BERT-base Pretraining Full Step Batch-Scaling Resource Bounds",
+  "generated_date": "2026-05-03",
+  "confirmed_resource_ceiling": {
+    "per_gpu_memory_gib": 28,
+    "per_gpu_memory_desc": "RTX A6000 48 GiB total, conservative headroom after driver + framework overhead",
+    "trace_plus_artifact_size_gib": 500,
+    "trace_plus_artifact_desc": "Available storage for trace files and generated artifacts per workload unit",
+    "single_iteration_time_h": 2,
+    "single_iteration_desc": "Wall-clock time for one complete export + simulate + analyze cycle"
+  },
+  "batch_scaling_strategy": {
+    "start_batch_size": "small (1-4)",
+    "scale_factor": 2,
+    "stop_conditions": [
+      "per-GPU memory exceeds 28 GiB",
+      "trace + artifact size exceeds 500 GiB per workload unit",
+      "single complete iteration exceeds 2 hours"
+    ],
+    "record_per_step": [
+      "batch_size",
+      "per_gpu_memory_used_gib",
+      "trace_size_gib",
+      "artifact_size_gib",
+      "export_time_s",
+      "sim_time_s",
+      "analysis_time_s",
+      "total_iteration_time_s",
+      "which_limit_stopped_run"
+    ]
+  },
+  "batch_scaling_records": [
+    {
+      "batch_size": null,
+      "per_gpu_memory_used_gib": null,
+      "trace_size_gib": null,
+      "artifact_size_gib": null,
+      "export_time_s": null,
+      "sim_time_s": null,
+      "analysis_time_s": null,
+      "total_iteration_time_s": null,
+      "stopped_by": null,
+      "status": "pending_measurement",
+      "notes": "Awaiting BERT-base pretraining full step trace generation and simulation"
+    }
+  ]
+}

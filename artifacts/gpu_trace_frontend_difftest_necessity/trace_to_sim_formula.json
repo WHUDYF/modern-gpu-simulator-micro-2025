@@ -1,0 +1,124 @@
+{
+  "report_name": "Trace-Size to T_trace_to_sim Formula Calculator",
+  "formula": "T_trace_to_sim ~= C_fixed + S_trace_GiB / R_frontend_GiBps",
+  "expected_shortcut": "T_trace_to_sim ~= 5 + 10 * S_trace_GiB seconds",
+  "generated_date": "2026-05-03",
+  "scenarios": {
+    "fast": {
+      "C_fixed_s": 2.0,
+      "R_frontend_GiBps": 0.2,
+      "label": "Fast (optimistic)"
+    },
+    "expected": {
+      "C_fixed_s": 5.0,
+      "R_frontend_GiBps": 0.1,
+      "label": "Expected (baseline)"
+    },
+    "pessimistic": {
+      "C_fixed_s": 10.0,
+      "R_frontend_GiBps": 0.05,
+      "label": "Pessimistic (conservative)"
+    }
+  },
+  "rows": [
+    {
+      "trace_label": "micro (local)",
+      "trace_size_GiB": 0.01,
+      "T_trace_to_sim_fast_s": 2.05,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 5.1,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 10.2,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 5.1
+    },
+    {
+      "trace_label": "small slice (local)",
+      "trace_size_GiB": 0.1,
+      "T_trace_to_sim_fast_s": 2.5,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 6.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 12.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 6.0
+    },
+    {
+      "trace_label": "medium slice (local)",
+      "trace_size_GiB": 0.5,
+      "T_trace_to_sim_fast_s": 4.5,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 10.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 20.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 10.0
+    },
+    {
+      "trace_label": "large slice / small step (local)",
+      "trace_size_GiB": 2.0,
+      "T_trace_to_sim_fast_s": 12.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 25.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 50.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 25.0
+    },
+    {
+      "trace_label": "BERT-base full step (local)",
+      "trace_size_GiB": 10.0,
+      "T_trace_to_sim_fast_s": 52.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 105.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 210.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 105.0
+    },
+    {
+      "trace_label": "Llama 3.1 8B layer slice (local)",
+      "trace_size_GiB": 20.0,
+      "T_trace_to_sim_fast_s": 102.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 205.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 410.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 205.0
+    },
+    {
+      "trace_label": "T2 scale anchor (modeled)",
+      "trace_size_GiB": 100.0,
+      "T_trace_to_sim_fast_s": 502.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 1005.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 2010.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 1005.0
+    },
+    {
+      "trace_label": "T3 scale anchor (modeled)",
+      "trace_size_GiB": 500.0,
+      "T_trace_to_sim_fast_s": 2502.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 5005.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 10010.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 5005.0
+    },
+    {
+      "trace_label": "1 TiB scale anchor (modeled)",
+      "trace_size_GiB": 1024.0,
+      "T_trace_to_sim_fast_s": 5122.0,
+      "throughput_fast_GiBps": 0.2,
+      "T_trace_to_sim_expected_s": 10245.0,
+      "throughput_expected_GiBps": 0.1,
+      "T_trace_to_sim_pessimistic_s": 20490.0,
+      "throughput_pessimistic_GiBps": 0.05,
+      "T_trace_to_sim_expected_shortcut_s": 10245.0
+    }
+  ]
+}

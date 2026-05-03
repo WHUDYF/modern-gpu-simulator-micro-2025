@@ -1,0 +1,107 @@
+{
+  "report_name": "DiffTest-Style Reduction Model",
+  "description": "Planning reduction estimates applied to T_trace_to_sim only. NOT measured speedups.",
+  "scope": "Reductions apply ONLY to T_trace_to_sim. Backend timing, total wall time, and SM semantics are unchanged.",
+  "status": "planning_evidence \u2014 to be replaced by prototype measurements",
+  "generated_date": "2026-05-03",
+  "reduction_scenarios": [
+    {
+      "name": "conservative",
+      "reduction_pct": 15
+    },
+    {
+      "name": "expected",
+      "reduction_pct": 30
+    },
+    {
+      "name": "optimistic",
+      "reduction_pct": 50
+    }
+  ],
+  "rows": [
+    {
+      "workload_id": "bert-base-encoder-layer-slice",
+      "measurement_unit": "slice",
+      "original_T_trace_to_sim_s": 8.0,
+      "reduced_conservative_T_trace_to_sim_s": 6.8,
+      "saved_conservative_per_run_s": 1.2,
+      "saved_conservative_per_sweep_s": 12.0,
+      "reduced_expected_T_trace_to_sim_s": 5.6,
+      "saved_expected_per_run_s": 2.4,
+      "saved_expected_per_sweep_s": 24.0,
+      "reduced_optimistic_T_trace_to_sim_s": 4.0,
+      "saved_optimistic_per_run_s": 4.0,
+      "saved_optimistic_per_sweep_s": 40.0
+    },
+    {
+      "workload_id": "bert-base-pretraining-full-step",
+      "measurement_unit": "step",
+      "original_T_trace_to_sim_s": 55.0,
+      "reduced_conservative_T_trace_to_sim_s": 46.8,
+      "saved_conservative_per_run_s": 8.2,
+      "saved_conservative_per_sweep_s": 41.0,
+      "reduced_expected_T_trace_to_sim_s": 38.5,
+      "saved_expected_per_run_s": 16.5,
+      "saved_expected_per_sweep_s": 82.5,
+      "reduced_optimistic_T_trace_to_sim_s": 27.5,
+      "saved_optimistic_per_run_s": 27.5,
+      "saved_optimistic_per_sweep_s": 137.5
+    },
+    {
+      "workload_id": "llama3.1-8b-decoder-layer-slice",
+      "measurement_unit": "slice",
+      "original_T_trace_to_sim_s": 40.0,
+      "reduced_conservative_T_trace_to_sim_s": 34.0,
+      "saved_conservative_per_run_s": 6.0,
+      "saved_conservative_per_sweep_s": 60.0,
+      "reduced_expected_T_trace_to_sim_s": 28.0,
+      "saved_expected_per_run_s": 12.0,
+      "saved_expected_per_sweep_s": 120.0,
+      "reduced_optimistic_T_trace_to_sim_s": 20.0,
+      "saved_optimistic_per_run_s": 20.0,
+      "saved_optimistic_per_sweep_s": 200.0
+    },
+    {
+      "workload_id": "llama3.1-8b-full-step",
+      "measurement_unit": "step",
+      "original_T_trace_to_sim_s": 1200.0,
+      "reduced_conservative_T_trace_to_sim_s": 1020.0,
+      "saved_conservative_per_run_s": 180.0,
+      "saved_conservative_per_sweep_s": 360.0,
+      "reduced_expected_T_trace_to_sim_s": 840.0,
+      "saved_expected_per_run_s": 360.0,
+      "saved_expected_per_sweep_s": 720.0,
+      "reduced_optimistic_T_trace_to_sim_s": 600.0,
+      "saved_optimistic_per_run_s": 600.0,
+      "saved_optimistic_per_sweep_s": 1200.0
+    },
+    {
+      "workload_id": "t2-scale-anchor-100GiB",
+      "measurement_unit": "slice",
+      "original_T_trace_to_sim_s": 1005.0,
+      "reduced_conservative_T_trace_to_sim_s": 854.2,
+      "saved_conservative_per_run_s": 150.8,
+      "saved_conservative_per_sweep_s": 452.4,
+      "reduced_expected_T_trace_to_sim_s": 703.5,
+      "saved_expected_per_run_s": 301.5,
+      "saved_expected_per_sweep_s": 904.5,
+      "reduced_optimistic_T_trace_to_sim_s": 502.5,
+      "saved_optimistic_per_run_s": 502.5,
+      "saved_optimistic_per_sweep_s": 1507.5
+    },
+    {
+      "workload_id": "t3-scale-anchor-500GiB",
+      "measurement_unit": "slice",
+      "original_T_trace_to_sim_s": 5005.0,
+      "reduced_conservative_T_trace_to_sim_s": 4254.2,
+      "saved_conservative_per_run_s": 750.8,
+      "saved_conservative_per_sweep_s": 2252.4,
+      "reduced_expected_T_trace_to_sim_s": 3503.5,
+      "saved_expected_per_run_s": 1501.5,
+      "saved_expected_per_sweep_s": 4504.5,
+      "reduced_optimistic_T_trace_to_sim_s": 2502.5,
+      "saved_optimistic_per_run_s": 2502.5,
+      "saved_optimistic_per_sweep_s": 7507.5
+    }
+  ]
+}

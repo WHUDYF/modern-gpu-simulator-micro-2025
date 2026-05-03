@@ -1,0 +1,370 @@
+{
+  "report_name": "GPU Trace Frontend Necessity: Central Evidence Table",
+  "description": "Merged evidence from workload catalog, trace-size formula, complete-flow burden ratio, DiffTest reduction model, and existing bottleneck map.",
+  "generated_date": "2026-05-03",
+  "evidence_rows": [
+    {
+      "workload": "BERT-base encoder layer slice",
+      "measurement_unit": "slice",
+      "model_type": "encoder layer",
+      "trace_size_GiB": {
+        "value": 0.5,
+        "label": "placeholder"
+      },
+      "kernel_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "threadblock_or_warp_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "T_trace_to_sim_s": {
+        "value": 8.0,
+        "label": "placeholder"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 29.0,
+        "label": "placeholder"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 27.6,
+        "label": "derived_placeholder"
+      },
+      "est_frontend_reduction_s": {
+        "value": 2.4,
+        "label": "modeled"
+      },
+      "reduced_T_trace_to_sim_s": {
+        "value": 5.6,
+        "label": "modeled"
+      },
+      "complete_flow_impact": "Moderate: saves ~2.4s per run, ~24s per 10-run sweep at expected 30% reduction",
+      "trace_export_included": true,
+      "result_analysis_included": true
+    },
+    {
+      "workload": "BERT-base pretraining full step",
+      "measurement_unit": "step",
+      "model_type": "pretraining full step",
+      "trace_size_GiB": {
+        "value": 10.0,
+        "label": "placeholder"
+      },
+      "kernel_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "threadblock_or_warp_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "T_trace_to_sim_s": {
+        "value": 55.0,
+        "label": "placeholder"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 385.0,
+        "label": "placeholder"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 14.3,
+        "label": "derived_placeholder"
+      },
+      "est_frontend_reduction_s": {
+        "value": 16.5,
+        "label": "modeled"
+      },
+      "reduced_T_trace_to_sim_s": {
+        "value": 38.5,
+        "label": "modeled"
+      },
+      "complete_flow_impact": "Significant: saves ~16.5s per run, ~82.5s per 5-run sweep at expected 30% reduction",
+      "trace_export_included": true,
+      "result_analysis_included": true
+    },
+    {
+      "workload": "Llama 3.1 8B decoder layer slice",
+      "measurement_unit": "slice",
+      "model_type": "decoder layer",
+      "trace_size_GiB": {
+        "value": 20.0,
+        "label": "modeled"
+      },
+      "kernel_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "threadblock_or_warp_count": {
+        "value": null,
+        "label": "pending"
+      },
+      "T_trace_to_sim_s": {
+        "value": 40.0,
+        "label": "modeled"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 135.0,
+        "label": "modeled"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 29.6,
+        "label": "derived_modeled"
+      },
+      "est_frontend_reduction_s": {
+        "value": 12.0,
+        "label": "modeled"
+      },
+      "reduced_T_trace_to_sim_s": {
+        "value": 28.0,
+        "label": "modeled"
+      },
+      "complete_flow_impact": "Significant: saves ~12s per run, ~120s per 10-run sweep at expected 30% reduction",
+      "trace_export_included": true,
+      "result_analysis_included": true
+    },
+    {
+      "workload": "T2 scale anchor 100 GiB",
+      "measurement_unit": "modeled_anchor",
+      "model_type": "scale extrapolation",
+      "trace_size_GiB": {
+        "value": 100.0,
+        "label": "modeled"
+      },
+      "kernel_count": {
+        "value": null,
+        "label": "not_applicable"
+      },
+      "threadblock_or_warp_count": {
+        "value": null,
+        "label": "not_applicable"
+      },
+      "T_trace_to_sim_s": {
+        "value": 1005.0,
+        "label": "modeled"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 4000.0,
+        "label": "modeled"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 25.1,
+        "label": "derived_modeled"
+      },
+      "est_frontend_reduction_s": {
+        "value": 301.5,
+        "label": "modeled"
+      },
+      "reduced_T_trace_to_sim_s": {
+        "value": 703.5,
+        "label": "modeled"
+      },
+      "complete_flow_impact": "Major: saves ~301.5s per run, ~904.5s per 3-run sweep at expected 30% reduction",
+      "trace_export_included": true,
+      "result_analysis_included": true
+    },
+    {
+      "workload": "T3 scale anchor 500 GiB",
+      "measurement_unit": "modeled_anchor",
+      "model_type": "scale extrapolation",
+      "trace_size_GiB": {
+        "value": 500.0,
+        "label": "modeled"
+      },
+      "kernel_count": {
+        "value": null,
+        "label": "not_applicable"
+      },
+      "threadblock_or_warp_count": {
+        "value": null,
+        "label": "not_applicable"
+      },
+      "T_trace_to_sim_s": {
+        "value": 5005.0,
+        "label": "modeled"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 20000.0,
+        "label": "modeled"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 25.0,
+        "label": "derived_modeled"
+      },
+      "est_frontend_reduction_s": {
+        "value": 1501.5,
+        "label": "modeled"
+      },
+      "reduced_T_trace_to_sim_s": {
+        "value": 3503.5,
+        "label": "modeled"
+      },
+      "complete_flow_impact": "Critical: saves ~1501.5s (25 min) per run, ~4504.5s (75 min) per 3-run sweep",
+      "trace_export_included": true,
+      "result_analysis_included": true
+    }
+  ],
+  "control_workloads": [
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "MaxFlops",
+      "trace_size_mib": 8.715,
+      "export_time_s": 3.52,
+      "sim_time_s": 1.53,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "atomic_add_bw",
+      "trace_size_mib": 5.423,
+      "export_time_s": 2.27,
+      "sim_time_s": 10.13,
+      "dominant_bottleneck": "simulator throughput"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "atomic_add_bw_conflict",
+      "trace_size_mib": 3.112,
+      "export_time_s": 2.13,
+      "sim_time_s": 10.09,
+      "dominant_bottleneck": "simulator throughput"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "atomic_add_lat",
+      "trace_size_mib": 0.288,
+      "export_time_s": 2.11,
+      "sim_time_s": 1.26,
+      "dominant_bottleneck": "capture / fixed overhead"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_bw_128",
+      "trace_size_mib": 24.038,
+      "export_time_s": 6.59,
+      "sim_time_s": 2.13,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_bw_32f",
+      "trace_size_mib": 2.962,
+      "export_time_s": 2.24,
+      "sim_time_s": 1.46,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_bw_32f_unroll",
+      "trace_size_mib": 4.544,
+      "export_time_s": 2.56,
+      "sim_time_s": 1.49,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_bw_32f_unroll_large",
+      "trace_size_mib": 7.511,
+      "export_time_s": 2.79,
+      "sim_time_s": 1.69,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_bw_64f",
+      "trace_size_mib": 3.026,
+      "export_time_s": 2.29,
+      "sim_time_s": 1.49,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_lat",
+      "trace_size_mib": 37.759,
+      "export_time_s": 31.05,
+      "sim_time_s": 1.57,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l1_shared_bw",
+      "trace_size_mib": 40.936,
+      "export_time_s": 7.81,
+      "sim_time_s": 2.75,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l2_bw_128",
+      "trace_size_mib": 147.053,
+      "export_time_s": 23.78,
+      "sim_time_s": 17.01,
+      "dominant_bottleneck": "balanced / mixed"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l2_bw_32f",
+      "trace_size_mib": 568.192,
+      "export_time_s": 69.41,
+      "sim_time_s": 17.0,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "l2_lat",
+      "trace_size_mib": 37.791,
+      "export_time_s": 33.14,
+      "sim_time_s": 1.58,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "mem_bw",
+      "trace_size_mib": 47.975,
+      "export_time_s": 8.43,
+      "sim_time_s": 14.92,
+      "dominant_bottleneck": "simulator throughput"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "mem_lat",
+      "trace_size_mib": 5.267,
+      "export_time_s": 2.91,
+      "sim_time_s": 11.12,
+      "dominant_bottleneck": "simulator throughput"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "shared_bw",
+      "trace_size_mib": 123.217,
+      "export_time_s": 34.55,
+      "sim_time_s": 4.89,
+      "dominant_bottleneck": "trace export / I/O"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "representative_case": "shared_lat",
+      "trace_size_mib": 0.34,
+      "export_time_s": 2.18,
+      "sim_time_s": 1.29,
+      "dominant_bottleneck": "capture / fixed overhead"
+    }
+  ],
+  "label_legend": {
+    "measured": "Directly measured from simulator runs",
+    "modeled": "Estimated from formula or planning model",
+    "derived_measured": "Computed from measured inputs",
+    "derived_modeled": "Computed from modeled inputs",
+    "placeholder": "Placeholder value pending measurement",
+    "derived_placeholder": "Computed from placeholder values",
+    "pending": "Measurement not yet available",
+    "not_applicable": "Not applicable for this workload"
+  },
+  "go_no_go": {
+    "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
+    "slice_pct": 27.6,
+    "step_pct": 14.3,
+    "verdict": "GO \u2014 slice-level P_trace_to_sim exceeds 15% threshold",
+    "caveat": "Placeholder data; must be recalibrated with measured timing."
+  }
+}

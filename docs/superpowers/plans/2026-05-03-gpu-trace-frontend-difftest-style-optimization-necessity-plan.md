@@ -8,17 +8,70 @@ The plan turns the design spec into implementation steps for measuring `T_trace_
 
 Quantitative thresholds from the spec, including 30-60 seconds single-run cost, 10 minutes to 1 hour sweep cost, 15% / 30% / 50% reduction scenarios, and `P_trace_to_sim` bands, are planning and modeling thresholds. They are not hard performance guarantees. Later measured data may calibrate them.
 
+## Confirmed Study Scope
+
+The first-round study uses two measurement units:
+
+```text
+primary unit: workload slice
+secondary unit: training step
+```
+
+The main early-stage metric is:
+
+```text
+P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
+
+T_kernel_to_sim_done =
+  T_kernel_or_trace_export
++ T_trace_to_sim
++ T_sim_backend_execution
++ T_result_analysis
+```
+
+`T_kernel_or_trace_export` includes NVBit trace generation or equivalent trace export time. `T_result_analysis` is included because the user wants the complete flow from obtaining the kernel or trace through simulator completion and result processing.
+
+The first-stage go/no-go rule is intentionally permissive:
+
+```text
+P_trace_to_sim_slice > 15%
+OR
+P_trace_to_sim_step > 15%
+```
+
+If either the slice-level or step-level ratio exceeds 15%, the frontend preparation path is considered worth a prototype investigation. This 15% threshold is an early-stage engineering gate, not a final paper claim threshold.
+
+The first-round workloads are fixed as:
+
+- T1 baseline: `BERT-base encoder layer slice`
+- T1 baseline: `BERT-base pretraining full step`
+- T2 representative: `Llama 3.1 8B decoder layer slice`
+- T2 nice-to-have: `Llama 3.1 8B full step`, attempted only at the RLCR tail
+
+`GPT-2 small` is not kept as a fallback workload because it is too small for the intended evidence line.
+
+For `BERT-base pretraining full step`, batch size starts small and scales upward until the confirmed resource ceiling is reached:
+
+```text
+per-GPU memory: <= 28 GiB
+trace + artifact size per workload unit: <= 500 GiB
+single complete iteration time: <= 2 hours
+```
+
 ## Acceptance Criteria
 
 Following TDD philosophy, each criterion includes positive and negative tests for deterministic verification.
 
 - AC-1: Workload catalog covers AI training scale tiers and separates controls from claim-bearing workloads.
   - Positive Tests (expected to PASS):
-    - The workload table includes at least one T0 sanity workload, one T1 local workload, one T2 representative workload, and one T3 scale anchor.
+    - The workload table includes the required T1 rows for `BERT-base encoder layer slice` and `BERT-base pretraining full step`.
+    - The workload table includes the required T2 row for `Llama 3.1 8B decoder layer slice`.
+    - The workload table records `Llama 3.1 8B full step` as a non-blocking nice-to-have tail attempt.
     - Each workload row records model or slice name, approximate scale, trace granularity, expected trace-size tier, and role in the argument.
     - Existing microbenchmark and export-dominated cases are listed as controls or appendix material, not as primary AI-training evidence.
   - Negative Tests (expected to FAIL):
     - A workload catalog that contains only microbenchmarks and no AI-training or training-adjacent traces is rejected.
+    - A workload catalog that uses `GPT-2 small` as the main fallback instead of the confirmed BERT-base and Llama 3.1 8B evidence line is rejected.
     - A table that uses export-dominated workloads to claim simulator-side frontend speedup is rejected.
 
 - AC-2: Trace-to-simulator timing decomposition is measurable or explicitly modeled per workload.
@@ -39,13 +92,16 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
     - A calculator that hardcodes only one trace size is rejected.
     - A calculator that cannot reproduce the expected shortcut `T_trace_to_sim ~= 5 + 10 * S_trace_GiB seconds` for the expected scenario is rejected.
 
-- AC-4: End-to-end burden ratio is computed separately from simulator backend dominance.
+- AC-4: Complete-flow burden ratio is computed for both slice and training-step units.
   - Positive Tests (expected to PASS):
-    - The evidence pipeline computes `P_trace_to_sim = T_trace_to_sim / T_e2e_iteration`.
-    - `T_e2e_iteration` includes `T_trace_export`, `T_trace_to_sim`, `T_sim_backend`, and `T_result_analysis`.
-    - The report classifies burden bands as `<1%`, `1%-5%`, `5%-15%`, and `>15%`, while preserving absolute time and sweep-level cumulative time.
+    - The evidence pipeline computes `P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done`.
+    - `T_kernel_to_sim_done` includes `T_kernel_or_trace_export`, `T_trace_to_sim`, `T_sim_backend_execution`, and `T_result_analysis`.
+    - The report computes both `P_trace_to_sim_slice` and `P_trace_to_sim_step` when the corresponding measurements are available.
+    - The early-stage go/no-go rule accepts either `P_trace_to_sim_slice > 15%` or `P_trace_to_sim_step > 15%`.
+    - The report preserves absolute time and sweep-level cumulative time alongside the ratio.
   - Negative Tests (expected to FAIL):
     - A study that requires frontend optimization to beat backend simulation acceleration before it is considered useful is rejected.
+    - A study that excludes trace export or result analysis from the complete-flow denominator without labeling an alternate denominator is rejected.
     - A study that ignores absolute time and only reports percentage share is rejected.
 
 - AC-5: Redundancy profiling measures whether DiffTest-style caching and chunking have a local opportunity.
@@ -68,7 +124,7 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 
 - AC-7: Central evidence table connects workload size, frontend cost, modeled savings, and paper argument.
   - Positive Tests (expected to PASS):
-    - The evidence table includes workload, model slice, trace size, kernel count, threadblock or warp count, `T_trace_to_sim`, `T_sim_total`, frontend share, estimated DiffTest-style reduction, reduced `T_trace_to_sim`, and E2E impact.
+    - The evidence table includes workload, measurement unit, model slice or step type, trace size, kernel count, threadblock or warp count, `T_trace_to_sim`, `T_kernel_to_sim_done`, `P_trace_to_sim`, estimated DiffTest-style reduction, reduced `T_trace_to_sim`, and complete-flow impact.
     - Rows distinguish measured values from modeled values.
     - The table can support both positive and negative conclusions about necessity.
   - Negative Tests (expected to FAIL):
@@ -87,30 +143,39 @@ Following TDD philosophy, each criterion includes positive and negative tests fo
 - AC-9: Artifact layout is stable and reviewable.
   - Positive Tests (expected to PASS):
     - The study writes Markdown and JSON artifacts under `artifacts/gpu_trace_frontend_difftest_necessity/`.
-    - Required artifacts include workload evidence, trace-to-sim formula, E2E burden ratio, frontend timing breakdown, redundancy profile, DiffTest reduction model, prototype equivalence report, and paper argument matrix.
+    - Required artifacts include workload evidence, trace-to-sim formula, complete-flow burden ratio, frontend timing breakdown, redundancy profile, DiffTest reduction model, prototype equivalence report, and paper argument matrix.
     - JSON artifacts are machine-readable and Markdown artifacts are suitable for paper or thesis discussion.
   - Negative Tests (expected to FAIL):
     - Results stored only in ad hoc console output are rejected.
     - Artifacts without enough metadata to reproduce scenario assumptions are rejected.
 
-- AC-10: Optional Llama 8B full-step validation is attempted only after the required evidence line is complete.
+- AC-10: Optional Llama 3.1 8B full-step validation is attempted only after the required evidence line is complete.
   - Positive Tests (expected to PASS):
-    - The main deliverables for local full-step measurement, Llama 8B layer-slice measurement, formula modeling, E2E burden ratio, and evidence table are preserved before the optional full-step attempt begins.
-    - The optional Llama 8B full-step attempt records attempt count, failure reason, partial artifacts, and whether the result was measured or abandoned.
+    - The main deliverables for `BERT-base pretraining full step`, `Llama 3.1 8B decoder layer slice`, formula modeling, complete-flow burden ratio, and evidence table are preserved before the optional full-step attempt begins.
+    - The optional `Llama 3.1 8B full step` attempt records attempt count, failure reason, partial artifacts, and whether the result was measured or abandoned.
     - Repeated failures in the optional attempt do not invalidate or overwrite the completed required artifacts.
   - Negative Tests (expected to FAIL):
-    - A run plan that blocks the required evidence table on Llama 8B full-step success is rejected.
+    - A run plan that blocks the required evidence table on `Llama 3.1 8B full step` success is rejected.
     - An optional full-step attempt that overwrites earlier complete results with partial or failed outputs is rejected.
+
+- AC-11: Batch scaling respects the confirmed resource ceiling.
+  - Positive Tests (expected to PASS):
+    - `BERT-base pretraining full step` starts with a small batch and scales upward only while the run remains within the confirmed resource ceiling.
+    - The resource ceiling is recorded as per-GPU memory `<= 28 GiB`, trace plus artifact size per workload unit `<= 500 GiB`, and single complete iteration time `<= 2 hours`.
+    - If scaling stops because one limit is reached, the report records which limit stopped the run.
+  - Negative Tests (expected to FAIL):
+    - A batch-scaling run that exceeds the confirmed resource ceiling without explicit user approval is rejected.
+    - A report that changes batch size without recording resource usage is rejected.
 
 ## Path Boundaries
 
 ### Upper Bound (Maximum Acceptable Scope)
 
-The implementation may include a complete measurement and reporting pipeline, workload catalog, trace-size calculator, E2E burden ratio calculator, redundancy profiler, DiffTest-style reduction model, and a minimal no-semantics prototype with equivalence reporting. It may add simulator-side timing counters and artifact generation utilities as long as changes remain at the trace parser and trace-driven frontend boundary.
+The implementation may include a complete measurement and reporting pipeline, workload catalog, trace-size calculator, complete-flow burden ratio calculator, redundancy profiler, DiffTest-style reduction model, and a minimal no-semantics prototype with equivalence reporting. It may add simulator-side timing counters and artifact generation utilities as long as changes remain at the trace parser and trace-driven frontend boundary.
 
 ### Lower Bound (Minimum Acceptable Scope)
 
-The minimum acceptable implementation produces the workload catalog, trace-size formula calculator, E2E burden ratio report, DiffTest-style reduction table, and central evidence table with clear measured versus modeled labels. It must be sufficient to decide whether frontend restructuring is worth a prototype, even before the prototype exists.
+The minimum acceptable implementation produces the workload catalog, trace-size formula calculator, complete-flow burden ratio report, DiffTest-style reduction table, and central evidence table with clear measured versus modeled labels. It must be sufficient to decide whether frontend restructuring is worth a prototype, even before the prototype exists.
 
 ### Allowed Choices
 
@@ -129,7 +194,7 @@ Build the evidence line before optimizing the simulator:
 2. Generate trace-size timing estimates using the formula model.
 3. Add or reuse timing counters to decompose simulator-side trace frontend time.
 4. Emit a central evidence table with measured and modeled values.
-5. Compute E2E burden ratio and sweep-level cumulative cost.
+5. Compute complete-flow burden ratio and sweep-level cumulative cost.
 6. Compute DiffTest-style savings on `T_trace_to_sim` only.
 7. Use the evidence to decide whether to implement the minimal frontend prototype.
 
@@ -143,7 +208,7 @@ T_trace_to_sim =
 + T_threadblock_warp_load
 + T_frontend_instruction_delivery_preparation
 
-P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
+P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 ```
 
 ### Relevant References
@@ -161,37 +226,44 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 ### Milestones
 
 1. Workload catalog and controls
-   - Define T0, T1, T2, and T3 workload rows.
+   - Define required rows for `BERT-base encoder layer slice`, `BERT-base pretraining full step`, and `Llama 3.1 8B decoder layer slice`.
+   - Record `Llama 3.1 8B full step` as a non-blocking nice-to-have tail attempt.
+   - Do not use `GPT-2 small` as a fallback workload in this first-round evidence line.
    - Mark microbenchmark and export-dominated cases as controls.
    - Record trace-size tiers and measurement feasibility.
 
 2. Formula and burden modeling
    - Implement the trace-size to `T_trace_to_sim` calculator.
    - Generate fast, expected, and pessimistic scenarios.
-   - Compute `P_trace_to_sim` and sweep-level cumulative cost.
+   - Compute `P_trace_to_sim_slice`, `P_trace_to_sim_step`, and sweep-level cumulative cost using the complete-flow denominator.
 
-3. Timing decomposition instrumentation
+3. BERT-base batch scaling guardrail
+   - Start `BERT-base pretraining full step` from a small batch.
+   - Increase batch size until per-GPU memory, trace plus artifact size, or single-iteration time reaches the confirmed resource ceiling.
+   - Preserve resource usage records for each batch size.
+
+4. Timing decomposition instrumentation
    - Locate existing parser and trace-driven frontend boundaries.
    - Add low-overhead timers and counters around read, parse, bind, load, warp trace build, frontend delivery, and core cycle timing.
    - Emit per-run JSON records.
 
-4. Redundancy profiling
+5. Redundancy profiling
    - Count unique static identifiers, dynamic instructions, threadblocks, warp traces, metadata constructions, and frontend allocations.
    - Compute reuse and allocation-density ratios.
    - Compare AI-training traces against control workloads.
 
-5. Evidence table and paper argument matrix
+6. Evidence table and paper argument matrix
    - Merge workload catalog, timing breakdown, formula estimates, burden ratios, redundancy metrics, and reduction estimates.
    - Generate Markdown and JSON reports.
    - Connect XiangShan DiffTest, Accel-Sim, gem5 TraceCPU, ChampSim, SMARTS, and SimPoint to local evidence requirements.
 
-6. Minimal no-semantics prototype decision
+7. Minimal no-semantics prototype decision
    - Proceed only if evidence satisfies the necessity criteria.
    - Limit implementation to decoded static-info cache, metadata normalization cache, threadblock chunk staging, and local replay.
    - Run equivalence checks before any performance claim.
 
-7. Nice-to-have Llama 8B full-step validation
-   - Attempt a Llama 8B full training-step run only after the required slice and local-step evidence is complete.
+8. Nice-to-have Llama 3.1 8B full-step validation
+   - Attempt a `Llama 3.1 8B full training-step` run only after the required slice and local-step evidence is complete.
    - Treat this as an RLCR tail task, not as a blocker for the main result.
    - If repeated attempts fail because of trace export, storage, simulator runtime, or infrastructure limits, keep the completed required artifacts as the final usable result and record the failure evidence separately.
 
@@ -203,10 +275,10 @@ Each task includes exactly one routing tag:
 
 | Task ID | Description | Target AC | Tag (`coding`/`analyze`) | Depends On |
 |---------|-------------|-----------|----------------------------|------------|
-| task1 | Create workload catalog schema and seed rows for T0, T1, T2, T3, plus control workloads | AC-1 | coding | - |
+| task1 | Create workload catalog schema and seed rows for BERT-base slice, BERT-base pretraining full step, Llama 3.1 8B decoder layer slice, optional Llama 3.1 8B full step, and control workloads | AC-1, AC-10 | coding | - |
 | task2 | Inspect existing bottleneck map artifacts and map reusable fields into the new evidence schema | AC-1, AC-7 | analyze | task1 |
 | task3 | Implement trace-size formula calculator and generate Markdown / JSON planning tables | AC-3 | coding | task1 |
-| task4 | Implement E2E burden ratio calculator using explicit export, frontend, backend, and analysis fields | AC-4 | coding | task3 |
+| task4 | Implement complete-flow burden ratio calculator using explicit export, frontend, backend, and analysis fields for slice and step units | AC-4 | coding | task3 |
 | task5 | Identify parser and trace-driven instrumentation points for timing decomposition | AC-2 | analyze | task1 |
 | task6 | Add or wire low-overhead timing counters and per-run frontend timing JSON output | AC-2, AC-9 | coding | task5 |
 | task7 | Identify available counters or insertion points for redundancy profiling | AC-5 | analyze | task5 |
@@ -215,7 +287,8 @@ Each task includes exactly one routing tag:
 | task10 | Build central evidence table generator with measured versus modeled labels | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
 | task11 | Draft paper argument matrix connecting external examples to local GPU simulator evidence | AC-7, AC-9 | analyze | task10 |
 | task12 | Define minimal no-semantics prototype gate and equivalence-report checklist | AC-8 | coding | task10, task11 |
-| task13 | Attempt optional Llama 8B full-step validation after required artifacts are complete, preserving fallback results if the attempt fails | AC-10 | coding | task10, task12 |
+| task13 | Add BERT-base batch-scaling records and stop-condition reporting under the confirmed resource ceiling | AC-11 | coding | task1, task4 |
+| task14 | Attempt optional Llama 3.1 8B full-step validation after required artifacts are complete, preserving fallback results if the attempt fails | AC-10 | coding | task10, task12, task13 |
 
 ## Claude-Codex Deliberation
 
@@ -225,13 +298,18 @@ Each task includes exactly one routing tag:
 - The DiffTest analogy should be limited to structured event transfer, caching, batching, validation, and replay.
 - The local optimization boundary should stay at `trace-parser -> trace-driven -> shader core` and avoid backend timing semantics.
 - Quantitative thresholds are useful as planning thresholds and should be calibrated with measurements.
-- Llama 8B full-step validation is useful as scale evidence, but it should be a tail attempt after the required evidence line is complete.
+- The 15% `P_trace_to_sim` threshold is an early-stage go/no-go gate, not a final paper claim threshold.
+- Either slice-level or step-level `P_trace_to_sim` above 15% is sufficient to justify a prototype investigation in the first stage.
+- The first-round evidence line should focus on BERT-base and Llama 3.1 8B; `GPT-2 small` is too small to serve as a meaningful fallback.
+- Llama 3.1 8B full-step validation is useful as scale evidence, but it should be a tail attempt after the required evidence line is complete.
 
 ### Resolved Disagreements
 
 - Frontend dominance versus design-loop obstruction: the chosen resolution is to prove that `T_trace_to_sim` is large enough to obstruct end-to-end iteration, not that it dominates every simulator bottleneck.
 - Measured-only evidence versus modeled scale anchors: the chosen resolution is to require measured local workloads while allowing explicitly labeled modeled values for T2 and T3 large-scale anchors.
-- Llama 8B full step versus Llama 8B layer slice: the chosen resolution is to require local full-step measurement plus Llama 8B layer-slice evidence, then attempt Llama 8B full-step validation as a non-blocking nice-to-have at the end of the RLCR loop.
+- Workload selection: the chosen resolution is `BERT-base encoder layer slice`, `BERT-base pretraining full step`, and `Llama 3.1 8B decoder layer slice`, with no `GPT-2 small` fallback.
+- Llama 3.1 8B full step versus Llama 3.1 8B layer slice: the chosen resolution is to require BERT-base full-step measurement plus Llama 3.1 8B layer-slice evidence, then attempt Llama 3.1 8B full-step validation as a non-blocking nice-to-have at the end of the RLCR loop.
+- BERT-base batch sizing: the chosen resolution is to start from a small pretraining batch and scale upward until the confirmed resource ceiling is reached.
 
 ### Convergence Status
 
@@ -250,6 +328,7 @@ Each task includes exactly one routing tag:
 - Keep measurement overhead low and report any measurement overhead if it becomes visible.
 - Preserve baseline simulator output semantics before making any performance claim.
 - Clearly label measured, modeled, extrapolated, and control values in every generated report.
+- Treat `P_trace_to_sim > 15%` as a first-stage engineering gate only; defer stricter paper-claim thresholds until measured data is available.
 
 ### Artifact Convention
 
@@ -276,5 +355,7 @@ Expected files:
 - `prototype_equivalence_report.md`
 - `prototype_equivalence_report.json`
 - `paper_argument_matrix.md`
+- `resource_bound_config.md`
+- `resource_bound_config.json`
 - `llama8b_full_step_attempt.md` (optional)
 - `llama8b_full_step_attempt.json` (optional)

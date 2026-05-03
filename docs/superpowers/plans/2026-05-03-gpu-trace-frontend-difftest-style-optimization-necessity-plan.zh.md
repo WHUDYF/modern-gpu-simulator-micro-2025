@@ -8,17 +8,70 @@
 
 spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟到 1 小时、15% / 30% / 50% 的降幅情景，以及 `P_trace_to_sim` 分档，都是建模和规划阈值，不是硬性的性能承诺。后续实测数据可以对它们进行校准。
 
+## 已确认的研究范围
+
+第一轮研究使用两个计量单位：
+
+```text
+primary unit: workload slice
+secondary unit: training step
+```
+
+主要的早期指标是：
+
+```text
+P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
+
+T_kernel_to_sim_done =
+  T_kernel_or_trace_export
++ T_trace_to_sim
++ T_sim_backend_execution
++ T_result_analysis
+```
+
+`T_kernel_or_trace_export` 包含 NVBit trace generation 或等价 trace export 时间。`T_result_analysis` 也包含在内，因为目标是完整流程：从获得 kernel 或 trace，到 simulator 执行完，再到结果处理完成。
+
+第一阶段 go/no-go 规则刻意保持宽松：
+
+```text
+P_trace_to_sim_slice > 15%
+OR
+P_trace_to_sim_step > 15%
+```
+
+只要 slice 层面或 step 层面任意一个比例超过 15%，就认为 frontend preparation path 值得进入原型研究。这个 15% 阈值只是早期工程门槛，不是最终论文主张阈值。
+
+第一轮 workload 固定为：
+
+- T1 baseline: `BERT-base encoder layer slice`
+- T1 baseline: `BERT-base pretraining full step`
+- T2 representative: `Llama 3.1 8B decoder layer slice`
+- T2 nice-to-have: `Llama 3.1 8B full step`，只在 RLCR 末尾尝试
+
+`GPT-2 small` 不作为 fallback workload，因为它对当前证据线来说太小。
+
+对于 `BERT-base pretraining full step`，batch size 从小 batch 开始，并逐步放大，直到触及已确认的资源上限：
+
+```text
+per-GPU memory: <= 28 GiB
+trace + artifact size per workload unit: <= 500 GiB
+single complete iteration time: <= 2 hours
+```
+
 ## 验收标准
 
 遵循 TDD 思路，每个标准都包含可确定性验证的正反测试。
 
 - AC-1: workload 目录覆盖 AI 训练规模分层，并区分控制组和主张组。
   - 正向测试（应通过）:
-    - workload 表至少包含一个 T0 sanity workload、一个 T1 local workload、一个 T2 representative workload 和一个 T3 scale anchor。
+    - workload 表包含必需的 T1 行：`BERT-base encoder layer slice` 和 `BERT-base pretraining full step`。
+    - workload 表包含必需的 T2 行：`Llama 3.1 8B decoder layer slice`。
+    - workload 表把 `Llama 3.1 8B full step` 记录为非阻塞的 nice-to-have 尾部尝试。
     - 每一行都记录模型或 slice 名称、近似规模、trace 粒度、预期 trace 大小区间，以及它在论证中的角色。
     - 现有 microbenchmark 和 export-dominated case 被列为 control 或附录材料，而不是 AI 训练的主证据。
   - 反向测试（应失败）:
     - 只包含 microbenchmark、没有 AI 训练或训练相关 trace 的目录会被拒绝。
+    - 用 `GPT-2 small` 作为主 fallback、替代已确认的 BERT-base 与 Llama 3.1 8B 证据线的 workload 目录会被拒绝。
     - 用 export-dominated workload 去主张 simulator 侧前端加速的表格会被拒绝。
 
 - AC-2: 每个 workload 的 trace-to-simulator 时间分解可以被测量，或被明确建模。
@@ -39,13 +92,16 @@ spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟�
     - 只硬编码一种 trace 大小的 calculator 会被拒绝。
     - 不能在 expected 情景下复现 `T_trace_to_sim ~= 5 + 10 * S_trace_GiB seconds` 的 calculator 会被拒绝。
 
-- AC-4: end-to-end burden ratio 独立于 simulator backend dominance 进行计算。
+- AC-4: 对 slice 和 training-step 两个单位计算完整流程 burden ratio。
   - 正向测试（应通过）:
-    - 证据流水线计算 `P_trace_to_sim = T_trace_to_sim / T_e2e_iteration`。
-    - `T_e2e_iteration` 包含 `T_trace_export`、`T_trace_to_sim`、`T_sim_backend` 和 `T_result_analysis`。
-    - 报告把 burden 分成 `<1%`、`1%-5%`、`5%-15%` 和 `>15%`，同时保留绝对时间和 sweep 级累计时间。
+    - 证据流水线计算 `P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done`。
+    - `T_kernel_to_sim_done` 包含 `T_kernel_or_trace_export`、`T_trace_to_sim`、`T_sim_backend_execution` 和 `T_result_analysis`。
+    - 在对应测量可用时，报告同时计算 `P_trace_to_sim_slice` 和 `P_trace_to_sim_step`。
+    - 早期 go/no-go 规则接受 `P_trace_to_sim_slice > 15%` 或 `P_trace_to_sim_step > 15%` 任一成立。
+    - 报告在比例之外保留绝对时间和 sweep 级累计时间。
   - 反向测试（应失败）:
     - 要求前端优化必须先胜过 backend simulation acceleration 才算有用的研究会被拒绝。
+    - 如果没有标注 alternate denominator，却把 trace export 或 result analysis 排除在完整流程分母之外，研究会被拒绝。
     - 只报百分比、不报绝对时间的研究会被拒绝。
 
 - AC-5: redundancy profiling 用来判断 DiffTest 风格缓存和 chunking 是否有本地机会。
@@ -68,7 +124,7 @@ spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟�
 
 - AC-7: 中央证据表把 workload 大小、前端成本、建模节省和论文论点连接起来。
   - 正向测试（应通过）:
-    - 证据表包含 workload、model slice、trace size、kernel count、threadblock 或 warp count、`T_trace_to_sim`、`T_sim_total`、frontend share、估计的 DiffTest 风格降幅、reduced `T_trace_to_sim` 和 E2E impact。
+    - 证据表包含 workload、measurement unit、model slice 或 step type、trace size、kernel count、threadblock 或 warp count、`T_trace_to_sim`、`T_kernel_to_sim_done`、`P_trace_to_sim`、估计的 DiffTest 风格降幅、reduced `T_trace_to_sim` 和完整流程影响。
     - 每一行区分 measured 值和 modeled 值。
     - 这张表既能支撑正面结论，也能支撑负面结论。
   - 反向测试（应失败）:
@@ -87,30 +143,39 @@ spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟�
 - AC-9: artifact 布局稳定且便于审阅。
   - 正向测试（应通过）:
     - 研究结果以 Markdown 和 JSON 形式写入 `artifacts/gpu_trace_frontend_difftest_necessity/`。
-    - 必需 artifact 包括 workload evidence、trace-to-sim 公式、E2E burden ratio、frontend timing breakdown、redundancy profile、DiffTest reduction model、prototype equivalence report 和 paper argument matrix。
+    - 必需 artifact 包括 workload evidence、trace-to-sim 公式、complete-flow burden ratio、frontend timing breakdown、redundancy profile、DiffTest reduction model、prototype equivalence report 和 paper argument matrix。
     - JSON artifact 便于机器读取，Markdown artifact 适合论文或 thesis 讨论。
   - 反向测试（应失败）:
     - 只存在于临时 console 输出里的结果会被拒绝。
     - 缺少足够元数据、无法复现实验假设的 artifact 会被拒绝。
 
-- AC-10: 可选的 Llama 8B full-step validation 只在必需证据线完成后尝试。
+- AC-10: 可选的 Llama 3.1 8B full-step validation 只在必需证据线完成后尝试。
   - 正向测试（应通过）:
-    - 在可选 full-step 尝试开始之前，必须保留本地 full-step 测量、Llama 8B layer-slice 测量、公式建模、E2E burden ratio 和中央证据表等主线交付物。
-    - 可选的 Llama 8B full-step 尝试需要记录尝试次数、失败原因、部分 artifact，以及该结果是 measured 还是 abandoned。
+    - 在可选 full-step 尝试开始之前，必须保留 `BERT-base pretraining full step`、`Llama 3.1 8B decoder layer slice`、公式建模、完整流程 burden ratio 和中央证据表等主线交付物。
+    - 可选的 `Llama 3.1 8B full step` 尝试需要记录尝试次数、失败原因、部分 artifact，以及该结果是 measured 还是 abandoned。
     - 可选尝试多次失败时，不会使已经完成的必需 artifact 失效，也不会覆盖它们。
   - 反向测试（应失败）:
-    - 把必需证据表阻塞在 Llama 8B full-step 成功上的执行计划会被拒绝。
+    - 把必需证据表阻塞在 `Llama 3.1 8B full step` 成功上的执行计划会被拒绝。
     - 用可选 full-step 的部分输出或失败输出覆盖早先完整结果的尝试会被拒绝。
+
+- AC-11: batch scaling 遵守已确认的资源上限。
+  - 正向测试（应通过）:
+    - `BERT-base pretraining full step` 从小 batch 开始，并且只在运行保持在资源上限内时继续放大。
+    - 资源上限记录为 per-GPU memory `<= 28 GiB`、trace plus artifact size per workload unit `<= 500 GiB`、single complete iteration time `<= 2 hours`。
+    - 如果因为某个限制停止放大，报告会记录具体是哪一个限制触发了停止。
+  - 反向测试（应失败）:
+    - 未经用户明确批准就超过已确认资源上限的 batch-scaling run 会被拒绝。
+    - 改变 batch size 却不记录资源使用情况的报告会被拒绝。
 
 ## 路径边界
 
 ### 上界（最大可接受范围）
 
-实现可以包括完整的测量与报告流水线、workload 目录、trace-size calculator、E2E burden ratio calculator、redundancy profiler、DiffTest 风格降幅模型，以及一个带等价性报告的最小无语义原型。只要改动仍然保持在 trace parser 和 trace-driven frontend 边界内，还可以增加 simulator 侧 timing counters 和 artifact 生成工具。
+实现可以包括完整的测量与报告流水线、workload 目录、trace-size calculator、complete-flow burden ratio calculator、redundancy profiler、DiffTest 风格降幅模型，以及一个带等价性报告的最小无语义原型。只要改动仍然保持在 trace parser 和 trace-driven frontend 边界内，还可以增加 simulator 侧 timing counters 和 artifact 生成工具。
 
 ### 下界（最小可接受范围）
 
-最小可接受实现至少要产出 workload 目录、trace-size 公式 calculator、E2E burden ratio 报告、DiffTest 风格降幅表，以及带清晰 measured / modeled 标记的中央证据表。即使原型还没做出来，它也必须足以判断 frontend 重构是否值得进入原型阶段。
+最小可接受实现至少要产出 workload 目录、trace-size 公式 calculator、complete-flow burden ratio 报告、DiffTest 风格降幅表，以及带清晰 measured / modeled 标记的中央证据表。即使原型还没做出来，它也必须足以判断 frontend 重构是否值得进入原型阶段。
 
 ### 允许的选择
 
@@ -129,7 +194,7 @@ spec 中的定量阈值，包括单次运行 30-60 秒、一次 sweep 10 分钟�
 2. 用公式模型生成 trace-size 的时间估计。
 3. 在 simulator-side trace frontend 上复用或增加 timing counters。
 4. 输出包含 measured 和 modeled 值的中央证据表。
-5. 计算 E2E burden ratio 和 sweep 级累计成本。
+5. 计算完整流程 burden ratio 和 sweep 级累计成本。
 6. 只对 `T_trace_to_sim` 计算 DiffTest 风格节省。
 7. 再根据证据决定是否实现最小 frontend 原型。
 
@@ -143,7 +208,7 @@ T_trace_to_sim =
 + T_threadblock_warp_load
 + T_frontend_instruction_delivery_preparation
 
-P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
+P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 ```
 
 ### 相关参考
@@ -161,37 +226,44 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 ### 里程碑
 
 1. workload 目录与控制组
-   - 定义 T0、T1、T2 和 T3 的 workload 行。
+   - 定义 `BERT-base encoder layer slice`、`BERT-base pretraining full step` 和 `Llama 3.1 8B decoder layer slice` 的必需行。
+   - 记录 `Llama 3.1 8B full step` 为非阻塞 nice-to-have 尾部尝试。
+   - 第一轮证据线不使用 `GPT-2 small` 作为 fallback workload。
    - 标记 microbenchmark 和 export-dominated case 为 control。
    - 记录 trace 大小分层和测量可行性。
 
 2. 公式与 burden 建模
    - 实现 trace-size 到 `T_trace_to_sim` 的 calculator。
    - 生成 fast、expected 和 pessimistic 三种情景。
-   - 计算 `P_trace_to_sim` 和 sweep 级累计成本。
+   - 使用完整流程分母计算 `P_trace_to_sim_slice`、`P_trace_to_sim_step` 和 sweep 级累计成本。
 
-3. timing 分解仪表化
+3. BERT-base batch scaling guardrail
+   - `BERT-base pretraining full step` 从小 batch 开始。
+   - 逐步增大 batch size，直到 per-GPU memory、trace plus artifact size 或 single-iteration time 触及已确认资源上限。
+   - 为每个 batch size 保留资源使用记录。
+
+4. timing 分解仪表化
    - 找到现有 parser 和 trace-driven frontend 的边界。
    - 在 read、parse、bind、load、warp trace build、frontend delivery 和 core cycle timing 周围加低开销计时器和计数器。
    - 输出每次运行的 JSON 记录。
 
-4. redundancy profiling
+5. redundancy profiling
    - 统计 unique static identifiers、dynamic instructions、threadblocks、warp traces、metadata constructions 和 frontend allocations。
    - 计算 reuse 和 allocation-density 比率。
    - 对比 AI 训练 trace 和 control workload。
 
-5. 证据表与论文论点矩阵
+6. 证据表与论文论点矩阵
    - 合并 workload 目录、timing breakdown、公式估计、burden ratio、redundancy metrics 和降幅估计。
    - 生成 Markdown 和 JSON 报告。
    - 把 XiangShan DiffTest、Accel-Sim、gem5 TraceCPU、ChampSim、SMARTS 和 SimPoint 与本地证据需求对应起来。
 
-6. 最小无语义原型决策
+7. 最小无语义原型决策
    - 只有在证据满足必要性标准时才继续。
    - 原型仅限于 decoded static-info cache、metadata normalization cache、threadblock chunk staging 和 local replay。
    - 在做任何性能主张之前先跑等价性检查。
 
-7. nice-to-have 的 Llama 8B full-step validation
-   - 只有在必需的 slice 和 local-step 证据完成后，才尝试 Llama 8B full training-step。
+8. nice-to-have 的 Llama 3.1 8B full-step validation
+   - 只有在必需的 slice 和 local-step 证据完成后，才尝试 `Llama 3.1 8B full training-step`。
    - 这项工作作为 RLCR 尾部任务处理，不阻塞主线结果。
    - 如果因为 trace export、存储、simulator runtime 或基础设施限制导致多次尝试失败，就保留已经完成的必需 artifact 作为最终可用结果，并把失败证据单独记录。
 
@@ -203,10 +275,10 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 
 | 任务 ID | 描述 | 目标 AC | 标签 (`coding`/`analyze`) | 依赖 |
 |---------|------|---------|----------------------------|------|
-| task1 | 创建 workload 目录 schema，并为 T0、T1、T2、T3 以及 control workload 填充种子行 | AC-1 | coding | - |
+| task1 | 创建 workload 目录 schema，并为 BERT-base slice、BERT-base pretraining full step、Llama 3.1 8B decoder layer slice、可选 Llama 3.1 8B full step 和 control workload 填充种子行 | AC-1, AC-10 | coding | - |
 | task2 | 检查现有 bottleneck map artifact，并把可复用字段映射到新的证据 schema | AC-1, AC-7 | analyze | task1 |
 | task3 | 实现 trace-size 公式 calculator，并生成 Markdown / JSON 规划表 | AC-3 | coding | task1 |
-| task4 | 使用明确的 export、frontend、backend 和 analysis 字段实现 E2E burden ratio calculator | AC-4 | coding | task3 |
+| task4 | 为 slice 和 step 单位实现使用明确 export、frontend、backend 和 analysis 字段的完整流程 burden ratio calculator | AC-4 | coding | task3 |
 | task5 | 找出 parser 和 trace-driven 中适合做 timing 分解的插桩点 | AC-2 | analyze | task1 |
 | task6 | 增加或接入低开销计时器，并输出每次运行的 frontend timing JSON | AC-2, AC-9 | coding | task5 |
 | task7 | 找出可用于 redundancy profiling 的计数器或插入点 | AC-5 | analyze | task5 |
@@ -215,7 +287,8 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 | task10 | 构建带 measured / modeled 标记的中央证据表生成器 | AC-7, AC-9 | coding | task2, task4, task6, task8, task9 |
 | task11 | 起草论文论点矩阵，把外部例子与本地 GPU simulator 证据连接起来 | AC-7, AC-9 | analyze | task10 |
 | task12 | 定义最小无语义原型的门控条件和等价性报告检查清单 | AC-8 | coding | task10, task11 |
-| task13 | 在必需 artifact 完成后尝试可选的 Llama 8B full-step validation；如果失败，则保留回退结果 | AC-10 | coding | task10, task12 |
+| task13 | 在已确认资源上限下增加 BERT-base batch-scaling 记录和停止条件报告 | AC-11 | coding | task1, task4 |
+| task14 | 在必需 artifact 完成后尝试可选的 Llama 3.1 8B full-step validation；如果失败，则保留回退结果 | AC-10 | coding | task10, task12, task13 |
 
 ## Claude-Codex 讨论结论
 
@@ -225,13 +298,18 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 - DiffTest 类比应限制在结构化事件传递、缓存、批处理、验证和 replay。
 - 本地优化边界应保持在 `trace-parser -> trace-driven -> shader core`，不要提前进入 backend timing semantics。
 - 定量阈值适合作为规划阈值，并应通过测量校准。
-- Llama 8B full-step validation 对规模证据有帮助，但它应该作为必需证据线完成后的尾部尝试。
+- 15% 的 `P_trace_to_sim` 阈值是早期 go/no-go 门槛，不是最终论文主张阈值。
+- 第一阶段只要 slice-level 或 step-level `P_trace_to_sim` 任一超过 15%，就足以进入原型研究。
+- 第一轮证据线聚焦 BERT-base 和 Llama 3.1 8B；`GPT-2 small` 太小，不适合作为有意义的 fallback。
+- Llama 3.1 8B full-step validation 对规模证据有帮助，但它应该作为必需证据线完成后的尾部尝试。
 
 ### 已解决的分歧
 
 - 前端主导性 vs 设计循环阻塞：最终选择是证明 `T_trace_to_sim` 大到足以阻塞端到端迭代，而不是证明它压过所有 simulator 瓶颈。
 - 只接受实测 vs 允许规模锚点建模：最终选择是要求本地 workload 必须实测，同时允许对 T2 和 T3 大规模锚点使用明确标注的 modeled 值。
-- Llama 8B full step vs Llama 8B layer slice：最终选择是要求本地 full-step 测量和 Llama 8B layer-slice 证据，然后在 RLCR 末尾把 Llama 8B full-step validation 作为非阻塞 nice-to-have 尝试。
+- workload selection：最终选择是 `BERT-base encoder layer slice`、`BERT-base pretraining full step` 和 `Llama 3.1 8B decoder layer slice`，不使用 `GPT-2 small` fallback。
+- Llama 3.1 8B full step vs Llama 3.1 8B layer slice：最终选择是要求 BERT-base full-step 测量和 Llama 3.1 8B layer-slice 证据，然后在 RLCR 末尾把 Llama 3.1 8B full-step validation 作为非阻塞 nice-to-have 尝试。
+- BERT-base batch sizing：最终选择是从小 pretraining batch 开始，逐步放大到已确认资源上限。
 
 ### 收敛状态
 
@@ -250,6 +328,7 @@ P_trace_to_sim = T_trace_to_sim / T_e2e_iteration
 - 计量开销要尽量低；如果测量开销变得可见，需要报告出来。
 - 在做任何性能主张之前，必须保持 baseline simulator 输出语义不变。
 - 每个生成的报告都要清楚标注 measured、modeled、extrapolated 和 control 值。
+- 把 `P_trace_to_sim > 15%` 视为第一阶段工程门槛；更严格的论文主张阈值等实测数据出来后再确定。
 
 ### Artifact 约定
 
@@ -276,5 +355,7 @@ artifacts/gpu_trace_frontend_difftest_necessity/
 - `prototype_equivalence_report.md`
 - `prototype_equivalence_report.json`
 - `paper_argument_matrix.md`
+- `resource_bound_config.md`
+- `resource_bound_config.json`
 - `llama8b_full_step_attempt.md`（可选）
 - `llama8b_full_step_attempt.json`（可选）

@@ -12,10 +12,10 @@ Generated: 2026-05-03
 
 | Workload | Unit | Role | Trace Size (GiB) | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Impact |
 |----------|------|------|-----------------|---------------|------------|---------------|-------------------|--------|
-| BERT-base (encoder layer slice) | slice | T1_baseline | 10.0 (modeled) | 8.0 (placeholder) | 29.0 (placeholder) | 27.59 (placeholder) | 2.4 (modeled) | Expected 30% reduction saves 2.4s per run |
-| BERT-base (pretraining full step) | step | T1_baseline | 10.0 (modeled) | 55.0 (placeholder) | 385.0 (placeholder) | 14.29 (placeholder) | 16.5 (modeled) | Expected 30% reduction saves 16.5s per run |
-| Llama 3.1 8B (decoder layer slice) | slice | T2_representative | 20.0 (modeled) | 40.0 (modeled) | 135.0 (modeled) | 29.63 (modeled) | 12.0 (modeled) | Expected 30% reduction saves 12.0s per run |
-| Llama 3.1 8B (pretraining full step) | step | T2_nice_to_have | 20.0 (modeled) | 1200.0 (modeled) | 11100.0 (modeled) | 10.81 (modeled) | 360.0 (modeled) | Expected 30% reduction saves 360.0s per run |
+| BERT-base (encoder layer slice) | slice | T1_baseline | 0.5 (modeled) | 10.0 (placeholder) | 31.0 (placeholder) | 32.26 (placeholder) | 2.4 (modeled) | Expected 30% reduction saves 2.4s per run |
+| BERT-base (pretraining full step) | step | T1_baseline | 10.0 (modeled) | 105.0 (placeholder) | 435.0 (placeholder) | 24.14 (placeholder) | 16.5 (modeled) | Expected 30% reduction saves 16.5s per run |
+| Llama 3.1 8B (decoder layer slice) | slice | T2_representative | 20.0 (modeled) | 205.0 (modeled) | 300.0 (modeled) | 68.33 (modeled) | 12.0 (modeled) | Expected 30% reduction saves 12.0s per run |
+| Llama 3.1 8B (pretraining full step) | step | T2_nice_to_have | 100.0 (modeled) | 1005.0 (modeled) | 10905.0 (modeled) | 9.22 (modeled) | 360.0 (modeled) | Expected 30% reduction saves 360.0s per run |
 
 ## Control Workloads (Measured, from Existing Bottleneck Map)
 

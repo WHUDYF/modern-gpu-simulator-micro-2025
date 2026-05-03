@@ -3,47 +3,90 @@
 
 Computes P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done
 for slice and training-step measurement units.
+
+Loads measured frontend timing from frontend_timing_breakdown.json if available;
+falls back to formula-derived or modeled values otherwise.
 """
 import json
+import os
 
 DATE = "2026-05-03"
+ARTIFACT_DIR = "artifacts/gpu_trace_frontend_difftest_necessity"
 
-# Placeholder values — to be replaced with measured data from timing instrumentation (task6).
-# Label convention: "measured", "modeled", "placeholder"
-WORKLOADS = [
-    {
-        "workload_id": "bert-base-encoder-layer-slice",
+# Fallback modeled values used when no measured artifact exists.
+MODELED_FALLBACKS = {
+    "bert-base-encoder-layer-slice": {
         "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": {"value": 5.0, "label": "placeholder"},
-        "T_trace_to_sim_s": {"value": 8.0, "label": "placeholder"},
-        "T_sim_backend_execution_s": {"value": 15.0, "label": "placeholder"},
-        "T_result_analysis_s": {"value": 1.0, "label": "placeholder"},
+        "T_kernel_or_trace_export_s": 5.0,
+        "T_sim_backend_execution_s": 15.0,
+        "T_result_analysis_s": 1.0,
     },
-    {
-        "workload_id": "bert-base-pretraining-full-step",
+    "bert-base-pretraining-full-step": {
         "measurement_unit": "step",
-        "T_kernel_or_trace_export_s": {"value": 120.0, "label": "placeholder"},
-        "T_trace_to_sim_s": {"value": 55.0, "label": "placeholder"},
-        "T_sim_backend_execution_s": {"value": 200.0, "label": "placeholder"},
-        "T_result_analysis_s": {"value": 10.0, "label": "placeholder"},
+        "T_kernel_or_trace_export_s": 120.0,
+        "T_sim_backend_execution_s": 200.0,
+        "T_result_analysis_s": 10.0,
     },
-    {
-        "workload_id": "llama3.1-8b-decoder-layer-slice",
+    "llama3.1-8b-decoder-layer-slice": {
         "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": {"value": 30.0, "label": "modeled"},
-        "T_trace_to_sim_s": {"value": 40.0, "label": "modeled"},
-        "T_sim_backend_execution_s": {"value": 60.0, "label": "modeled"},
-        "T_result_analysis_s": {"value": 5.0, "label": "modeled"},
+        "T_kernel_or_trace_export_s": 30.0,
+        "T_sim_backend_execution_s": 60.0,
+        "T_result_analysis_s": 5.0,
     },
-    {
-        "workload_id": "llama3.1-8b-full-step",
+    "llama3.1-8b-full-step": {
         "measurement_unit": "step",
-        "T_kernel_or_trace_export_s": {"value": 3600.0, "label": "modeled"},
-        "T_trace_to_sim_s": {"value": 1200.0, "label": "modeled"},
-        "T_sim_backend_execution_s": {"value": 6000.0, "label": "modeled"},
-        "T_result_analysis_s": {"value": 300.0, "label": "modeled"},
+        "T_kernel_or_trace_export_s": 3600.0,
+        "T_sim_backend_execution_s": 6000.0,
+        "T_result_analysis_s": 300.0,
     },
-]
+}
+
+def load_measured_timing():
+    """Attempt to load measured frontend timing from simulator output."""
+    path = os.path.join(ARTIFACT_DIR, "frontend_timing_breakdown.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        data = json.load(f)
+    # If the artifact is still a spec stub, it won't have real measured values.
+    if data.get("status") == "specification — C++ instrumentation pending simulator source code availability":
+        return None
+    return data
+
+def build_workloads():
+    """Build workload list, preferring measured data over modeled fallbacks."""
+    measured = load_measured_timing()
+    workloads = []
+
+    for wid, fb in MODELED_FALLBACKS.items():
+        w = {
+            "workload_id": wid,
+            "measurement_unit": fb["measurement_unit"],
+        }
+        if measured and wid in measured.get("results", {}):
+            m = measured["results"][wid]
+            w.update({k: {"value": v, "label": "measured"} for k, v in m.items()})
+        else:
+            # Use formula-derived frontend time or fallback
+            t_frontend_s = fb.get("T_trace_to_sim_s", _formula_estimate(wid))
+            label = "modeled" if "llama" in wid else "placeholder"
+            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": label}
+            w["T_trace_to_sim_s"] = {"value": t_frontend_s, "label": label}
+            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": label}
+            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": label}
+        workloads.append(w)
+
+    return workloads
+
+def _formula_estimate(wid):
+    """Estimate T_trace_to_sim from formula if no other data."""
+    estimates = {
+        "bert-base-encoder-layer-slice": 10.0,   # ~0.5 GiB * 10 s/GiB + 5
+        "bert-base-pretraining-full-step": 105.0, # ~10 GiB * 10 s/GiB + 5
+        "llama3.1-8b-decoder-layer-slice": 205.0, # ~20 GiB * 10 s/GiB + 5
+        "llama3.1-8b-full-step": 1005.0,          # ~100 GiB * 10 s/GiB + 5
+    }
+    return estimates.get(wid, 50.0)
 
 def compute_burden(w):
     export = w["T_kernel_or_trace_export_s"]["value"]
@@ -193,7 +236,7 @@ def build_markdown(results, go_no_go):
     return "\n".join(lines) + "\n"
 
 def main():
-    results = [compute_burden(w) for w in WORKLOADS]
+    results = [compute_burden(w) for w in build_workloads()]
     go_no_go = evaluate_go_no_go(results)
     j = build_json(results, go_no_go)
     md = build_markdown(results, go_no_go)

@@ -17,12 +17,12 @@
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "measurement_unit": "slice",
-      "T_trace_to_sim_s": 8.0,
-      "T_kernel_to_sim_done_s": 29.0,
-      "P_trace_to_sim_pct": 27.59,
+      "T_trace_to_sim_s": 10.0,
+      "T_kernel_to_sim_done_s": 31.0,
+      "P_trace_to_sim_pct": 32.26,
       "components": {
         "T_kernel_or_trace_export_s": 5.0,
-        "T_trace_to_sim_s": 8.0,
+        "T_trace_to_sim_s": 10.0,
         "T_sim_backend_execution_s": 15.0,
         "T_result_analysis_s": 1.0
       },
@@ -36,12 +36,12 @@
     {
       "workload_id": "bert-base-pretraining-full-step",
       "measurement_unit": "step",
-      "T_trace_to_sim_s": 55.0,
-      "T_kernel_to_sim_done_s": 385.0,
-      "P_trace_to_sim_pct": 14.29,
+      "T_trace_to_sim_s": 105.0,
+      "T_kernel_to_sim_done_s": 435.0,
+      "P_trace_to_sim_pct": 24.14,
       "components": {
         "T_kernel_or_trace_export_s": 120.0,
-        "T_trace_to_sim_s": 55.0,
+        "T_trace_to_sim_s": 105.0,
         "T_sim_backend_execution_s": 200.0,
         "T_result_analysis_s": 10.0
       },
@@ -55,12 +55,12 @@
     {
       "workload_id": "llama3.1-8b-decoder-layer-slice",
       "measurement_unit": "slice",
-      "T_trace_to_sim_s": 40.0,
-      "T_kernel_to_sim_done_s": 135.0,
-      "P_trace_to_sim_pct": 29.63,
+      "T_trace_to_sim_s": 205.0,
+      "T_kernel_to_sim_done_s": 300.0,
+      "P_trace_to_sim_pct": 68.33,
       "components": {
         "T_kernel_or_trace_export_s": 30.0,
-        "T_trace_to_sim_s": 40.0,
+        "T_trace_to_sim_s": 205.0,
         "T_sim_backend_execution_s": 60.0,
         "T_result_analysis_s": 5.0
       },
@@ -74,12 +74,12 @@
     {
       "workload_id": "llama3.1-8b-full-step",
       "measurement_unit": "step",
-      "T_trace_to_sim_s": 1200.0,
-      "T_kernel_to_sim_done_s": 11100.0,
-      "P_trace_to_sim_pct": 10.81,
+      "T_trace_to_sim_s": 1005.0,
+      "T_kernel_to_sim_done_s": 10905.0,
+      "P_trace_to_sim_pct": 9.22,
       "components": {
         "T_kernel_or_trace_export_s": 3600.0,
-        "T_trace_to_sim_s": 1200.0,
+        "T_trace_to_sim_s": 1005.0,
         "T_sim_backend_execution_s": 6000.0,
         "T_result_analysis_s": 300.0
       },

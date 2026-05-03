@@ -55,13 +55,13 @@
     },
     {
       "name": "tb_metadata_reuse_ratio",
-      "definition": "threadblock_count / metadata_obj_construction_count",
-      "interpretation": "Ratio of threadblocks to metadata constructions. Values near 1.0 suggest per-threadblock metadata construction dominates (good reuse target). Lower values indicate per-warp or per-instruction metadata paths."
+      "definition": "threadblock_count / unique_tb_metadata_shape_count",
+      "interpretation": "Ratio of threadblocks to unique metadata shapes. Values near 1.0 suggest per-threadblock metadata construction dominates (good reuse target). Lower values indicate per-warp or per-instruction metadata paths."
     },
     {
       "name": "frontend_allocation_density",
-      "definition": "frontend_allocation_count / threadblock_count",
-      "interpretation": "Average allocations per threadblock. High values may indicate allocation overhead in the frontend hot path."
+      "definition": "frontend_allocation_count / dynamic_instruction_count",
+      "interpretation": "Allocations per dynamic instruction. Low values suggest allocation amortization is adequate; high values indicate allocation overhead in the frontend hot path."
     }
   ],
   "expected_output": {

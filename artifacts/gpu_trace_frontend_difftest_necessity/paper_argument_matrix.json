@@ -13,7 +13,7 @@
       "measurement_unit": "slice",
       "role": "T1_baseline",
       "trace_size_GiB": {
-        "value": 10.0,
+        "value": 0.5,
         "label": "modeled"
       },
       "kernel_count": {
@@ -25,15 +25,15 @@
         "label": "pending"
       },
       "T_trace_to_sim_s": {
-        "value": 8.0,
+        "value": 10.0,
         "label": "placeholder"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 29.0,
+        "value": 31.0,
         "label": "placeholder"
       },
       "P_trace_to_sim_pct": {
-        "value": 27.59,
+        "value": 32.26,
         "label": "placeholder"
       },
       "est_frontend_reduction_s": {
@@ -66,15 +66,15 @@
         "label": "pending"
       },
       "T_trace_to_sim_s": {
-        "value": 55.0,
+        "value": 105.0,
         "label": "placeholder"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 385.0,
+        "value": 435.0,
         "label": "placeholder"
       },
       "P_trace_to_sim_pct": {
-        "value": 14.29,
+        "value": 24.14,
         "label": "placeholder"
       },
       "est_frontend_reduction_s": {
@@ -107,15 +107,15 @@
         "label": "pending"
       },
       "T_trace_to_sim_s": {
-        "value": 40.0,
+        "value": 205.0,
         "label": "modeled"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 135.0,
+        "value": 300.0,
         "label": "modeled"
       },
       "P_trace_to_sim_pct": {
-        "value": 29.63,
+        "value": 68.33,
         "label": "modeled"
       },
       "est_frontend_reduction_s": {
@@ -136,7 +136,7 @@
       "measurement_unit": "step",
       "role": "T2_nice_to_have",
       "trace_size_GiB": {
-        "value": 20.0,
+        "value": 100.0,
         "label": "modeled"
       },
       "kernel_count": {
@@ -148,15 +148,15 @@
         "label": "pending"
       },
       "T_trace_to_sim_s": {
-        "value": 1200.0,
+        "value": 1005.0,
         "label": "modeled"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 11100.0,
+        "value": 10905.0,
         "label": "modeled"
       },
       "P_trace_to_sim_pct": {
-        "value": 10.81,
+        "value": 9.22,
         "label": "modeled"
       },
       "est_frontend_reduction_s": {

@@ -46,6 +46,25 @@ def load_formula_rows():
         return {}
     return {r["trace_label"]: r for r in data.get("rows", [])}
 
+# Explicit workload-to-trace-size mapping (GiB). Avoids substring-heuristic errors.
+TRACE_SIZE_MAP = {
+    "bert-base-encoder-layer-slice": 0.5,
+    "bert-base-pretraining-full-step": 10.0,
+    "llama3.1-8b-decoder-layer-slice": 20.0,
+    "llama3.1-8b-full-step": 100.0,
+}
+
+def _apply_trace_size(row, wid):
+    """Apply explicit trace-size mapping; fall back to formula for unknown IDs."""
+    if wid in TRACE_SIZE_MAP:
+        row["trace_size_GiB"] = {"value": TRACE_SIZE_MAP[wid], "label": "modeled"}
+        return
+    formula = load_formula_rows()
+    for label_key in formula:
+        if wid in label_key:
+            row["trace_size_GiB"] = {"value": formula[label_key]["trace_size_GiB"], "label": "modeled"}
+            return
+
 def load_controls():
     """Load measured control workloads from the existing bottleneck map."""
     data = load_json("artifacts/trace_bottleneck_map/benchmark_cost_map.json")
@@ -104,11 +123,8 @@ def build_evidence_rows():
             if expected > 0:
                 row["complete_flow_impact"] = f"Expected 30% reduction saves {expected:.1f}s per run"
 
-        # Merge formula-based trace size if available (for scale anchors)
-        formula = load_formula_rows()
-        for label_key in formula:
-            if wid in label_key or w.get("model", "") in label_key:
-                row["trace_size_GiB"] = {"value": formula[label_key]["trace_size_GiB"], "label": "modeled"}
+        # Merge formula-based trace size using explicit mapping.
+        _apply_trace_size(row, wid)
 
         rows.append(row)
     return rows

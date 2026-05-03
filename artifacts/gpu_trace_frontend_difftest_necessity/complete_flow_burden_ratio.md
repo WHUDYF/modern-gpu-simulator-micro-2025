@@ -25,19 +25,19 @@ T_kernel_to_sim_done =
 
 | Workload | Unit | T_export (s) | T_frontend (s) | T_backend (s) | T_analysis (s) | T_total (s) | P_frontend (%) | Data Label |
 |----------|------|-------------|---------------|--------------|---------------|-----------|---------------|------------|
-| bert-base-encoder-layer-slice | slice | 5.0 | 8.0 | 15.0 | 1.0 | 29.0 | 27.6 | placeholder |
-| bert-base-pretraining-full-step | step | 120.0 | 55.0 | 200.0 | 10.0 | 385.0 | 14.3 | placeholder |
-| llama3.1-8b-decoder-layer-slice | slice | 30.0 | 40.0 | 60.0 | 5.0 | 135.0 | 29.6 | modeled |
-| llama3.1-8b-full-step | step | 3600.0 | 1200.0 | 6000.0 | 300.0 | 11100.0 | 10.8 | modeled |
+| bert-base-encoder-layer-slice | slice | 5.0 | 10.0 | 15.0 | 1.0 | 31.0 | 32.3 | placeholder |
+| bert-base-pretraining-full-step | step | 120.0 | 105.0 | 200.0 | 10.0 | 435.0 | 24.1 | placeholder |
+| llama3.1-8b-decoder-layer-slice | slice | 30.0 | 205.0 | 60.0 | 5.0 | 300.0 | 68.3 | modeled |
+| llama3.1-8b-full-step | step | 3600.0 | 1005.0 | 6000.0 | 300.0 | 10905.0 | 9.2 | modeled |
 
 ## Sweep-Level Cumulative Cost (Expected Scenario, Placeholder Values)
 
 | Workload | Single-Run Total (s) | Runs per Sweep (est.) | Sweep Total (s) | Sweep Total (min) |
 |----------|---------------------|----------------------|-----------------|-------------------|
-| bert-base-encoder-layer-slice | 29.0 | 10 | 290.0 | 4.8 |
-| bert-base-pretraining-full-step | 385.0 | 5 | 1925.0 | 32.1 |
-| llama3.1-8b-decoder-layer-slice | 135.0 | 10 | 1350.0 | 22.5 |
-| llama3.1-8b-full-step | 11100.0 | 2 | 22200.0 | 370.0 |
+| bert-base-encoder-layer-slice | 31.0 | 10 | 310.0 | 5.2 |
+| bert-base-pretraining-full-step | 435.0 | 5 | 2175.0 | 36.2 |
+| llama3.1-8b-decoder-layer-slice | 300.0 | 10 | 3000.0 | 50.0 |
+| llama3.1-8b-full-step | 10905.0 | 2 | 21810.0 | 363.5 |
 
 ## Notes
 

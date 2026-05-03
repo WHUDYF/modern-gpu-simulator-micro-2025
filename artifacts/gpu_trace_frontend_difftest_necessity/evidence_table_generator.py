@@ -76,18 +76,24 @@ def load_controls():
             controls.append(rec)
     return controls
 
-def load_measured_redundancy():
-    """Load redundancy counters from simulator-emitted flat JSON."""
-    path = os.path.join(OUT_DIR, "redundancy_profile.json")
-    if not os.path.exists(path):
-        return None
-    with open(path) as f:
-        data = json.load(f)
-    if "status" in data:
-        return None
-    if "threadblock_count" not in data and "warp_trace_count" not in data:
-        return None
-    return data
+def load_measured_redundancy_for(wid):
+    """Load redundancy counters per-workload.
+
+    Looks for redundancy_profile_<wid>.json then redundancy_profile.json.
+    Returns None if no valid measured artifact exists.
+    """
+    for fname in [f"redundancy_profile_{wid}.json", "redundancy_profile.json"]:
+        path = os.path.join(OUT_DIR, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path) as f:
+            data = json.load(f)
+        if "status" in data:
+            continue
+        if "threadblock_count" not in data and "warp_trace_count" not in data:
+            continue
+        return data
+    return None
 
 def build_evidence_rows():
     """Merge data from workload catalog, burden ratios, and reduction model."""
@@ -95,7 +101,6 @@ def build_evidence_rows():
     burdens = load_burden_ratios()
     reductions = load_reduction_estimates()
 
-    redundancy = load_measured_redundancy()
     rows = []
     for w in workloads:
         wid = w["workload_id"]
@@ -140,16 +145,17 @@ def build_evidence_rows():
         # Merge formula-based trace size using explicit mapping.
         _apply_trace_size(row, wid)
 
-        # Populate kernel/warp counts from measured redundancy if available.
-        if redundancy:
+        # Populate kernel/warp counts from per-workload measured redundancy.
+        red = load_measured_redundancy_for(wid)
+        if red:
             row["threadblock_or_warp_count"] = {
-                "tb": redundancy.get("threadblock_count", None),
-                "warp": redundancy.get("warp_trace_count", None),
+                "tb": red.get("threadblock_count", None),
+                "warp": red.get("warp_trace_count", None),
             }
-            if row["threadblock_or_warp_count"]["tb"] is not None:
-                row["kernel_count"] = {"value": None, "label": "pending"}
+            row["kernel_count"] = {"value": red.get("kernel_count", None), "label": "measured" if red.get("threadblock_count") else "pending"}
         else:
             row["threadblock_or_warp_count"] = {"tb": None, "warp": None}
+            row["kernel_count"] = {"value": None, "label": "pending"}
 
         rows.append(row)
     return rows
@@ -217,23 +223,26 @@ def build_markdown(rows, go_no_go, controls):
         "",
         "## Evidence Rows",
         "",
-        "| Workload | Unit | Trace Size (GiB) | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Est. Reduction (s) | Impact |",
-        "|----------|------|-----------------|----------|------------|---------------|------------|---------------|-------------------|--------|",
+        "| Workload | Unit | Trace Size (GiB) | Kernels | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Reduced T_frontend (s) | Impact |",
+        "|----------|------|-----------------|---------|----------|------------|---------------|------------|---------------|----------------------|--------|",
     ]
     for r in rows:
         ts = r["trace_size_GiB"]
         tfs = r["T_trace_to_sim_s"]
         ttot = r["T_kernel_to_sim_done_s"]
         pct = r["P_trace_to_sim_pct"]
-        red = r["est_frontend_reduction_s"]
+        red_est = r["est_frontend_reduction_s"]
+        red_t = r["reduced_T_trace_to_sim_s"]
         tbc = r.get("threadblock_or_warp_count", {})
+        kc = r.get("kernel_count", {})
+        k_val = kc.get("value", "N/A") if kc else "N/A"
         tb_val = tbc.get("tb", "N/A") if tbc else "N/A"
         warp_val = tbc.get("warp", "N/A") if tbc else "N/A"
         lines.append(
             f"| {r['workload']} ({r['slice_type']}) | {r['measurement_unit']} | "
-            f"{ts['value']} ({ts['label']}) | {tb_val} | {warp_val} | "
+            f"{ts['value']} ({ts['label']}) | {k_val} | {tb_val} | {warp_val} | "
             f"{tfs['value']} ({tfs['label']}) | {ttot['value']} ({ttot['label']}) | "
-            f"{pct['value']} ({pct['label']}) | {red['value']} ({red['label']}) | "
+            f"{pct['value']} ({pct['label']}) | {red_t['value']} ({red_t['label']}) | "
             f"{r['complete_flow_impact']} |"
         )
 

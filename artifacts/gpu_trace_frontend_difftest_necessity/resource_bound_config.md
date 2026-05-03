@@ -10,26 +10,34 @@
 
 ## Batch-Scaling Strategy
 
-1. Start from a small batch size (1-4).
+1. Start from batch_size = 1.
 2. Double batch size at each step.
 3. Record resource usage at each step.
 4. Stop when **any** resource ceiling is reached.
 5. Record which limit stopped the run.
 
-## Per-Step Recording Fields
+## Batch-Scaling Records
 
-| Field | Unit | Description |
-|-------|------|-------------|
-| batch_size | int | Number of samples per batch |
-| per_gpu_memory_used | GiB | Peak GPU memory during export + simulation |
-| trace_size | GiB | Compressed trace file size |
-| artifact_size | GiB | Generated artifact size |
-| export_time | s | Trace generation/export wall time |
-| sim_time | s | Simulator wall time |
-| analysis_time | s | Result processing wall time |
-| total_iteration_time | s | End-to-end wall time |
-| stopped_by | string | Which limit stopped scaling, or "none" |
+### Attempt 1: batch_size=1
 
-## Status
+| Field | Value | Status |
+|-------|-------|--------|
+| batch_size | 1 | attempted |
+| per_gpu_memory_used_gib | N/A | blocked |
+| trace_size_gib | N/A | blocked |
+| artifact_size_gib | N/A | blocked |
+| export_time_s | N/A | blocked |
+| sim_time_s | N/A | blocked |
+| analysis_time_s | N/A | blocked |
+| total_iteration_time_s | N/A | blocked |
+| stopped_by | trace_generation_unavailable | — |
+| failure_reason | BERT-base pretraining forward+backward pass requires NVBit-instrumented PyTorch binary with GPU >= 28 GiB VRAM. No instrumented training harness available. | — |
 
-**Pending measurement.** Awaiting BERT-base pretraining full step trace generation and simulation runs.
+### Status
+
+First batch attempt (batch_size=1) could not proceed past trace generation. All downstream fields depend on successful trace export. Further scaling attempts require:
+- NVBit-instrumented BERT pretraining harness
+- GPU with >= 28 GiB VRAM (RTX A6000 or A100)
+- Sufficient storage for trace artifacts (estimated 10s GiB per step at minimum batch)
+
+No ceiling-based scaling evidence is available yet. The pipeline is ready for measured data when trace generation infrastructure becomes available.

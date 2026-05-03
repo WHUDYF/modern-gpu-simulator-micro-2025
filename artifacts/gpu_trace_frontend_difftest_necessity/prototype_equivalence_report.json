@@ -1,0 +1,96 @@
+{
+  "report_name": "No-Semantics Prototype Gate and Equivalence Checklist",
+  "generated_date": "2026-05-03",
+  "prototype_decision": {
+    "prerequisite": "Evidence pipeline must show P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% with measured (not placeholder) data",
+    "current_status": "Pending: evidence currently uses placeholder data. Must recalibrate with measured timing."
+  },
+  "prototype_scope": {
+    "allowed": [
+      "decoded static-info cache: cache (unique_function_id, pc) → static metadata lookups to avoid repeated binding",
+      "metadata normalization cache: cache normalized frontend field values for repeated config records",
+      "threadblock chunk staging: batch threadblock/warp trace construction into larger chunks before simulator consumption",
+      "local replay: make parser-to-frontend chunks replayable for debugging and performance regression isolation"
+    ],
+    "forbidden": [
+      "Any change to scoreboard dependencies",
+      "Any change to warp issue order",
+      "Any change to memory pipeline timing",
+      "Any change to SM backend timing state",
+      "Dynamic GPU instruction squash or semantic compression",
+      "Export-time optimization claims"
+    ]
+  },
+  "equivalence_checklist": [
+    {
+      "metric": "sim_cycle",
+      "description": "Total simulated cycles",
+      "tolerance": "must match baseline exactly (0% deviation)",
+      "priority": "P0"
+    },
+    {
+      "metric": "sim_insn",
+      "description": "Total simulated instructions committed",
+      "tolerance": "must match baseline exactly (0% deviation)",
+      "priority": "P0"
+    },
+    {
+      "metric": "IPC",
+      "description": "Instructions per cycle",
+      "tolerance": "must match baseline exactly (derived from sim_cycle and sim_insn)",
+      "priority": "P0"
+    },
+    {
+      "metric": "cache_stats",
+      "description": "L1/L2 cache hit/miss counts and rates",
+      "tolerance": "must match baseline exactly (0% deviation)",
+      "priority": "P0"
+    },
+    {
+      "metric": "kernel_order",
+      "description": "Order in which kernels are launched and completed",
+      "tolerance": "must match baseline exactly",
+      "priority": "P1"
+    },
+    {
+      "metric": "per_kernel_insn_counts",
+      "description": "Per-kernel instruction counts",
+      "tolerance": "must match baseline exactly",
+      "priority": "P1"
+    },
+    {
+      "metric": "warnings",
+      "description": "Simulator warnings",
+      "tolerance": "No new warnings introduced; existing warning count unchanged",
+      "priority": "P1"
+    },
+    {
+      "metric": "fatal_conditions",
+      "description": "Simulator fatal errors or assertions",
+      "tolerance": "No new fatal conditions. Prototype must not crash on any workload the baseline handles.",
+      "priority": "P0"
+    },
+    {
+      "metric": "frontend_wall_time",
+      "description": "T_trace_to_sim wall time",
+      "tolerance": "Expected reduction per model (15-50% of T_trace_to_sim). Must NOT regress.",
+      "priority": "P2"
+    }
+  ],
+  "gate_decision_flow": [
+    "1. Evidence pipeline confirms P_trace_to_sim > 15% with measured data",
+    "2. Prototype scope document approved (only allowed changes at parser/frontend boundary)",
+    "3. Baseline run: record all equivalence metrics on unmodified simulator",
+    "4. Prototype build: implement only allowed changes",
+    "5. Equivalence run: record all metrics on modified simulator",
+    "6. Compare: all P0 metrics must match exactly; P1 metrics must match; P2 metrics must not regress",
+    "7. If any P0/P1 metric differs: prototype is REJECTED, must debug and re-run",
+    "8. If all metrics match: prototype is accepted for performance evaluation",
+    "9. Performance claim: only report T_trace_to_sim reduction AFTER equivalence confirmed"
+  ],
+  "deferred_to_separate_spec": [
+    "Semantic compression (reducing dynamic instruction count)",
+    "Dynamic instruction squash",
+    "Any change that modifies sim_cycle or sim_insn output"
+  ]
+}

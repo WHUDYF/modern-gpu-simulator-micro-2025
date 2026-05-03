@@ -1,0 +1,81 @@
+{
+  "report_name": "Redundancy Profiling Counter Specification",
+  "generated_date": "2026-05-03",
+  "status": "specification — C++ instrumentation pending simulator source code availability",
+  "simulator_source_note": "The simulator-remodeled/ directory is not present in this repository. Counters must be wired when the source becomes available.",
+  "counters": [
+    {
+      "id": "dynamic_insn_count",
+      "description": "Total number of dynamic instruction events emitted during simulation",
+      "expected_location": "trace-driven: instruction issue or frontend delivery loop",
+      "method": "Increment counter per dynamic instruction event consumed"
+    },
+    {
+      "id": "unique_static_id_count",
+      "description": "Number of unique (unique_function_id, pc) pairs encountered",
+      "expected_location": "trace-parser: static info lookup / binding",
+      "method": "std::unordered_set or similar data structure to count unique (function_id, pc) tuples"
+    },
+    {
+      "id": "static_info_lookup_count",
+      "description": "Total number of static info lookups performed (may exceed unique count due to repeated lookups)",
+      "expected_location": "trace-parser: static metadata resolution path",
+      "method": "Increment counter per static info resolution call"
+    },
+    {
+      "id": "threadblock_count",
+      "description": "Total number of threadblocks (CTAs) launched across all kernels",
+      "expected_location": "trace-driven: threadblock creation / kernel launch path",
+      "method": "Increment counter per CTA creation"
+    },
+    {
+      "id": "warp_trace_count",
+      "description": "Total number of warp trace objects constructed",
+      "expected_location": "trace-driven: warp trace construction path",
+      "method": "Increment counter per warp trace object created"
+    },
+    {
+      "id": "metadata_obj_construction_count",
+      "description": "Number of metadata objects (static info, config records) constructed in frontend",
+      "expected_location": "trace-parser + trace-driven: metadata construction sites",
+      "method": "Increment counter per metadata object allocation"
+    },
+    {
+      "id": "frontend_allocation_count",
+      "description": "Number of frontend heap allocations (or allocation size in bytes)",
+      "expected_location": "trace-parser + trace-driven: allocation sites in frontend path",
+      "method": "Count allocations or track allocated bytes via custom allocator hook"
+    }
+  ],
+  "derived_ratios": [
+    {
+      "name": "static_reuse_ratio",
+      "definition": "dynamic_insn_count / unique_static_id_count",
+      "interpretation": "Average number of dynamic instances per unique static (function_id, pc). Higher values indicate more reuse opportunity for a static-info cache."
+    },
+    {
+      "name": "tb_metadata_reuse_ratio",
+      "definition": "threadblock_count / metadata_obj_construction_count",
+      "interpretation": "Ratio of threadblocks to metadata constructions. Values near 1.0 suggest per-threadblock metadata construction dominates (good reuse target). Lower values indicate per-warp or per-instruction metadata paths."
+    },
+    {
+      "name": "frontend_allocation_density",
+      "definition": "frontend_allocation_count / threadblock_count",
+      "interpretation": "Average allocations per threadblock. High values may indicate allocation overhead in the frontend hot path."
+    }
+  ],
+  "expected_output": {
+    "per_run_json_fields": [
+      "dynamic_insn_count",
+      "unique_static_id_count",
+      "static_info_lookup_count",
+      "threadblock_count",
+      "warp_trace_count",
+      "metadata_obj_construction_count",
+      "frontend_allocation_count",
+      "static_reuse_ratio",
+      "tb_metadata_reuse_ratio",
+      "frontend_allocation_density"
+    ]
+  }
+}

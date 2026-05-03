@@ -59,3 +59,37 @@ Based on placeholder data:
 | derived_placeholder | Computed from placeholder values |
 | pending | Measurement not yet available |
 | not_applicable | Not applicable for this workload |
+
+## Paper Argument Matrix
+
+### External References to Local Context
+
+| External Reference | Domain | Argument Role | Local Connection |
+|-------------------|--------|---------------|-----------------|
+| XiangShan DiffTest | RISC-V co-simulation | Methodological precedent for structured event transfer | Batch/delta-cache/validate/replay map to trace-parser to trace-driven path |
+| Accel-Sim Framework | GPU trace-driven simulation | Establishes mainstream relevance | Local simulator is enhanced Accel-Sim derivative |
+| gem5 TraceCPU | CPU trace replay | Cross-architecture precedent for trace input as first-class boundary | GPU trace-driven frontend is the analogous boundary |
+| ChampSim | CPU cache simulation | Industry precedent for trace input optimization | Trace reader as defined boundary between format and core |
+| SMARTS | Simulation sampling | Background: cost reduction through representative subsets | Complementary to frontend acceleration; not implemented here |
+| SimPoint | Simulation sampling | Background: representative execution interval selection | Complementary to frontend acceleration; not implemented here |
+
+### Argument Structure
+
+```
+External precedent (XiangShan, Accel-Sim, gem5, ChampSim)
+  → Trace input is a first-class simulation boundary
+    → GPU trace frontend deserves the same attention
+      → Local evidence pipeline measures T_trace_to_sim
+        → If P_trace_to_sim > 15%, frontend restructuring is worth prototyping
+          → Prototype scope: static-info cache, chunk staging, local replay
+            → Equivalence check ensures no timing semantic change
+```
+
+### Paper Positioning
+
+The contribution is applied methodology, not novel algorithm:
+
+1. GPU trace-driven simulation has a measurable frontend cost that is under-studied relative to backend timing optimization.
+2. A reproducible measurement pipeline quantifies this cost for AI-training workloads.
+3. Structured event transfer ideas (DiffTest analogy) are adapted to the GPU trace frontend, with explicit scope boundaries preserving timing semantics.
+4. Frontend optimization can reduce simulation iteration time by 15-50% of T_trace_to_sim, enabling faster design-space exploration.

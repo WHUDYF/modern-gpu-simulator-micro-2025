@@ -1,0 +1,90 @@
+{
+  "report_name": "Frontend Timing Instrumentation Specification",
+  "generated_date": "2026-05-03",
+  "status": "specification — C++ instrumentation pending simulator source code availability",
+  "simulator_source": {
+    "expected_location": "simulator-remodeled/gpu-simulator/",
+    "parser_dir": "simulator-remodeled/gpu-simulator/trace-parser",
+    "frontend_dir": "simulator-remodeled/gpu-simulator/trace-driven",
+    "available_in_repo": false,
+    "note": "The simulator source code is not present in this repository. Instrumentation must be implemented when the source becomes available."
+  },
+  "instrumentation_points": [
+    {
+      "id": "trace_read",
+      "component": "T_trace_read",
+      "description": "Wall-clock time to read trace file from disk or buffer into memory",
+      "expected_location": "trace-parser: file I/O or stream reader entry point",
+      "timer_type": "wall_clock",
+      "implementation": "std::chrono::high_resolution_clock around file read / deserialization stream init"
+    },
+    {
+      "id": "parse_pb",
+      "component": "T_protobuf_parse",
+      "description": "Time to deserialize protobuf trace entries into in-memory structures",
+      "expected_location": "trace-parser: protobuf message parsing loop",
+      "timer_type": "wall_clock",
+      "implementation": "Timer around the protobuf ParseFromArray / ParseFromIstream call(s)"
+    },
+    {
+      "id": "static_bind",
+      "component": "T_static_bind",
+      "description": "Time to resolve (unique_function_id, pc) lookups and bind static instruction metadata",
+      "expected_location": "trace-parser: static info lookup / metadata binding",
+      "timer_type": "wall_clock",
+      "implementation": "Timer around the static metadata resolution and binding loop"
+    },
+    {
+      "id": "tb_load",
+      "component": "T_threadblock_warp_load",
+      "description": "Time to construct threadblock and warp trace data structures from parsed entries",
+      "expected_location": "trace-driven: threadblock construction and warp trace building",
+      "timer_type": "wall_clock",
+      "implementation": "Timer around threadblock creation, warp trace construction, and CTA scheduling setup"
+    },
+    {
+      "id": "warp_trace_build",
+      "component": "T_frontend_instruction_delivery_preparation",
+      "description": "Time for get_next_inst and frontend instruction delivery preparation",
+      "expected_location": "trace-driven: warp instruction fetch / frontend delivery loop",
+      "timer_type": "wall_clock",
+      "implementation": "Timer around the frontend instruction delivery pipeline (get_next_inst loop)"
+    },
+    {
+      "id": "core_cycle",
+      "component": "T_sim_backend_execution",
+      "description": "Core simulation cycle count and backend execution wall time",
+      "expected_location": "trace-driven: main simulation loop / shader core cycle counter",
+      "timer_type": "cycle_count + wall_clock",
+      "implementation": "Existing sim_cycle counter plus wall-clock timer around the main sim loop"
+    },
+    {
+      "id": "total_wall",
+      "component": "T_kernel_to_sim_done",
+      "description": "Total wall-clock time from simulation start to completion",
+      "expected_location": "main() or top-level simulation entry point",
+      "timer_type": "wall_clock",
+      "implementation": "Top-level timer from sim init to sim exit"
+    }
+  ],
+  "output_format": {
+    "per_run_json": {
+      "fields": [
+        "trace_read_s",
+        "parse_pb_s",
+        "static_bind_s",
+        "tb_load_s",
+        "warp_trace_build_s",
+        "core_cycle_s",
+        "total_sim_wall_s",
+        "frontend_share"
+      ],
+      "frontend_share_definition": "(trace_read_s + parse_pb_s + static_bind_s + tb_load_s + warp_trace_build_s) / total_sim_wall_s"
+    }
+  },
+  "overhead_requirements": {
+    "max_overhead_pct": 1,
+    "timer_granularity": "millisecond",
+    "output": "Single JSON file per run, written at simulation exit"
+  }
+}

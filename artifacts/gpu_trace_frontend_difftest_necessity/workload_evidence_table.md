@@ -26,7 +26,7 @@ Microbenchmark and HPC cases from the existing bottleneck map are listed as **co
 | Expected Trace Size Tier | Medium-to-Large |
 | Measurement Unit | Slice |
 | Role in Argument | T1 baseline — primary claim-bearing at slice granularity |
-| Status | Measured |
+| Status | Pending measurement |
 
 A single transformer encoder layer captures representative compute (matmul, softmax, layer norm) and memory (attention, FFN) patterns at a granularity suitable for iterative measurement.
 
@@ -41,7 +41,7 @@ A single transformer encoder layer captures representative compute (matmul, soft
 | Expected Trace Size Tier | Large-to-Very-Large |
 | Measurement Unit | Step |
 | Role in Argument | T1 baseline — primary claim-bearing at step granularity |
-| Status | Measured |
+| Status | Pending measurement |
 | Batch Scaling | Start small, scale upward until resource ceiling |
 
 Resource ceiling:

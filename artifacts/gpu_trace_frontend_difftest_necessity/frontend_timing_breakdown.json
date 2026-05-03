@@ -1,13 +1,12 @@
 {
   "report_name": "Frontend Timing Instrumentation Specification",
-  "generated_date": "2026-05-03",
-  "status": "specification — C++ instrumentation pending simulator source code availability",
+  "generated_date": "2026-05-04",
+  "status": "implemented — C++ instrumentation in simulator repo at /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/",
   "simulator_source": {
-    "expected_location": "simulator-remodeled/gpu-simulator/",
-    "parser_dir": "simulator-remodeled/gpu-simulator/trace-parser",
-    "frontend_dir": "simulator-remodeled/gpu-simulator/trace-driven",
-    "available_in_repo": false,
-    "note": "The simulator source code is not present in this repository. Instrumentation must be implemented when the source becomes available."
+    "parser_dir": "gpu-simulator/trace-parser",
+    "frontend_dir": "gpu-simulator/trace-driven",
+    "available": true,
+    "commits": ["69b511d", "acd325c", "ed89dd2", "57677ea", "efbd5f7"]
   },
   "instrumentation_points": [
     {
@@ -75,11 +74,13 @@
         "static_bind_s",
         "tb_load_s",
         "warp_trace_build_s",
+        "get_next_inst_s",
         "core_cycle_s",
         "total_sim_wall_s",
         "frontend_share"
       ],
-      "frontend_share_definition": "(trace_read_s + parse_pb_s + static_bind_s + tb_load_s + warp_trace_build_s) / total_sim_wall_s"
+      "frontend_share_definition": "(trace_read_s + parse_pb_s + static_bind_s + warp_trace_build_s + tb_load_s + get_next_inst_s) / total_sim_wall_s",
+      "note": "All 6 frontend buckets are non-overlapping. core_cycle_s stores the raw GPU cycle count (gpu_sim_cycle + gpu_tot_sim_cycle)."
     }
   },
   "overhead_requirements": {

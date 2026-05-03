@@ -21,8 +21,8 @@ Generated: 2026-05-03
 | Ratio | Formula | Interpretation |
 |-------|---------|----------------|
 | static_reuse_ratio | dynamic_insn_count / unique_static_id_count | Higher = more reuse opportunity for static-info cache |
-| tb_metadata_reuse_ratio | threadblock_count / metadata_obj_construction_count | Near 1.0 = per-CTB metadata (good); Lower = finer-grain (cache target) |
-| frontend_allocation_density | frontend_allocation_count / threadblock_count | Higher = allocation overhead in hot path |
+| tb_metadata_reuse_ratio | threadblock_count / unique_tb_metadata_shape_count | Near 1.0 = per-CTB metadata (good reuse target); Lower = finer-grain |
+| frontend_allocation_density | frontend_allocation_count / dynamic_instruction_count | Allocations per dynamic instruction; lower is better |
 
 ## AI-Training Workload Expectation
 

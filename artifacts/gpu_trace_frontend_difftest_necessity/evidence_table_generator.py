@@ -82,18 +82,16 @@ def load_measured_redundancy_for(wid):
     Looks for redundancy_profile_<wid>.json then redundancy_profile.json.
     Returns None if no valid measured artifact exists.
     """
-    for fname in [f"redundancy_profile_{wid}.json", "redundancy_profile.json"]:
-        path = os.path.join(OUT_DIR, fname)
-        if not os.path.exists(path):
-            continue
-        with open(path) as f:
-            data = json.load(f)
-        if "status" in data:
-            continue
-        if "threadblock_count" not in data and "warp_trace_count" not in data:
-            continue
-        return data
-    return None
+    path = os.path.join(OUT_DIR, f"redundancy_profile_{wid}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        data = json.load(f)
+    if "status" in data or "threadblock_count" not in data:
+        return None
+    if data.get("workload_id", wid) != wid:
+        return None
+    return data
 
 def build_evidence_rows():
     """Merge data from workload catalog, burden ratios, and reduction model."""

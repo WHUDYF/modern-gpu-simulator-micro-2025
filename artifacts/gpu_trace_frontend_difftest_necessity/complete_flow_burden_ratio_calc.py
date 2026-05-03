@@ -48,21 +48,18 @@ def _load_measured_timing_for(wid):
     and falls back to frontend_timing_breakdown.json (single-run naming).
     Returns None if no valid measured artifact exists.
     """
-    for fname in [f"frontend_timing_breakdown_{wid}.json",
-                  "frontend_timing_breakdown.json"]:
-        path = os.path.join(ARTIFACT_DIR, fname)
-        if not os.path.exists(path):
-            continue
-        with open(path) as f:
-            data = json.load(f)
-        if "status" in data:
-            continue
-        if "trace_read_s" not in data or "total_sim_wall_s" not in data:
-            continue
-        return (data.get("trace_read_s", 0) + data.get("parse_pb_s", 0) +
-                data.get("static_bind_s", 0) + data.get("warp_trace_build_s", 0) +
-                data.get("tb_load_s", 0) + data.get("get_next_inst_s", 0))
-    return None
+    path = os.path.join(ARTIFACT_DIR, f"frontend_timing_breakdown_{wid}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        data = json.load(f)
+    if "status" in data or "trace_read_s" not in data:
+        return None
+    if data.get("workload_id", wid) != wid:
+        return None
+    return (data.get("trace_read_s", 0) + data.get("parse_pb_s", 0) +
+            data.get("static_bind_s", 0) + data.get("warp_trace_build_s", 0) +
+            data.get("tb_load_s", 0) + data.get("get_next_inst_s", 0))
 
 def build_workloads():
     """Build workload list with per-workload measured or modeled values."""

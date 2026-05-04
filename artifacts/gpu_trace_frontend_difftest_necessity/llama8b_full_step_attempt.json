@@ -5,18 +5,18 @@
   "claim_bearing": true,
   "measurement_unit": "step",
   "source_artifact": "bert_full_step_attempt.json, llama_decoder_layer_attempt.json",
-  "provenance": "Optional tail attempt status derived from current task-E1/task-E2 execution evidence in Round 2.",
-  "generated_at": "2026-05-05T00:18:00+08:00",
+  "provenance": "Optional tail attempt status derived from current task-E1/task-E2 execution evidence in Round 3.",
+  "generated_at": "2026-05-05T00:55:00+08:00",
   "attempt_count": 0,
   "attempt_date": "2026-05-04",
-  "status": "not_run_due_to_incomplete_prerequisites",
+  "status": "not_run_optional_tail_resource_gate",
   "prerequisites": {
-    "task_E1_complete": false,
-    "task_E1_status": "trace_export_passed_replay_blocked",
+    "task_E1_complete": true,
+    "task_E1_status": "trace_export_and_bounded_replay_passed",
     "task_E2_complete": true,
     "task_E2_status": "trace_export_and_bounded_replay_passed",
     "task_D2_complete": false,
-    "note": "The current tracked plan treats the Llama 3.1 8B full-step run as an optional tail attempt after task-E1 and task-E2 are settled. Round 2 executed both extension harnesses. task-E2 reached bounded replay, but task-E1 is blocked at simulator replay by unsupported Blackwell opcode UF2I.FTZ.U32.TRUNC.NTZ, so the optional tail remains not run."
+    "note": "The current tracked plan treats the Llama 3.1 8B full-step run as an optional tail attempt after task-E1 and task-E2 are settled. Round 3 settled both extension tasks with bounded replay. The optional full-step remains not run because the recorded infrastructure requirement is >=48 GiB VRAM, while local RTX 5090 GPUs report 32607 MiB total memory."
   },
   "command_attempted": "not_run",
   "harness": "Would require: NVBit-instrumented Llama 3.1 8B pretraining step with batch_size=1 on A6000 or A100 GPU",
@@ -35,5 +35,5 @@
     "GPU with >= 48 GiB VRAM (A6000 or A100)",
     ">= 500 GiB storage for trace + artifacts"
   ],
-  "next_steps": "Add simulator opcode support for the BERT full-step replay blocker, then reconsider the optional Llama 3.1 8B full-step trace."
+  "next_steps": "Run the optional Llama 3.1 8B full-step only on a host that satisfies the >=48 GiB VRAM requirement."
 }

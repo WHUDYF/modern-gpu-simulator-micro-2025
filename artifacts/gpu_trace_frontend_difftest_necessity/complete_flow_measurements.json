@@ -1,6 +1,6 @@
 {
   "report_name": "Complete-Flow Measurement Records",
-  "generated_at": "2026-05-04T20:45:00+08:00",
+  "generated_at": "2026-05-05T00:55:00+08:00",
   "records": [
     {
       "workload_id": "bert-base-encoder-layer-slice",
@@ -21,6 +21,48 @@
         "frontend_timing_breakdown_bert-base-encoder-layer-slice.json",
         "redundancy_profile_bert-base-encoder-layer-slice.json",
         "small_trace_replay_report.json"
+      ]
+    },
+    {
+      "workload_id": "bert-base-pretraining-full-step",
+      "data_label": "measured",
+      "claim_bearing": true,
+      "measurement_unit": "step",
+      "T_kernel_or_trace_export_s": 2805.5585594177246,
+      "T_trace_to_sim_s": 0.118039907,
+      "T_sim_backend_execution_s": 7.072770093,
+      "T_result_analysis_s": 0.25,
+      "provenance": {
+        "T_kernel_or_trace_export": "Filesystem write window across /tmp/bert_full_step_trace_r3/traces files after NVBit export",
+        "T_trace_to_sim": "Sum of 6 non-overlapping frontend buckets from simulator-emitted frontend_timing_breakdown_bert_full_step_trace_r3.json",
+        "T_sim_backend_execution": "total_sim_wall_s(7.19081) - T_trace_to_sim(0.118039907), both from measured simulator output",
+        "T_result_analysis": "Same local artifact-regeneration budget used for the BERT slice complete-flow record"
+      },
+      "source_artifacts": [
+        "frontend_timing_breakdown_bert-base-pretraining-full-step.json",
+        "redundancy_profile_bert-base-pretraining-full-step.json",
+        "bert_full_step_attempt.json"
+      ]
+    },
+    {
+      "workload_id": "llama3.1-8b-decoder-layer-slice",
+      "data_label": "measured",
+      "claim_bearing": true,
+      "measurement_unit": "slice",
+      "T_kernel_or_trace_export_s": 1921.5626921653748,
+      "T_trace_to_sim_s": 1.808332127,
+      "T_sim_backend_execution_s": 202.785667873,
+      "T_result_analysis_s": 0.25,
+      "provenance": {
+        "T_kernel_or_trace_export": "Filesystem write window across /tmp/llama_decoder_layer_trace_r2/traces files after NVBit export",
+        "T_trace_to_sim": "Sum of 6 non-overlapping frontend buckets from simulator-emitted frontend_timing_breakdown_llama_decoder_layer_trace_r2.json",
+        "T_sim_backend_execution": "total_sim_wall_s(204.594) - T_trace_to_sim(1.808332127), both from measured simulator output",
+        "T_result_analysis": "Same local artifact-regeneration budget used for the BERT slice complete-flow record"
+      },
+      "source_artifacts": [
+        "frontend_timing_breakdown_llama3.1-8b-decoder-layer-slice.json",
+        "redundancy_profile_llama3.1-8b-decoder-layer-slice.json",
+        "llama_decoder_layer_attempt.json"
       ]
     }
   ]

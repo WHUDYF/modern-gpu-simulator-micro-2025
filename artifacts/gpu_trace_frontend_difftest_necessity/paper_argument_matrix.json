@@ -5,10 +5,12 @@
     "verdict": "NO-GO",
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
     "slice_max_pct": 11.49,
-    "step_max_pct": 0,
-    "eligible_measured_rows": 1,
+    "step_max_pct": 0.0,
+    "eligible_measured_rows": 3,
     "measured_workload_ids": [
-      "bert-base-encoder-layer-slice"
+      "bert-base-encoder-layer-slice",
+      "bert-base-pretraining-full-step",
+      "llama3.1-8b-decoder-layer-slice"
     ],
     "detail": "Fully measured claim-bearing rows exist, but none exceed the 15% threshold."
   },
@@ -66,34 +68,34 @@
       "slice_type": "pretraining full step",
       "measurement_unit": "step",
       "role": "T1_baseline",
-      "data_label": "placeholder",
+      "data_label": "measured",
       "claim_bearing": true,
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "Planning row retained for scale context only; not eligible for go/no-go",
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record",
       "trace_size_GiB": {
         "value": 10.0,
         "label": "modeled"
       },
       "kernel_count": {
-        "value": 180,
-        "label": "modeled"
+        "value": 6,
+        "label": "measured"
       },
       "threadblock_or_warp_count": {
-        "tb": 1500,
-        "warp": 48000,
-        "label": "modeled"
+        "tb": 16,
+        "warp": 68,
+        "label": "measured"
       },
       "T_trace_to_sim_s": {
-        "value": 105.0,
-        "label": "placeholder"
+        "value": 0.118039907,
+        "label": "measured"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 430.0,
-        "label": "placeholder"
+        "value": 2812.9993694177247,
+        "label": "measured"
       },
       "P_trace_to_sim_pct": {
-        "value": 24.42,
-        "label": "placeholder"
+        "value": 0.0,
+        "label": "measured"
       },
       "est_frontend_reduction_s": {
         "value": 31.5,
@@ -113,34 +115,34 @@
       "slice_type": "decoder layer slice",
       "measurement_unit": "slice",
       "role": "T2_representative",
-      "data_label": "modeled",
+      "data_label": "measured",
       "claim_bearing": true,
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "Planning row retained for scale context only; not eligible for go/no-go",
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record",
       "trace_size_GiB": {
         "value": 20.0,
         "label": "modeled"
       },
       "kernel_count": {
-        "value": 24,
-        "label": "modeled"
+        "value": 1,
+        "label": "measured"
       },
       "threadblock_or_warp_count": {
-        "tb": 3200,
-        "warp": 102400,
-        "label": "modeled"
+        "tb": 4245,
+        "warp": 16980,
+        "label": "measured"
       },
       "T_trace_to_sim_s": {
-        "value": 205.0,
-        "label": "modeled"
+        "value": 1.808332127,
+        "label": "measured"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 570.0,
-        "label": "modeled"
+        "value": 2126.406692165375,
+        "label": "measured"
       },
       "P_trace_to_sim_pct": {
-        "value": 35.96,
-        "label": "modeled"
+        "value": 0.09,
+        "label": "measured"
       },
       "est_frontend_reduction_s": {
         "value": 61.5,

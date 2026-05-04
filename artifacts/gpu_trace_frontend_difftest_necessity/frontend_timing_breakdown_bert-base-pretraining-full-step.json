@@ -1,0 +1,18 @@
+{
+  "workload_id": "bert-base-pretraining-full-step",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "step",
+  "source_artifact": "/tmp/bert_full_step_trace_r3/traces/frontend_timing_breakdown_bert_full_step_trace_r3.json",
+  "provenance": "Canonicalized from simulator-emitted frontend timing JSON for the Round 3 BERT full-step bounded replay after adding UF2I opcode support.",
+  "generated_at": "2026-05-05T00:55:00+08:00",
+  "trace_read_s": 0.000392297,
+  "parse_pb_s": 0.00870609,
+  "static_bind_s": 0.0142532,
+  "tb_load_s": 0.00000132,
+  "warp_trace_build_s": 0.0189939,
+  "get_next_inst_s": 0.0756931,
+  "core_cycle_s": 50000,
+  "total_sim_wall_s": 7.19081,
+  "frontend_share": 0.0164154
+}

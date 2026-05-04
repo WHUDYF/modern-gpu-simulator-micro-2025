@@ -3,7 +3,7 @@
   "formula": "P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done",
   "denominator_definition": "T_kernel_to_sim_done = T_kernel_or_trace_export + T_trace_to_sim + T_sim_backend_execution + T_result_analysis",
   "generated_date": "2026-05-04",
-  "data_status": "1 fully measured claim-bearing row(s) available. Modeled/placeholder rows are retained for planning context only and do not drive the verdict.",
+  "data_status": "3 fully measured claim-bearing row(s) available. Modeled/placeholder rows are retained for planning context only and do not drive the verdict.",
   "go_no_go": {
     "go": false,
     "verdict": "NO-GO \u2014 frontend prototype not justified by current measured evidence",
@@ -11,8 +11,8 @@
     "step_go": false,
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only \u2014 all 4 components)",
     "max_slice_pct": 11.49,
-    "max_step_pct": null,
-    "fully_measured_rows": 1,
+    "max_step_pct": 0.0,
+    "fully_measured_rows": 3,
     "note": "A row counts as fully measured only when T_kernel_or_trace_export, T_trace_to_sim, T_sim_backend_execution, AND T_result_analysis are all measured."
   },
   "results": [
@@ -41,49 +41,49 @@
     },
     {
       "workload_id": "bert-base-pretraining-full-step",
-      "data_label": "placeholder",
+      "data_label": "measured",
       "claim_bearing": true,
       "measurement_unit": "step",
-      "T_trace_to_sim_s": 105.0,
-      "T_kernel_to_sim_done_s": 430.0,
-      "P_trace_to_sim_pct": 24.42,
+      "T_trace_to_sim_s": 0.118039907,
+      "T_kernel_to_sim_done_s": 2812.9993694177247,
+      "P_trace_to_sim_pct": 0.0,
       "components": {
-        "T_kernel_or_trace_export_s": 120.0,
-        "T_trace_to_sim_s": 105.0,
-        "T_sim_backend_execution_s": 200.0,
-        "T_result_analysis_s": 5.0
+        "T_kernel_or_trace_export_s": 2805.5585594177246,
+        "T_trace_to_sim_s": 0.118039907,
+        "T_sim_backend_execution_s": 7.072770093,
+        "T_result_analysis_s": 0.25
       },
       "data_labels": {
-        "T_kernel_or_trace_export": "placeholder",
-        "T_trace_to_sim": "placeholder",
-        "T_sim_backend_execution": "placeholder",
-        "T_result_analysis": "placeholder"
+        "T_kernel_or_trace_export": "measured",
+        "T_trace_to_sim": "measured",
+        "T_sim_backend_execution": "measured",
+        "T_result_analysis": "measured"
       },
-      "source_artifact": "trace_to_sim_formula.json / modeled fallback",
-      "provenance": "Planning row retained for scale context only; not eligible for go/no-go"
+      "source_artifact": "complete_flow_measurements.json",
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record"
     },
     {
       "workload_id": "llama3.1-8b-decoder-layer-slice",
-      "data_label": "modeled",
+      "data_label": "measured",
       "claim_bearing": true,
       "measurement_unit": "slice",
-      "T_trace_to_sim_s": 205.0,
-      "T_kernel_to_sim_done_s": 570.0,
-      "P_trace_to_sim_pct": 35.96,
+      "T_trace_to_sim_s": 1.808332127,
+      "T_kernel_to_sim_done_s": 2126.406692165375,
+      "P_trace_to_sim_pct": 0.09,
       "components": {
-        "T_kernel_or_trace_export_s": 300.0,
-        "T_trace_to_sim_s": 205.0,
-        "T_sim_backend_execution_s": 60.0,
-        "T_result_analysis_s": 5.0
+        "T_kernel_or_trace_export_s": 1921.5626921653748,
+        "T_trace_to_sim_s": 1.808332127,
+        "T_sim_backend_execution_s": 202.785667873,
+        "T_result_analysis_s": 0.25
       },
       "data_labels": {
-        "T_kernel_or_trace_export": "modeled",
-        "T_trace_to_sim": "modeled",
-        "T_sim_backend_execution": "modeled",
-        "T_result_analysis": "modeled"
+        "T_kernel_or_trace_export": "measured",
+        "T_trace_to_sim": "measured",
+        "T_sim_backend_execution": "measured",
+        "T_result_analysis": "measured"
       },
-      "source_artifact": "trace_to_sim_formula.json / modeled fallback",
-      "provenance": "Planning row retained for scale context only; not eligible for go/no-go"
+      "source_artifact": "complete_flow_measurements.json",
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record"
     },
     {
       "workload_id": "llama3.1-8b-full-step",

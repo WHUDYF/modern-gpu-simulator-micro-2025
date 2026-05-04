@@ -6,7 +6,7 @@ Generated: 2026-05-04
 
 **Verdict**: NO-GO
 - Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%
-- Eligible measured claim-bearing rows: 1
+- Eligible measured claim-bearing rows: 3
 - Slice max P_trace_to_sim: 11.5%
 - Step max P_trace_to_sim: 0.0%
 - Detail: Fully measured claim-bearing rows exist, but none exceed the 15% threshold.
@@ -16,8 +16,8 @@ Generated: 2026-05-04
 | Workload ID | Workload | Unit | Data Label | Trace Size (GiB) | Kernels | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Reduced T_frontend (s) | Impact |
 |-------------|----------|------|------------|-----------------|---------|----------|------------|---------------|------------|---------------|----------------------|--------|
 | bert-base-encoder-layer-slice | BERT-base (encoder layer slice) | slice | measured | 4.36 (measured) | 9 (measured) | 3217 (measured) | 25732 (measured) | 25.87 (measured) | 225.17 (measured) | 11.49 (measured) | 18.10 (modeled) | Expected 30% reduction saves 7.8s per run |
-| bert-base-pretraining-full-step | BERT-base (pretraining full step) | step | placeholder | 10.00 (modeled) | 180 (modeled) | 1500 (modeled) | 48000 (modeled) | 105.00 (placeholder) | 430.00 (placeholder) | 24.42 (placeholder) | 73.50 (modeled) | Expected 30% reduction saves 31.5s per run |
-| llama3.1-8b-decoder-layer-slice | Llama 3.1 8B (decoder layer slice) | slice | modeled | 20.00 (modeled) | 24 (modeled) | 3200 (modeled) | 102400 (modeled) | 205.00 (modeled) | 570.00 (modeled) | 35.96 (modeled) | 143.50 (modeled) | Expected 30% reduction saves 61.5s per run |
+| bert-base-pretraining-full-step | BERT-base (pretraining full step) | step | measured | 10.00 (modeled) | 6 (measured) | 16 (measured) | 68 (measured) | 0.12 (measured) | 2813.00 (measured) | 0.00 (measured) | 73.50 (modeled) | Expected 30% reduction saves 31.5s per run |
+| llama3.1-8b-decoder-layer-slice | Llama 3.1 8B (decoder layer slice) | slice | measured | 20.00 (modeled) | 1 (measured) | 4245 (measured) | 16980 (measured) | 1.81 (measured) | 2126.41 (measured) | 0.09 (measured) | 143.50 (modeled) | Expected 30% reduction saves 61.5s per run |
 | llama3.1-8b-full-step | Llama 3.1 8B (pretraining full step) | step | modeled | 100.00 (modeled) | 360 (modeled) | 48000 (modeled) | 1536000 (modeled) | 1005.00 (modeled) | 10610.00 (modeled) | 9.47 (modeled) | 703.50 (modeled) | Expected 30% reduction saves 301.5s per run |
 
 ## Control Workloads (Measured, from Existing Bottleneck Map)

@@ -1,0 +1,21 @@
+{
+  "workload_id": "bert-base-pretraining-full-step",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "step",
+  "source_artifact": "/tmp/bert_full_step_trace_r3/traces/redundancy_profile_bert_full_step_trace_r3.json",
+  "provenance": "Canonicalized from simulator-emitted redundancy JSON for the Round 3 BERT full-step bounded replay after adding UF2I opcode support.",
+  "generated_at": "2026-05-05T00:55:00+08:00",
+  "kernel_count": 6,
+  "dynamic_insn_count": 54589,
+  "unique_static_id_count": 7234,
+  "static_info_lookup_count": 69875,
+  "threadblock_count": 16,
+  "warp_trace_count": 68,
+  "metadata_obj_construction_count": 69875,
+  "frontend_allocation_count": 69875,
+  "unique_tb_metadata_shape_count": 3,
+  "static_reuse_ratio": 7.54617,
+  "tb_metadata_reuse_ratio": 5.33333,
+  "frontend_allocation_density": 1.28002
+}

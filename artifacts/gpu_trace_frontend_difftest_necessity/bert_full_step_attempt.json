@@ -5,8 +5,8 @@
   "measurement_unit": "step",
   "source_artifact": "logs/bert_full_step_trace_r3_stdout.log, logs/bert_full_step_trace_r3_stderr.log, logs/bert_full_step_replay_r3.log",
   "provenance": "Synthetic BERT-base BertForPreTraining full pretraining-style forward/backward step, batch=1, seq_len=16, traced under NVBit v1.7.6 on RTX 5090 with ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1, then replayed with SM120_RTX5090 config and 50000-cycle bound.",
-  "generated_at": "2026-05-05T00:18:00+08:00",
-  "status": "trace_export_passed_replay_blocked",
+  "generated_at": "2026-05-05T00:55:00+08:00",
+  "status": "trace_export_and_bounded_replay_passed",
   "harness_path": "docs/bert-full-step-training.py",
   "validation_without_nvbit": {
     "command": "BERT_TRACE_BATCH=1 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
@@ -27,10 +27,14 @@
   },
   "simulator_replay": {
     "command": "OMP_NUM_THREADS=1 OMP_PROC_BIND=spread timeout 1200 ./gpu-simulator/bin/release/accel-sim.out -config ./gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM120_RTX5090/gpgpusim.config -config ./gpu-simulator/configs/tested-cfgs/SM120_RTX5090/trace.config -gpgpu_max_cycle 50000 -trace /tmp/bert_full_step_trace_r3/traces/dynamic_trace.pb",
-    "exit_code": 1,
-    "log_path": "logs/bert_full_step_replay_r3.log",
-    "blocker": "Simulator aborts on unsupported Blackwell trace opcode UF2I.FTZ.U32.TRUNC.NTZ in trace_driven.cc:328.",
-    "result": "Replay entered the simulator and began kernel-1.trace before hitting a deterministic undefined-instruction assertion."
+    "exit_code": 0,
+    "log_path": "logs/bert_full_step_replay_r5.log",
+    "gpgpu_max_cycle": 50000,
+    "gpu_tot_sim_cycle": 50000,
+    "gpu_tot_sim_insn": 1550151,
+    "simulation_time_s": 8,
+    "break_reason": "maximum cycles reached",
+    "result": "Replay completed to the 50000-cycle bound after adding UF2I opcode support and rebuilding the shared trace utility plus accel-sim.out."
   },
   "bounded_troubleshooting": [
     {
@@ -43,7 +47,13 @@
       "hypothesis": "The exported BERT full-step trace can replay under the SM120_RTX5090 bounded simulator config.",
       "command": "Run accel-sim.out with -gpgpu_max_cycle 50000 on /tmp/bert_full_step_trace_r3/traces/dynamic_trace.pb.",
       "result": "Replay failed deterministically on unsupported opcode UF2I.FTZ.U32.TRUNC.NTZ.",
-      "next_action": "Extend trace opcode mapping/support for Blackwell UF2I before BERT full-step timing/redundancy can be measured."
+      "next_action": "Add UF2I mapping and force rebuild of the shared trace utility object."
+    },
+    {
+      "hypothesis": "Adding UF2I to the Blackwell opcode map and forcing traced_instruction.o to rebuild removes the parser blocker.",
+      "command": "make -B -C util/traces_enhanced; make -C gpu-simulator; rerun bounded BERT replay.",
+      "result": "Replay completed to the 50000-cycle bound and emitted canonicalizable frontend timing and redundancy JSON.",
+      "next_action": "Use frontend_timing_breakdown_bert-base-pretraining-full-step.json and redundancy_profile_bert-base-pretraining-full-step.json as measured extension evidence."
     }
   ]
 }

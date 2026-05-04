@@ -1,6 +1,6 @@
 # GPU Trace Frontend Necessity Go/No-Go Verdict
 
-**Generated**: 2026-05-05T00:14:01.407817+08:00
+**Generated**: 2026-05-05T00:31:09.331523+08:00
 **Status**: Gate D — NO-GO: fully measured claim-bearing rows do not exceed the threshold.
 
 ## Verdict: NO-GO: frontend prototype not justified by current measured evidence
@@ -9,7 +9,7 @@
 
 - Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only — all 4 components)
 - Threshold: 15.0%
-- Eligible measured claim-bearing rows: 1
+- Eligible measured claim-bearing rows: 3
 - Source artifact: complete_flow_measurements.json
 - Max measured P_trace_to_sim: 11.49%
 - Workload: bert-base-encoder-layer-slice

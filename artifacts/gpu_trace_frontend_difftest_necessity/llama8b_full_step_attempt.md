@@ -2,17 +2,17 @@
 
 **Attempt**: 0
 **Date**: 2026-05-05
-**Status**: Not run — prerequisites incomplete
+**Status**: Not run — optional tail resource gate
 
 ## Prerequisites
 
 | Prerequisite | Status |
 |-------------|--------|
-| task-E1 (BERT-base pretraining full step) | Trace export passed; replay blocked on unsupported opcode `UF2I.FTZ.U32.TRUNC.NTZ`; see `bert_full_step_attempt.json` |
+| task-E1 (BERT-base pretraining full step) | Trace export and bounded replay passed; see `bert_full_step_attempt.json` |
 | task-E2 (Llama 3.1 8B decoder-layer slice) | Trace export and bounded replay passed; see `llama_decoder_layer_attempt.json` |
 | task-D2 (honest final status summary) | In progress |
 
-Per the current tracked plan, the optional Llama 3.1 8B full-step validation is attempted only after task-E1 and task-E2 are executed or formally settled.
+Per the current tracked plan, the optional Llama 3.1 8B full-step validation is attempted only after task-E1 and task-E2 are settled and a suitable full-step host is available. The recorded infrastructure requirement is >=48 GiB VRAM; local RTX 5090 GPUs report 32607 MiB total memory.
 
 ## Infrastructure Requirements
 
@@ -26,4 +26,4 @@ All required evidence artifacts remain intact under `artifacts/gpu_trace_fronten
 
 ## Next Steps
 
-Add simulator opcode support for the BERT full-step replay blocker, then reconsider this optional tail attempt with a real Llama 3.1 8B full-step trace.
+Run this optional tail attempt on a host that satisfies the >=48 GiB VRAM requirement.

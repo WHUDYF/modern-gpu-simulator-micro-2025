@@ -1,0 +1,21 @@
+{
+  "workload_id": "llama3.1-8b-decoder-layer-slice",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "/tmp/llama_decoder_layer_trace_r2/traces/redundancy_profile_llama_decoder_layer_trace_r2.json",
+  "provenance": "Canonicalized from simulator-emitted redundancy JSON for the Round 2 Llama decoder-layer bounded replay.",
+  "generated_at": "2026-05-05T00:40:00+08:00",
+  "kernel_count": 1,
+  "dynamic_insn_count": 413450,
+  "unique_static_id_count": 407520,
+  "static_info_lookup_count": 407520,
+  "threadblock_count": 4245,
+  "warp_trace_count": 16980,
+  "metadata_obj_construction_count": 407520,
+  "frontend_allocation_count": 407520,
+  "unique_tb_metadata_shape_count": 1,
+  "static_reuse_ratio": 1.01455,
+  "tb_metadata_reuse_ratio": 4245,
+  "frontend_allocation_density": 0.985657
+}

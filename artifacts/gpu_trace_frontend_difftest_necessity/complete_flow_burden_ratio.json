@@ -5,12 +5,12 @@
   "generated_date": "2026-05-04",
   "data_status": "BERT-base encoder layer slice: T_trace_to_sim measured; export/backend/analysis still modeled. Other workloads: modeled/placeholder.",
   "go_no_go": {
-    "go": true,
-    "verdict": "GO \u2014 proceed to prototype investigation",
-    "slice_go": true,
+    "go": false,
+    "verdict": "NOT YET \u2014 gather measured data first",
+    "slice_go": false,
     "step_go": false,
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (measured rows only)",
-    "max_slice_pct": 55.2,
+    "max_slice_pct": 11.49,
     "max_step_pct": null,
     "measured_rows_used": 1,
     "note": "Only measured claim-bearing rows drive the verdict. Modeled and placeholder rows are present for context but excluded from go/no-go computation."
@@ -20,13 +20,13 @@
       "workload_id": "bert-base-encoder-layer-slice",
       "measurement_unit": "slice",
       "T_trace_to_sim_s": 25.873564588,
-      "T_kernel_to_sim_done_s": 46.873564588,
-      "P_trace_to_sim_pct": 55.2,
+      "T_kernel_to_sim_done_s": 225.173564588,
+      "P_trace_to_sim_pct": 11.49,
       "components": {
-        "T_kernel_or_trace_export_s": 5.0,
+        "T_kernel_or_trace_export_s": 180.0,
         "T_trace_to_sim_s": 25.873564588,
-        "T_sim_backend_execution_s": 15.0,
-        "T_result_analysis_s": 1.0
+        "T_sim_backend_execution_s": 19.05,
+        "T_result_analysis_s": 0.25
       },
       "data_labels": {
         "T_kernel_or_trace_export": "modeled",

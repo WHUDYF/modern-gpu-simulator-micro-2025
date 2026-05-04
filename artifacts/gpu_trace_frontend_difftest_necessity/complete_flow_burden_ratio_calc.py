@@ -17,9 +17,9 @@ ARTIFACT_DIR = "artifacts/gpu_trace_frontend_difftest_necessity"
 MODELED_FALLBACKS = {
     "bert-base-encoder-layer-slice": {
         "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": 5.0,
-        "T_sim_backend_execution_s": 15.0,
-        "T_result_analysis_s": 1.0,
+        "T_kernel_or_trace_export_s": 180.0,
+        "T_sim_backend_execution_s": 19.05,
+        "T_result_analysis_s": 0.25,
     },
     "bert-base-pretraining-full-step": {
         "measurement_unit": "step",

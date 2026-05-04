@@ -1,0 +1,42 @@
+{
+  "report_name": "BERT/Llama Trace Acquisition Smoke Test",
+  "generated_at": "2026-05-04T16:40:00",
+  "gate": "Gate A: Trace Acquisition Ready",
+  "status": "BLOCKED: trace acquisition unavailable",
+  "data_label": "control",
+  "claim_bearing": false,
+  "measurement_unit": "control",
+  "source_artifact": "NVBit 1.7.6 tracer test run",
+  "provenance": "NVBit v1.7.6 attempted on NVIDIA GeForce RTX 5090 (Blackwell, compute capability 12.0)",
+  "smoke_test_results": [
+    {
+      "workload_id": "bert-base-encoder-slice",
+      "workload_type": "AI-training (claim-bearing)",
+      "export_command": "LD_PRELOAD=tracer_tool.so CUDA_INJECTION64_PATH=tracer_tool.so TRACES_FOLDER=<dir> python3 bert_inference.py",
+      "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-slice/traces",
+      "trace_size_bytes": 0,
+      "status": "failed",
+      "failure_stage": "NVBit GPU architecture support",
+      "failure_reason": "NVBit v1.7.6 reports 'unsupported binary version: 0' for RTX 5090 (Blackwell, compute capability 12.0). The NVBit get_sm_family() function does not recognize sm_120. A newer NVBit release with Blackwell support is required."
+    }
+  ],
+  "environment": {
+    "cuda_driver_version": "13.0",
+    "cuda_toolkit_version": "12.8",
+    "nvbit_version": "1.7.6",
+    "gpu_model": "NVIDIA GeForce RTX 5090",
+    "gpu_compute_capability": "12.0",
+    "gpu_memory_gib": 32,
+    "python_version": "3.x",
+    "pytorch_version": "2.11.0+cu130",
+    "transformers_available": true
+  },
+  "prerequisites": {
+    "nvbit_harness_exists": true,
+    "bert_inference_script_exists": true,
+    "pytorch_cuda_available": true,
+    "gpu_accessible": true,
+    "nvbit_gpu_architecture_supported": false
+  },
+  "resolution": "Upgrade NVBit to a version supporting Blackwell (sm_120) or use a Hopper (sm_90) or earlier GPU."
+}

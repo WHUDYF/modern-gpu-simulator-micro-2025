@@ -31,11 +31,11 @@
         "label": "measured"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 46.873564588,
+        "value": 225.173564588,
         "label": "measured"
       },
       "P_trace_to_sim_pct": {
-        "value": 55.2,
+        "value": 11.49,
         "label": "measured"
       },
       "est_frontend_reduction_s": {

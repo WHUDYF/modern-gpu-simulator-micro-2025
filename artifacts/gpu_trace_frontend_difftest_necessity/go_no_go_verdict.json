@@ -7,7 +7,8 @@
   "source_artifact": "frontend_timing_breakdown_bert-base-encoder-layer-slice.json, complete_flow_burden_ratio.json",
   "provenance": "BERT encoder layer training slice, measured via instrumented simulator run on 2026-05-04",
   "generated_at": "2026-05-04T20:16:00+08:00",
-  "verdict": "INCONCLUSIVE: simulator frontend_share=57.6% justifies investigation, but complete-flow P_trace_to_sim=11.5% (<15%) when trace export dominates. Frontend restructuring is worth investigating for simulator iteration speed, but end-to-end burden is dominated by trace generation.",
+  "verdict": "NO-GO: frontend prototype not justified by complete-flow evidence. P_trace_to_sim=11.5% < 15%.",
+  "simulator_frontend_note": "Simulator-only frontend_share=57.6% — frontend dominates inside simulator. Trace generation (180s) is the dominant end-to-end cost. Frontend restructuring would improve simulator iteration time but the complete-flow burden ratio does not meet the 15% go/no-go threshold.",
   "basis": {
     "P_trace_to_sim_slice_complete_flow": 11.5,
     "frontend_share_simulator_only": 57.6,

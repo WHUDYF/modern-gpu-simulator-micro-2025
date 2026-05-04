@@ -1,0 +1,18 @@
+{
+  "workload_id": "bert-base-encoder-layer-slice",
+  "trace_read_s": 0.00014937,
+  "parse_pb_s": 5.7911,
+  "static_bind_s": 6.71139,
+  "tb_load_s": 0.000265218,
+  "warp_trace_build_s": 7.73637,
+  "get_next_inst_s": 5.63429,
+  "core_cycle_s": 50000,
+  "total_sim_wall_s": 44.9191,
+  "frontend_share": 0.576004,
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "artifacts/gpu_trace_frontend_difftest_necessity/frontend_timing_breakdown_bert-base-encoder-layer-slice.json",
+  "provenance": "BERT encoder layer training slice trace run through instrumented simulator with SM120_RTX5090 config, 50000 cycle bound",
+  "generated_at": "2026-05-04T20:15:00+08:00"
+}

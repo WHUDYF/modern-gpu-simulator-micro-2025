@@ -1,0 +1,21 @@
+{
+  "workload_id": "bert-base-encoder-layer-slice",
+  "kernel_count": 9,
+  "dynamic_insn_count": 2035521,
+  "unique_static_id_count": 7960440,
+  "static_info_lookup_count": 14590284,
+  "threadblock_count": 3217,
+  "warp_trace_count": 25732,
+  "metadata_obj_construction_count": 14590284,
+  "frontend_allocation_count": 14590284,
+  "unique_tb_metadata_shape_count": 5,
+  "static_reuse_ratio": 0.255705,
+  "tb_metadata_reuse_ratio": 643.4,
+  "frontend_allocation_density": 7.16784,
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "artifacts/gpu_trace_frontend_difftest_necessity/redundancy_profile_bert-base-encoder-layer-slice.json",
+  "provenance": "BERT encoder layer training slice trace run through instrumented simulator with SM120_RTX5090 config, 50000 cycle bound",
+  "generated_at": "2026-05-04T20:15:00+08:00"
+}

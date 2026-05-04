@@ -22,9 +22,9 @@ Generated: 2026-05-03
 
 | Workload | Orig T_frontend (s) | Scenario | Reduced T_frontend (s) | Saved/Run (s) | Saved/Sweep (s) |
 |----------|--------------------|----------|----------------------|--------------|----------------|
-| bert-base-encoder-layer-slice | 10.0 | conservative 15% | 8.5 | 1.5 | 15.0 |
-| bert-base-encoder-layer-slice | 10.0 | expected 30% | 7.0 | 3.0 | 30.0 |
-| bert-base-encoder-layer-slice | 10.0 | optimistic 50% | 5.0 | 5.0 | 50.0 |
+| bert-base-encoder-layer-slice | 25.9 | conservative 15% | 22.0 | 3.9 | 39.0 |
+| bert-base-encoder-layer-slice | 25.9 | expected 30% | 18.1 | 7.8 | 78.0 |
+| bert-base-encoder-layer-slice | 25.9 | optimistic 50% | 12.9 | 12.9 | 129.0 |
 
 | bert-base-pretraining-full-step | 105.0 | conservative 15% | 89.2 | 15.8 | 79.0 |
 | bert-base-pretraining-full-step | 105.0 | expected 30% | 73.5 | 31.5 | 157.5 |
@@ -50,7 +50,7 @@ Generated: 2026-05-03
 
 | Workload | Single-Run Savings (s) | Sweep Savings (s) | Sweep Savings (min) |
 |----------|----------------------|-------------------|--------------------|
-| bert-base-encoder-layer-slice | 3.0 | 30.0 | 0.5 |
+| bert-base-encoder-layer-slice | 7.8 | 78.0 | 1.3 |
 | bert-base-pretraining-full-step | 31.5 | 157.5 | 2.6 |
 | llama3.1-8b-decoder-layer-slice | 61.5 | 615.0 | 10.2 |
 | llama3.1-8b-full-step | 301.5 | 603.0 | 10.1 |

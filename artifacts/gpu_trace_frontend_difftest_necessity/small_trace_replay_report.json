@@ -1,0 +1,51 @@
+{
+  "workload_id": "bert-base-encoder-layer-slice",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "Simulator replay of BERT encoder layer training slice trace",
+  "provenance": "BERT encoder layer training slice (BertLayer forward+backward) traced under NVBit v1.7.6 on RTX 5090, replayed through instrumented simulator with SM120_RTX5090 config, 50000 cycle bound",
+  "generated_at": "2026-05-04T20:15:00+08:00",
+  "gate": "Gate B: Small Trace Replay Ready",
+  "status": "PASS",
+  "simulator_config": {
+    "gpgpusim_config": "gpgpu-sim/configs/tested-cfgs/SM120_RTX5090/gpgpusim.config",
+    "trace_config": "configs/tested-cfgs/SM120_RTX5090/trace.config",
+    "gpgpu_max_cycle": 50000,
+    "omp_num_threads": 4,
+    "simulation_time_s": 44,
+    "break_reason": "maximum cycles reached"
+  },
+  "trace_info": {
+    "trace_size_bytes": 4680065040,
+    "trace_files": 19942,
+    "kernel_rows_in_stats_csv": 77,
+    "kernels_simulated": 9
+  },
+  "frontend_timing": {
+    "trace_read_s": 0.00015,
+    "parse_pb_s": 5.79,
+    "static_bind_s": 6.71,
+    "tb_load_s": 0.00027,
+    "warp_trace_build_s": 7.74,
+    "get_next_inst_s": 5.63,
+    "core_cycle_s": 50000,
+    "total_sim_wall_s": 44.92,
+    "frontend_share": 0.576
+  },
+  "redundancy_profile": {
+    "kernel_count": 9,
+    "dynamic_insn_count": 2035521,
+    "unique_static_id_count": 7960440,
+    "static_info_lookup_count": 14590284,
+    "threadblock_count": 3217,
+    "warp_trace_count": 25732,
+    "metadata_obj_construction_count": 14590284,
+    "frontend_allocation_count": 14590284,
+    "unique_tb_metadata_shape_count": 5,
+    "static_reuse_ratio": 0.26,
+    "tb_metadata_reuse_ratio": 643.4,
+    "frontend_allocation_density": 7.17
+  },
+  "notes": "frontend_share = 57.6% exceeds the 15% go/no-go threshold. parse_pb_s (5.79s) and warp_trace_build_s (7.74s) dominate."
+}

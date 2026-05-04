@@ -22,16 +22,16 @@
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "measurement_unit": "slice",
-      "original_T_trace_to_sim_s": 10.0,
-      "reduced_conservative_T_trace_to_sim_s": 8.5,
-      "saved_conservative_per_run_s": 1.5,
-      "saved_conservative_per_sweep_s": 15.0,
-      "reduced_expected_T_trace_to_sim_s": 7.0,
-      "saved_expected_per_run_s": 3.0,
-      "saved_expected_per_sweep_s": 30.0,
-      "reduced_optimistic_T_trace_to_sim_s": 5.0,
-      "saved_optimistic_per_run_s": 5.0,
-      "saved_optimistic_per_sweep_s": 50.0
+      "original_T_trace_to_sim_s": 25.873564588,
+      "reduced_conservative_T_trace_to_sim_s": 22.0,
+      "saved_conservative_per_run_s": 3.9,
+      "saved_conservative_per_sweep_s": 39.0,
+      "reduced_expected_T_trace_to_sim_s": 18.1,
+      "saved_expected_per_run_s": 7.8,
+      "saved_expected_per_sweep_s": 78.0,
+      "reduced_optimistic_T_trace_to_sim_s": 12.9,
+      "saved_optimistic_per_run_s": 12.9,
+      "saved_optimistic_per_sweep_s": 129.0
     },
     {
       "workload_id": "bert-base-pretraining-full-step",

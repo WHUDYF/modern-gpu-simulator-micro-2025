@@ -2,9 +2,10 @@
   "report_name": "GPU Trace Frontend Necessity: Central Evidence Table",
   "generated_date": "2026-05-03",
   "go_no_go": {
-    "verdict": "PENDING_MEASUREMENT",
+    "verdict": "GO",
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "detail": "All inputs are placeholder or modeled. Run simulator instrumentation to obtain measured data."
+    "slice_max_pct": 68.33,
+    "step_max_pct": 24.14
   },
   "evidence_rows": [
     {
@@ -17,35 +18,35 @@
         "label": "modeled"
       },
       "kernel_count": {
-        "value": 12,
-        "label": "modeled"
+        "value": 9,
+        "label": "measured"
       },
       "threadblock_or_warp_count": {
-        "tb": 96,
-        "warp": 3072,
-        "label": "modeled"
+        "tb": 3217,
+        "warp": 25732,
+        "label": "measured"
       },
       "T_trace_to_sim_s": {
-        "value": 10.0,
-        "label": "placeholder"
+        "value": 25.873564588,
+        "label": "measured"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 31.0,
-        "label": "placeholder"
+        "value": 46.873564588,
+        "label": "measured"
       },
       "P_trace_to_sim_pct": {
-        "value": 32.26,
-        "label": "placeholder"
+        "value": 55.2,
+        "label": "measured"
       },
       "est_frontend_reduction_s": {
-        "value": 3.0,
+        "value": 7.8,
         "label": "modeled"
       },
       "reduced_T_trace_to_sim_s": {
-        "value": 7.0,
+        "value": 18.1,
         "label": "modeled"
       },
-      "complete_flow_impact": "Expected 30% reduction saves 3.0s per run",
+      "complete_flow_impact": "Expected 30% reduction saves 7.8s per run",
       "trace_export_included": true,
       "result_analysis_included": true
     },

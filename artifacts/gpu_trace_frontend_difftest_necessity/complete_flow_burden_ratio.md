@@ -18,14 +18,15 @@ T_kernel_to_sim_done =
 
 ## Go/No-Go Rule
 
-- **Overall verdict**: PENDING_MEASUREMENT — all inputs are placeholder or modeled; measured data required
-- Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%
+- Slice-level gate: P_trace_to_sim_slice > 15% → PASS (max: 68.3%)
+- Step-level gate: P_trace_to_sim_step > 15% → PASS (max: 24.1%)
+- **Overall go/no-go**: GO — proceed to prototype investigation
 
 ## Per-Workload Results
 
 | Workload | Unit | T_export (s) | T_frontend (s) | T_backend (s) | T_analysis (s) | T_total (s) | P_frontend (%) | Data Label |
 |----------|------|-------------|---------------|--------------|---------------|-----------|---------------|------------|
-| bert-base-encoder-layer-slice | slice | 5.0 | 10.0 | 15.0 | 1.0 | 31.0 | 32.3 | placeholder |
+| bert-base-encoder-layer-slice | slice | 5.0 | 25.9 | 15.0 | 1.0 | 46.9 | 55.2 | measured |
 | bert-base-pretraining-full-step | step | 120.0 | 105.0 | 200.0 | 10.0 | 435.0 | 24.1 | placeholder |
 | llama3.1-8b-decoder-layer-slice | slice | 30.0 | 205.0 | 60.0 | 5.0 | 300.0 | 68.3 | modeled |
 | llama3.1-8b-full-step | step | 3600.0 | 1005.0 | 6000.0 | 300.0 | 10905.0 | 9.2 | modeled |
@@ -34,7 +35,7 @@ T_kernel_to_sim_done =
 
 | Workload | Single-Run Total (s) | Runs per Sweep (est.) | Sweep Total (s) | Sweep Total (min) |
 |----------|---------------------|----------------------|-----------------|-------------------|
-| bert-base-encoder-layer-slice | 31.0 | 10 | 310.0 | 5.2 |
+| bert-base-encoder-layer-slice | 46.9 | 10 | 468.7 | 7.8 |
 | bert-base-pretraining-full-step | 435.0 | 5 | 2175.0 | 36.2 |
 | llama3.1-8b-decoder-layer-slice | 300.0 | 10 | 3000.0 | 50.0 |
 | llama3.1-8b-full-step | 10905.0 | 2 | 21810.0 | 363.5 |

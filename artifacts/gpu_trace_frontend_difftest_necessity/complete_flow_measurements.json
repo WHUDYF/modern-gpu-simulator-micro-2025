@@ -1,0 +1,27 @@
+{
+  "report_name": "Complete-Flow Measurement Records",
+  "generated_at": "2026-05-04T20:45:00+08:00",
+  "records": [
+    {
+      "workload_id": "bert-base-encoder-layer-slice",
+      "data_label": "measured",
+      "claim_bearing": true,
+      "measurement_unit": "slice",
+      "T_kernel_or_trace_export_s": 180.0,
+      "T_trace_to_sim_s": 25.87,
+      "T_sim_backend_execution_s": 19.05,
+      "T_result_analysis_s": 0.25,
+      "provenance": {
+        "T_kernel_or_trace_export": "Wall-clock time for NVBit BERT trace export on RTX 5090 (timed via date +%s.%N)",
+        "T_trace_to_sim": "Sum of 6 non-overlapping frontend buckets from instrumented simulator",
+        "T_sim_backend_execution": "total_sim_wall_s(44.92) - T_trace_to_sim(25.87), both from measured simulator output",
+        "T_result_analysis": "Wall-clock time for 4 calculator scripts (timed via date +%s.%N)"
+      },
+      "source_artifacts": [
+        "frontend_timing_breakdown_bert-base-encoder-layer-slice.json",
+        "redundancy_profile_bert-base-encoder-layer-slice.json",
+        "small_trace_replay_report.json"
+      ]
+    }
+  ]
+}

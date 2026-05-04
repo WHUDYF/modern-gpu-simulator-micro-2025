@@ -4,8 +4,8 @@
   "go_no_go": {
     "verdict": "GO",
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "slice_max_pct": 68.33,
-    "step_max_pct": 24.14
+    "slice_max_pct": 35.96,
+    "step_max_pct": 24.42
   },
   "evidence_rows": [
     {

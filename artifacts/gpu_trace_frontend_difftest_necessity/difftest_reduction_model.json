@@ -22,7 +22,7 @@
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "measurement_unit": "slice",
-      "original_T_trace_to_sim_s": 25.873564588,
+      "original_T_trace_to_sim_s": 25.87,
       "reduced_conservative_T_trace_to_sim_s": 22.0,
       "saved_conservative_per_run_s": 3.9,
       "saved_conservative_per_sweep_s": 39.0,

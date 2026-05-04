@@ -15,31 +15,20 @@ ARTIFACT_DIR = "artifacts/gpu_trace_frontend_difftest_necessity"
 
 # Fallback modeled values used when no measured artifact exists.
 MODELED_FALLBACKS = {
-    "bert-base-encoder-layer-slice": {
-        "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": 180.0,
-        "T_sim_backend_execution_s": 19.05,
-        "T_result_analysis_s": 0.25,
-    },
-    "bert-base-pretraining-full-step": {
-        "measurement_unit": "step",
-        "T_kernel_or_trace_export_s": 120.0,
-        "T_sim_backend_execution_s": 200.0,
-        "T_result_analysis_s": 10.0,
-    },
-    "llama3.1-8b-decoder-layer-slice": {
-        "measurement_unit": "slice",
-        "T_kernel_or_trace_export_s": 30.0,
-        "T_sim_backend_execution_s": 60.0,
-        "T_result_analysis_s": 5.0,
-    },
-    "llama3.1-8b-full-step": {
-        "measurement_unit": "step",
-        "T_kernel_or_trace_export_s": 3600.0,
-        "T_sim_backend_execution_s": 6000.0,
-        "T_result_analysis_s": 300.0,
-    },
+    "bert-base-encoder-layer-slice": {"measurement_unit": "slice"},
+    "bert-base-pretraining-full-step": {"measurement_unit": "step"},
+    "llama3.1-8b-decoder-layer-slice": {"measurement_unit": "slice"},
+    "llama3.1-8b-full-step": {"measurement_unit": "step"},
 }
+
+def load_measurement_records():
+    """Load measured complete-flow records from single source of truth."""
+    path = os.path.join(ARTIFACT_DIR, "complete_flow_measurements.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path) as f:
+        data = json.load(f)
+    return {r["workload_id"]: r for r in data.get("records", [])}
 
 def _load_measured_timing_for(wid):
     """Load measured frontend timing for a specific workload.
@@ -63,25 +52,34 @@ def _load_measured_timing_for(wid):
     return None
 
 def build_workloads():
-    """Build workload list with per-workload measured or modeled values."""
+    """Build workload list from measurement records or modeled fallbacks."""
+    measurements = load_measurement_records()
     workloads = []
     for wid, fb in MODELED_FALLBACKS.items():
         w = {"workload_id": wid, "measurement_unit": fb["measurement_unit"]}
-        t_measured = _load_measured_timing_for(wid)
-        if t_measured is not None:
-            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": "measured"}
-            w["T_trace_to_sim_s"] = {"value": t_measured, "label": "measured"}
-            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": "measured"}
-            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": "measured"}
+        rec = measurements.get(wid)
+        if rec:
+            w["T_kernel_or_trace_export_s"] = {"value": rec["T_kernel_or_trace_export_s"], "label": "measured"}
+            w["T_trace_to_sim_s"] = {"value": rec["T_trace_to_sim_s"], "label": "measured"}
+            w["T_sim_backend_execution_s"] = {"value": rec["T_sim_backend_execution_s"], "label": "measured"}
+            w["T_result_analysis_s"] = {"value": rec["T_result_analysis_s"], "label": "measured"}
         else:
             t_f = _formula_estimate(wid)
             label = "modeled" if "llama" in wid else "placeholder"
-            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": label}
+            w["T_kernel_or_trace_export_s"] = {"value": _formula_export(wid), "label": label}
             w["T_trace_to_sim_s"] = {"value": t_f, "label": label}
-            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": label}
-            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": label}
+            w["T_sim_backend_execution_s"] = {"value": _formula_backend(wid), "label": label}
+            w["T_result_analysis_s"] = {"value": 5.0, "label": label}
         workloads.append(w)
     return workloads
+
+def _formula_export(wid):
+    return {"bert-base-encoder-layer-slice": 180.0, "bert-base-pretraining-full-step": 120.0,
+            "llama3.1-8b-decoder-layer-slice": 300.0, "llama3.1-8b-full-step": 3600.0}.get(wid, 60.0)
+
+def _formula_backend(wid):
+    return {"bert-base-encoder-layer-slice": 20.0, "bert-base-pretraining-full-step": 200.0,
+            "llama3.1-8b-decoder-layer-slice": 60.0, "llama3.1-8b-full-step": 6000.0}.get(wid, 100.0)
 
 def _formula_estimate(wid):
     """Estimate T_trace_to_sim from formula if no other data."""

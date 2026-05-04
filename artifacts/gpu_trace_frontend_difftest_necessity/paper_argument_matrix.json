@@ -4,8 +4,8 @@
   "go_no_go": {
     "verdict": "GO",
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "slice_max_pct": 68.33,
-    "step_max_pct": 24.14
+    "slice_max_pct": 35.96,
+    "step_max_pct": 24.42
   },
   "evidence_rows": [
     {
@@ -27,11 +27,11 @@
         "label": "measured"
       },
       "T_trace_to_sim_s": {
-        "value": 25.873564588,
+        "value": 25.87,
         "label": "measured"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 225.173564588,
+        "value": 225.17000000000002,
         "label": "measured"
       },
       "P_trace_to_sim_pct": {
@@ -73,11 +73,11 @@
         "label": "placeholder"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 435.0,
+        "value": 430.0,
         "label": "placeholder"
       },
       "P_trace_to_sim_pct": {
-        "value": 24.14,
+        "value": 24.42,
         "label": "placeholder"
       },
       "est_frontend_reduction_s": {
@@ -115,11 +115,11 @@
         "label": "modeled"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 300.0,
+        "value": 570.0,
         "label": "modeled"
       },
       "P_trace_to_sim_pct": {
-        "value": 68.33,
+        "value": 35.96,
         "label": "modeled"
       },
       "est_frontend_reduction_s": {
@@ -157,11 +157,11 @@
         "label": "modeled"
       },
       "T_kernel_to_sim_done_s": {
-        "value": 10905.0,
+        "value": 10610.0,
         "label": "modeled"
       },
       "P_trace_to_sim_pct": {
-        "value": 9.22,
+        "value": 9.47,
         "label": "modeled"
       },
       "est_frontend_reduction_s": {

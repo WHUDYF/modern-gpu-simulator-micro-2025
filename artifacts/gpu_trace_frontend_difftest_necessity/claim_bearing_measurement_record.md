@@ -11,7 +11,7 @@
 |-----------|---------|-------|
 | T_kernel_or_trace_export | 180.0 | measured |
 | T_trace_to_sim | 25.87 | measured |
-| T_sim_backend_execution | 19.05 | derived |
+| T_sim_backend_execution | 19.05 | measured |
 | T_result_analysis | 0.25 | measured |
 | **T_kernel_to_sim_done** | **225.17** | — |
 
@@ -35,4 +35,4 @@ The complete-flow metric is below 15% because trace generation (180s) dominates.
 
 ### Interpretation
 
-The go/no-go is INCONCLUSIVE: the simulator frontend dominates (57.6%) and justifies optimization, but the end-to-end flow is dominated by trace generation (180s). Frontend restructuring would improve simulator iteration speed but would not materially reduce the end-to-end burden unless trace generation is also optimized.
+**Verdict: NO-GO**. P_trace_to_sim = 11.5% < 15%. Trace generation (180s) dominates the complete flow. While the simulator frontend share is 57.6%, the complete-flow burden ratio does not meet the threshold. Frontend restructuring would accelerate simulator iteration but would not materially improve the end-to-end burden.

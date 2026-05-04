@@ -19,12 +19,12 @@
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "measurement_unit": "slice",
-      "T_trace_to_sim_s": 25.873564588,
-      "T_kernel_to_sim_done_s": 225.173564588,
+      "T_trace_to_sim_s": 25.87,
+      "T_kernel_to_sim_done_s": 225.17000000000002,
       "P_trace_to_sim_pct": 11.49,
       "components": {
         "T_kernel_or_trace_export_s": 180.0,
-        "T_trace_to_sim_s": 25.873564588,
+        "T_trace_to_sim_s": 25.87,
         "T_sim_backend_execution_s": 19.05,
         "T_result_analysis_s": 0.25
       },
@@ -39,13 +39,13 @@
       "workload_id": "bert-base-pretraining-full-step",
       "measurement_unit": "step",
       "T_trace_to_sim_s": 105.0,
-      "T_kernel_to_sim_done_s": 435.0,
-      "P_trace_to_sim_pct": 24.14,
+      "T_kernel_to_sim_done_s": 430.0,
+      "P_trace_to_sim_pct": 24.42,
       "components": {
         "T_kernel_or_trace_export_s": 120.0,
         "T_trace_to_sim_s": 105.0,
         "T_sim_backend_execution_s": 200.0,
-        "T_result_analysis_s": 10.0
+        "T_result_analysis_s": 5.0
       },
       "data_labels": {
         "T_kernel_or_trace_export": "placeholder",
@@ -58,10 +58,10 @@
       "workload_id": "llama3.1-8b-decoder-layer-slice",
       "measurement_unit": "slice",
       "T_trace_to_sim_s": 205.0,
-      "T_kernel_to_sim_done_s": 300.0,
-      "P_trace_to_sim_pct": 68.33,
+      "T_kernel_to_sim_done_s": 570.0,
+      "P_trace_to_sim_pct": 35.96,
       "components": {
-        "T_kernel_or_trace_export_s": 30.0,
+        "T_kernel_or_trace_export_s": 300.0,
         "T_trace_to_sim_s": 205.0,
         "T_sim_backend_execution_s": 60.0,
         "T_result_analysis_s": 5.0
@@ -77,13 +77,13 @@
       "workload_id": "llama3.1-8b-full-step",
       "measurement_unit": "step",
       "T_trace_to_sim_s": 1005.0,
-      "T_kernel_to_sim_done_s": 10905.0,
-      "P_trace_to_sim_pct": 9.22,
+      "T_kernel_to_sim_done_s": 10610.0,
+      "P_trace_to_sim_pct": 9.47,
       "components": {
         "T_kernel_or_trace_export_s": 3600.0,
         "T_trace_to_sim_s": 1005.0,
         "T_sim_backend_execution_s": 6000.0,
-        "T_result_analysis_s": 300.0
+        "T_result_analysis_s": 5.0
       },
       "data_labels": {
         "T_kernel_or_trace_export": "modeled",

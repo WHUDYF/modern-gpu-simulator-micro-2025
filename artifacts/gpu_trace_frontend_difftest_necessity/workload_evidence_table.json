@@ -2,43 +2,140 @@
   "report_name": "GPU Trace Frontend Necessity Workload Evidence Table",
   "generated_at": "2026-05-04",
   "go_no_go": {
-    "verdict": "GO",
+    "verdict": "NO-GO",
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "slice_max_pct": 35.96,
-    "step_max_pct": 24.42
+    "slice_max_pct": 11.49,
+    "step_max_pct": 0,
+    "eligible_measured_rows": 1,
+    "measured_workload_ids": [
+      "bert-base-encoder-layer-slice"
+    ],
+    "detail": "Fully measured claim-bearing rows exist, but none exceed the 15% threshold."
   },
   "evidence_rows": [
     {
-      "workload_id": "BERT-base",
+      "workload_id": "bert-base-encoder-layer-slice",
+      "workload": "BERT-base",
+      "slice_type": "encoder layer slice",
       "data_label": "measured",
       "claim_bearing": true,
       "measurement_unit": "slice",
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "T_trace_to_sim from measured simulator run"
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record",
+      "T_trace_to_sim_s": {
+        "value": 25.87,
+        "label": "measured"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 225.17000000000002,
+        "label": "measured"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 11.49,
+        "label": "measured"
+      },
+      "kernel_count": {
+        "value": 9,
+        "label": "measured"
+      },
+      "threadblock_or_warp_count": {
+        "tb": 3217,
+        "warp": 25732,
+        "label": "measured"
+      }
     },
     {
-      "workload_id": "BERT-base",
+      "workload_id": "bert-base-pretraining-full-step",
+      "workload": "BERT-base",
+      "slice_type": "pretraining full step",
       "data_label": "placeholder",
       "claim_bearing": true,
       "measurement_unit": "step",
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "T_trace_to_sim from modeled simulator run"
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go",
+      "T_trace_to_sim_s": {
+        "value": 105.0,
+        "label": "placeholder"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 430.0,
+        "label": "placeholder"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 24.42,
+        "label": "placeholder"
+      },
+      "kernel_count": {
+        "value": 180,
+        "label": "modeled"
+      },
+      "threadblock_or_warp_count": {
+        "tb": 1500,
+        "warp": 48000,
+        "label": "modeled"
+      }
     },
     {
-      "workload_id": "Llama 3.1 8B",
+      "workload_id": "llama3.1-8b-decoder-layer-slice",
+      "workload": "Llama 3.1 8B",
+      "slice_type": "decoder layer slice",
       "data_label": "modeled",
       "claim_bearing": true,
       "measurement_unit": "slice",
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "T_trace_to_sim from modeled simulator run"
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go",
+      "T_trace_to_sim_s": {
+        "value": 205.0,
+        "label": "modeled"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 570.0,
+        "label": "modeled"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 35.96,
+        "label": "modeled"
+      },
+      "kernel_count": {
+        "value": 24,
+        "label": "modeled"
+      },
+      "threadblock_or_warp_count": {
+        "tb": 3200,
+        "warp": 102400,
+        "label": "modeled"
+      }
     },
     {
-      "workload_id": "Llama 3.1 8B",
+      "workload_id": "llama3.1-8b-full-step",
+      "workload": "Llama 3.1 8B",
+      "slice_type": "pretraining full step",
       "data_label": "modeled",
       "claim_bearing": true,
       "measurement_unit": "step",
       "source_artifact": "complete_flow_burden_ratio.json",
-      "provenance": "T_trace_to_sim from modeled simulator run"
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go",
+      "T_trace_to_sim_s": {
+        "value": 1005.0,
+        "label": "modeled"
+      },
+      "T_kernel_to_sim_done_s": {
+        "value": 10610.0,
+        "label": "modeled"
+      },
+      "P_trace_to_sim_pct": {
+        "value": 9.47,
+        "label": "modeled"
+      },
+      "kernel_count": {
+        "value": 360,
+        "label": "modeled"
+      },
+      "threadblock_or_warp_count": {
+        "tb": 48000,
+        "warp": 1536000,
+        "label": "modeled"
+      }
     }
   ],
   "control_workloads": [

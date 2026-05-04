@@ -4,39 +4,34 @@
   "data_label": "measured",
   "claim_bearing": true,
   "measurement_unit": "slice",
-  "source_artifact": "frontend_timing_breakdown_bert-base-encoder-layer-slice.json, complete_flow_burden_ratio.json",
-  "provenance": "BERT encoder layer training slice, measured via instrumented simulator run on 2026-05-04",
-  "generated_at": "2026-05-04T20:16:00+08:00",
-  "verdict": "NO-GO: frontend prototype not justified by complete-flow evidence. P_trace_to_sim=11.5% < 15%.",
-  "simulator_frontend_note": "Simulator-only frontend_share=57.6% — frontend dominates inside simulator. Trace generation (180s) is the dominant end-to-end cost. Frontend restructuring would improve simulator iteration time but the complete-flow burden ratio does not meet the 15% go/no-go threshold.",
+  "source_artifact": "complete_flow_burden_ratio.json",
+  "provenance": "Verdict generated only from fully measured claim-bearing rows in complete_flow_burden_ratio.json.",
+  "generated_at": "2026-05-04T22:48:17.613396+08:00",
+  "verdict": "NO-GO: frontend prototype not justified by current measured evidence",
   "basis": {
-    "P_trace_to_sim_slice_complete_flow": 11.5,
-    "frontend_share_simulator_only": 57.6,
-    "threshold_pct": 15,
-    "threshold_rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "satisfied_by": "P_trace_to_sim_slice = 11.5% does NOT exceed 15% in complete flow metric. However, simulator-only frontend_share = 57.6% — the frontend dominates inside the simulator.",
-    "note": "The plan defines T_kernel_to_sim_done including T_kernel_or_trace_export. With 180s trace export, the denominator grows from 46.9s to 225.2s, reducing P_trace_to_sim from 55.2% to 11.5%."
+    "threshold_pct": 15.0,
+    "threshold_rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only \u2014 all 4 components)",
+    "eligible_measured_rows": 1,
+    "measured_workload_ids": [
+      "bert-base-encoder-layer-slice"
+    ],
+    "max_measured_P_trace_to_sim_pct": 11.49,
+    "satisfied_by": "bert-base-encoder-layer-slice P_trace_to_sim=11.49%"
   },
   "measured_values": {
     "T_trace_to_sim_s": 25.87,
-    "T_kernel_or_trace_export_s": 180.0,
-    "T_sim_backend_execution_s": 19.05,
-    "T_result_analysis_s": 0.25,
-    "T_kernel_to_sim_done_s": 225.17,
-    "frontend_share": 0.576,
-    "breakdown": {
-      "trace_read_s": 0.00015,
-      "parse_pb_s": 5.79,
-      "static_bind_s": 6.71,
-      "tb_load_s": 0.00027,
-      "warp_trace_build_s": 7.74,
-      "get_next_inst_s": 5.63
+    "T_kernel_to_sim_done_s": 225.17000000000002,
+    "P_trace_to_sim_pct": 11.49,
+    "components": {
+      "T_kernel_or_trace_export_s": 180.0,
+      "T_trace_to_sim_s": 25.87,
+      "T_sim_backend_execution_s": 19.05,
+      "T_result_analysis_s": 0.25
     }
   },
   "caveats": [
-    "Simulator run was bounded at 50000 cycles (9 of 77 kernels simulated)",
-    "BERT pretraining full step and Llama workloads remain modeled/placeholder",
-    "This is an early-stage engineering gate, not a final paper claim threshold"
+    "Modeled, placeholder, and control rows are excluded from the go/no-go calculation.",
+    "The 15% threshold is an early-stage engineering gate, not a final paper claim threshold."
   ],
-  "status": "Gate D — NO-GO: P_trace_to_sim=11.5%<15% based on fully measured claim-bearing complete-flow record. All 4 components (export, frontend, backend, analysis) measured."
+  "status": "Gate D \u2014 NO-GO: fully measured claim-bearing rows do not exceed the threshold."
 }

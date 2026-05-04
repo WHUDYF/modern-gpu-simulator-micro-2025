@@ -1,22 +1,24 @@
 # GPU Trace Frontend Necessity: Central Evidence Table
 
-Generated: 2026-05-03
+Generated: 2026-05-04
 
 ## Go/No-Go
 
-**Verdict**: GO
+**Verdict**: NO-GO
 - Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%
-- Slice max P_trace_to_sim: 36.0%
-- Step max P_trace_to_sim: 24.4%
+- Eligible measured claim-bearing rows: 1
+- Slice max P_trace_to_sim: 11.5%
+- Step max P_trace_to_sim: 0.0%
+- Detail: Fully measured claim-bearing rows exist, but none exceed the 15% threshold.
 
 ## Evidence Rows
 
-| Workload | Unit | Trace Size (GiB) | Kernels | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Reduced T_frontend (s) | Impact |
-|----------|------|-----------------|---------|----------|------------|---------------|------------|---------------|----------------------|--------|
-| BERT-base (encoder layer slice) | slice | 0.5 (modeled) | 9 (measured) | 3217 (measured) | 25732 (measured) | 25.87 (measured) | 225.17000000000002 (measured) | 11.49 (measured) | 18.1 (modeled) | Expected 30% reduction saves 7.8s per run |
-| BERT-base (pretraining full step) | step | 10.0 (modeled) | 180 (modeled) | 1500 (modeled) | 48000 (modeled) | 105.0 (placeholder) | 430.0 (placeholder) | 24.42 (placeholder) | 73.5 (modeled) | Expected 30% reduction saves 31.5s per run |
-| Llama 3.1 8B (decoder layer slice) | slice | 20.0 (modeled) | 24 (modeled) | 3200 (modeled) | 102400 (modeled) | 205.0 (modeled) | 570.0 (modeled) | 35.96 (modeled) | 143.5 (modeled) | Expected 30% reduction saves 61.5s per run |
-| Llama 3.1 8B (pretraining full step) | step | 100.0 (modeled) | 360 (modeled) | 48000 (modeled) | 1536000 (modeled) | 1005.0 (modeled) | 10610.0 (modeled) | 9.47 (modeled) | 703.5 (modeled) | Expected 30% reduction saves 301.5s per run |
+| Workload ID | Workload | Unit | Data Label | Trace Size (GiB) | Kernels | TB Count | Warp Count | T_frontend (s) | T_total (s) | P_frontend (%) | Reduced T_frontend (s) | Impact |
+|-------------|----------|------|------------|-----------------|---------|----------|------------|---------------|------------|---------------|----------------------|--------|
+| bert-base-encoder-layer-slice | BERT-base (encoder layer slice) | slice | measured | 4.36 (measured) | 9 (measured) | 3217 (measured) | 25732 (measured) | 25.87 (measured) | 225.17 (measured) | 11.49 (measured) | 18.10 (modeled) | Expected 30% reduction saves 7.8s per run |
+| bert-base-pretraining-full-step | BERT-base (pretraining full step) | step | placeholder | 10.00 (modeled) | 180 (modeled) | 1500 (modeled) | 48000 (modeled) | 105.00 (placeholder) | 430.00 (placeholder) | 24.42 (placeholder) | 73.50 (modeled) | Expected 30% reduction saves 31.5s per run |
+| llama3.1-8b-decoder-layer-slice | Llama 3.1 8B (decoder layer slice) | slice | modeled | 20.00 (modeled) | 24 (modeled) | 3200 (modeled) | 102400 (modeled) | 205.00 (modeled) | 570.00 (modeled) | 35.96 (modeled) | 143.50 (modeled) | Expected 30% reduction saves 61.5s per run |
+| llama3.1-8b-full-step | Llama 3.1 8B (pretraining full step) | step | modeled | 100.00 (modeled) | 360 (modeled) | 48000 (modeled) | 1536000 (modeled) | 1005.00 (modeled) | 10610.00 (modeled) | 9.47 (modeled) | 703.50 (modeled) | Expected 30% reduction saves 301.5s per run |
 
 ## Control Workloads (Measured, from Existing Bottleneck Map)
 
@@ -41,4 +43,5 @@ All evidence rows are merged from:
 - `difftest_reduction_model.json` — reduction estimates
 - `trace_to_sim_formula.json` — formula-based estimates for scale anchors
 
-Labels reflect whether data is `measured` (from simulator instrumentation), `modeled` (from planning formula), or `pending` (not yet available).
+Only rows with `data_label = measured` and `claim_bearing = true` are eligible for the go/no-go rule.
+Rows labeled `modeled`, `placeholder`, or `pending` are planning context only.

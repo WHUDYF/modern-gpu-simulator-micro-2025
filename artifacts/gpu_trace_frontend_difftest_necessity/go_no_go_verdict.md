@@ -1,34 +1,29 @@
 # GPU Trace Frontend Necessity Go/No-Go Verdict
 
-**Date**: 2026-05-04
-**Gate**: Gate D
-**Source**: complete_flow_measurements.json → complete_flow_burden_ratio.json
+**Generated**: 2026-05-04T22:48:17.613396+08:00
+**Status**: Gate D — NO-GO: fully measured claim-bearing rows do not exceed the threshold.
 
-## Verdict: NO-GO
-
-P_trace_to_sim = 11.5% < 15%. Frontend prototype is not justified by complete-flow measured evidence.
+## Verdict: NO-GO: frontend prototype not justified by current measured evidence
 
 ## Basis
 
-| Metric | Value | Source |
-|--------|-------|--------|
-| P_trace_to_sim (complete flow) | 11.5% | Fully measured BERT encoder layer slice |
-| Fully measured rows | 1 of 4 claim-bearing workloads | — |
-| Simulator frontend share | 57.6% | Inside simulator only |
+- Rule: P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only — all 4 components)
+- Threshold: 15.0%
+- Eligible measured claim-bearing rows: 1
+- Max measured P_trace_to_sim: 11.49%
+- Workload: bert-base-encoder-layer-slice
 
-## Complete-Flow Breakdown (BERT slice, measured)
+## Complete-Flow Values
 
 | Component | Time (s) |
-|-----------|---------|
-| Trace export (NVBit) | 180.0 |
-| Frontend (6 buckets) | 25.87 |
-| Backend (sim cycles) | 19.05 |
+|-----------|---------:|
+| Trace export | 180.00 |
+| Trace-to-simulator frontend | 25.87 |
+| Simulator backend | 19.05 |
 | Result analysis | 0.25 |
-| **Total** | **225.17** |
+| Total | 225.17 |
 
-## Measured Artifacts
+## Caveats
 
-- complete_flow_measurements.json
-- frontend_timing_breakdown_bert-base-encoder-layer-slice.json
-- redundancy_profile_bert-base-encoder-layer-slice.json
-- complete_flow_burden_ratio.json (BERT row: all 4 components measured)
+- Modeled, placeholder, and control rows are excluded from the go/no-go calculation.
+- The 15% threshold is an early-stage engineering gate, not a final paper claim threshold.

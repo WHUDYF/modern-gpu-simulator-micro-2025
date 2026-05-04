@@ -3,10 +3,10 @@
   "formula": "P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done",
   "denominator_definition": "T_kernel_to_sim_done = T_kernel_or_trace_export + T_trace_to_sim + T_sim_backend_execution + T_result_analysis",
   "generated_date": "2026-05-04",
-  "data_status": "BERT-base encoder layer slice: T_trace_to_sim measured; export/backend/analysis still modeled. Other workloads: modeled/placeholder.",
+  "data_status": "1 fully measured claim-bearing row(s) available. Modeled/placeholder rows are retained for planning context only and do not drive the verdict.",
   "go_no_go": {
     "go": false,
-    "verdict": "NOT YET \u2014 gather measured data first",
+    "verdict": "NO-GO \u2014 frontend prototype not justified by current measured evidence",
     "slice_go": false,
     "step_go": false,
     "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only \u2014 all 4 components)",
@@ -18,6 +18,8 @@
   "results": [
     {
       "workload_id": "bert-base-encoder-layer-slice",
+      "data_label": "measured",
+      "claim_bearing": true,
       "measurement_unit": "slice",
       "T_trace_to_sim_s": 25.87,
       "T_kernel_to_sim_done_s": 225.17000000000002,
@@ -33,10 +35,14 @@
         "T_trace_to_sim": "measured",
         "T_sim_backend_execution": "measured",
         "T_result_analysis": "measured"
-      }
+      },
+      "source_artifact": "complete_flow_measurements.json",
+      "provenance": "All complete-flow components loaded from measured claim-bearing source record"
     },
     {
       "workload_id": "bert-base-pretraining-full-step",
+      "data_label": "placeholder",
+      "claim_bearing": true,
       "measurement_unit": "step",
       "T_trace_to_sim_s": 105.0,
       "T_kernel_to_sim_done_s": 430.0,
@@ -52,10 +58,14 @@
         "T_trace_to_sim": "placeholder",
         "T_sim_backend_execution": "placeholder",
         "T_result_analysis": "placeholder"
-      }
+      },
+      "source_artifact": "trace_to_sim_formula.json / modeled fallback",
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go"
     },
     {
       "workload_id": "llama3.1-8b-decoder-layer-slice",
+      "data_label": "modeled",
+      "claim_bearing": true,
       "measurement_unit": "slice",
       "T_trace_to_sim_s": 205.0,
       "T_kernel_to_sim_done_s": 570.0,
@@ -71,10 +81,14 @@
         "T_trace_to_sim": "modeled",
         "T_sim_backend_execution": "modeled",
         "T_result_analysis": "modeled"
-      }
+      },
+      "source_artifact": "trace_to_sim_formula.json / modeled fallback",
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go"
     },
     {
       "workload_id": "llama3.1-8b-full-step",
+      "data_label": "modeled",
+      "claim_bearing": true,
       "measurement_unit": "step",
       "T_trace_to_sim_s": 1005.0,
       "T_kernel_to_sim_done_s": 10610.0,
@@ -90,7 +104,9 @@
         "T_trace_to_sim": "modeled",
         "T_sim_backend_execution": "modeled",
         "T_result_analysis": "modeled"
-      }
+      },
+      "source_artifact": "trace_to_sim_formula.json / modeled fallback",
+      "provenance": "Planning row retained for scale context only; not eligible for go/no-go"
     }
   ]
 }

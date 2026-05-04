@@ -4,9 +4,10 @@
   "attempt_date": "2026-05-04",
   "status": "not_run_due_to_incomplete_prerequisites",
   "prerequisites": {
-    "task10_complete": false,
-    "task13_complete": false,
-    "note": "AC-10 requires the optional tail attempt only after the required evidence line is complete (BERT-base full step, Llama 3.1 8B decoder layer slice, formula modeling, complete-flow burden ratio, evidence table). Task10 and task13 are still pending measured AI-training data."
+    "task_E1_complete": false,
+    "task_E2_complete": false,
+    "task_D2_complete": false,
+    "note": "The current tracked plan treats the Llama 3.1 8B full-step run as an optional tail attempt after task-E1 (BERT-base pretraining full step) and task-E2 (Llama decoder-layer slice) are executed or formally blocked. Round 1 recorded blocker evidence for task-E1 and task-E2 in extension_workload_attempts.json; the optional tail remains not run because the required extension workload prerequisites are not completed with measured trace/replay evidence."
   },
   "command_attempted": "not_run",
   "harness": "Would require: NVBit-instrumented Llama 3.1 8B pretraining step with batch_size=1 on A6000 or A100 GPU",
@@ -25,5 +26,5 @@
     "GPU with >= 48 GiB VRAM (A6000 or A100)",
     ">= 500 GiB storage for trace + artifacts"
   ],
-  "next_steps": "Complete task10 and task13 with measured AI-training data, then rerun this tail attempt with real Llama 3.1 8B full-step trace."
+  "next_steps": "Complete or unblock task-E1 and task-E2 with measured AI-training trace/replay data, then reconsider this optional tail attempt with a real Llama 3.1 8B full-step trace."
 }

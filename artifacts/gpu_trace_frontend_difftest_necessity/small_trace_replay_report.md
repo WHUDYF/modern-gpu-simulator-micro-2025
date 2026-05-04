@@ -25,6 +25,8 @@ BERT-base encoder layer training slice (BertLayer forward+backward).
 | T_trace_to_sim | 25.87s |
 | T_total | 44.92s |
 
+`Frontend share` is a simulator-local wall-time share for this bounded replay window. The official 15% go/no-go gate uses complete-flow `P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done`.
+
 ## Timing Breakdown
 
 | Component | Time (s) |

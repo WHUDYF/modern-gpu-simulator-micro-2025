@@ -192,12 +192,18 @@ def build_json(results, go_no_go):
     }
 
 def build_markdown(results, go_no_go):
+    fully_measured_count = sum(1 for r in results if r["data_label"] == "measured")
+    data_status = (
+        f"{fully_measured_count} fully measured claim-bearing row(s) available for go/no-go."
+        if fully_measured_count else
+        "Measured claim-bearing data is required for go/no-go."
+    )
     lines = [
         "# Complete-Flow Burden Ratio Report",
         "",
         f"Generated: {DATE}",
         "",
-        f"**Data Status**: {('Measured claim-bearing data is available for go/no-go.' if go_no_go['go'] is not None else 'Measured claim-bearing data is required for go/no-go.')}",
+        f"**Data Status**: {data_status}",
         "",
         "## Formula",
         "",

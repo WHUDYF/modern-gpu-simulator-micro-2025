@@ -8,10 +8,11 @@
 
 | Prerequisite | Status |
 |-------------|--------|
-| task10 (central evidence table with measured data) | Incomplete |
-| task13 (BERT batch-scaling records) | Incomplete |
+| task-E1 (BERT-base pretraining full step) | Blocked before trace export; see `extension_workload_attempts.json` |
+| task-E2 (Llama 3.1 8B decoder-layer slice) | Blocked before trace export; see `extension_workload_attempts.json` |
+| task-D2 (honest final status summary) | In progress |
 
-Per AC-10, the optional Llama 3.1 8B full-step validation is attempted only after the required evidence line is complete.
+Per the current tracked plan, the optional Llama 3.1 8B full-step validation is attempted only after task-E1 and task-E2 are executed or formally settled.
 
 ## Infrastructure Requirements
 
@@ -25,4 +26,4 @@ All required evidence artifacts remain intact under `artifacts/gpu_trace_fronten
 
 ## Next Steps
 
-Complete task10 and task13 with measured AI-training data, then rerun this tail attempt with a real Llama 3.1 8B full-step trace.
+Complete or unblock task-E1 and task-E2 with measured AI-training trace/replay data, then reconsider this optional tail attempt with a real Llama 3.1 8B full-step trace.

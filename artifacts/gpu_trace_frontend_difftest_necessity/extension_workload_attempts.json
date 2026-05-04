@@ -1,0 +1,45 @@
+{
+  "report_name": "Round 1 Extension Workload Attempt Evidence",
+  "generated_at": "2026-05-04T23:15:00+08:00",
+  "data_label": "measured_blocker",
+  "claim_bearing": true,
+  "measurement_unit": "workload_attempt",
+  "source_artifact": "local repository and environment inspection",
+  "provenance": "Round 1 inspected repository harness files, artifact inventory, GPU resource limits, and available helper commands before deciding whether task-E1/task-E2 could execute safely.",
+  "bounded_troubleshooting": [
+    {
+      "task_id": "task-E1",
+      "workload_id": "bert-base-pretraining-full-step",
+      "status": "blocked_before_trace_export",
+      "hypothesis": "A BERT-base full pretraining-step harness may exist locally and can be run from the smallest allowed batch under the 28 GiB per-GPU ceiling.",
+      "commands": [
+        "rg -n \"bert-base-pretraining-full-step|pretraining full\" -S .",
+        "find . -maxdepth 4 -type f \\( -name '*bert*' -o -name '*trace*' \\) | sort",
+        "nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader"
+      ],
+      "result": "No BERT full-step training harness exists in this repository. The only BERT harness found is docs/bert-inference.py, which runs a single BertLayer forward+backward slice. The available GPUs are RTX 5090 devices with 32607 MiB total memory, so the plan's <=28 GiB per-GPU execution ceiling is compatible with the existing slice but does not provide a missing full-step harness.",
+      "next_action": "Implement or provide a BERT full-step trace harness, then run batch size 1 under NVBit and replay it through the instrumented simulator."
+    },
+    {
+      "task_id": "task-E2",
+      "workload_id": "llama3.1-8b-decoder-layer-slice",
+      "status": "blocked_before_trace_export",
+      "hypothesis": "A Llama 3.1 8B decoder-layer slice harness may exist locally and can be run as extension evidence after the measured BERT slice path.",
+      "commands": [
+        "rg -n \"llama3.1-8b-decoder-layer-slice|decoder-layer|llama\" -S .",
+        "find . -maxdepth 4 -type f \\( -name '*llama*' -o -name '*trace*' \\) | sort",
+        "nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader"
+      ],
+      "result": "No Llama decoder-layer harness exists in this repository. Existing Llama references are modeled/planning rows only. The local GPUs have 32607 MiB total memory, below the 48 GiB infrastructure requirement recorded for Llama full-step work and too close to the 28 GiB per-GPU plan ceiling to synthesize an 8B slice trace without a validated harness.",
+      "next_action": "Provide or implement a bounded Llama decoder-layer harness with explicit memory controls, then run trace export and simulator replay as task-E2."
+    }
+  ],
+  "bitlesson_selector": {
+    "status": "unavailable",
+    "command_checked": "command -v bitlesson-selector || find /home/dyf -name bitlesson-selector -type f",
+    "selected_lessons": [
+      "BL-20260503-repo-structure"
+    ],
+    "note": "The selector binary was not found. Round 1 still applied the relevant repository-structure lesson by verifying both file discovery and artifact inventory before declaring harness absence."
+  }
+}

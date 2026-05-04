@@ -2,7 +2,7 @@
 
 Generated: 2026-05-04
 
-**Data Status**: Measured claim-bearing data is available for go/no-go.
+**Data Status**: 1 fully measured claim-bearing row(s) available for go/no-go.
 
 ## Formula
 

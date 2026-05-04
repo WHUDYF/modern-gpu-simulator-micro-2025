@@ -69,6 +69,12 @@ def build_verdict(burden):
         data_label = best["data_label"]
         claim_bearing = best["claim_bearing"]
         measurement_unit = best["measurement_unit"]
+        source_artifact = best.get("source_artifact", "complete_flow_measurements.json")
+        provenance = (
+            f"Verdict generated from selected measured row `{workload_id}`. "
+            f"Measured source artifact: {source_artifact}. "
+            f"Row provenance: {best.get('provenance', 'not recorded')}"
+        )
 
     return {
         "report_name": "GPU Trace Frontend Necessity Go/No-Go Verdict",
@@ -76,8 +82,8 @@ def build_verdict(burden):
         "data_label": data_label,
         "claim_bearing": claim_bearing,
         "measurement_unit": measurement_unit,
-        "source_artifact": "complete_flow_burden_ratio.json",
-        "provenance": "Verdict generated only from fully measured claim-bearing rows in complete_flow_burden_ratio.json.",
+        "source_artifact": source_artifact if rows else "complete_flow_measurements.json",
+        "provenance": provenance if rows else "No fully measured claim-bearing row found in complete_flow_burden_ratio.json.",
         "generated_at": generated_at,
         "verdict": verdict,
         "basis": basis,
@@ -106,6 +112,7 @@ def build_markdown(verdict):
         f"- Rule: {basis.get('threshold_rule', basis.get('rule'))}",
         f"- Threshold: {basis['threshold_pct']}%",
         f"- Eligible measured claim-bearing rows: {basis['eligible_measured_rows']}",
+        f"- Source artifact: {verdict['source_artifact']}",
     ]
     if values:
         lines += [

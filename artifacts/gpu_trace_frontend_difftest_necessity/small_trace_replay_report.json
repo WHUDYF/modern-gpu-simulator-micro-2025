@@ -47,5 +47,5 @@
     "tb_metadata_reuse_ratio": 643.4,
     "frontend_allocation_density": 7.17
   },
-  "notes": "frontend_share = 57.6% exceeds the 15% go/no-go threshold. parse_pb_s (5.79s) and warp_trace_build_s (7.74s) dominate."
+  "notes": "frontend_share = 57.6% is a simulator-local wall-time share for the bounded replay window, not the complete-flow 15% go/no-go metric. The official go/no-go metric is P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done. parse_pb_s (5.79s) and warp_trace_build_s (7.74s) dominate the simulator frontend portion."
 }

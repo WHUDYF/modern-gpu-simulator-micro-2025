@@ -6,7 +6,7 @@
   "measurement_unit": "slice",
   "source_artifact": "complete_flow_measurements.json",
   "provenance": "Verdict generated from selected measured row `bert-base-encoder-layer-slice`. Measured source artifact: complete_flow_measurements.json. Row provenance: All complete-flow components loaded from measured claim-bearing source record",
-  "generated_at": "2026-05-05T00:44:36.341320+08:00",
+  "generated_at": "2026-05-05T00:50:42.592540+08:00",
   "verdict": "NO-GO: frontend prototype not justified by current measured evidence",
   "basis": {
     "threshold_pct": 15.0,

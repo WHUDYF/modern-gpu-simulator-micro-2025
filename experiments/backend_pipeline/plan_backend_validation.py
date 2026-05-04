@@ -128,7 +128,10 @@ def build_run_manifest(priority_lane_table: list[dict], worksheet: dict) -> list
         selected_rows = [
             row for row in regime_rows
             if row["priority_source"] == source
-            and (row["family_id"] in top_families or row["validation_role"] == "constraint-object")
+            and (
+                row["family_id"] in top_families
+                or row["validation_role"] in {"review-object", "constraint-object"}
+            )
         ]
         rows = _order_rows(selected_rows, source)
         for row in rows:

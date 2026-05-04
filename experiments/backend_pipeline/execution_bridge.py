@@ -194,25 +194,30 @@ def _apply_config_edits(source_text: str, edits: list[dict[str, str]], target_na
 _PROTO_MODULES: tuple[Any, Any, Any, Any] | None = None
 
 
+def _load_vendored_trace_proto_modules() -> tuple[Any, Any, Any, Any]:
+    from experiments.baseline_diagnosis.proto_gen import (  # noqa: PLC0415
+        cuda_stream_pb2,
+        gpu_device_pb2,
+        threadblock_pb2,
+        trace_pb2,
+    )
+
+    return (trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2)
+
+
 def _load_trace_proto_modules() -> tuple[Any, Any, Any, Any]:
     global _PROTO_MODULES
     if _PROTO_MODULES is not None:
         return _PROTO_MODULES
     proto_root = Path(__file__).resolve().parents[2] / "simulator-remodeled" / "util" / "traces_enhanced" / "dynamic_trace"
     if not proto_root.exists():
-        from experiments.baseline_diagnosis.proto_gen import (  # noqa: PLC0415
-            cuda_stream_pb2,
-            gpu_device_pb2,
-            threadblock_pb2,
-            trace_pb2,
-        )
-
-        _PROTO_MODULES = (trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2)
+        _PROTO_MODULES = _load_vendored_trace_proto_modules()
         return _PROTO_MODULES
     tmpdir = Path(tempfile.mkdtemp(prefix="backend_trace_proto_"))
     protoc = shutil.which("protoc")
     if not protoc:
-        raise FileNotFoundError("protoc not found on PATH; required for smoke trace generation")
+        _PROTO_MODULES = _load_vendored_trace_proto_modules()
+        return _PROTO_MODULES
     subprocess.run(
         [protoc, "-I", str(proto_root), "--python_out", str(tmpdir), *map(str, proto_root.glob("*.proto"))],
         check=True,

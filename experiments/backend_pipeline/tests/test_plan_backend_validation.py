@@ -167,6 +167,7 @@ def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regim
     assert plan["budget_policy"]["review_object_max_scenarios"] == 2
     assert plan["strategies"]["importance-guided"]["selected_families"] == [
         "F1_dense_tiled_backbone",
+        "F2_reduction_normalize",
         "F4_elementwise_residual",
     ]
     assert plan["strategies"]["importance-guided"]["selected_regimes"] == [
@@ -175,5 +176,6 @@ def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regim
         "R2_attention_score_dense",
         "R3_output_projection_dense",
         "R5_ffn_contract_dense",
+        "R7_layernorm_reduction",
         "R9_residual_elementwise",
     ]

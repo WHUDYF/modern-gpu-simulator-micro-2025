@@ -7,11 +7,9 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
 
-OUT_PATH = Path(
-    "/home/dyf/modern-gpu-simulator-micro-2025/docs/slides/"
-    "2026-04-19-family-interface-advisor-report.pptx"
-)
-ASSET_DIR = Path("/home/dyf/modern-gpu-simulator-micro-2025/docs/slides/assets")
+SLIDES_DIR = Path(__file__).resolve().parent
+OUT_PATH = SLIDES_DIR / "2026-04-19-family-interface-advisor-report.pptx"
+ASSET_DIR = SLIDES_DIR / "assets"
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
@@ -569,6 +567,7 @@ def build_deck():
     add_summary_points(slide)
     add_footer(slide, "第 10 页 | 总结")
 
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     prs.save(OUT_PATH)
     print(f"saved to {OUT_PATH}")
 

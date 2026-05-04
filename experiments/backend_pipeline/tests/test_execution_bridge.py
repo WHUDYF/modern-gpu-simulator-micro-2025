@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
+import experiments.backend_pipeline.execution_bridge as execution_bridge  # noqa: E402
 from experiments.backend_pipeline.execution_bridge import (  # noqa: E402
     _load_trace_proto_modules,
     build_result_summary,
@@ -425,3 +426,24 @@ def test_builtin_profile_trimmed_trace_uses_selected_kernel_event(tmp_path):
     assert stream.kernels[0].id == 1
     tb_file = next((Path(run_specs[0]["trace_path"]).parent / "threadblocks" / "device_0" / "stream_0" / "kernel_1").glob("*.pb"))
     assert "_k_1_" in tb_file.name
+
+
+def test_trace_proto_loader_uses_vendored_modules_without_protoc(monkeypatch):
+    original_exists = Path.exists
+
+    def fake_exists(path: Path) -> bool:
+        if str(path).endswith("simulator-remodeled/util/traces_enhanced/dynamic_trace"):
+            return True
+        return original_exists(path)
+
+    execution_bridge._PROTO_MODULES = None
+    monkeypatch.setattr(execution_bridge.shutil, "which", lambda _: None)
+    monkeypatch.setattr(execution_bridge.Path, "exists", fake_exists)
+    trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2 = execution_bridge._load_trace_proto_modules()
+    try:
+        assert trace_pb2.__name__.endswith("trace_pb2")
+        assert gpu_device_pb2.__name__.endswith("gpu_device_pb2")
+        assert cuda_stream_pb2.__name__.endswith("cuda_stream_pb2")
+        assert threadblock_pb2.__name__.endswith("threadblock_pb2")
+    finally:
+        execution_bridge._PROTO_MODULES = None

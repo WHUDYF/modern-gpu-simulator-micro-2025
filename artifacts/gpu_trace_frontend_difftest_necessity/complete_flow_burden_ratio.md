@@ -1,6 +1,6 @@
 # Complete-Flow Burden Ratio Report
 
-Generated: 2026-05-03
+Generated: 2026-05-04
 
 **Data Status**: All inputs are placeholder or modeled. Measured data from simulator instrumentation required for valid go/no-go.
 
@@ -18,9 +18,10 @@ T_kernel_to_sim_done =
 
 ## Go/No-Go Rule
 
-- Slice-level gate: P_trace_to_sim_slice > 15% → PASS (max: 68.3%)
-- Step-level gate: P_trace_to_sim_step > 15% → PASS (max: 24.1%)
+- Slice-level gate (measured only): P_trace_to_sim_slice > 15% → PASS (max: 55.2%)
+- Step-level gate (measured only): P_trace_to_sim_step > 15% → NOT YET (max: N/A (no measured step rows))
 - **Overall go/no-go**: GO — proceed to prototype investigation
+- Note: Only measured claim-bearing rows drive the verdict. Modeled and placeholder rows are present for context but excluded from go/no-go computation.
 
 ## Per-Workload Results
 

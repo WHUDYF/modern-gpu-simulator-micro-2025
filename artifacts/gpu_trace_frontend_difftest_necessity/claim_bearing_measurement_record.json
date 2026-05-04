@@ -1,0 +1,32 @@
+{
+  "workload_id": "bert-base-encoder-layer-slice",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "frontend_timing_breakdown_bert-base-encoder-layer-slice.json, redundancy_profile_bert-base-encoder-layer-slice.json",
+  "provenance": "BERT encoder layer training slice traced under NVBit v1.7.6 on RTX 5090, replayed through instrumented simulator with SM120_RTX5090 config, 50000 cycle bound",
+  "generated_at": "2026-05-04T20:30:00+08:00",
+  "complete_flow": {
+    "T_kernel_or_trace_export_s": {"value": 120.0, "label": "estimated", "note": "NVBit trace generation time for 4.7 GB trace on RTX 5090"},
+    "T_trace_to_sim_s": {"value": 25.87, "label": "measured", "note": "Sum of 6 non-overlapping frontend buckets from simulator"},
+    "T_sim_backend_execution_s": {"value": 19.05, "label": "derived", "note": "total_sim_wall_s - T_trace_to_sim = 44.92 - 25.87"},
+    "T_result_analysis_s": {"value": 1.0, "label": "estimated", "note": "JSON artifact generation time after sim exit"}
+  },
+  "P_trace_to_sim": {
+    "value_pct": 55.2,
+    "label": "computed_from_measured_frontend"
+  },
+  "frontend_timing_breakdown": {
+    "trace_read_s": 0.00015,
+    "parse_pb_s": 5.79,
+    "static_bind_s": 6.71,
+    "tb_load_s": 0.00027,
+    "warp_trace_build_s": 7.74,
+    "get_next_inst_s": 5.63,
+    "total_frontend_s": 25.87,
+    "total_sim_wall_s": 44.92,
+    "frontend_share": 0.576
+  },
+  "status": "Gate C evidence — frontend timing measured; export/analysis estimated",
+  "note": "T_trace_to_sim is fully measured (6 non-overlapping buckets). T_kernel_or_trace_export and T_result_analysis are estimated pending instrumentation of NVBit export and post-sim analysis phases."
+}

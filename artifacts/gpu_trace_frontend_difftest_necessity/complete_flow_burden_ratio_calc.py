@@ -10,7 +10,7 @@ falls back to formula-derived or modeled values otherwise.
 import json
 import os
 
-DATE = "2026-05-03"
+DATE = "2026-05-04"
 ARTIFACT_DIR = "artifacts/gpu_trace_frontend_difftest_necessity"
 
 # Fallback modeled values used when no measured artifact exists.
@@ -132,18 +132,22 @@ def evaluate_go_no_go(results):
             "max_slice_pct": None,
             "max_step_pct": None,
         }
-    slice_results = [r for r in results if r["measurement_unit"] == "slice"]
-    step_results = [r for r in results if r["measurement_unit"] == "step"]
-    slice_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in slice_results)
-    step_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in step_results)
+    measured_rows = [r for r in results if r["data_labels"]["T_trace_to_sim"] == "measured"]
+    slice_measured = [r for r in measured_rows if r["measurement_unit"] == "slice"]
+    step_measured = [r for r in measured_rows if r["measurement_unit"] == "step"]
+    slice_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in slice_measured)
+    step_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in step_measured)
     return {
         "go": slice_go or step_go,
-        "verdict": "GO — proceed to prototype investigation" if (slice_go or step_go) else "NOT YET — gather measured data first",
+        "verdict": ("GO — proceed to prototype investigation" if (slice_go or step_go)
+                    else "NOT YET — gather measured data first"),
         "slice_go": slice_go,
         "step_go": step_go,
-        "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-        "max_slice_pct": max((r["P_trace_to_sim_pct"] for r in slice_results), default=0),
-        "max_step_pct": max((r["P_trace_to_sim_pct"] for r in step_results), default=0),
+        "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (measured rows only)",
+        "max_slice_pct": max((r["P_trace_to_sim_pct"] for r in slice_measured), default=0) if slice_measured else None,
+        "max_step_pct": max((r["P_trace_to_sim_pct"] for r in step_measured), default=0) if step_measured else None,
+        "measured_rows_used": len(measured_rows),
+        "note": "Only measured claim-bearing rows drive the verdict. Modeled and placeholder rows are present for context but excluded from go/no-go computation.",
     }
 
 def build_json(results, go_no_go):
@@ -152,7 +156,7 @@ def build_json(results, go_no_go):
         "formula": "P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done",
         "denominator_definition": "T_kernel_to_sim_done = T_kernel_or_trace_export + T_trace_to_sim + T_sim_backend_execution + T_result_analysis",
         "generated_date": DATE,
-        "data_status": "placeholder — replace with measured values from timing instrumentation (task6)",
+        "data_status": "BERT-base encoder layer slice: T_trace_to_sim measured; export/backend/analysis still modeled. Other workloads: modeled/placeholder.",
         "go_no_go": go_no_go,
         "results": results,
     }
@@ -187,10 +191,13 @@ def build_markdown(results, go_no_go):
             "",
         ]
     else:
+        s_pct = f"{go_no_go['max_slice_pct']:.1f}%" if go_no_go.get('max_slice_pct') is not None else "N/A (no measured slice rows)"
+        t_pct = f"{go_no_go['max_step_pct']:.1f}%" if go_no_go.get('max_step_pct') is not None else "N/A (no measured step rows)"
         lines += [
-            f"- Slice-level gate: P_trace_to_sim_slice > 15% → {'PASS' if go_no_go['slice_go'] else 'NOT YET'} (max: {go_no_go['max_slice_pct']:.1f}%)",
-            f"- Step-level gate: P_trace_to_sim_step > 15% → {'PASS' if go_no_go['step_go'] else 'NOT YET'} (max: {go_no_go['max_step_pct']:.1f}%)",
+            f"- Slice-level gate (measured only): P_trace_to_sim_slice > 15% → {'PASS' if go_no_go['slice_go'] else 'NOT YET'} (max: {s_pct})",
+            f"- Step-level gate (measured only): P_trace_to_sim_step > 15% → {'PASS' if go_no_go['step_go'] else 'NOT YET'} (max: {t_pct})",
             f"- **Overall go/no-go**: {go_no_go['verdict']}",
+            f"- Note: {go_no_go.get('note', '')}",
             "",
         ]
     lines += [
@@ -256,9 +263,13 @@ def main():
     print(f"Wrote {out_dir}/complete_flow_burden_ratio.json")
     print(f"Wrote {out_dir}/complete_flow_burden_ratio.md")
     print(f"Go/No-Go: {go_no_go['verdict']}")
-    if go_no_go['max_slice_pct'] is not None:
-        print(f"  Slice max P: {go_no_go['max_slice_pct']:.1f}%")
-        print(f"  Step max P: {go_no_go['max_step_pct']:.1f}%")
+    ms = go_no_go.get('max_slice_pct')
+    mt = go_no_go.get('max_step_pct')
+    if ms is not None:
+        print(f"  Slice max P (measured): {ms:.1f}%")
+    if mt is not None:
+        print(f"  Step max P (measured): {mt:.1f}%")
+    print(f"  Measured rows used: {go_no_go.get('measured_rows_used', 0)}")
 
 if __name__ == "__main__":
     main()

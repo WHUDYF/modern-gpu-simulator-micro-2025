@@ -5,22 +5,25 @@
   "claim_bearing": true,
   "measurement_unit": "step",
   "source_artifact": "bert_full_step_attempt.json, llama_decoder_layer_attempt.json",
-  "provenance": "Optional tail attempt status derived from current task-E1/task-E2 execution evidence in Round 3.",
-  "generated_at": "2026-05-05T00:55:00+08:00",
-  "attempt_count": 0,
-  "attempt_date": "2026-05-04",
-  "status": "not_run_optional_tail_resource_gate",
+  "provenance": "Optional tail attempt status derived from the Round 4 smallest local Llama full-step validation attempt.",
+  "generated_at": "2026-05-05T01:20:00+08:00",
+  "attempt_count": 1,
+  "attempt_date": "2026-05-05",
+  "status": "blocked_by_local_gpu_memory",
   "prerequisites": {
     "task_E1_complete": true,
     "task_E1_status": "trace_export_and_bounded_replay_passed",
     "task_E2_complete": true,
     "task_E2_status": "trace_export_and_bounded_replay_passed",
     "task_D2_complete": false,
-    "note": "The current tracked plan treats the Llama 3.1 8B full-step run as an optional tail attempt after task-E1 and task-E2 are settled. Round 3 settled both extension tasks with bounded replay. The optional full-step remains not run because the recorded infrastructure requirement is >=48 GiB VRAM, while local RTX 5090 GPUs report 32607 MiB total memory."
+    "note": "The current tracked plan treats the Llama 3.1 8B full-step run as an optional tail attempt after task-E1 and task-E2 are settled. Round 4 ran the smallest local synthetic full-step validation attempt and hit CUDA OOM while placing the fp16 32-layer model on a 32607 MiB RTX 5090."
   },
-  "command_attempted": "not_run",
-  "harness": "Would require: NVBit-instrumented Llama 3.1 8B pretraining step with batch_size=1 on A6000 or A100 GPU",
-  "partial_artifacts": [],
+  "command_attempted": "CUDA_VISIBLE_DEVICES=0 LLAMA_FULL_TRACE_BATCH=1 LLAMA_FULL_TRACE_SEQ_LEN=8 python3 docs/llama-full-step-training.py",
+  "harness": "docs/llama-full-step-training.py",
+  "partial_artifacts": [
+    "logs/llama_full_step_validate_r4_stdout.log",
+    "logs/llama_full_step_validate_r4_stderr.log"
+  ],
   "required_artifacts_preserved": [
     "workload_evidence_table.json/.md",
     "trace_to_sim_formula.json/.md",
@@ -35,5 +38,15 @@
     "GPU with >= 48 GiB VRAM (A6000 or A100)",
     ">= 500 GiB storage for trace + artifacts"
   ],
-  "next_steps": "Run the optional Llama 3.1 8B full-step only on a host that satisfies the >=48 GiB VRAM requirement."
+  "observed_failure": {
+    "exit_code": 1,
+    "failure_type": "torch.OutOfMemoryError",
+    "failure_stage": "model placement to CUDA fp16 before trace export",
+    "gpu_total_mib": 32607,
+    "reported_free_mib_at_failure": 954.38,
+    "reported_process_memory_mib": 31129.6,
+    "allocation_request_mib": 1002.0,
+    "log_path": "logs/llama_full_step_validate_r4_stderr.log"
+  },
+  "next_steps": "Run the optional Llama 3.1 8B full-step only on a host with materially more GPU memory, or request explicit user approval for a reduced/non-8B full-step surrogate."
 }

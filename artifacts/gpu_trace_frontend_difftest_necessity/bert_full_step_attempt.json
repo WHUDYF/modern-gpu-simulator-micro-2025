@@ -3,7 +3,7 @@
   "data_label": "measured",
   "claim_bearing": true,
   "measurement_unit": "step",
-  "source_artifact": "logs/bert_full_step_trace_r3_stdout.log, logs/bert_full_step_trace_r3_stderr.log, logs/bert_full_step_replay_r3.log",
+  "source_artifact": "logs/bert_full_step_trace_r3_stdout.log, logs/bert_full_step_trace_r3_stderr.log, logs/bert_full_step_replay_r5.log",
   "provenance": "Synthetic BERT-base BertForPreTraining full pretraining-style forward/backward step, batch=1, seq_len=16, traced under NVBit v1.7.6 on RTX 5090 with ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1, then replayed with SM120_RTX5090 config and 50000-cycle bound.",
   "generated_at": "2026-05-05T00:55:00+08:00",
   "status": "trace_export_and_bounded_replay_passed",

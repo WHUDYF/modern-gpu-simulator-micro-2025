@@ -1,49 +1,85 @@
 {
   "config_name": "BERT-base Pretraining Full Step Batch-Scaling Resource Bounds",
-  "generated_date": "2026-05-03",
+  "generated_date": "2026-05-05",
   "confirmed_resource_ceiling": {
     "per_gpu_memory_gib": 28,
-    "per_gpu_memory_desc": "RTX A6000 48 GiB total, conservative headroom after driver + framework overhead",
+    "per_gpu_memory_desc": "Confirmed plan ceiling for a single workload unit",
     "trace_plus_artifact_size_gib": 500,
     "trace_plus_artifact_desc": "Available storage for trace files and generated artifacts per workload unit",
     "single_iteration_time_h": 2,
     "single_iteration_desc": "Wall-clock time for one complete export + simulate + analyze cycle"
   },
+  "measured_batch1_source": "bert_full_step_attempt.json, frontend_timing_breakdown_bert-base-pretraining-full-step.json, redundancy_profile_bert-base-pretraining-full-step.json",
   "batch_scaling_strategy": {
-    "start_batch_size": "small (1-4)",
+    "start_batch_size": 1,
     "scale_factor": 2,
     "stop_conditions": [
       "per-GPU memory exceeds 28 GiB",
       "trace + artifact size exceeds 500 GiB per workload unit",
       "single complete iteration exceeds 2 hours"
     ],
-    "record_per_step": [
-      "batch_size",
-      "per_gpu_memory_used_gib",
-      "trace_size_gib",
-      "artifact_size_gib",
-      "export_time_s",
-      "sim_time_s",
-      "analysis_time_s",
-      "total_iteration_time_s",
-      "which_limit_stopped_run"
-    ]
+    "projection_rule": "For unexported larger batches, trace size is projected linearly from the measured batch-1 trace size until a resource ceiling requires user confirmation."
   },
   "batch_scaling_records": [
     {
       "attempt": 1,
       "batch_size": 1,
-      "per_gpu_memory_used_gib": null,
-      "trace_size_gib": null,
-      "artifact_size_gib": null,
-      "export_time_s": null,
-      "sim_time_s": null,
-      "analysis_time_s": null,
-      "total_iteration_time_s": null,
-      "stopped_by": "trace_generation_unavailable",
-      "status": "failed",
-      "failure_reason": "BERT-base pretraining forward+backward pass requires NVBit-instrumented PyTorch binary with GPU >= 28 GiB VRAM. No instrumented training harness available in this session. Trace generation is the prerequisite for all downstream timing measurements.",
-      "notes": "First batch attempt (batch_size=1) could not proceed past trace generation. All downstream fields (memory, trace size, timing) depend on successful trace export."
+      "validation_command": "BERT_TRACE_BATCH=1 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+      "trace_export_command": "NVBit export recorded in bert_full_step_attempt.json",
+      "status": "complete_iteration_measured",
+      "per_gpu_memory_used_gib": 1.0183,
+      "trace_size_gib": 18.6277,
+      "artifact_size_gib": 18.6277,
+      "export_time_s": 2805.5586,
+      "sim_time_s": 7.1908,
+      "analysis_time_s": 0.25,
+      "total_iteration_time_s": 2813.0,
+      "stopped_by": "none"
+    },
+    {
+      "attempt": 2,
+      "batch_size": 2,
+      "validation_command": "BERT_TRACE_BATCH=2 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+      "status": "direct_validation_passed_projection_only",
+      "per_gpu_memory_used_gib": 1.0194,
+      "projected_trace_size_gib": 37.2554,
+      "stopped_by": "none"
+    },
+    {
+      "attempt": 3,
+      "batch_size": 4,
+      "validation_command": "BERT_TRACE_BATCH=4 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+      "status": "direct_validation_passed_projection_only",
+      "per_gpu_memory_used_gib": 1.0229,
+      "projected_trace_size_gib": 74.5108,
+      "stopped_by": "none"
+    },
+    {
+      "attempt": 4,
+      "batch_size": 8,
+      "validation_command": "BERT_TRACE_BATCH=8 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+      "status": "direct_validation_passed_projection_only",
+      "per_gpu_memory_used_gib": 1.0323,
+      "projected_trace_size_gib": 149.0216,
+      "stopped_by": "none"
+    },
+    {
+      "attempt": 5,
+      "batch_size": 16,
+      "validation_command": "BERT_TRACE_BATCH=16 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+      "status": "direct_validation_passed_projection_only",
+      "per_gpu_memory_used_gib": 1.0467,
+      "projected_trace_size_gib": 298.0432,
+      "stopped_by": "none"
+    },
+    {
+      "attempt": 6,
+      "batch_size": 32,
+      "status": "not_run_requires_user_confirmation",
+      "projected_trace_size_gib": 596.0864,
+      "stopped_by": "projected_trace_plus_artifact_size_exceeds_500_gib",
+      "notes": "Batch 32 is the first doubling point whose projected trace size exceeds the plan's 500 GiB ceiling; further scaling requires explicit user approval."
     }
-  ]
+  ],
+  "status": "batch1_complete_iteration_measured_scaling_stopped_at_batch32_projection"
 }

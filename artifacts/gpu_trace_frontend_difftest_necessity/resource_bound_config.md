@@ -1,43 +1,37 @@
-# BERT-base Pretraining Full Step: Resource Bound Configuration
+# BERT-base Pretraining Full Step Resource Bounds
 
-## Confirmed Resource Ceiling
+Generated: 2026-05-05
 
-| Resource | Limit | Rationale |
-|----------|-------|-----------|
-| Per-GPU memory | <= 28 GiB | RTX A6000 48 GiB total, conservative headroom after driver + framework |
-| Trace + artifact size per unit | <= 500 GiB | Available storage budget per workload unit |
-| Single complete iteration | <= 2 hours | Wall-clock time for export + simulate + analyze cycle |
+## Confirmed Ceiling
 
-## Batch-Scaling Strategy
+| Resource | Limit |
+|----------|------:|
+| Per-GPU memory | 28 GiB |
+| Trace + artifacts per workload unit | 500 GiB |
+| Single complete iteration | 2 hours |
 
-1. Start from batch_size = 1.
-2. Double batch size at each step.
-3. Record resource usage at each step.
-4. Stop when **any** resource ceiling is reached.
-5. Record which limit stopped the run.
+## Measured Batch-1 Complete Iteration
 
-## Batch-Scaling Records
+| Field | Value |
+|-------|------:|
+| Peak GPU memory | 1.0183 GiB |
+| Trace size | 18.6277 GiB |
+| Export time | 2805.5586 s |
+| Simulator wall time | 7.1908 s |
+| Analysis time | 0.25 s |
+| Total iteration | 2813.0 s |
 
-### Attempt 1: batch_size=1
+Evidence: `bert_full_step_attempt.json`, `frontend_timing_breakdown_bert-base-pretraining-full-step.json`, and `redundancy_profile_bert-base-pretraining-full-step.json`.
 
-| Field | Value | Status |
-|-------|-------|--------|
-| batch_size | 1 | attempted |
-| per_gpu_memory_used_gib | N/A | blocked |
-| trace_size_gib | N/A | blocked |
-| artifact_size_gib | N/A | blocked |
-| export_time_s | N/A | blocked |
-| sim_time_s | N/A | blocked |
-| analysis_time_s | N/A | blocked |
-| total_iteration_time_s | N/A | blocked |
-| stopped_by | trace_generation_unavailable | — |
-| failure_reason | BERT-base pretraining forward+backward pass requires NVBit-instrumented PyTorch binary with GPU >= 28 GiB VRAM. No instrumented training harness available. | — |
+## Scaling Records
 
-### Status
+| Batch | Status | Peak Memory (GiB) | Trace Size (GiB) | Stop |
+|------:|--------|------------------:|-----------------:|------|
+| 1 | complete iteration measured | 1.0183 | 18.6277 | none |
+| 2 | direct validation passed, trace projected | 1.0194 | 37.2554 | none |
+| 4 | direct validation passed, trace projected | 1.0229 | 74.5108 | none |
+| 8 | direct validation passed, trace projected | 1.0323 | 149.0216 | none |
+| 16 | direct validation passed, trace projected | 1.0467 | 298.0432 | none |
+| 32 | not run | N/A | 596.0864 | projected trace size exceeds 500 GiB |
 
-First batch attempt (batch_size=1) could not proceed past trace generation. All downstream fields depend on successful trace export. Further scaling attempts require:
-- NVBit-instrumented BERT pretraining harness
-- GPU with >= 28 GiB VRAM (RTX A6000 or A100)
-- Sufficient storage for trace artifacts (estimated 10s GiB per step at minimum batch)
-
-No ceiling-based scaling evidence is available yet. The pipeline is ready for measured data when trace generation infrastructure becomes available.
+Batch 32 is the first doubling point whose projected trace size exceeds the plan ceiling. Further scaling requires explicit user approval.

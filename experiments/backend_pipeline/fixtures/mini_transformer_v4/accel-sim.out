@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+echo 'gpu_tot_sim_cycle = 10'
+echo 'gpgpu_simulation_time = 1.0'

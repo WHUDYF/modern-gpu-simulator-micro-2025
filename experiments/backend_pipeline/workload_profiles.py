@@ -6,6 +6,7 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+BUILTIN_FIXTURE_ROOT = "experiments/backend_pipeline/fixtures/mini_transformer_v4"
 
 REQUIRED_PROFILE_FIELDS = {
     "workload_id",
@@ -36,12 +37,12 @@ DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
     "mini_transformer_v4": {
         "workload_id": "mini_transformer_v4",
         "execution_mode": "validation",
-        "working_directory": "simulator-remodeled",
-        "simulator_binary": "simulator-remodeled/gpu-simulator/bin/release/accel-sim.out",
-        "setup_script": "simulator-remodeled/gpu-simulator/setup_environment_no_git.sh",
-        "trace_path": "experiments/mini_transformer/traces/dynamic_trace.pb",
-        "gpgpusim_config": "simulator-remodeled/gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM86_RTX3080_TI/gpgpusim.config",
-        "trace_config": "simulator-remodeled/gpu-simulator/configs/tested-cfgs/SM86_RTX3080_TI/trace.config",
+        "working_directory": BUILTIN_FIXTURE_ROOT,
+        "simulator_binary": f"{BUILTIN_FIXTURE_ROOT}/accel-sim.out",
+        "setup_script": "",
+        "trace_path": f"{BUILTIN_FIXTURE_ROOT}/dynamic_trace.pb",
+        "gpgpusim_config": f"{BUILTIN_FIXTURE_ROOT}/gpgpusim.config",
+        "trace_config": f"{BUILTIN_FIXTURE_ROOT}/trace.config",
         "environment": {
             "CUDA_INSTALL_PATH": "/usr/local/cuda-12.8",
             "OMP_NUM_THREADS": "4",
@@ -200,6 +201,68 @@ SMOKE_PROFILE_OVERRIDES: dict[str, dict[str, Any]] = {
 }
 
 
+def _ensure_builtin_mini_transformer_fixture() -> None:
+    fixture_root = REPO_ROOT / BUILTIN_FIXTURE_ROOT
+    trace_path = fixture_root / "dynamic_trace.pb"
+    if trace_path.exists():
+        return
+
+    from experiments.baseline_diagnosis.proto_gen import (  # noqa: PLC0415
+        threadblock_pb2,
+        trace_pb2,
+    )
+
+    trace = trace_pb2.Trace()
+    trace.name = "mini_transformer_v4_fixture"
+    trace.binary_version = 1
+    trace.nvbit_version = "fixture"
+    trace.accelsim_version = 1
+    trace.is_gathered_registers_values = False
+    device = trace.gpu_device[0]
+    device.id = 0
+    stream = device.streams[0]
+    stream.id = 0
+    stream.ordered_cuda_events.extend(["MemcpyHtoD", "kernel-1.trace"])
+
+    for kernel_id, function_unique_id, name in [
+        (1, 1, "_Z10gemm_tiledPKfS0_Pfiii___0"),
+        (5, 2, "_Z15attention_scorePKfS0_Pfiii___0"),
+        (6, 3, "_Z14softmax_kernelPfii___0"),
+        (7, 4, "_Z11context_mulPKfS0_Pfiii___0"),
+        (8, 1, "_Z10gemm_tiledPKfS0_Pfiii___0"),
+        (9, 5, "_Z12residual_addPfPKfi___0"),
+        (10, 6, "_Z16layernorm_kernelPfii___0"),
+        (11, 1, "_Z10gemm_tiledPKfS0_Pfiii___0"),
+        (12, 1, "_Z10gemm_tiledPKfS0_Pfiii___0"),
+    ]:
+        kernel = stream.kernels.add()
+        kernel.id = kernel_id
+        kernel.name = name
+        kernel.function_unique_id = function_unique_id
+        kernel.grid_dim.x = 1
+        kernel.grid_dim.y = 1
+        kernel.grid_dim.z = 1
+        kernel.block_dim.x = 32
+        kernel.block_dim.y = 1
+        kernel.block_dim.z = 1
+
+        tb_dir = fixture_root / "threadblocks" / "device_0" / "stream_0" / f"kernel_{kernel_id}"
+        tb_dir.mkdir(parents=True, exist_ok=True)
+        tb = threadblock_pb2.threadblock()
+        tb.block_id.x = 0
+        warp = tb.warps[0]
+        warp.id = 0
+        instruction = warp.instructions.add()
+        instruction.pc = 0x1000 + kernel_id
+        instruction.active_mask = 0xFFFFFFFF
+        instruction.predicate_mask = 0xFFFFFFFF
+        instruction.function_unique_id = function_unique_id
+        (tb_dir / f"d_0_s_0_k_{kernel_id}_0,0,0.pb").write_bytes(tb.SerializeToString())
+
+    fixture_root.mkdir(parents=True, exist_ok=True)
+    trace_path.write_bytes(trace.SerializeToString())
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
@@ -256,6 +319,8 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
     else:
         if workload_id not in DEFAULT_WORKLOAD_PROFILES:
             raise KeyError(f"Unknown workload profile: {workload_id}")
+        if workload_id == "mini_transformer_v4":
+            _ensure_builtin_mini_transformer_fixture()
         raw_profile = DEFAULT_WORKLOAD_PROFILES[workload_id]
         base_dir = REPO_ROOT
     if smoke_mode:

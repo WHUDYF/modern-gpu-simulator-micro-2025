@@ -199,6 +199,16 @@ def _load_trace_proto_modules() -> tuple[Any, Any, Any, Any]:
     if _PROTO_MODULES is not None:
         return _PROTO_MODULES
     proto_root = Path(__file__).resolve().parents[2] / "simulator-remodeled" / "util" / "traces_enhanced" / "dynamic_trace"
+    if not proto_root.exists():
+        from experiments.baseline_diagnosis.proto_gen import (  # noqa: PLC0415
+            cuda_stream_pb2,
+            gpu_device_pb2,
+            threadblock_pb2,
+            trace_pb2,
+        )
+
+        _PROTO_MODULES = (trace_pb2, gpu_device_pb2, cuda_stream_pb2, threadblock_pb2)
+        return _PROTO_MODULES
     tmpdir = Path(tempfile.mkdtemp(prefix="backend_trace_proto_"))
     protoc = shutil.which("protoc")
     if not protoc:
@@ -264,8 +274,14 @@ def _materialize_trimmed_smoke_trace(run_spec: dict[str, Any]) -> None:
     new_kernel.grid_dim.x = 1
     new_kernel.grid_dim.y = 1
     new_kernel.grid_dim.z = 1
-    new_dev.streams[0].CopyFrom(new_stream)
-    new_trace.gpu_device[0].CopyFrom(new_dev)
+    if hasattr(new_dev.streams, "add"):
+        new_dev.streams.add().CopyFrom(new_stream)
+    else:
+        new_dev.streams[0].CopyFrom(new_stream)
+    if hasattr(new_trace.gpu_device, "add"):
+        new_trace.gpu_device.add().CopyFrom(new_dev)
+    else:
+        new_trace.gpu_device[0].CopyFrom(new_dev)
     Path(run_spec["trace_path"]).write_bytes(new_trace.SerializeToString())
 
     src_tb = (

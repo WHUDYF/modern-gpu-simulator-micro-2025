@@ -34,8 +34,8 @@
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "workload_type": "AI-training (claim-bearing)",
-      "harness_path": "docs/bert-inference.py",
-      "export_command": "source ~/.bashrc; cd simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export TRACES_FOLDER=<dir>; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; python3 docs/bert-inference.py",
+      "harness_path": "/home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py",
+      "export_command": "source ~/.bashrc; cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export TRACES_FOLDER=/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-layer-slice/traces; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; python3 /home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py",
       "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-layer-slice/traces",
       "trace_size_bytes": 0,
       "test_date": "2026-05-04",

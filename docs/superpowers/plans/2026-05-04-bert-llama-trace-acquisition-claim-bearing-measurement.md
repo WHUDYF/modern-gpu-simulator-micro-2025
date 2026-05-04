@@ -2,7 +2,46 @@
 
 ## 执行摘要
 
-本轮 plan 的唯一目标是拿到至少一个 claim-bearing AI-training workload 的 measured data，并据此重新生成完整流程证据。
+本轮 plan 的原始目标是拿到至少一个 claim-bearing AI-training workload 的 complete-flow measured data，并据此重新生成完整流程证据。
+
+当前状态已经前进了一步：
+
+- Gate A 已经完成；
+- `l1_bw_32f` control trace 已经成功产出；
+- `BERT-base encoder layer slice` training slice 已经成功产出 claim-bearing trace；
+- 旧的“NVBit callback 不触发”诊断已经被新证据推翻。
+
+因此，本 plan 现在的任务重心不再是 trace acquisition 本身，而是继续完成 Gate B-D 的 measured evidence 链路。
+
+## 当前完成状态
+
+### 已完成
+
+- Gate A: Trace Acquisition Ready。
+- `l1_bw_32f` control trace acquisition。
+  - trace path: `/tmp/tracer_tool_repro/traces`
+  - trace size: 3,105,111 bytes
+  - trace files: 4
+  - kernel rows: 1
+- `bert-base-encoder-layer-slice` claim-bearing trace acquisition。
+  - trace path: `/tmp/bert_trace_repro/traces`
+  - trace size: 4,680,065,040 bytes
+  - trace files: 19,942
+  - threadblock PB files: 19,939
+  - kernel rows: 77
+- BERT training harness。
+  - path: `/home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py`
+  - workload: `BertLayer` forward + `loss.backward()`
+- tracer local fix。
+  - path: `/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/util/tracer_nvbit/tracer_tool/tracer_tool.cu`
+  - path: `/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/util/tracer_nvbit/tracer_tool/Makefile`
+
+### 仍未完成
+
+- Gate B: BERT trace small-window simulator replay。
+- Gate C: claim-bearing complete-flow measured record。
+- Gate D: measured-data-based go/no-go verdict。
+- BERT full step、Llama slice、Llama full-step optional tail attempt。
 
 上一轮 RLCR 已经完成：
 
@@ -13,14 +52,16 @@
 - simulator redundancy profiling instrumentation；
 - Rodinia `nn` control workload 验证。
 
-但上一轮没有完成：
+原始 plan 生成时仍未完成：
 
-- `BERT-base encoder layer slice` measured trace；
+- `BERT-base encoder layer slice` measured trace acquisition；
 - `BERT-base pretraining full step` measured trace；
 - `Llama 3.1 8B decoder layer slice` measured trace；
 - 基于 measured claim-bearing data 的 go/no-go verdict。
 
-因此本轮不优先继续扩展 calculator、summary table 或 paper argument matrix。本轮优先解决 trace acquisition 和 measured evidence。
+上述条目中，`BERT-base encoder layer slice` 的 trace acquisition 现在已经完成；未完成的是它的 simulator replay、timing、redundancy、burden-ratio 与 verdict 链路。
+
+因此本轮不优先继续扩展 calculator、summary table 或 paper argument matrix。本轮优先解决 simulator replay 和 complete-flow measured evidence。
 
 核心原则：
 
@@ -28,7 +69,41 @@
 基础设施完成，不等于证据完成。
 ```
 
-本轮如果没有拿到至少一个 claim-bearing AI-training workload 的 measured data，最终状态必须是：
+## Plan-gap 处理规则
+
+如果执行中遇到本 plan 没有显式定义的问题，并且该问题阻塞 Gate B-D、hard AC 或 claim-critical artifact，不能立即停止，也不能直接声明 `BLOCKED`。
+
+必须针对同一个未定义问题进入 bounded troubleshooting loop：
+
+```text
+max_attempts_per_plan_gap_issue = 6
+```
+
+这里的 6 次循环指的是同一个未定义问题内部的 troubleshooting attempt，不是整个 RLCR 最多 6 个 round。
+
+每一次 attempt 必须在 summary 或专门 artifact 中记录：
+
+- 当前阻塞的问题；
+- 本轮假设；
+- 本轮执行的命令、代码修改或验证；
+- 本轮结果；
+- 下一步是继续、换方向，还是触发停止条件。
+
+只有满足以下条件之一，才允许停止：
+
+- hard AC 已经完成；
+- 同一个 plan-gap issue 已经尝试 6 次仍无法解决；
+- 已经用日志或命令输出证明是外部环境、权限、资源上限或工具缺失导致；
+- 用户明确要求停止。
+
+如果 6 次后仍未解决，最终状态不能写 `COMPLETE`，只能写：
+
+```text
+PARTIAL: unresolved plan-gap after bounded troubleshooting
+BLOCKED: external prerequisite unavailable
+```
+
+本轮如果没有拿到至少一个 claim-bearing AI-training workload 的 complete-flow measured data，最终状态必须是：
 
 ```text
 PARTIAL: infrastructure complete, evidence incomplete
@@ -81,7 +156,7 @@ P_trace_to_sim_step > 15%
 
 ### Claim-Bearing Workloads
 
-本轮最小必需路径只要求至少一个 claim-bearing workload 拿到 measured data。
+本轮最小必需路径只要求至少一个 claim-bearing workload 拿到 complete-flow measured data。
 
 优先级如下：
 
@@ -98,7 +173,7 @@ P_trace_to_sim_step > 15%
 3. `Llama 3.1 8B decoder layer slice`
    - 第三优先级。
    - 用于代表现代 decoder-only LLM。
-   - 如果 BERT path 已经产生 measured data，可以作为扩展证据。
+   - 如果 BERT path 已经产生 complete-flow measured data，可以作为扩展证据。
 
 ### Control Workloads
 
@@ -159,6 +234,12 @@ Llama 3.1 8B full-step 仍然是 optional tail attempt，只能在必需证据�
 - trace artifact path 存在；
 - trace size 被记录；
 - simulator 能识别 trace 目录结构。
+
+当前已验证状态：
+
+- `l1_bw_32f` control 通过；
+- `bert-base-encoder-layer-slice` claim-bearing trace export 通过；
+- `trace_acquisition_smoke_test.{json,md}` 已更新为 PASS。
 
 失败条件：
 
@@ -337,7 +418,7 @@ INCONCLUSIVE: measured evidence incomplete
   - Positive:
     - 如果 Gate C 未通过，最终状态只能是 `PARTIAL` 或 `BLOCKED`。
   - Negative:
-    - 没有 measured claim-bearing data 却写 `COMPLETE` 不通过。
+- 没有 complete-flow measured claim-bearing data 却写 `COMPLETE` 不通过。
 
 - AC-7: Go/no-go verdict 只能基于 measured claim-bearing data。
   - Positive:
@@ -370,14 +451,21 @@ claim_bearing = true
 
 ## 执行顺序
 
+0. 固定已完成的 Gate A 事实。
+   - `trace_acquisition_smoke_test.{json,md}` 是当前 Gate A source of truth。
+   - `bert-base-encoder-layer-slice` trace acquisition 已通过。
+   - 禁止继续沿用“NVBit callback 不触发”的旧诊断。
+   - 如果执行环境重置，必须先恢复 tracer fix，再继续后续 gate。
+
 1. 检查已有 simulator instrumentation artifact。
    - 确认 Rodinia control 仍可作为 instrumentation sanity check。
    - 不把 Rodinia 计入 claim-bearing proof。
 
-2. 建立 BERT-base trace acquisition smoke test。
-   - 优先 `BERT-base encoder layer slice`。
-   - batch size 从最小配置开始。
-   - 记录 export command、environment、trace path、trace size。
+2. 使用已获取的 BERT-base trace 进入 simulator replay。
+   - 优先使用 `trace_acquisition_smoke_test.json` 记录的 `bert-base-encoder-layer-slice` trace path。
+   - 如果该临时 trace path 不存在，重新运行 artifact 中记录的 exact export command。
+   - Python/PyTorch traced run 必须带 `ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1`。
+   - 重新 export 只用于恢复 Gate A artifact，不是本轮主任务。
 
 3. 将 BERT trace 输入 instrumented simulator。
    - 目标是先拿到 measured timing JSON 和 redundancy JSON。
@@ -426,7 +514,7 @@ COMPLETE
 - Gate C 通过；
 - Gate D 通过；
 - 至少一个 claim-bearing AI-training workload 有 measured complete-flow record；
-- go/no-go verdict 基于 measured data。
+- go/no-go verdict 基于 complete-flow measured data。
 
 否则只能写：
 
@@ -450,4 +538,3 @@ BLOCKED: required prerequisite unavailable
 - 哪些 artifact 是 measured；
 - 哪些 artifact 仍是 modeled 或 placeholder；
 - 是否允许进入 frontend prototype investigation。
-

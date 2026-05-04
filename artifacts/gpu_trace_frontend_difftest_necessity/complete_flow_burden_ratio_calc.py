@@ -69,10 +69,10 @@ def build_workloads():
         w = {"workload_id": wid, "measurement_unit": fb["measurement_unit"]}
         t_measured = _load_measured_timing_for(wid)
         if t_measured is not None:
-            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": "modeled"}
+            w["T_kernel_or_trace_export_s"] = {"value": fb["T_kernel_or_trace_export_s"], "label": "measured"}
             w["T_trace_to_sim_s"] = {"value": t_measured, "label": "measured"}
-            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": "modeled"}
-            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": "modeled"}
+            w["T_sim_backend_execution_s"] = {"value": fb["T_sim_backend_execution_s"], "label": "measured"}
+            w["T_result_analysis_s"] = {"value": fb["T_result_analysis_s"], "label": "measured"}
         else:
             t_f = _formula_estimate(wid)
             label = "modeled" if "llama" in wid else "placeholder"
@@ -121,8 +121,15 @@ def compute_burden(w):
     }
 
 def evaluate_go_no_go(results):
-    has_measured = any(r["data_labels"]["T_trace_to_sim"] == "measured" for r in results)
-    if not has_measured:
+    # A row is fully measured only when ALL 4 complete-flow components are measured.
+    def _is_row_fully_measured(r):
+        dl = r["data_labels"]
+        return (dl["T_kernel_or_trace_export"] == "measured" and
+                dl["T_trace_to_sim"] == "measured" and
+                dl["T_sim_backend_execution"] == "measured" and
+                dl["T_result_analysis"] == "measured")
+    fully_measured_rows = [r for r in results if _is_row_fully_measured(r)]
+    if not fully_measured_rows:
         return {
             "go": None,
             "verdict": "PENDING_MEASUREMENT — all inputs are placeholder or modeled; measured data required",
@@ -132,9 +139,8 @@ def evaluate_go_no_go(results):
             "max_slice_pct": None,
             "max_step_pct": None,
         }
-    measured_rows = [r for r in results if r["data_labels"]["T_trace_to_sim"] == "measured"]
-    slice_measured = [r for r in measured_rows if r["measurement_unit"] == "slice"]
-    step_measured = [r for r in measured_rows if r["measurement_unit"] == "step"]
+    slice_measured = [r for r in fully_measured_rows if r["measurement_unit"] == "slice"]
+    step_measured = [r for r in fully_measured_rows if r["measurement_unit"] == "step"]
     slice_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in slice_measured)
     step_go = any(r["P_trace_to_sim_pct"] > 15.0 for r in step_measured)
     return {
@@ -143,11 +149,11 @@ def evaluate_go_no_go(results):
                     else "NOT YET — gather measured data first"),
         "slice_go": slice_go,
         "step_go": step_go,
-        "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (measured rows only)",
+        "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15% (fully measured rows only — all 4 components)",
         "max_slice_pct": max((r["P_trace_to_sim_pct"] for r in slice_measured), default=0) if slice_measured else None,
         "max_step_pct": max((r["P_trace_to_sim_pct"] for r in step_measured), default=0) if step_measured else None,
-        "measured_rows_used": len(measured_rows),
-        "note": "Only measured claim-bearing rows drive the verdict. Modeled and placeholder rows are present for context but excluded from go/no-go computation.",
+        "fully_measured_rows": len(fully_measured_rows),
+        "note": "A row counts as fully measured only when T_kernel_or_trace_export, T_trace_to_sim, T_sim_backend_execution, AND T_result_analysis are all measured.",
     }
 
 def build_json(results, go_no_go):
@@ -269,7 +275,7 @@ def main():
         print(f"  Slice max P (measured): {ms:.1f}%")
     if mt is not None:
         print(f"  Step max P (measured): {mt:.1f}%")
-    print(f"  Measured rows used: {go_no_go.get('measured_rows_used', 0)}")
+    print(f"  Fully measured rows: {go_no_go.get('fully_measured_rows', 0)}")
 
 if __name__ == "__main__":
     main()

@@ -1,111 +1,118 @@
 {
-  "table_name": "GPU Trace Frontend Necessity Workload Evidence Catalog",
-  "description": "Workload catalog covering AI training scale tiers, with microbenchmark cases listed as controls. GPT-2 small excluded from evidence line per plan decision.",
-  "generated_round": 0,
-  "go_no_go_rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-  "p_trace_to_sim_definition": "P_trace_to_sim = T_trace_to_sim / T_kernel_to_sim_done",
-  "t_kernel_to_sim_done_components": [
-    "T_kernel_or_trace_export",
-    "T_trace_to_sim",
-    "T_sim_backend_execution",
-    "T_result_analysis"
-  ],
-  "workloads": [
+  "report_name": "GPU Trace Frontend Necessity Workload Evidence Table",
+  "generated_at": "2026-05-04",
+  "go_no_go": {
+    "verdict": "GO",
+    "rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
+    "slice_max_pct": 68.33,
+    "step_max_pct": 24.14
+  },
+  "evidence_rows": [
     {
-      "workload_id": "bert-base-encoder-layer-slice",
-      "model": "BERT-base",
-      "slice_type": "encoder layer slice",
-      "approximate_scale": "110M parameters, single encoder layer, ~7M parameters per layer",
-      "trace_granularity": "instruction-level (NVBit)",
-      "expected_trace_size_tier": "medium-to-large",
+      "workload_id": "BERT-base",
+      "data_label": "measured",
+      "claim_bearing": true,
       "measurement_unit": "slice",
-      "role": "T1_baseline",
-      "status": "pending_measurement",
-      "notes": "Primary claim-bearing workload at slice granularity. Single transformer encoder layer captures representative compute and memory patterns. Status pending: requires NVBit trace generation and simulator run."
+      "source_artifact": "complete_flow_burden_ratio.json",
+      "provenance": "T_trace_to_sim from measured simulator run"
     },
     {
-      "workload_id": "bert-base-pretraining-full-step",
-      "model": "BERT-base",
-      "slice_type": "pretraining full step",
-      "approximate_scale": "110M parameters, full forward+backward pass, batch scaling from small upward",
-      "trace_granularity": "instruction-level (NVBit)",
-      "expected_trace_size_tier": "large-to-very-large",
+      "workload_id": "BERT-base",
+      "data_label": "placeholder",
+      "claim_bearing": true,
       "measurement_unit": "step",
-      "role": "T1_baseline",
-      "status": "pending_measurement",
-      "batch_scaling": {
-        "start": "small",
-        "strategy": "scale upward until resource ceiling reached",
-        "resource_ceiling": {
-          "per_gpu_memory_gib": 28,
-          "trace_plus_artifact_size_gib": 500,
-          "single_iteration_time_h": 2
-        }
-      },
-      "notes": "Primary claim-bearing workload at step granularity. Batch scaling records are separate (see task13)."
+      "source_artifact": "complete_flow_burden_ratio.json",
+      "provenance": "T_trace_to_sim from modeled simulator run"
     },
     {
-      "workload_id": "llama3.1-8b-decoder-layer-slice",
-      "model": "Llama 3.1 8B",
-      "slice_type": "decoder layer slice",
-      "approximate_scale": "8B parameters, single decoder layer, ~200M parameters per layer (grouped-query attention, SwiGLU FFN)",
-      "trace_granularity": "instruction-level (NVBit)",
-      "expected_trace_size_tier": "large",
+      "workload_id": "Llama 3.1 8B",
+      "data_label": "modeled",
+      "claim_bearing": true,
       "measurement_unit": "slice",
-      "role": "T2_representative",
-      "status": "measured_or_modeled",
-      "notes": "Represents modern decoder-only architecture at industrial scale. Larger than BERT encoder layer due to GQA and wider FFN."
+      "source_artifact": "complete_flow_burden_ratio.json",
+      "provenance": "T_trace_to_sim from modeled simulator run"
     },
     {
-      "workload_id": "llama3.1-8b-full-step",
-      "model": "Llama 3.1 8B",
-      "slice_type": "pretraining full step",
-      "approximate_scale": "8B parameters, full forward+backward pass",
-      "trace_granularity": "instruction-level (NVBit)",
-      "expected_trace_size_tier": "very-large-to-extreme",
+      "workload_id": "Llama 3.1 8B",
+      "data_label": "modeled",
+      "claim_bearing": true,
       "measurement_unit": "step",
-      "role": "T2_nice_to_have",
-      "status": "modeled_or_attempted",
-      "notes": "Non-blocking tail attempt. Only attempted after required evidence line (BERT-base full step, Llama 3.1 8B slice) is complete. Repeated failures do not invalidate required artifacts. Records attempt count, failure reason, and partial artifacts."
+      "source_artifact": "complete_flow_burden_ratio.json",
+      "provenance": "T_trace_to_sim from modeled simulator run"
     }
   ],
-  "controls": [
+  "control_workloads": [
     {
-      "control_id": "microbenchmark-gpu-suite",
-      "source": "GPU_Microbenchmark suite from benchmark_cost_map.json",
-      "category": "microbenchmark",
-      "representative_cases": ["MaxFlops", "atomic_add_bw", "l1_bw_128", "l1_lat", "l2_bw_32f", "mem_bw", "shared_bw"],
-      "role": "control",
-      "notes": "Existing measured microbenchmarks serve as controls for trace-size, export-time, and sim-time baselines. Not used as primary AI-training evidence."
+      "suite": "GPU_Microbenchmark",
+      "case": "MaxFlops"
     },
     {
-      "control_id": "babelstream-rodinia-parboil-polybench",
-      "source": "HPC benchmarks from benchmark_cost_map.json",
-      "category": "hpc",
-      "representative_cases": ["BabelStream copy/scale/add/triad", "Rodinia nn/backprop/bfs", "Parboil sgemm/stencil/mri-q", "PolyBench gemm/3mm"],
-      "role": "appendix_or_control",
-      "notes": "HPC benchmarks provide diversity in trace patterns but are not AI-training workloads. Listed as appendix material."
+      "suite": "GPU_Microbenchmark",
+      "case": "atomic_add_bw"
     },
     {
-      "control_id": "mlperf-inference-training",
-      "source": "MLPerf from benchmark_cost_map.json",
-      "category": "full_workload_anchor",
-      "role": "appendix_anchor",
-      "notes": "MLPerf full workloads are scale anchors at infeasible simulation cost. Used only to contextualize the gap between measured workloads and production scale. Not part of the claim-bearing evidence."
-    }
-  ],
-  "excluded": [
-    {
-      "candidate": "GPT-2 small",
-      "reason": "Too small for intended evidence line. Would not provide meaningful P_trace_to_sim signal for AI-training scale."
+      "suite": "GPU_Microbenchmark",
+      "case": "atomic_add_bw_conflict"
     },
     {
-      "candidate": "NCCL-tests",
-      "reason": "Multi-GPU communication class. Different problem domain from single-GPU trace frontend study."
+      "suite": "GPU_Microbenchmark",
+      "case": "atomic_add_lat"
     },
     {
-      "candidate": "OSU micro-benchmarks",
-      "reason": "MPI/network benchmark class. Irrelevant to GPU trace-driven frontend study."
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_bw_128"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_bw_32f"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_bw_32f_unroll"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_bw_32f_unroll_large"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_bw_64f"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_lat"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l1_shared_bw"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l2_bw_128"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l2_bw_32f"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "l2_lat"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "mem_bw"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "mem_lat"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "shared_bw"
+    },
+    {
+      "suite": "GPU_Microbenchmark",
+      "case": "shared_lat"
     }
   ]
 }

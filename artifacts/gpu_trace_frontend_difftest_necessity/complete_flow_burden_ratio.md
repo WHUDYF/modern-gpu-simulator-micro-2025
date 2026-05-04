@@ -21,7 +21,7 @@ T_kernel_to_sim_done =
 - Slice-level gate (measured only): P_trace_to_sim_slice > 15% → NOT YET (max: 11.5%)
 - Step-level gate (measured only): P_trace_to_sim_step > 15% → NOT YET (max: N/A (no measured step rows))
 - **Overall go/no-go**: NOT YET — gather measured data first
-- Note: Only measured claim-bearing rows drive the verdict. Modeled and placeholder rows are present for context but excluded from go/no-go computation.
+- Note: A row counts as fully measured only when T_kernel_or_trace_export, T_trace_to_sim, T_sim_backend_execution, AND T_result_analysis are all measured.
 
 ## Per-Workload Results
 

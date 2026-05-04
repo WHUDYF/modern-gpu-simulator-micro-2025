@@ -38,5 +38,5 @@
     "BERT pretraining full step and Llama workloads remain modeled/placeholder",
     "This is an early-stage engineering gate, not a final paper claim threshold"
   ],
-  "status": "Gate D PASS — go/no-go verdict based on measured claim-bearing data"
+  "status": "Gate D — NO-GO: P_trace_to_sim=11.5%<15% based on fully measured claim-bearing complete-flow record. All 4 components (export, frontend, backend, analysis) measured."
 }

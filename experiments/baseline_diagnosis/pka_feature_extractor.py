@@ -324,10 +324,7 @@ def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[di
 
     results = []
     occurrence: dict[str, int] = {}
-    # Sort by source key to get stable trace_order
-    sorted_keys = sorted(per_kernel.keys())
-    for trace_idx, source_key in enumerate(sorted_keys):
-        item = per_kernel[source_key]
+    for trace_idx, (source_key, item) in enumerate(per_kernel.items()):
         kernel_name = item.get("kernel_name", "")
         if not _match_kernel_name(kernel_name, kernel_or_case):
             continue
@@ -347,7 +344,17 @@ def _adapt_mini_transformer(entry: dict[str, Any], source_path: Path) -> list[di
                         metric_map[k] = v["mean"]
 
         features = _extract_pka_features(metric_map, str(source_path))
-        results.append(_make_record(entry, invocation_id, kernel_name, features, trace_order=trace_idx))
+        timing_basis = None
+        timing_value = None
+        if metric_map.get("duration_ns") is not None:
+            timing_basis = "duration_ns"
+            timing_value = float(metric_map["duration_ns"])
+        elif metric_map.get("elapsed_cycles") is not None:
+            timing_basis = "elapsed_cycles"
+            timing_value = float(metric_map["elapsed_cycles"])
+        results.append(_make_record(entry, invocation_id, kernel_name, features,
+                                    trace_order=trace_idx, timing_basis=timing_basis,
+                                    timing_value=timing_value))
 
     if not results:
         raise ValueError(f"{entry['id']}: mini-transformer adapter produced zero outcomes for kernel_or_case={kernel_or_case} in {source_path}")

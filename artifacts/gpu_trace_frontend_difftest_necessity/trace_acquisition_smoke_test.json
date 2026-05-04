@@ -1,42 +1,64 @@
 {
   "report_name": "BERT/Llama Trace Acquisition Smoke Test",
-  "generated_at": "2026-05-04T16:40:00",
+  "generated_at": "2026-05-04T16:52:00",
   "gate": "Gate A: Trace Acquisition Ready",
   "status": "BLOCKED: trace acquisition unavailable",
   "data_label": "control",
   "claim_bearing": false,
   "measurement_unit": "control",
-  "source_artifact": "NVBit 1.7.6 tracer test run",
-  "provenance": "NVBit v1.7.6 attempted on NVIDIA GeForce RTX 5090 (Blackwell, compute capability 12.0)",
+  "source_artifact": "NVBit v1.7.6 tracer tool tested with compiled CUDA binary and PyTorch Python script",
+  "provenance": "NVBit v1.7.6 on RTX 5090 (Blackwell sm_120). Previously generated traces exist from April 12 (manual-l1_bw_32f-5090-fixed) proving NVBit worked on this hardware.",
   "smoke_test_results": [
     {
-      "workload_id": "bert-base-encoder-slice",
+      "workload_id": "bert-base-encoder-layer-slice",
       "workload_type": "AI-training (claim-bearing)",
-      "export_command": "LD_PRELOAD=tracer_tool.so CUDA_INJECTION64_PATH=tracer_tool.so TRACES_FOLDER=<dir> python3 bert_inference.py",
-      "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-slice/traces",
+      "export_command": "LD_PRELOAD=tracer_tool.so USER_DEFINED_FOLDERS=1 TRACES_FOLDER=<dir> python3 /tmp/bert_inference.py",
+      "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-layer-slice/traces",
       "trace_size_bytes": 0,
       "status": "failed",
-      "failure_stage": "NVBit GPU architecture support",
-      "failure_reason": "NVBit v1.7.6 reports 'unsupported binary version: 0' for RTX 5090 (Blackwell, compute capability 12.0). The NVBit get_sm_family() function does not recognize sm_120. A newer NVBit release with Blackwell support is required."
+      "failure_stage": "NVBit trace output generation",
+      "failure_reason": "NVBit loads (banner confirmed), BERT inference runs correctly on GPU, but no .pb files are written to TRACES_FOLDER. Same behavior observed with compiled CUDA binary (l1_bw_32f) that previously produced traces on April 12. Likely a driver update (580.x) broke NVBit v1.7.6 output path while preserving injection."
+    },
+    {
+      "workload_id": "l1_bw_32f (compiled CUDA binary)",
+      "workload_type": "microbenchmark (control)",
+      "export_command": "Same as docs/5090-trace-to-sim.md verified flow",
+      "trace_size_bytes": 0,
+      "status": "failed",
+      "failure_stage": "NVBit trace output generation",
+      "failure_reason": "Same as above — NVBit loads but produces zero-byte traces/ directory. The previously-generated manual-l1_bw_32f-5090-fixed trace from April 12 confirms NVBit previously worked."
     }
   ],
   "environment": {
-    "cuda_driver_version": "13.0",
+    "cuda_driver_version": "580.105.08 (CUDA 13.0)",
     "cuda_toolkit_version": "12.8",
     "nvbit_version": "1.7.6",
     "gpu_model": "NVIDIA GeForce RTX 5090",
     "gpu_compute_capability": "12.0",
     "gpu_memory_gib": 32,
-    "python_version": "3.x",
+    "python_version": "3.11",
     "pytorch_version": "2.11.0+cu130",
     "transformers_available": true
+  },
+  "existing_traces": {
+    "manual-l1_bw_32f-5090-fixed": {
+      "path": "/home/dyf/modern-gpu-simulator-micro-2025/hw_run/traces/device-0/12.8/manual-l1_bw_32f-5090-fixed/traces",
+      "generated_date": "2026-04-12",
+      "files": ["dynamic_trace.pb", "stats.csv", "extra_info/enhanced_execution_info.json"],
+      "status": "available — proves NVBit worked on this hardware previously"
+    },
+    "rodinia-nn": {
+      "path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/exampleTraces/rodinia2/12.8/nn-rodinia-2.0-ft",
+      "status": "available — previously generated trace"
+    }
   },
   "prerequisites": {
     "nvbit_harness_exists": true,
     "bert_inference_script_exists": true,
     "pytorch_cuda_available": true,
     "gpu_accessible": true,
-    "nvbit_gpu_architecture_supported": false
+    "nvbit_loaded": true,
+    "nvbit_output_working": false
   },
-  "resolution": "Upgrade NVBit to a version supporting Blackwell (sm_120) or use a Hopper (sm_90) or earlier GPU."
+  "resolution": "NVBit v1.7.6 loads (banner confirmed) and intercepts CUDA calls, but trace file output is broken on driver 580.105.08. The existing April 12 traces prove the hardware is capable. Resolution: debug NVBit output path on current driver, or downgrade driver to the version that was active on April 12."
 }

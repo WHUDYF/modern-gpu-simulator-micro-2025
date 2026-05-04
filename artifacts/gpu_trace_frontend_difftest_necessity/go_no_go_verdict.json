@@ -7,16 +7,21 @@
   "source_artifact": "frontend_timing_breakdown_bert-base-encoder-layer-slice.json, complete_flow_burden_ratio.json",
   "provenance": "BERT encoder layer training slice, measured via instrumented simulator run on 2026-05-04",
   "generated_at": "2026-05-04T20:16:00+08:00",
-  "verdict": "GO: frontend prototype investigation justified",
+  "verdict": "INCONCLUSIVE: simulator frontend_share=57.6% justifies investigation, but complete-flow P_trace_to_sim=11.5% (<15%) when trace export dominates. Frontend restructuring is worth investigating for simulator iteration speed, but end-to-end burden is dominated by trace generation.",
   "basis": {
-    "P_trace_to_sim_slice": 55.2,
+    "P_trace_to_sim_slice_complete_flow": 11.5,
+    "frontend_share_simulator_only": 57.6,
     "threshold_pct": 15,
     "threshold_rule": "P_trace_to_sim_slice > 15% OR P_trace_to_sim_step > 15%",
-    "satisfied_by": "P_trace_to_sim_slice = 55.2% > 15%"
+    "satisfied_by": "P_trace_to_sim_slice = 11.5% does NOT exceed 15% in complete flow metric. However, simulator-only frontend_share = 57.6% — the frontend dominates inside the simulator.",
+    "note": "The plan defines T_kernel_to_sim_done including T_kernel_or_trace_export. With 180s trace export, the denominator grows from 46.9s to 225.2s, reducing P_trace_to_sim from 55.2% to 11.5%."
   },
   "measured_values": {
     "T_trace_to_sim_s": 25.87,
-    "T_kernel_to_sim_done_s": 46.87,
+    "T_kernel_or_trace_export_s": 180.0,
+    "T_sim_backend_execution_s": 19.05,
+    "T_result_analysis_s": 0.25,
+    "T_kernel_to_sim_done_s": 225.17,
     "frontend_share": 0.576,
     "breakdown": {
       "trace_read_s": 0.00015,

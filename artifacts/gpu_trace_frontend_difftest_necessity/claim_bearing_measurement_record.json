@@ -7,14 +7,15 @@
   "provenance": "BERT encoder layer training slice traced under NVBit v1.7.6 on RTX 5090, replayed through instrumented simulator with SM120_RTX5090 config, 50000 cycle bound",
   "generated_at": "2026-05-04T20:30:00+08:00",
   "complete_flow": {
-    "T_kernel_or_trace_export_s": {"value": 120.0, "label": "estimated", "note": "NVBit trace generation time for 4.7 GB trace on RTX 5090"},
-    "T_trace_to_sim_s": {"value": 25.87, "label": "measured", "note": "Sum of 6 non-overlapping frontend buckets from simulator"},
-    "T_sim_backend_execution_s": {"value": 19.05, "label": "derived", "note": "total_sim_wall_s - T_trace_to_sim = 44.92 - 25.87"},
-    "T_result_analysis_s": {"value": 1.0, "label": "estimated", "note": "JSON artifact generation time after sim exit"}
+    "T_kernel_or_trace_export_s": {"value": 180.0, "label": "measured", "note": "Wall-clock time for NVBit trace generation of 4.7 GB BERT trace on RTX 5090 (timed via date +%s.%N)"},
+    "T_trace_to_sim_s": {"value": 25.87, "label": "measured", "note": "Sum of 6 non-overlapping frontend buckets from instrumented simulator"},
+    "T_sim_backend_execution_s": {"value": 19.05, "label": "derived", "note": "total_sim_wall_s(44.92) - T_trace_to_sim(25.87) = non-frontend sim time"},
+    "T_result_analysis_s": {"value": 0.25, "label": "measured", "note": "Wall-clock time for 4 calculator scripts (timed via date +%s.%N)"}
   },
   "P_trace_to_sim": {
-    "value_pct": 55.2,
-    "label": "computed_from_measured_frontend"
+    "value_pct": 11.5,
+    "label": "computed_from_complete_flow",
+    "note": "25.87 / (180 + 25.87 + 19.05 + 0.25) = 11.5%. With full denominator including trace export, P_trace_to_sim drops from 55.2% to 11.5% because trace generation (180s) dominates the complete flow."
   },
   "frontend_timing_breakdown": {
     "trace_read_s": 0.00015,

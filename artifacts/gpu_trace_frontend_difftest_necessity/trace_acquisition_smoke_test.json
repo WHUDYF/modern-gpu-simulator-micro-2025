@@ -1,65 +1,93 @@
 {
   "report_name": "BERT/Llama Trace Acquisition Smoke Test",
-  "generated_at": "2026-05-04T17:12:00",
+  "generated_at": "2026-05-04T19:25:17+08:00",
   "gate": "Gate A: Trace Acquisition Ready",
-  "status": "BLOCKED: NVBit kernel-launch callback does not trigger trace file output on driver 580.105.08",
-  "data_label": "control",
-  "claim_bearing": false,
-  "measurement_unit": "control",
-  "source_artifact": "NVBit v1.7.6 at util/tracer_nvbit/ (libnvbit.a pre-compiled, tracer_tool.so rebuilt 2026-05-04 17:10)",
-  "provenance": "Control experiment: l1_bw_32f x3, BERT x1. All show NVBit injection succeeds, app runs correctly, no trace files produced.",
-  "control_validation_passed": false,
-  "claim_bearing_measurement_passed": false,
+  "status": "PASS: control and BERT-base encoder-layer training slice both emit trace artifacts",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "trace_acquisition_smoke",
+  "source_artifact": "NVBit v1.7.6 tracer_tool rebuilt locally after tracer_tool.cu and Makefile fixes",
+  "provenance": "Fresh control and BERT traced runs on RTX 5090 / CUDA 12.8 / driver 580.105.08. The old 'callback never triggers' diagnosis is obsolete.",
+  "control_validation_passed": true,
+  "claim_bearing_measurement_passed": true,
   "smoke_test_results": [
     {
       "workload_id": "l1_bw_32f",
       "workload_type": "microbenchmark (control)",
-      "harness_path": "gpu-app-collection/src/cuda/GPU_Microbenchmark/bin/l1_bw_32f",
-      "export_command": "source ~/.bashrc; cd simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export TRACES_FOLDER=<dir>; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; ./gpu-app-collection/src/cuda/GPU_Microbenchmark/bin/l1_bw_32f",
-      "trace_path": "/tmp/ctrl_r3_traces/traces",
-      "trace_size_bytes": 0,
+      "claim_bearing": false,
+      "harness_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/gpu-app-collection/src/cuda/GPU_Microbenchmark/bin/l1_bw_32f",
+      "export_command": "cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export TRACES_FOLDER=/tmp/tracer_tool_repro/traces; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; ./gpu-app-collection/src/cuda/GPU_Microbenchmark/bin/l1_bw_32f",
+      "trace_path": "/tmp/tracer_tool_repro/traces",
+      "trace_size_bytes": 3105111,
       "test_date": "2026-05-04",
-      "test_runs": 3,
+      "test_runs": 1,
+      "exit_code": 0,
       "nvbit_loaded": true,
-      "application_output": "L1 bandwidth = 63.81 byte/clk/SM, Total Clk number = 65726",
-      "trace_files_produced": 0,
-      "log_paths": [
-        "artifacts/gpu_trace_frontend_difftest_necessity/logs/l1_bw_32f_r3_stdout.log",
-        "artifacts/gpu_trace_frontend_difftest_necessity/logs/l1_bw_32f_r3_stderr.log"
+      "application_output": "L1 bandwidth = 0.004275 byte/clk/SM; Serialized protocol buffer written to /tmp/tracer_tool_repro/traces/dynamic_trace.pb; Enhanced tracer has parsed 1/1 kernels",
+      "trace_files_produced": 4,
+      "pb_files_produced": 2,
+      "threadblock_pb_files_produced": 1,
+      "kernel_rows_in_stats_csv": 1,
+      "required_files": [
+        "dynamic_trace.pb",
+        "stats.csv",
+        "extra_info/enhanced_execution_info.json",
+        "threadblocks/device_0/stream_0/kernel_1/d_0_s_0_k_1_0,0,0.pb"
       ],
-      "status": "failed",
-      "failure_stage": "NVBit trace output — 'Traces location is ...' printf from tracer_tool.cu:1015 never appears",
-      "failure_reason": "NVBit v1.7.6 loads (banner confirmed), USER_DEFINED_FOLDERS=1 honored, app runs correctly. But the kernel-launch callback at tracer_tool.cu:1006-1024 that opens stats.csv never executes. Same flow produced traces on 2026-04-12."
+      "status": "passed"
     },
     {
       "workload_id": "bert-base-encoder-layer-slice",
       "workload_type": "AI-training (claim-bearing)",
+      "claim_bearing": true,
       "harness_path": "/home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py",
-      "export_command": "source ~/.bashrc; cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export TRACES_FOLDER=/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-layer-slice/traces; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; python3 /home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py",
-      "trace_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/hw_run/traces/bert-base-encoder-layer-slice/traces",
-      "trace_size_bytes": 0,
+      "export_command": "cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; export CUDA_INSTALL_PATH=/usr/local/cuda-12.8; export CUDA_VISIBLE_DEVICES=0; export CUDA_VERSION=12.8; export USER_DEFINED_FOLDERS=1; export ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1; export TRACES_FOLDER=/tmp/bert_trace_repro/traces; export CUDA_INJECTION64_PATH=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so; export LD_PRELOAD=$CUDA_INJECTION64_PATH; python3 /home/dyf/worktrees/trace-compression-industrial/docs/bert-inference.py",
+      "trace_path": "/tmp/bert_trace_repro/traces",
+      "trace_size_bytes": 4680065040,
       "test_date": "2026-05-04",
       "test_runs": 1,
+      "exit_code": 0,
       "nvbit_loaded": true,
-      "application_output": "BERT-base output shape: torch.Size([1, 128, 768])",
-      "trace_files_produced": 0,
-      "log_paths": [
-        "artifacts/gpu_trace_frontend_difftest_necessity/logs/bert_trace_r3_stdout.log",
-        "artifacts/gpu_trace_frontend_difftest_necessity/logs/bert_trace_r3_stderr.log"
+      "application_output": "Training loss: 0.0001; Kernel binary version is 0; falling back to current device sm_120; Enhanced tracer has parsed 28/28 kernels",
+      "trace_files_produced": 19942,
+      "pb_files_produced": 19940,
+      "threadblock_pb_files_produced": 19939,
+      "kernel_rows_in_stats_csv": 77,
+      "dynamic_trace_pb_bytes": 14500,
+      "enhanced_execution_info_json_bytes": 46095755,
+      "stats_csv_bytes": 15041,
+      "required_files": [
+        "dynamic_trace.pb",
+        "stats.csv",
+        "extra_info/enhanced_execution_info.json",
+        "threadblocks/device_0/stream_0/"
       ],
-      "status": "failed",
-      "failure_stage": "Same as control — NVBit kernel-launch callback not reached",
-      "failure_reason": "Identical behavior to l1_bw_32f control. BERT runs correctly, NVBit loads, no trace files."
+      "status": "passed",
+      "notes": "Python/PyTorch executables do not contain device code for cuobjdump. The run uses ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1 so enhanced tracing can fall back to NVBit-captured SASS for no-binary kernels."
     }
   ],
+  "fix_summary": {
+    "root_cause": "Trace emission was blocked after callback entry by tracer path and enhanced-trace assumptions, not by a global NVBit callback failure.",
+    "fixes": [
+      "Use /proc/self/exe before falling back to backtrace-derived program paths.",
+      "Normalize program path before running cuobjdump from inside the cubin directory.",
+      "Propagate TRACES_FOLDER to dynamic_trace.pb, threadblock traces, and enhanced metadata paths.",
+      "Link tracer_tool.so and trace_printer with -lstdc++fs for GCC 8 filesystem symbols.",
+      "Fallback binary_version=0 kernels to current device compute capability, sm_120 on RTX 5090.",
+      "Allow Python/PyTorch runs to continue with no-binary enhanced trace fallback when cuobjdump reports no device code."
+    ],
+    "changed_paths": [
+      "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/util/tracer_nvbit/tracer_tool/tracer_tool.cu",
+      "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/util/tracer_nvbit/tracer_tool/Makefile"
+    ],
+    "backup_check": "Checked local backup at /home/dyf/modern-gpu-simulator-micro-2025/.worktrees/difftest-doc; it matched the old broken implementation and did not contain this fix."
+  },
   "environment": {
     "cuda_driver": "580.105.08",
     "cuda_toolkit": "12.8",
     "nvbit_version": "1.7.6",
-    "nvbit_core": "libnvbit.a (pre-compiled, not rebuilt)",
-    "tracer_tool_so": "rebuilt 2026-05-04 17:10",
     "gpu": "RTX 5090 (sm_120)",
-    "existing_working_traces": ["manual-l1_bw_32f-5090-fixed (2026-04-12)"]
+    "bert_harness": "BertLayer forward plus loss.backward on random input, batch=1, seq_len=128, hidden=768"
   },
-  "resolution": "NVBit v1.7.6 libnvbit.a kernel-launch callback does not trigger on driver 580.105.08. Tracer rebuild confirmed. Requires NVBit update or driver rollback."
+  "remaining_scope": "Gate A is satisfied for trace acquisition. This artifact does not claim simulator replay, frontend timing breakdown, redundancy profile, or burden-ratio completion."
 }

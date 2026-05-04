@@ -154,7 +154,41 @@ NEGATIVE: measured evidence rejects the optimization line
 
 如果 central evidence table、claim-bearing timing、batch scaling、trace acquisition 等任务仍然缺失，必须写 `PARTIAL` 或 `BLOCKED`。
 
-### 9. Artifact 必须区分 measured、modeled、placeholder、control
+### 9. Plan-gap 问题必须先进行 6 次内部排障循环
+
+当 RLCR 执行中遇到 plan 没有定义到的问题，并且该问题阻塞 hard AC 或 claim-critical artifact 时，不能立即停止，也不能直接声明 `BLOCKED`。
+
+必须针对同一个未定义问题进入 bounded troubleshooting loop：
+
+```text
+max_attempts_per_plan_gap_issue = 6
+```
+
+这里的 6 次循环指的是同一个未定义问题内部的 troubleshooting attempt，不是整个 RLCR 最多 6 个 round。
+
+每一次 attempt 必须记录：
+
+- 当前阻塞的问题；
+- 本轮假设；
+- 本轮执行的命令、代码修改或验证；
+- 本轮结果；
+- 下一步是继续、换方向，还是触发停止条件。
+
+只有满足以下条件之一，才允许停止：
+
+- hard AC 已经完成；
+- 同一个 plan-gap issue 已经尝试 6 次仍无法解决；
+- 已经用日志或命令输出证明是外部环境、权限、资源上限或工具缺失导致；
+- 用户明确要求停止。
+
+如果 6 次后仍未解决，最终状态不能写 `COMPLETE`，只能写：
+
+```text
+PARTIAL: unresolved plan-gap after bounded troubleshooting
+BLOCKED: external prerequisite unavailable
+```
+
+### 10. Artifact 必须区分 measured、modeled、placeholder、control
 
 所有 JSON/Markdown artifact 都必须显式标注数据来源。
 
@@ -172,7 +206,7 @@ NEGATIVE: measured evidence rejects the optimization line
 
 claim-bearing 结论只能使用 `data_label = measured` 的行。control 和 modeled 行可以进入附录或 planning table，但不能满足最终 go/no-go。
 
-### 10. 下一步计划优先补证据，不优先继续造工具
+### 11. 下一步计划优先补证据，不优先继续造工具
 
 当已有 schema、calculator、report generator、instrumentation 后，下一版 plan 应优先解决证据缺口。
 

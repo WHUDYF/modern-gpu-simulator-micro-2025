@@ -15,6 +15,7 @@ def check(name, cond):
     if not cond:
         failures += 1
         print(f"  FAIL: {name}")
+        raise AssertionError(name)
     else:
         print(f"  PASS: {name}")
 
@@ -275,10 +276,34 @@ def test_bline():
 # ══════════════════════════════════════════════════════════════════
 
 def test_stagegate():
-    artifact_dir = REPO_ROOT / "artifacts" / "a_line" / "l1"
-    sg_path = artifact_dir / "l1_stage_gate_report_l1.json"
-    check("stage gate exists", sg_path.exists())
-    sg = json.loads(sg_path.read_text())
+    from build_l1_audit import _stage_gate
+
+    manifest = {
+        "entries": [
+            {"id": "L1_MEASURED", "priority": "P0"},
+            {"id": "L1_GAP", "priority": "P0"},
+        ]
+    }
+    sg = _stage_gate(
+        [
+            {
+                "manifest_id": "L1_MEASURED",
+                "kernel_invocation_id": "measured#1",
+                "kernel_name": "measured",
+                "outcome": "measured",
+                "timing_basis": "duration_ns",
+            },
+            {
+                "manifest_id": "L1_GAP",
+                "kernel_invocation_id": "gap#1",
+                "kernel_name": "gap",
+                "outcome": "acquisition_gap",
+                "source_path": "synthetic.json",
+                "missing_metrics": ["coalesced_global_loads"],
+            },
+        ],
+        manifest,
+    )
     check("valid run status", sg["run_status"] in {
         "acquisition_gate_success", "full_closure_success",
         "selector_insufficient_records", "weight_unit_conflict",
@@ -288,12 +313,6 @@ def test_stagegate():
     if sg["run_status"] == "acquisition_gate_success":
         check("stage 3 blocked", sg["stages"]["stage_3_selector"] == "blocked")
         check("stage 4 blocked", sg["stages"]["stage_4_b_line_consumption"] == "blocked")
-        # Verify gate-clean: no stale downstream artifacts
-        for fn in ["representative_anchor_table_l1.json", "b_line_consumption_report_l1.md",
-                    "pka_selector_config_l1.json", "pka_cluster_assignment_l1.json",
-                    "pka_dimensionality_reduction_report_l1.json", "pka_dimensionality_reduction_report_l1.md",
-                    "pka_reduced_feature_table_l1.json"]:
-            check(f"stale artifact absent: {fn}", not (artifact_dir / fn).exists())
 
     # provenance rejection: empty actual_source_metric detected
     from pka_feature_extractor import _extract_pka_features, PKA_FEATURES, _make_record

@@ -127,17 +127,31 @@ def _map_status(raw: str) -> str:
     return "ready_local"
 
 
+def _normalize_repo_relative_path(path_text: str) -> str:
+    path = Path(path_text)
+    if not path.is_absolute():
+        return path_text
+
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        pass
+
+    parts = path.parts
+    for marker in ("experiments", "artifacts", "docs"):
+        if marker in parts:
+            idx = parts.index(marker)
+            return str(Path(*parts[idx:]))
+    return path_text
+
+
 def _build_entries(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     entries = []
     for row in rows:
         entry_id = row["id"].strip()
         source_type = _map_source_type(row["来源"])
         local_path = _extract_path_from_md_link(row["本地路径 / 来源路径"])
-
-        # Remove repo root prefix if present (absolute paths in md links)
-        repo_prefix = str(REPO_ROOT) + "/"
-        if local_path.startswith(repo_prefix):
-            local_path = local_path[len(repo_prefix):]
+        local_path = _normalize_repo_relative_path(local_path)
 
         entry = {
             "id": entry_id,

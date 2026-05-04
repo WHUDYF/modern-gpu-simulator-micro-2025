@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 @dataclass(frozen=True)
 class CatalogEntry:
     id: str
@@ -28,7 +31,6 @@ def load_catalog(path: Path) -> Catalog:
     if not isinstance(entries, list) or not entries:
         raise ValueError(f"catalog must contain a non-empty entries list: {path}")
 
-    root = path.resolve().parents[2]
     return Catalog(
         catalog_id=str(data["catalog_id"]),
         description=str(data.get("description", "")),
@@ -37,7 +39,7 @@ def load_catalog(path: Path) -> Catalog:
                 id=str(entry["id"]),
                 label=str(entry["label"]),
                 role=str(entry["role"]),
-                source_path=_resolve_source_path(str(entry["source_path"]), root),
+                source_path=_resolve_source_path(str(entry["source_path"]), REPO_ROOT),
                 record_pointer=str(entry["record_pointer"]),
             )
             for entry in entries

@@ -68,8 +68,6 @@ def _max_scenarios(worksheet: dict, role: str) -> int:
 
 def _scenario_limit(row: dict, worksheet: dict) -> list[str]:
     role = row["validation_role"]
-    if role in {"review-object", "constraint-object"}:
-        return row["parameter_scenario_ids"][: _max_scenarios(worksheet, role)]
     return row["parameter_scenario_ids"][: _max_scenarios(worksheet, role)]
 
 

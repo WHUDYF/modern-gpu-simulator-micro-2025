@@ -1,0 +1,49 @@
+{
+  "workload_id": "bert-base-pretraining-full-step",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "step",
+  "source_artifact": "logs/bert_full_step_trace_r3_stdout.log, logs/bert_full_step_trace_r3_stderr.log, logs/bert_full_step_replay_r3.log",
+  "provenance": "Synthetic BERT-base BertForPreTraining full pretraining-style forward/backward step, batch=1, seq_len=16, traced under NVBit v1.7.6 on RTX 5090 with ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1, then replayed with SM120_RTX5090 config and 50000-cycle bound.",
+  "generated_at": "2026-05-05T00:18:00+08:00",
+  "status": "trace_export_passed_replay_blocked",
+  "harness_path": "docs/bert-full-step-training.py",
+  "validation_without_nvbit": {
+    "command": "BERT_TRACE_BATCH=1 BERT_TRACE_SEQ_LEN=16 python3 docs/bert-full-step-training.py",
+    "exit_code": 0,
+    "result": "BERT full-step training complete: batch=1 seq_len=16 loss=11.265118 peak_alloc_mib=1042.7"
+  },
+  "trace_export": {
+    "command": "cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; CUDA_VISIBLE_DEVICES=0 BERT_TRACE_BATCH=1 BERT_TRACE_SEQ_LEN=16 USER_DEFINED_FOLDERS=1 ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1 TRACES_FOLDER=/tmp/bert_full_step_trace_r3/traces LD_PRELOAD=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so python3 /home/dyf/worktrees/trace-compression-industrial/docs/bert-full-step-training.py",
+    "exit_code": 0,
+    "trace_path": "/tmp/bert_full_step_trace_r3/traces",
+    "trace_size_bytes": 20001352860,
+    "trace_files_produced": 149087,
+    "pb_files_produced": 149085,
+    "dynamic_trace_pb_bytes": 122063,
+    "enhanced_execution_info_json_bytes": 74943587,
+    "stats_csv_bytes": 123486,
+    "enhanced_tracer_summary": "Enhanced tracer has parsed 39/39 kernels"
+  },
+  "simulator_replay": {
+    "command": "OMP_NUM_THREADS=1 OMP_PROC_BIND=spread timeout 1200 ./gpu-simulator/bin/release/accel-sim.out -config ./gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM120_RTX5090/gpgpusim.config -config ./gpu-simulator/configs/tested-cfgs/SM120_RTX5090/trace.config -gpgpu_max_cycle 50000 -trace /tmp/bert_full_step_trace_r3/traces/dynamic_trace.pb",
+    "exit_code": 1,
+    "log_path": "logs/bert_full_step_replay_r3.log",
+    "blocker": "Simulator aborts on unsupported Blackwell trace opcode UF2I.FTZ.U32.TRUNC.NTZ in trace_driven.cc:328.",
+    "result": "Replay entered the simulator and began kernel-1.trace before hitting a deterministic undefined-instruction assertion."
+  },
+  "bounded_troubleshooting": [
+    {
+      "hypothesis": "The initial NVBit segfault was caused by a missing user trace directory, not by the BERT harness.",
+      "command": "Pre-create /tmp/bert_full_step_trace_r3/traces before running NVBit export.",
+      "result": "Trace export completed successfully and produced 20.0 GB of trace artifacts.",
+      "next_action": "Replay the exported trace through the bounded simulator command."
+    },
+    {
+      "hypothesis": "The exported BERT full-step trace can replay under the SM120_RTX5090 bounded simulator config.",
+      "command": "Run accel-sim.out with -gpgpu_max_cycle 50000 on /tmp/bert_full_step_trace_r3/traces/dynamic_trace.pb.",
+      "result": "Replay failed deterministically on unsupported opcode UF2I.FTZ.U32.TRUNC.NTZ.",
+      "next_action": "Extend trace opcode mapping/support for Blackwell UF2I before BERT full-step timing/redundancy can be measured."
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "workload_id": "llama3.1-8b-decoder-layer-slice",
+  "data_label": "measured",
+  "claim_bearing": true,
+  "measurement_unit": "slice",
+  "source_artifact": "logs/llama_decoder_layer_trace_r2_stdout.log, logs/llama_decoder_layer_trace_r2_stderr.log, logs/llama_decoder_layer_replay_r2.log",
+  "provenance": "Synthetic Llama 3.1 8B-sized decoder-layer forward/backward slice, batch=1, seq_len=8, hidden=4096, intermediate=14336, traced under NVBit v1.7.6 on RTX 5090 with ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1, then replayed with SM120_RTX5090 config and 50000-cycle bound.",
+  "generated_at": "2026-05-05T00:18:00+08:00",
+  "status": "trace_export_and_bounded_replay_passed",
+  "harness_path": "docs/llama-decoder-layer-training.py",
+  "validation_without_nvbit": {
+    "command": "LLAMA_TRACE_BATCH=1 LLAMA_TRACE_SEQ_LEN=8 python3 docs/llama-decoder-layer-training.py",
+    "exit_code": 0,
+    "result": "Llama decoder-layer training complete: batch=1 seq_len=8 hidden=4096 loss=1.030821 peak_alloc_mib=864.0"
+  },
+  "trace_export": {
+    "command": "cd /home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled; CUDA_VISIBLE_DEVICES=1 LLAMA_TRACE_BATCH=1 LLAMA_TRACE_SEQ_LEN=8 USER_DEFINED_FOLDERS=1 ALLOW_CUOBJDUMP_NO_DEVICE_CODE=1 TRACES_FOLDER=/tmp/llama_decoder_layer_trace_r2/traces LD_PRELOAD=$PWD/util/tracer_nvbit/tracer_tool/tracer_tool.so python3 /home/dyf/worktrees/trace-compression-industrial/docs/llama-decoder-layer-training.py",
+    "exit_code": 0,
+    "trace_path": "/tmp/llama_decoder_layer_trace_r2/traces",
+    "trace_size_bytes": 6409902854,
+    "trace_files_produced": 282969,
+    "pb_files_produced": 282967,
+    "dynamic_trace_pb_bytes": 8500,
+    "enhanced_execution_info_json_bytes": 70153860,
+    "stats_csv_bytes": 34623,
+    "kernel_rows_in_stats_csv": 156,
+    "enhanced_tracer_summary": "Enhanced tracer has parsed 45/45 kernels"
+  },
+  "simulator_replay": {
+    "command": "OMP_NUM_THREADS=1 OMP_PROC_BIND=spread timeout 900 ./gpu-simulator/bin/release/accel-sim.out -config ./gpu-simulator/gpgpu-sim/configs/tested-cfgs/SM120_RTX5090/gpgpusim.config -config ./gpu-simulator/configs/tested-cfgs/SM120_RTX5090/trace.config -gpgpu_max_cycle 50000 -trace /tmp/llama_decoder_layer_trace_r2/traces/dynamic_trace.pb",
+    "exit_code": 0,
+    "log_path": "logs/llama_decoder_layer_replay_r2.log",
+    "gpgpu_max_cycle": 50000,
+    "gpu_tot_sim_cycle": 50000,
+    "gpu_tot_sim_insn": 12330848,
+    "gpu_tot_ipc": 246.617,
+    "gpu_tot_issued_cta": 4245,
+    "gpu_tot_occupancy_pct": 87.8921,
+    "simulation_time_s": 205,
+    "break_reason": "maximum cycles reached"
+  }
+}

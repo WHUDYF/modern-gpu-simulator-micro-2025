@@ -150,6 +150,45 @@ def test_gate3_occurrence_join_and_nonzero_exit_provenance(monkeypatch, tmp_path
     assert [row["join_status"] for row in join_rows] == ["matched", "matched"]
 
 
+def test_gate3_repeated_kernel_single_manifest_uses_first_occurrence(monkeypatch, tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
+    rows = ["ID,Kernel Name,Grid Size,Metric Name,Metric Value"]
+    for inv_id, value in (("0", "1"), ("1", "2")):
+        for metric in selected_metric_records():
+            if metric["selected_for_ncu_metrics"]:
+                rows.append(f"{inv_id},gemm_tiled,(1, 1, 1),{metric['actual_source_metric']},{value}")
+    csv_path.write_text("\n".join(rows) + "\n")
+    _write_env(env_path)
+    (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
+    attempts_path = tmp_path / "attempts.json"
+    attempts_path.write_text(json.dumps([
+        {
+            "capture_job_id": "job",
+            "gate3_eligible": True,
+            "capture_status": "captured",
+            "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
+            "consuming_manifest_entry_ids": ["L1_AI_01"],
+            "consuming_kernel_or_cases": ["gemm_tiled"],
+        }
+    ]))
+    monkeypatch.setattr(extractor, "ATTEMPTS_PATH", attempts_path)
+    monkeypatch.setattr(extractor, "FEATURE_TABLE_PATH", tmp_path / "features.json")
+    monkeypatch.setattr(extractor, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(extractor, "FEATURE_AUDIT_PATH", tmp_path / "audit.json")
+    monkeypatch.setattr(extractor, "JOIN_AUDIT_PATH", tmp_path / "join.json")
+    features, gaps = extractor.extract()
+    assert len(features) == 1
+    assert not gaps
+    assert features[0]["record_id"] == "L1_AI_01:0"
+    join_rows = json.loads((tmp_path / "join.json").read_text())["entries"]
+    assert join_rows[0]["join_status"] == "matched"
+    assert "selected first occurrence" in join_rows[0]["reason"]
+
+
 def test_gate3_reports_empty_kernel_name(monkeypatch, tmp_path):
     job_dir = tmp_path / "job"
     job_dir.mkdir()

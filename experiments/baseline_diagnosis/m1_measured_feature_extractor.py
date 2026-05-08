@@ -114,7 +114,7 @@ def _join(
     if not matches:
         return None, "missing_kernel", "no matching kernel name in capture CSV"
     if len(matches) > 1 and total_requested_for_kernel <= 1:
-        return None, "ambiguous_kernel", f"{len(matches)} matching invocations"
+        return matches[0], "matched", f"{len(matches)} matching invocations; selected first occurrence deterministically"
     if requested_occurrence_index >= len(matches):
         return None, "occurrence_mismatch", f"requested occurrence {requested_occurrence_index}, only {len(matches)} matches"
     return matches[requested_occurrence_index], "matched", None

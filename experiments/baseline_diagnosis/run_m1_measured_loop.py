@@ -7,13 +7,27 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import ARTIFACT_DIR, read_json, write_json
+MODULE_DIR = Path(__file__).resolve().parent
+if str(MODULE_DIR) not in sys.path:
+    sys.path.insert(0, str(MODULE_DIR))
 
-import m1_measured_feature_extractor
-import m1_ncu_capture_dispatcher
-import m1_selector_eligibility
-import m1_workload_resolver
-import pka_m1_selector
+try:
+    from .shared_acquisition import ARTIFACT_DIR, read_json, write_json
+    from . import (
+        m1_measured_feature_extractor,
+        m1_ncu_capture_dispatcher,
+        m1_selector_eligibility,
+        m1_workload_resolver,
+        pka_m1_selector,
+    )
+except ImportError:
+    from shared_acquisition import ARTIFACT_DIR, read_json, write_json
+
+    import m1_measured_feature_extractor
+    import m1_ncu_capture_dispatcher
+    import m1_selector_eligibility
+    import m1_workload_resolver
+    import pka_m1_selector
 
 STATUS_PATH = ARTIFACT_DIR / "m1_measured_loop_status_l1.json"
 def _gate5_artifacts() -> list[Path]:
@@ -111,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     report = run(dry_run_capture=args.dry_run_capture, dry_run_smoke=args.dry_run_smoke)
     print(report["status"])
-    return 0
+    return 1 if report["status"].startswith("stop_fail_") else 0
 
 
 if __name__ == "__main__":

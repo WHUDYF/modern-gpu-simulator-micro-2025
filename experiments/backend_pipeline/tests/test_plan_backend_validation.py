@@ -40,7 +40,10 @@ def test_planner_marks_review_and_constraint_roles(tmp_path):
     manifest = json.loads((output_dir / "backend_run_manifest_v1.json").read_text())
     roles = {row["regime_id"]: row["validation_role"] for row in manifest if row["priority_source"] == "importance-guided"}
     assert roles["R7_layernorm_reduction"] == "review-object"
-    assert roles["R9_residual_elementwise"] == "constraint-object"
+    assert "R9_residual_elementwise" not in roles
+    plan = json.loads((output_dir / "backend_baseline_plan_v1.json").read_text())
+    budget = plan["budget_policy"]["family_preselection_count"]
+    assert len(plan["strategies"]["importance-guided"]["selected_families"]) <= budget
 
 
 def test_planner_uses_fixed_no_priority_order_and_four_baselines(tmp_path):
@@ -64,7 +67,6 @@ def test_planner_uses_fixed_no_priority_order_and_four_baselines(tmp_path):
         "R6_softmax_reduction",
         "R7_layernorm_reduction",
         "R8_context_streaming",
-        "R9_residual_elementwise",
     ]
 
 
@@ -165,17 +167,11 @@ def test_planner_derives_budget_policy_from_worksheet_and_dedupes_selected_regim
     assert plan["budget_policy"]["family_preselection_count"] == 1
     assert plan["budget_policy"]["main_object_max_scenarios"] == 1
     assert plan["budget_policy"]["review_object_max_scenarios"] == 2
-    assert plan["strategies"]["importance-guided"]["selected_families"] == [
-        "F1_dense_tiled_backbone",
-        "F2_reduction_normalize",
-        "F4_elementwise_residual",
-    ]
+    assert plan["strategies"]["importance-guided"]["selected_families"] == ["F1_dense_tiled_backbone"]
     assert plan["strategies"]["importance-guided"]["selected_regimes"] == [
         "R1_qkv_projection_dense",
         "R4_ffn_expand_dense",
         "R2_attention_score_dense",
         "R3_output_projection_dense",
         "R5_ffn_contract_dense",
-        "R7_layernorm_reduction",
-        "R9_residual_elementwise",
     ]

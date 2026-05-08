@@ -311,34 +311,58 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     audit_entries = [
         {
             "manifest_entry_id": row.get("manifest_entry_id") or row.get("manifest_id"),
+            "kernel_or_case": row.get("kernel_or_case"),
             "record_id": row.get("record_id"),
             "status": "measured",
             "capture_job_id": row.get("capture_job_id"),
+            "kernel_invocation_id": row.get("kernel_invocation_id"),
+            "feature_status": row.get("feature_status"),
+            "measured_features": [
+                name for name, feature in row.get("features", {}).items()
+                if feature.get("status") == "measured"
+            ],
+            "missing_features": [],
             "gap_reason": None,
         }
         for row in features
     ] + [
         {
             "manifest_entry_id": row.get("manifest_entry_id"),
+            "kernel_or_case": row.get("kernel_or_case"),
             "record_id": row.get("record_id"),
             "status": "gap",
             "capture_job_id": row.get("capture_job_id"),
+            "kernel_invocation_id": row.get("kernel_invocation_id"),
+            "feature_status": "incomplete_12d_feature_vector",
+            "measured_features": [],
+            "missing_features": row.get("missing_features", []),
             "gap_reason": row.get("gap_reason"),
         }
         for row in gaps
     ]
+    gap_reason_counts: dict[str, int] = {}
+    for row in gaps:
+        reason = row.get("gap_reason") or "unknown"
+        gap_reason_counts[reason] = gap_reason_counts.get(reason, 0) + 1
+    feature_missing_counts = {
+        name: sum(1 for gap in gaps if name in gap.get("missing_features", []))
+        for name in FEATURE_ORDER
+    }
     audit = {
         "artifact_name": "pka_feature_audit_l1",
         "summary": {
             "total_consuming_manifest_entries": len(audit_entries),
             "gate3_eligible_capture_jobs": len([row for row in attempts if row.get("gate3_eligible") is True]),
             "parsed_capture_jobs": len({row.get("capture_job_id") for row in features + gaps if row.get("capture_job_id")}),
+            "measured_record_count": len(features),
+            "gap_record_count": len(gaps),
+            "complete_12d_count": len(features),
+            "incomplete_12d_count": len(gaps),
+            "feature_missing_counts": feature_missing_counts,
+            "gap_reason_counts": gap_reason_counts,
             "measured_records": len(features),
             "gap_records": len(gaps),
-            "missing_feature_counts": {
-                name: sum(1 for gap in gaps if name in gap.get("missing_features", []))
-                for name in FEATURE_ORDER
-            },
+            "missing_feature_counts": feature_missing_counts,
         },
         "entries": audit_entries,
     }

@@ -77,6 +77,32 @@ def test_gate3_extracts_complete_measured_row(monkeypatch, tmp_path):
     assert features[0]["timing_basis"] == "duration_ns"
     assert set(features[0]["features"]) == set(FEATURE_ORDER)
     assert features[0]["features"]["num_thread_blocks"]["value"] == 6.0
+    audit = json.loads((tmp_path / "audit.json").read_text())
+    for key in (
+        "total_consuming_manifest_entries",
+        "gate3_eligible_capture_jobs",
+        "parsed_capture_jobs",
+        "measured_record_count",
+        "gap_record_count",
+        "complete_12d_count",
+        "incomplete_12d_count",
+        "feature_missing_counts",
+        "gap_reason_counts",
+    ):
+        assert key in audit["summary"]
+    for key in (
+        "manifest_entry_id",
+        "kernel_or_case",
+        "capture_job_id",
+        "kernel_invocation_id",
+        "feature_status",
+        "measured_features",
+        "missing_features",
+        "gap_reason",
+    ):
+        assert key in audit["entries"][0]
+    assert audit["entries"][0]["feature_status"] == "complete_measured"
+    assert set(audit["entries"][0]["measured_features"]) == set(FEATURE_ORDER)
 
 
 def test_gate3_occurrence_join_and_nonzero_exit_provenance(monkeypatch, tmp_path):
@@ -241,8 +267,10 @@ def test_gate3_rejects_missing_selected_metrics(monkeypatch, tmp_path):
     assert gaps[0]["gap_reason"] == "selected_metrics_missing"
     audit = json.loads((tmp_path / "audit.json").read_text())
     assert audit["artifact_name"] == "pka_feature_audit_l1"
-    assert audit["summary"]["gap_records"] == 1
+    assert audit["summary"]["gap_record_count"] == 1
+    assert audit["summary"]["gap_reason_counts"]["selected_metrics_missing"] == 1
     assert audit["entries"][0]["status"] == "gap"
+    assert audit["entries"][0]["gap_reason"] == "selected_metrics_missing"
 
 
 def test_gate3_rejects_invalid_selected_metrics(monkeypatch, tmp_path):

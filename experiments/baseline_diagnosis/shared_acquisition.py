@@ -100,6 +100,19 @@ FEATURE_SPECS: dict[str, dict[str, Any]] = {
     },
 }
 
+TIMING_METRIC_SPECS = [
+    {
+        "feature_name": "duration_ns",
+        "canonical_metric": "gpu__time_duration.sum",
+        "actual_source_metric": "gpu__time_duration.sum",
+    },
+    {
+        "feature_name": "elapsed_cycles",
+        "canonical_metric": "sm__cycles_elapsed.sum",
+        "actual_source_metric": "sm__cycles_elapsed.sum",
+    },
+]
+
 
 def repo_path(path: str | Path) -> Path:
     path = Path(path)
@@ -284,6 +297,28 @@ def selected_metric_records(query_text: str = "", query_status: str = "static_fi
                 "resolution_status": resolution_status,
                 "selected_for_ncu_metrics": selected,
             })
+    for spec in TIMING_METRIC_SPECS:
+        actual = spec["actual_source_metric"]
+        if query_status == "static_fixture":
+            resolution_status = "available"
+            selected = True
+        elif query_status != "completed":
+            resolution_status = "query_unavailable"
+            selected = False
+        elif metric_available_in_query(actual, query_text):
+            resolution_status = "available"
+            selected = True
+        else:
+            resolution_status = "unsupported"
+            selected = False
+        records.append({
+            "feature_name": spec["feature_name"],
+            "canonical_metric": spec["canonical_metric"],
+            "actual_source_metric": actual,
+            "resolution_status": resolution_status,
+            "selected_for_ncu_metrics": selected,
+            "metric_role": "timing_weight",
+        })
     return records
 
 

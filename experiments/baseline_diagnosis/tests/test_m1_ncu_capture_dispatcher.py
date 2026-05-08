@@ -45,6 +45,8 @@ def test_gate2_dedups_commands_and_never_uses_set_full(monkeypatch, tmp_path):
     assert "--set" not in attempts[0]["ncu_capture_command"]
     assert "--metrics" in attempts[0]["ncu_capture_command"]
     assert "launch_grid_size" not in ",".join(attempts[0]["selected_metrics"])
+    assert "gpu__time_duration.sum" in attempts[0]["selected_metrics"]
+    assert "sm__cycles_elapsed.sum" in attempts[0]["selected_metrics"]
     assert attempts[0]["gate3_eligible"] is False
     assert gaps[0]["capture_status"] == "dry_run_capture_skipped"
     attempts_doc = json.loads((tmp_path / "attempts.json").read_text())

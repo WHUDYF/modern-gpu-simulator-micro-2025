@@ -628,9 +628,14 @@ def build_result_summary(
                     parse_note = "Parsed sim_cycles from simulator output; validation decision remains pending until response analysis is applied."
                 parsed_source = record["stdout_path"]
             else:
-                result_status = "parse-failed"
-                parse_status = "missing-metrics"
-                parse_note = "Execution succeeded but no sim_cycles field was found in the simulator output."
+                if terminal_status is not None:
+                    result_status = terminal_status
+                    parse_status = "parsed-terminal-status"
+                    parse_note = f"Execution succeeded without sim_cycles but provided explicit {terminal_status} result evidence."
+                else:
+                    result_status = "parse-failed"
+                    parse_status = "missing-metrics"
+                    parse_note = "Execution succeeded but no sim_cycles field was found in the simulator output."
                 parsed_source = record["stdout_path"]
         elif record["execution_status"] == "timeout":
             result_status = "failed"

@@ -1,0 +1,79 @@
+[
+  {
+    "record_id": "m0_l1_bw",
+    "kernel_invocation_id": "l1_bw_32f#1",
+    "feature_mode": "pka_m0_fixture",
+    "features": {
+      "coalesced_global_loads": {"value": 1200, "status": "measured"},
+      "coalesced_global_stores": {"value": 20, "status": "measured"},
+      "coalesced_local_loads": {"value": 0, "status": "measured"},
+      "thread_global_loads": {"value": 600, "status": "measured"},
+      "thread_global_stores": {"value": 10, "status": "measured"},
+      "thread_local_loads": {"value": 0, "status": "measured"},
+      "thread_shared_loads": {"value": 5, "status": "measured"},
+      "thread_shared_stores": {"value": 1, "status": "measured"},
+      "thread_global_atomics": {"value": 0, "status": "measured"},
+      "num_instructions": {"value": 2000, "status": "measured"},
+      "divergence_efficiency": {"value": 0.98, "status": "measured"},
+      "num_thread_blocks": {"value": 256, "status": "measured"}
+    }
+  },
+  {
+    "record_id": "m0_mem_bw",
+    "kernel_invocation_id": "mem_bw#1",
+    "feature_mode": "pka_m0_fixture",
+    "features": {
+      "coalesced_global_loads": {"value": 900, "status": "measured"},
+      "coalesced_global_stores": {"value": 850, "status": "measured"},
+      "coalesced_local_loads": {"value": 0, "status": "measured"},
+      "thread_global_loads": {"value": 450, "status": "measured"},
+      "thread_global_stores": {"value": 430, "status": "measured"},
+      "thread_local_loads": {"value": 0, "status": "measured"},
+      "thread_shared_loads": {"value": 2, "status": "measured"},
+      "thread_shared_stores": {"value": 2, "status": "measured"},
+      "thread_global_atomics": {"value": 0, "status": "measured"},
+      "num_instructions": {"value": 1800, "status": "measured"},
+      "divergence_efficiency": {"value": 0.97, "status": "measured"},
+      "num_thread_blocks": {"value": 512, "status": "measured"}
+    }
+  },
+  {
+    "record_id": "m0_shared_bw",
+    "kernel_invocation_id": "shared_bw#1",
+    "feature_mode": "pka_m0_fixture",
+    "features": {
+      "coalesced_global_loads": {"value": 80, "status": "measured"},
+      "coalesced_global_stores": {"value": 20, "status": "measured"},
+      "coalesced_local_loads": {"value": 0, "status": "measured"},
+      "thread_global_loads": {"value": 40, "status": "measured"},
+      "thread_global_stores": {"value": 10, "status": "measured"},
+      "thread_local_loads": {"value": 0, "status": "measured"},
+      "thread_shared_loads": {"value": 1200, "status": "measured"},
+      "thread_shared_stores": {"value": 950, "status": "measured"},
+      "thread_global_atomics": {"value": 0, "status": "measured"},
+      "num_instructions": {"value": 1500, "status": "measured"},
+      "divergence_efficiency": {"value": 0.99, "status": "measured"},
+      "num_thread_blocks": {"value": 128, "status": "measured"}
+    }
+  },
+  {
+    "record_id": "m0_maxflops",
+    "kernel_invocation_id": "MaxFlops#1",
+    "feature_mode": "pka_m0_fixture",
+    "features": {
+      "coalesced_global_loads": {"value": 40, "status": "measured"},
+      "coalesced_global_stores": {"value": 40, "status": "measured"},
+      "coalesced_local_loads": {"value": 0, "status": "measured"},
+      "thread_global_loads": {"value": 20, "status": "measured"},
+      "thread_global_stores": {"value": 20, "status": "measured"},
+      "thread_local_loads": {"value": 0, "status": "measured"},
+      "thread_shared_loads": {"value": 0, "status": "measured"},
+      "thread_shared_stores": {"value": 0, "status": "measured"},
+      "thread_global_atomics": {"value": 0, "status": "measured"},
+      "num_instructions": {"value": 8000, "status": "measured"},
+      "divergence_efficiency": {"value": 1.0, "status": "measured"},
+      "num_thread_blocks": {"value": 64, "status": "measured"}
+    }
+  }
+]
+

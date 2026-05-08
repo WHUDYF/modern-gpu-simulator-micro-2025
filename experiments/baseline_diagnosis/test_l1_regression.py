@@ -328,6 +328,111 @@ def test_stagegate():
 
 
 # ══════════════════════════════════════════════════════════════════
+# M1 measured-loop tests
+# ══════════════════════════════════════════════════════════════════
+
+def test_m1_measured_loop_blocked_terminal_state():
+    import m1_measured_feature_extractor as gate3
+    import m1_ncu_capture_dispatcher as gate2
+    import m1_selector_eligibility as gate4
+    import m1_workload_resolver as gate1
+    import run_m1_measured_loop as loop
+
+    tmp = _tmpdir()
+    manifest_path = tmp / "kernel_validation_manifest_l1.json"
+    registry_path = tmp / "workload_registry_l1.json"
+    manifest_path.write_text(json.dumps({"entries": [
+        {"id": "L1_M1_A", "priority": "P0", "benchmark_name": "ok", "kernel_or_case": "kernel_a", "source_type": "local_microbench"},
+        {"id": "L1_M1_B", "priority": "P0", "benchmark_name": "ok", "kernel_or_case": "kernel_b", "source_type": "local_microbench"},
+    ]}))
+    registry_path.write_text(json.dumps([
+        {
+            "workload_id": "ok",
+            "binary_path": sys.executable,
+            "build_command": None,
+            "run_args": [],
+            "run_command_template": [sys.executable, "-c", "print('ok')"],
+            "working_directory": str(tmp),
+            "smoke_timeout_seconds": 5,
+            "capture_timeout_seconds": 5,
+        }
+    ]))
+
+    old_values = {
+        (gate1, "MANIFEST_PATH"): gate1.MANIFEST_PATH,
+        (gate1, "REGISTRY_PATH"): gate1.REGISTRY_PATH,
+        (gate1, "RESOLUTION_PATH"): gate1.RESOLUTION_PATH,
+        (gate1, "GAP_PATH"): gate1.GAP_PATH,
+        (gate1, "SMOKE_DIR"): gate1.SMOKE_DIR,
+        (gate2, "RESOLUTION_PATH"): gate2.RESOLUTION_PATH,
+        (gate2, "ATTEMPTS_PATH"): gate2.ATTEMPTS_PATH,
+        (gate2, "GAP_PATH"): gate2.GAP_PATH,
+        (gate2, "QUERY_PATH"): gate2.QUERY_PATH,
+        (gate2, "RESOLUTION_TABLE_PATH"): gate2.RESOLUTION_TABLE_PATH,
+        (gate2, "RESULTS_DIR"): gate2.RESULTS_DIR,
+        (gate3, "ATTEMPTS_PATH"): gate3.ATTEMPTS_PATH,
+        (gate3, "FEATURE_TABLE_PATH"): gate3.FEATURE_TABLE_PATH,
+        (gate3, "GAP_PATH"): gate3.GAP_PATH,
+        (gate3, "FEATURE_AUDIT_PATH"): gate3.FEATURE_AUDIT_PATH,
+        (gate3, "JOIN_AUDIT_PATH"): gate3.JOIN_AUDIT_PATH,
+        (gate4, "MANIFEST_PATH"): gate4.MANIFEST_PATH,
+        (gate4, "RESOLUTION_GAP_PATH"): gate4.RESOLUTION_GAP_PATH,
+        (gate4, "CAPTURE_GAP_PATH"): gate4.CAPTURE_GAP_PATH,
+        (gate4, "FEATURE_TABLE_PATH"): gate4.FEATURE_TABLE_PATH,
+        (gate4, "ACQ_GAP_PATH"): gate4.ACQ_GAP_PATH,
+        (gate4, "ELIGIBILITY_PATH"): gate4.ELIGIBILITY_PATH,
+        (gate4, "SELECTOR_INPUT_PATH"): gate4.SELECTOR_INPUT_PATH,
+        (gate4, "REPAIR_JSON_PATH"): gate4.REPAIR_JSON_PATH,
+        (gate4, "REPAIR_MD_PATH"): gate4.REPAIR_MD_PATH,
+        (loop, "STATUS_PATH"): loop.STATUS_PATH,
+    }
+    try:
+        gate1.MANIFEST_PATH = manifest_path
+        gate1.REGISTRY_PATH = registry_path
+        gate1.RESOLUTION_PATH = tmp / "m1_workload_resolution_l1.json"
+        gate1.GAP_PATH = tmp / "m1_workload_resolution_gap_l1.json"
+        gate1.SMOKE_DIR = tmp / "smoke"
+
+        gate2.RESOLUTION_PATH = gate1.RESOLUTION_PATH
+        gate2.ATTEMPTS_PATH = tmp / "m1_ncu_capture_attempts_l1.json"
+        gate2.GAP_PATH = tmp / "m1_ncu_capture_gap_l1.json"
+        gate2.QUERY_PATH = tmp / "ncu_metric_query_l1.json"
+        gate2.RESOLUTION_TABLE_PATH = tmp / "ncu_metric_resolution_table_l1.json"
+        gate2.RESULTS_DIR = tmp / "ncu"
+
+        gate3.ATTEMPTS_PATH = gate2.ATTEMPTS_PATH
+        gate3.FEATURE_TABLE_PATH = tmp / "pka_feature_table_l1.json"
+        gate3.GAP_PATH = tmp / "pka_acquisition_gap_l1.json"
+        gate3.FEATURE_AUDIT_PATH = tmp / "pka_feature_audit_l1.json"
+        gate3.JOIN_AUDIT_PATH = tmp / "pka_join_audit_l1.json"
+
+        gate4.MANIFEST_PATH = manifest_path
+        gate4.RESOLUTION_GAP_PATH = gate1.GAP_PATH
+        gate4.CAPTURE_GAP_PATH = gate2.GAP_PATH
+        gate4.FEATURE_TABLE_PATH = gate3.FEATURE_TABLE_PATH
+        gate4.ACQ_GAP_PATH = gate3.GAP_PATH
+        gate4.ELIGIBILITY_PATH = tmp / "m1_selector_eligibility_l1.json"
+        gate4.SELECTOR_INPUT_PATH = tmp / "m1_selector_input_l1.json"
+        gate4.REPAIR_JSON_PATH = tmp / "m1_backward_repair_report_l1.json"
+        gate4.REPAIR_MD_PATH = tmp / "m1_backward_repair_report_l1.md"
+        loop.STATUS_PATH = tmp / "m1_measured_loop_status_l1.json"
+
+        report = loop.run(dry_run_capture=True, dry_run_smoke=True)
+    finally:
+        for (module, name), value in old_values.items():
+            setattr(module, name, value)
+
+    check("M1 dry-run terminal state is blocked with repair",
+          report["status"] == "blocked_on_acquisition_with_repair_report")
+    check("M1 Gate 4 blocks insufficient measured rows",
+          report["gate4"]["selector_eligibility_state"] == "selector_blocked_insufficient_measured_records")
+    check("M1 repair report exists", (tmp / "m1_backward_repair_report_l1.json").exists())
+    repair = json.loads((tmp / "m1_backward_repair_report_l1.json").read_text())
+    check("M1 repair report covers all P0 entries", len(repair["entries"]) == 2)
+    check("M1 dry-run did not write Gate 5 anchors", not (tmp / "representative_anchor_table_l1.json").exists())
+
+
+# ══════════════════════════════════════════════════════════════════
 
 def run_all():
     global failures
@@ -338,6 +443,7 @@ def run_all():
         ("selector", test_selector),
         ("b-line", test_bline),
         ("stage-gate", test_stagegate),
+        ("m1-measured-loop", test_m1_measured_loop_blocked_terminal_state),
     ]
     for name, fn in tests:
         print(f"\n=== {name} ===")

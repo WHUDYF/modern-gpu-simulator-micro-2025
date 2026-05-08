@@ -38,13 +38,37 @@ def _allowed_sources(attempt: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def _join(invocations: list[dict[str, Any]], kernel_or_case: str) -> tuple[dict[str, Any] | None, str, str | None]:
+def _entry_metadata(attempt: dict[str, Any], index: int, entry_id: str, kernel_or_case: str) -> dict[str, Any]:
+    entries = attempt.get("consuming_manifest_entries") or []
+    if index < len(entries):
+        return entries[index]
+    return {
+        "manifest_entry_id": entry_id,
+        "kernel_or_case": kernel_or_case,
+        "source_type": None,
+        "benchmark_name": None,
+        "workload_id": None,
+    }
+
+
+def _join(
+    invocations: list[dict[str, Any]],
+    kernel_or_case: str,
+    requested_occurrence_index: int,
+    total_requested_for_kernel: int,
+) -> tuple[dict[str, Any] | None, str, str | None]:
+    if not kernel_or_case:
+        return None, "empty_kernel_name", "manifest kernel_or_case is empty"
+    if any(not inv.get("kernel_name") for inv in invocations):
+        return None, "empty_kernel_name", "capture CSV contains empty kernel name"
     matches = [inv for inv in invocations if kernel_name_matches(inv.get("kernel_name", ""), kernel_or_case)]
     if not matches:
         return None, "missing_kernel", "no matching kernel name in capture CSV"
-    if len(matches) > 1:
+    if len(matches) > 1 and total_requested_for_kernel <= 1:
         return None, "ambiguous_kernel", f"{len(matches)} matching invocations"
-    return matches[0], "matched", None
+    if requested_occurrence_index >= len(matches):
+        return None, "occurrence_mismatch", f"requested occurrence {requested_occurrence_index}, only {len(matches)} matches"
+    return matches[requested_occurrence_index], "matched", None
 
 
 def _extract_features(inv: dict[str, Any], attempt: dict[str, Any], allowed: dict[str, str]) -> tuple[dict[str, Any], list[str]]:
@@ -107,8 +131,21 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 })
             continue
         allowed = _allowed_sources(attempt)
-        for entry_id, kernel_or_case in zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"]):
-            inv, join_status, reason = _join(invocations, kernel_or_case)
+        kernel_counts = {
+            kernel: attempt.get("consuming_kernel_or_cases", []).count(kernel)
+            for kernel in attempt.get("consuming_kernel_or_cases", [])
+        }
+        seen_kernel_counts: dict[str, int] = {}
+        for index, (entry_id, kernel_or_case) in enumerate(zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"])):
+            requested_occurrence_index = seen_kernel_counts.get(kernel_or_case, 0)
+            seen_kernel_counts[kernel_or_case] = requested_occurrence_index + 1
+            meta = _entry_metadata(attempt, index, entry_id, kernel_or_case)
+            inv, join_status, reason = _join(
+                invocations,
+                kernel_or_case,
+                requested_occurrence_index,
+                kernel_counts.get(kernel_or_case, 1),
+            )
             join_audit.append({
                 "capture_job_id": attempt["capture_job_id"],
                 "manifest_entry_id": entry_id,
@@ -122,7 +159,10 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             })
             if inv is None:
                 gaps.append({
+                    "record_id": f"{entry_id}:gap",
                     "manifest_entry_id": entry_id,
+                    "source_type": meta.get("source_type"),
+                    "benchmark_name": meta.get("benchmark_name"),
                     "capture_job_id": attempt["capture_job_id"],
                     "kernel_or_case": kernel_or_case,
                     "gate": "Gate3",
@@ -133,7 +173,10 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             record_features, missing = _extract_features(inv, attempt, allowed)
             if missing:
                 gaps.append({
+                    "record_id": f"{entry_id}:{inv['csv_invocation_id']}:gap",
                     "manifest_entry_id": entry_id,
+                    "source_type": meta.get("source_type"),
+                    "benchmark_name": meta.get("benchmark_name"),
                     "capture_job_id": attempt["capture_job_id"],
                     "kernel_or_case": kernel_or_case,
                     "gate": "Gate3",
@@ -143,11 +186,27 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 continue
             features.append({
                 "record_id": f"{entry_id}:{inv['csv_invocation_id']}",
+                "dataset_level": "L1",
+                "source_type": meta.get("source_type"),
+                "benchmark_name": meta.get("benchmark_name"),
+                "kernel_or_case": kernel_or_case,
                 "manifest_id": entry_id,
+                "manifest_entry_id": entry_id,
                 "kernel_invocation_id": f"{kernel_or_case}#{inv.get('occurrence_index', 0) + 1}",
                 "feature_mode": "pka_m1_measured",
+                "feature_status": "complete_measured",
+                "source_path": attempt["capture_csv_path"],
                 "capture_job_id": attempt["capture_job_id"],
+                "capture_status": attempt.get("capture_status"),
+                "capture_exit_code": attempt.get("capture_exit_code"),
+                "capture_stderr_path": attempt.get("capture_stderr_path"),
                 "capture_warning": "non_zero_exit" if attempt.get("capture_status") == "capture_non_zero_exit_with_partial_csv" else None,
+                "feature_provenance": {
+                    "selected_metrics_path": str(Path(attempt["capture_csv_path"]).parent / "selected_metrics.json"),
+                    "join_status": join_status,
+                    "csv_invocation_id": inv["csv_invocation_id"],
+                    "capture_status": attempt.get("capture_status"),
+                },
                 "features": record_features,
             })
     audit = {
@@ -173,4 +232,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

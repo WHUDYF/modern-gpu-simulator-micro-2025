@@ -52,6 +52,12 @@ def test_gate4_blocks_insufficient_rows_and_writes_repair(monkeypatch, tmp_path)
     eligibility = gate4.evaluate()
     assert eligibility["selector_eligibility_state"] == "selector_blocked_insufficient_measured_records"
     assert eligibility["gate5_allowed"] is False
+    assert eligibility["feature_table_preflight"]["status"] == "passed"
+    assert eligibility["timing_check"]["weight_mode"] == "member_count_fallback"
+    assert "insufficient_measured_records" in eligibility["blocking_reasons"]
     repair = json.loads((tmp_path / "repair.json").read_text())
     assert len(repair["entries"]) == 3
-
+    assert repair["entries"][1]["entry_status"] == "blocked"
+    assert repair["entries"][1]["gate3_status"] == "blocked"
+    assert repair["entries"][1]["repair_action_type"] == "code_fix_required"
+    assert repair["summary"]["total_p0_entries"] == 3

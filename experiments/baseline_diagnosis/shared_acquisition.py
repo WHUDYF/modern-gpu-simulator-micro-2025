@@ -190,7 +190,11 @@ def environment_signature() -> dict[str, Any]:
     }
 
 
-def selected_metric_records() -> list[dict[str, Any]]:
+def metric_available_in_query(metric: str, query_text: str) -> bool:
+    return metric in query_text
+
+
+def selected_metric_records(query_text: str = "", query_status: str = "static_fixture") -> list[dict[str, Any]]:
     records = []
     for feature_name in FEATURE_ORDER:
         spec = FEATURE_SPECS[feature_name]
@@ -204,22 +208,48 @@ def selected_metric_records() -> list[dict[str, Any]]:
                 "selected_for_ncu_metrics": False,
             })
         else:
+            actual = spec["source_candidates"][0]
+            if query_status == "static_fixture":
+                resolution_status = "available"
+                selected = True
+            elif query_status != "completed":
+                resolution_status = "query_unavailable"
+                selected = False
+            elif metric_available_in_query(actual, query_text):
+                resolution_status = "available"
+                selected = True
+            else:
+                resolution_status = "unsupported"
+                selected = False
             records.append({
                 "feature_name": feature_name,
                 "canonical_metric": canonical,
-                "actual_source_metric": spec["source_candidates"][0],
-                "resolution_status": "available",
-                "selected_for_ncu_metrics": True,
+                "actual_source_metric": actual,
+                "resolution_status": resolution_status,
+                "selected_for_ncu_metrics": selected,
             })
     return records
 
 
-def selected_ncu_metrics() -> list[str]:
+def selected_ncu_metrics(metric_records: list[dict[str, Any]] | None = None) -> list[str]:
+    metric_records = selected_metric_records() if metric_records is None else metric_records
     return [
         row["actual_source_metric"]
-        for row in selected_metric_records()
+        for row in metric_records
         if row["selected_for_ncu_metrics"]
     ]
+
+
+def has_ncu_csv_header(path: Path) -> bool:
+    if not path.exists() or path.stat().st_size <= 0:
+        return False
+    with path.open(newline="", errors="replace") as handle:
+        reader = csv.reader(handle)
+        for row in reader:
+            if not row:
+                continue
+            return row[0].strip() == "ID" or any(col.strip() == "Metric Name" for col in row)
+    return False
 
 
 def parse_ncu_csv(path: Path) -> list[dict[str, Any]]:

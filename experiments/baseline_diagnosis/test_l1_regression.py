@@ -432,6 +432,30 @@ def test_m1_measured_loop_blocked_terminal_state():
     check("M1 dry-run did not write Gate 5 anchors", not (tmp / "representative_anchor_table_l1.json").exists())
 
 
+def test_m1_completion_classifier():
+    import run_m1_measured_loop as loop
+
+    check("M1 classifier allows blocked with complete repair",
+          loop.classify_completion({
+              "gate5_allowed": False,
+              "measured_rows": 2,
+              "backward_repair_report_exists": True,
+              "per_entry_earliest_gate_complete": True,
+          }) == "blocked_on_acquisition_with_repair_report")
+    check("M1 classifier rejects missing repair report",
+          loop.classify_completion({
+              "gate5_allowed": False,
+              "measured_rows": 2,
+              "backward_repair_report_exists": False,
+              "per_entry_earliest_gate_complete": False,
+          }) == "stop_fail_missing_backward_repair_report")
+    check("M1 classifier rejects invalid feature table",
+          loop.classify_completion({
+              "selector_eligibility_state": "selector_blocked_invalid_feature_table",
+              "gate5_allowed": False,
+          }) == "stop_fail_invalid_feature_table")
+
+
 # ══════════════════════════════════════════════════════════════════
 
 def run_all():
@@ -444,6 +468,7 @@ def run_all():
         ("b-line", test_bline),
         ("stage-gate", test_stagegate),
         ("m1-measured-loop", test_m1_measured_loop_blocked_terminal_state),
+        ("m1-completion", test_m1_completion_classifier),
     ]
     for name, fn in tests:
         print(f"\n=== {name} ===")

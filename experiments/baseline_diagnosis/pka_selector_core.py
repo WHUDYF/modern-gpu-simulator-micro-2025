@@ -151,13 +151,27 @@ def farthest_first_kmeans(
     }
 
 
-def build_outputs(records: list[dict[str, Any]], mode: str, feature_mode: str) -> dict[str, Any]:
+def build_outputs(
+    records: list[dict[str, Any]],
+    mode: str,
+    feature_mode: str,
+    weight_mode: str = "member_count_fallback",
+    timing_unit: str | None = None,
+) -> dict[str, Any]:
     validate_selector_records(records, expected_feature_mode=feature_mode)
     record_ids = [_record_id(rec) for rec in records]
     matrix = build_matrix(records)
     normalized, preprocessing = preprocess(matrix)
     projection, pca_meta = run_pca(normalized)
     assignments, centers, kmeans_meta = farthest_first_kmeans(projection, record_ids)
+    kmeans_meta["centroids"] = centers
+    weights = [
+        float((rec.get("weight_input") or {}).get("value", 1.0))
+        if weight_mode == "timing_weight"
+        else 1.0
+        for rec in records
+    ]
+    total_weight = sum(weights) or 1.0
 
     clusters: dict[int, list[int]] = {}
     for idx, cluster_id in enumerate(assignments):
@@ -183,6 +197,7 @@ def build_outputs(records: list[dict[str, Any]], mode: str, feature_mode: str) -
             key=lambda idx: (_dist2(projection[idx], center), record_ids[idx]),
         )
         member_ids = [record_ids[idx] for idx in member_indices]
+        cluster_weight = sum(weights[idx] for idx in member_indices)
         cluster_name = f"{mode}-cluster-{ordinal}"
         for idx in member_indices:
             cluster_rows.append({
@@ -191,6 +206,7 @@ def build_outputs(records: list[dict[str, Any]], mode: str, feature_mode: str) -
                 "record_id": record_ids[idx],
                 "kernel_invocation_id": records[idx].get("kernel_invocation_id"),
                 "distance_to_centroid": _dist2(projection[idx], center),
+                "weight": weights[idx],
             })
         anchor_rows.append({
             "mode": mode,
@@ -201,22 +217,40 @@ def build_outputs(records: list[dict[str, Any]], mode: str, feature_mode: str) -
             "member_record_ids": member_ids,
             "member_invocations": [records[idx].get("kernel_invocation_id") for idx in member_indices],
             "coverage_count": len(member_indices),
-            "coverage_weight": len(member_indices) / len(records),
+            "coverage_weight": cluster_weight / total_weight,
+            "weight": cluster_weight,
             "representative_selection": "nearest_centroid_real_record",
+            "representative_distance_to_centroid": _dist2(projection[representative_idx], center),
             "distance_metadata": "squared_euclidean_in_pca_space",
         })
 
+    sorted_anchor_weights = sorted((row["coverage_weight"] for row in anchor_rows), reverse=True)
     evaluation = {
         "mode": mode,
         "feature_mode": feature_mode,
+        "metric_scope": "structural_only_not_simulator_accuracy",
         "compression_ratio": len(records) / max(1, len(anchor_rows)),
         "coverage_count": len(records),
         "anchor_count": len(anchor_rows),
         "weighted_coverage": sum(row["coverage_weight"] for row in anchor_rows),
-        "weight_mode": "member_count_fallback",
+        "weight_mode": weight_mode,
+        "timing_unit": timing_unit,
+        "top_k_coverage": {
+            str(k): sum(sorted_anchor_weights[:k])
+            for k in range(1, len(sorted_anchor_weights) + 1)
+        },
         "pca": pca_meta,
         "kmeans": kmeans_meta,
         "cluster_feature_variance": _cluster_variance(projection, assignments),
+        "cluster_anchor_context": [
+            {
+                "cluster_id": row["cluster_id"],
+                "representative_record_id": row["rep_record_id"],
+                "member_record_ids": row["member_record_ids"],
+                "weight": row["weight"],
+            }
+            for row in anchor_rows
+        ],
     }
     replay_hash = stable_hash({
         "mode": mode,
@@ -252,4 +286,3 @@ def _cluster_variance(projection: np.ndarray, assignments: list[int]) -> dict[st
         members = projection[[idx for idx, assigned in enumerate(assignments) if assigned == cluster_id]]
         result[str(cluster_id)] = float(np.var(members)) if len(members) else 0.0
     return result
-

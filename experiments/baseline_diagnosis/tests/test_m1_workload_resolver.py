@@ -41,3 +41,30 @@ def test_gate1_resolves_each_p0_entry(monkeypatch, tmp_path):
     assert resolved[0]["resolved_binary_path"] != "experiments/baseline_diagnosis/dispatch_ncu_capture.sh"
     assert resolved[0]["smoke_run"]["status"] == "passed"
 
+
+def test_gate1_blocks_expected_output_regex_mismatch(monkeypatch, tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    registry_path = tmp_path / "registry.json"
+    manifest_path.write_text(json.dumps({"entries": [
+        {"id": "L1_A", "priority": "P0", "benchmark_name": "ok", "kernel_or_case": "ok", "source_type": "local_microbench"},
+    ]}))
+    registry_path.write_text(json.dumps([
+        {
+            "workload_id": "ok",
+            "binary_path": sys.executable,
+            "build_command": None,
+            "run_args": [],
+            "smoke_args": [],
+            "expected_output_regex": "expected-token",
+            "run_command_template": ["{binary_path}", "-c", "print('different')"],
+            "working_directory": str(tmp_path),
+            "smoke_timeout_seconds": 5,
+            "capture_timeout_seconds": 10,
+        }
+    ]))
+    monkeypatch.setattr(resolver, "MANIFEST_PATH", manifest_path)
+    monkeypatch.setattr(resolver, "REGISTRY_PATH", registry_path)
+    monkeypatch.setattr(resolver, "SMOKE_DIR", tmp_path / "smoke")
+    resolved, gaps = resolver.resolve()
+    assert not resolved
+    assert gaps[0]["gap_reason"] == "smoke_expected_output_regex_mismatch"

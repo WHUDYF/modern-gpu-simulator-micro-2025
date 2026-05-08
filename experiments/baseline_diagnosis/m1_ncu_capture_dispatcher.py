@@ -17,6 +17,7 @@ from shared_acquisition import (
     command_hash,
     environment_signature,
     file_hash,
+    has_ncu_csv_header,
     sanitize_token,
     selected_metric_records,
     selected_ncu_metrics,
@@ -32,7 +33,7 @@ RESOLUTION_TABLE_PATH = ARTIFACT_DIR / "ncu_metric_resolution_table_l1.json"
 RESULTS_DIR = REPO_ROOT / "experiments" / "baseline_diagnosis" / "results" / "m1_ncu"
 
 
-def _write_query_artifacts() -> None:
+def _write_query_artifacts() -> list[dict[str, Any]]:
     query_command = ["ncu", "--query-metrics"]
     ncu_path = shutil.which("ncu")
     stdout = ""
@@ -64,10 +65,12 @@ def _write_query_artifacts() -> None:
         "query_exit_code": exit_code,
         "stdout_tail": stdout,
         "stderr_tail": stderr,
-        "metrics": selected_ncu_metrics(),
     }
+    metric_records = selected_metric_records(stdout, query_status)
+    query["metrics"] = selected_ncu_metrics(metric_records)
     write_json(QUERY_PATH, query)
-    write_json(RESOLUTION_TABLE_PATH, selected_metric_records())
+    write_json(RESOLUTION_TABLE_PATH, metric_records)
+    return metric_records
 
 
 def _classify(exit_code: int | None, stderr: str, csv_path: Path, timed_out: bool = False) -> tuple[str, bool, str | None]:
@@ -76,9 +79,11 @@ def _classify(exit_code: int | None, stderr: str, csv_path: Path, timed_out: boo
         return "permission_blocked", False, "ncu_permission_blocked"
     if timed_out:
         return "ncu_capture_timeout", False, "timeout"
-    if exit_code == 0 and csv_path.exists() and csv_path.stat().st_size > 0:
+    if csv_path.exists() and csv_path.stat().st_size > 0 and not has_ncu_csv_header(csv_path):
+        return "malformed_ncu_csv", False, "missing_ncu_csv_header"
+    if exit_code == 0 and has_ncu_csv_header(csv_path):
         return "captured", True, None
-    if exit_code not in (0, None) and csv_path.exists() and csv_path.stat().st_size > 0:
+    if exit_code not in (0, None) and has_ncu_csv_header(csv_path):
         return "capture_non_zero_exit_with_partial_csv", True, "non_zero_exit_with_partial_csv"
     if shutil.which("ncu") is None:
         return "environment_blocked", False, "ncu_not_found"
@@ -86,7 +91,7 @@ def _classify(exit_code: int | None, stderr: str, csv_path: Path, timed_out: boo
 
 
 def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    _write_query_artifacts()
+    metric_records = _write_query_artifacts()
     records = json.loads(RESOLUTION_PATH.read_text()) if RESOLUTION_PATH.exists() else []
     resolved = [row for row in records if row.get("resolution_status") == "resolved"]
     grouped: dict[str, list[dict[str, Any]]] = {}
@@ -96,7 +101,7 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
 
     attempts: list[dict[str, Any]] = []
     gaps: list[dict[str, Any]] = []
-    metrics = selected_ncu_metrics()
+    metrics = selected_ncu_metrics(metric_records)
     for index, rows in enumerate(grouped.values()):
         first = rows[0]
         token = sanitize_token(first.get("workload_id", "workload"))
@@ -123,7 +128,12 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
             *first["resolved_run_command"],
         ]
         timed_out = False
-        if dry_run:
+        if not metrics:
+            stdout = ""
+            stderr = "No NCU metrics resolved from query artifact"
+            exit_code = None
+            status, eligible, reason = "metric_resolution_blocked", False, "selected_metrics_empty"
+        elif dry_run:
             stdout = ""
             stderr = "dry-run capture skipped"
             exit_code = 0
@@ -155,7 +165,7 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
         stderr_path.write_text(stderr)
         exit_path.write_text("" if exit_code is None else str(exit_code))
         write_json(env_path, environment_signature())
-        write_json(selected_path, selected_metric_records())
+        write_json(selected_path, metric_records)
         write_json(cmd_path, {"ncu_capture_command": ncu_command})
         attempt = {
             "capture_job_id": job_id,
@@ -167,6 +177,16 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
             "consuming_manifest_entry_ids": [row["manifest_entry_id"] for row in rows],
             "consuming_workload_ids": [row["workload_id"] for row in rows],
             "consuming_kernel_or_cases": [row["kernel_or_case"] for row in rows],
+            "consuming_manifest_entries": [
+                {
+                    "manifest_entry_id": row["manifest_entry_id"],
+                    "source_type": row.get("source_type"),
+                    "benchmark_name": row.get("benchmark_name"),
+                    "kernel_or_case": row.get("kernel_or_case"),
+                    "workload_id": row.get("workload_id"),
+                }
+                for row in rows
+            ],
             "selected_metrics": metrics,
             "query_artifact_path": artifact_ref(QUERY_PATH),
             "query_artifact_hash": file_hash(QUERY_PATH),

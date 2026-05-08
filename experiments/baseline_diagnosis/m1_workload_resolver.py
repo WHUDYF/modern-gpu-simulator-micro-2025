@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -40,7 +41,7 @@ def _format_command(template: list[str], binary_path: Path, args: list[str]) -> 
     return expanded
 
 
-def _smoke(command: list[str], cwd: Path, timeout: int, token: str) -> dict[str, Any]:
+def _smoke(command: list[str], cwd: Path, timeout: int, token: str, expected_output_regex: str | None = None) -> dict[str, Any]:
     SMOKE_DIR.mkdir(parents=True, exist_ok=True)
     stdout_path = SMOKE_DIR / f"{token}.stdout.log"
     stderr_path = SMOKE_DIR / f"{token}.stderr.log"
@@ -56,8 +57,14 @@ def _smoke(command: list[str], cwd: Path, timeout: int, token: str) -> dict[str,
         )
         stdout_path.write_text(proc.stdout[-4000:])
         stderr_path.write_text(proc.stderr[-4000:])
-        status = "passed" if proc.returncode == 0 else "failed"
-        reason = None if proc.returncode == 0 else "non_zero_exit"
+        combined_output = f"{proc.stdout}\n{proc.stderr}"
+        regex_ok = expected_output_regex is None or re.search(expected_output_regex, combined_output) is not None
+        status = "passed" if proc.returncode == 0 and regex_ok else "failed"
+        reason = None
+        if proc.returncode != 0:
+            reason = "non_zero_exit"
+        elif not regex_ok:
+            reason = "expected_output_regex_mismatch"
         code = proc.returncode
     except subprocess.TimeoutExpired as exc:
         stdout_path.write_text((exc.stdout or "")[-4000:] if isinstance(exc.stdout, str) else "")
@@ -74,6 +81,7 @@ def _smoke(command: list[str], cwd: Path, timeout: int, token: str) -> dict[str,
         "elapsed_ms": elapsed_ms,
         "stdout_tail_path": artifact_ref(stdout_path),
         "stderr_tail_path": artifact_ref(stderr_path),
+        "expected_output_regex": expected_output_regex,
         "status": status,
         "failure_reason": reason,
     }
@@ -123,23 +131,32 @@ def resolve(dry_run_smoke: bool = False) -> tuple[list[dict[str, Any]], list[dic
             gaps.append({**base, "resolution_status": "gap", "gap_reason": "working_directory_missing", "working_directory": str(cwd)})
             continue
         run_args = [str(x) for x in reg.get("run_args", [])]
+        smoke_args = [str(x) for x in reg.get("smoke_args", [])]
         command = _format_command(reg.get("run_command_template", ["{binary_path}"]), binary_path, run_args)
+        smoke_command = _format_command(reg.get("run_command_template", ["{binary_path}"]), binary_path, run_args + smoke_args)
         token = f"{entry['id']}_{sanitize_token(key)}"
         if dry_run_smoke:
             smoke = {
                 "enabled": True,
-                "command": command,
+                "command": smoke_command,
                 "timeout_seconds": reg.get("smoke_timeout_seconds", 10),
                 "exit_code": 0,
                 "elapsed_ms": 0,
                 "stdout_tail_path": None,
                 "stderr_tail_path": None,
+                "expected_output_regex": reg.get("expected_output_regex"),
                 "status": "passed",
                 "failure_reason": None,
                 "dry_run": True,
             }
         else:
-            smoke = _smoke(command, cwd, int(reg.get("smoke_timeout_seconds", 10)), token)
+            smoke = _smoke(
+                smoke_command,
+                cwd,
+                int(reg.get("smoke_timeout_seconds", 10)),
+                token,
+                reg.get("expected_output_regex"),
+            )
         if smoke["status"] != "passed":
             gaps.append({**base, "resolution_status": "gap", "gap_reason": f"smoke_{smoke['failure_reason']}", "smoke_run": smoke})
             continue

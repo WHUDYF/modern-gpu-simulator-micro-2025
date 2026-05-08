@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +79,18 @@ def _repair_action(gate: str, reason: str | None) -> dict[str, str | None]:
     return {"action_type": "code_fix_required", "description": f"Fix selector preflight for reason: {reason}", "command": None}
 
 
+def _gate_status(entry_id: str, measured_ids: set[str], resolution_gaps: list[dict[str, Any]], capture_gaps: list[dict[str, Any]], acq_gaps: list[dict[str, Any]]) -> tuple[str, str, str]:
+    if entry_id in measured_ids:
+        return "passed", "passed", "passed"
+    if any(gap.get("manifest_entry_id") == entry_id for gap in resolution_gaps):
+        return "blocked", "not_attempted", "not_attempted"
+    if any(entry_id in gap.get("consuming_manifest_entry_ids", []) for gap in capture_gaps):
+        return "passed", "blocked", "not_attempted"
+    if any(gap.get("manifest_entry_id") == entry_id for gap in acq_gaps):
+        return "passed", "passed", "blocked"
+    return "unknown", "unknown", "unknown"
+
+
 def evaluate() -> dict[str, Any]:
     entries = _p0_entries()
     features = read_json(FEATURE_TABLE_PATH, [])
@@ -87,18 +100,29 @@ def evaluate() -> dict[str, Any]:
     measured_ids = {row.get("manifest_id") for row in features}
 
     row_errors = []
+    forbidden_violations = []
+    feature_mode_violations = []
     for row in features:
         errors = _valid_feature_row(row)
         if errors:
             row_errors.append({"record_id": row.get("record_id"), "errors": errors})
+        if row.get("feature_mode") != "pka_m1_measured":
+            feature_mode_violations.append(row.get("record_id"))
+        forbidden = sorted(FORBIDDEN_SELECTOR_FIELDS & set(row))
+        if forbidden:
+            forbidden_violations.append({"record_id": row.get("record_id"), "fields": forbidden})
 
     timing_units = {row.get("timing_basis") for row in features if row.get("timing_basis")}
+    blocking_reasons = []
     if row_errors:
         state = "selector_blocked_invalid_feature_table"
+        blocking_reasons.append("invalid_feature_table")
     elif len(timing_units) > 1:
         state = "selector_blocked_mixed_timing_unit"
+        blocking_reasons.append("mixed_timing_unit")
     elif len(features) < 3:
         state = "selector_blocked_insufficient_measured_records"
+        blocking_reasons.append("insufficient_measured_records")
     elif len(measured_ids) < len(entries):
         state = "selector_ready_with_remaining_gaps"
     else:
@@ -114,46 +138,120 @@ def evaluate() -> dict[str, Any]:
                 "kernel_invocation_id": row.get("kernel_invocation_id"),
                 "features": row.get("features"),
                 "feature_mode": row.get("feature_mode"),
-                "weight_input": {"weight_mode": weight_mode, "value": 1.0},
+                "weight_input": {
+                    "weight_mode": weight_mode,
+                    "timing_unit": next(iter(timing_units), None) if weight_mode == "timing_weight" else None,
+                    "value": float(row.get("duration") or row.get("elapsed_time") or 1.0),
+                },
             })
     write_json(SELECTOR_INPUT_PATH, selector_records)
 
     repair_rows = []
     for entry in entries:
         entry_id = entry["id"]
+        gate1_status, gate2_status, gate3_status = _gate_status(entry_id, measured_ids, resolution_gaps, capture_gaps, acq_gaps)
         if entry_id in measured_ids:
             repair_rows.append({
                 "manifest_entry_id": entry_id,
-                "status": "measured",
+                "kernel_or_case": entry.get("kernel_or_case"),
+                "entry_status": "measured",
+                "gate1_status": gate1_status,
+                "gate2_status": gate2_status,
+                "gate3_status": gate3_status,
                 "earliest_failed_gate": None,
-                "repair_action": None,
+                "blocking_reason": None,
+                "repair_action_type": None,
+                "suggested_repair_action": None,
+                "executable_command": None,
+                "allowed_to_auto_run": False,
             })
             continue
         gap = _earliest_gap(entry_id, resolution_gaps, capture_gaps, acq_gaps)
         gate = gap["earliest_failed_gate"] if gap else "Gate4"
         reason = gap["gap_reason"] if gap else "not_measured_without_prior_gap"
+        action = _repair_action(gate, reason)
         repair_rows.append({
             "manifest_entry_id": entry_id,
-            "status": "gap",
+            "kernel_or_case": entry.get("kernel_or_case"),
+            "entry_status": "blocked",
+            "gate1_status": gate1_status,
+            "gate2_status": gate2_status,
+            "gate3_status": gate3_status,
             "earliest_failed_gate": gate,
-            "gap_reason": reason,
-            "repair_action": _repair_action(gate, reason),
+            "blocking_reason": reason,
+            "repair_action_type": action["action_type"],
+            "suggested_repair_action": action["description"],
+            "executable_command": action["command"],
+            "allowed_to_auto_run": False,
         })
 
+    generated_at = datetime.now(timezone.utc).isoformat()
+    preflight = {
+        "status": "failed" if row_errors or forbidden_violations or feature_mode_violations else "passed",
+        "checked_rows": len(features),
+        "complete_12d_rows": len(features) - len(row_errors),
+        "invalid_rows": row_errors,
+        "forbidden_field_violations": forbidden_violations,
+        "feature_mode_violations": feature_mode_violations,
+    }
+    timing_check = {
+        "status": "failed" if len(timing_units) > 1 else "passed",
+        "weight_mode": weight_mode,
+        "timing_unit": next(iter(timing_units), None) if len(timing_units) == 1 else None,
+        "conflicting_units": sorted(timing_units) if len(timing_units) > 1 else [],
+        "conflict_records": [
+            {"record_id": row.get("record_id"), "timing_basis": row.get("timing_basis")}
+            for row in features
+            if len(timing_units) > 1
+        ],
+    }
     eligibility = {
+        "artifact_name": "m1_selector_eligibility_l1",
+        "generated_at": generated_at,
         "selector_eligibility_state": state,
         "gate5_allowed": gate5_allowed,
         "measured_rows": len(features),
+        "gap_rows": len(acq_gaps) + len(resolution_gaps) + len(capture_gaps),
         "total_p0_entries": len(entries),
-        "remaining_gap_count": len([row for row in repair_rows if row["status"] == "gap"]),
+        "feature_table_path": artifact_ref(FEATURE_TABLE_PATH),
+        "acquisition_gap_path": artifact_ref(ACQ_GAP_PATH),
+        "feature_table_preflight": preflight,
+        "timing_check": timing_check,
+        "remaining_gap_count": len([row for row in repair_rows if row["entry_status"] == "blocked"]),
         "feature_table_errors": row_errors,
         "timing_units": sorted(timing_units),
         "weight_mode": weight_mode,
+        "timing_unit": timing_check["timing_unit"],
+        "selector_input_projection_path": artifact_ref(SELECTOR_INPUT_PATH),
         "selector_input_path": artifact_ref(SELECTOR_INPUT_PATH),
         "selector_input_hash": file_hash(SELECTOR_INPUT_PATH),
+        "backward_repair_report_path": artifact_ref(REPAIR_JSON_PATH),
         "repair_report_path": artifact_ref(REPAIR_JSON_PATH),
+        "blocking_reasons": blocking_reasons,
     }
-    repair = {"summary": eligibility, "entries": repair_rows}
+    repair_summary = {
+        "total_p0_entries": len(entries),
+        "measured_entries": sum(1 for row in repair_rows if row["entry_status"] == "measured"),
+        "blocked_entries": sum(1 for row in repair_rows if row["entry_status"] == "blocked"),
+        "not_attempted_entries": sum(1 for row in repair_rows if "not_attempted" in {row["gate1_status"], row["gate2_status"], row["gate3_status"]}),
+        "gate1_blocked_count": sum(1 for row in repair_rows if row.get("earliest_failed_gate") == "Gate1"),
+        "gate2_blocked_count": sum(1 for row in repair_rows if row.get("earliest_failed_gate") == "Gate2"),
+        "gate3_blocked_count": sum(1 for row in repair_rows if row.get("earliest_failed_gate") == "Gate3"),
+        "gate4_blocked_count": sum(1 for row in repair_rows if row.get("earliest_failed_gate") == "Gate4"),
+        "auto_runnable_repairs": sum(1 for row in repair_rows if row.get("allowed_to_auto_run")),
+        "manual_repairs": sum(1 for row in repair_rows if row.get("repair_action_type") == "manual_action"),
+        "environment_actions": sum(1 for row in repair_rows if row.get("repair_action_type") == "environment_action"),
+        "code_fixes_required": sum(1 for row in repair_rows if row.get("repair_action_type") == "code_fix_required"),
+    }
+    eligibility["remaining_gap_count"] = repair_summary["blocked_entries"]
+    repair = {
+        "artifact_name": "m1_backward_repair_report_l1",
+        "generated_at": generated_at,
+        "selector_eligibility_state": state,
+        "gate5_allowed": gate5_allowed,
+        "entries": repair_rows,
+        "summary": repair_summary,
+    }
     write_json(ELIGIBILITY_PATH, eligibility)
     write_json(REPAIR_JSON_PATH, repair)
     _write_repair_md(repair)
@@ -164,17 +262,39 @@ def _write_repair_md(repair: dict[str, Any]) -> None:
     lines = [
         "# M1 Backward Repair Report",
         "",
-        f"State: `{repair['summary']['selector_eligibility_state']}`",
-        f"Measured rows: {repair['summary']['measured_rows']}",
+        f"State: `{repair['selector_eligibility_state']}`",
+        f"Measured entries: {repair['summary']['measured_entries']}",
         "",
+        "## Selector readiness summary",
+        "",
+        json.dumps(repair["summary"], sort_keys=True),
+        "",
+    ]
+    for gate in ("Gate1", "Gate2", "Gate3", "Gate4"):
+        rows = [row for row in repair["entries"] if row.get("earliest_failed_gate") == gate]
+        lines.extend([
+            f"## {gate} blockers",
+            "",
+            "| Entry | Kernel/Case | Reason | Action Type | Suggested Action |",
+            "|---|---|---|---|---|",
+        ])
+        if not rows:
+            lines.append("|  |  |  |  |  |")
+        for row in rows:
+            lines.append(
+                f"| {row['manifest_entry_id']} | {row.get('kernel_or_case') or ''} | "
+                f"{row.get('blocking_reason') or ''} | {row.get('repair_action_type') or ''} | "
+                f"{row.get('suggested_repair_action') or ''} |"
+            )
+        lines.append("")
+    lines.extend([
         "| Entry | Status | Earliest Failed Gate | Reason | Action |",
         "|---|---|---|---|---|",
-    ]
+    ])
     for row in repair["entries"]:
-        action = row.get("repair_action") or {}
         lines.append(
-            f"| {row['manifest_entry_id']} | {row['status']} | {row.get('earliest_failed_gate') or ''} | "
-            f"{row.get('gap_reason') or ''} | {action.get('description') or ''} |"
+            f"| {row['manifest_entry_id']} | {row['entry_status']} | {row.get('earliest_failed_gate') or ''} | "
+            f"{row.get('blocking_reason') or ''} | {row.get('suggested_repair_action') or ''} |"
         )
     REPAIR_MD_PATH.write_text("\n".join(lines) + "\n")
 

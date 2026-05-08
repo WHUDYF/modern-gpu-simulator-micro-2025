@@ -334,7 +334,7 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
                 )
             smoke_overrides = {k: v for k, v in SMOKE_PROFILE_OVERRIDES[workload_id].items()
                                if k != "smoke_trace_builder"}
-            raw_profile = _deep_merge(smoke_overrides, raw_profile)
+            raw_profile = _deep_merge(raw_profile, smoke_overrides)
         else:
             raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
         raw_profile["execution_mode"] = "smoke"

@@ -56,6 +56,7 @@ def _gap_row(
     kernel_or_case: str,
     reason: str,
     missing_features: list[str] | None = None,
+    measured_features: list[str] | None = None,
     join_status: str | None = None,
     detail: str | None = None,
     meta: dict[str, Any] | None = None,
@@ -75,6 +76,7 @@ def _gap_row(
         "gate": "Gate3",
         "gap_reason": reason,
         "missing_features": missing_features or [],
+        "measured_features": measured_features or [],
         "join_status": join_status,
         "capture_status": attempt.get("capture_status"),
         "source_artifact_path": attempt.get("capture_csv_path"),
@@ -272,6 +274,10 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     kernel_or_case,
                     gap_reason,
                     missing_features=missing,
+                    measured_features=[
+                        name for name, feature in record_features.items()
+                        if feature.get("status") == "measured"
+                    ],
                     join_status=join_status,
                     meta=meta,
                     inv=inv,
@@ -334,7 +340,7 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "capture_job_id": row.get("capture_job_id"),
             "kernel_invocation_id": row.get("kernel_invocation_id"),
             "feature_status": "incomplete_12d_feature_vector",
-            "measured_features": [],
+            "measured_features": row.get("measured_features", []),
             "missing_features": row.get("missing_features", []),
             "gap_reason": row.get("gap_reason"),
         }

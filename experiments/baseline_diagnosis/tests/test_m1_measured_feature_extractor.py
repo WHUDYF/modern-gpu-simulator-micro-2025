@@ -335,3 +335,54 @@ def test_gate3_reports_metric_not_in_selected_allowlist(monkeypatch, tmp_path):
     features, gaps = extractor.extract()
     assert not features
     assert gaps[0]["gap_reason"] == "metric_not_in_selected_allowlist"
+
+
+def test_gate3_gap_audit_preserves_partial_measured_features(monkeypatch, tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
+    rows = ["ID,Kernel Name,Grid Size,Metric Name,Metric Value"]
+    skipped = "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum"
+    for metric in selected_metric_records():
+        if not metric["selected_for_ncu_metrics"] or metric["actual_source_metric"] == skipped:
+            continue
+        rows.append(f"0,my_kernel,(2, 3, 1),{metric['actual_source_metric']},1")
+    csv_path.write_text("\n".join(rows) + "\n")
+    _write_env(env_path)
+    (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
+    attempts_path = tmp_path / "attempts.json"
+    attempts_path.write_text(json.dumps([
+        {
+            "capture_job_id": "job",
+            "gate3_eligible": True,
+            "capture_status": "captured",
+            "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
+            "consuming_manifest_entry_ids": ["L1_A"],
+            "consuming_kernel_or_cases": ["my_kernel"],
+        }
+    ]))
+    monkeypatch.setattr(extractor, "ATTEMPTS_PATH", attempts_path)
+    monkeypatch.setattr(extractor, "FEATURE_TABLE_PATH", tmp_path / "features.json")
+    monkeypatch.setattr(extractor, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(extractor, "FEATURE_AUDIT_PATH", tmp_path / "audit.json")
+    monkeypatch.setattr(extractor, "JOIN_AUDIT_PATH", tmp_path / "join.json")
+    features, gaps = extractor.extract()
+    assert not features
+    assert gaps[0]["gap_reason"] == "missing_canonical_metric"
+    audit_entry = json.loads((tmp_path / "audit.json").read_text())["entries"][0]
+    for key in (
+        "kernel_or_case",
+        "kernel_invocation_id",
+        "feature_status",
+        "measured_features",
+        "missing_features",
+        "gap_reason",
+    ):
+        assert key in audit_entry
+    assert audit_entry["kernel_or_case"] == "my_kernel"
+    assert audit_entry["feature_status"] == "incomplete_12d_feature_vector"
+    assert audit_entry["missing_features"] == ["coalesced_global_loads"]
+    assert "coalesced_global_stores" in audit_entry["measured_features"]
+    assert audit_entry["gap_reason"] == "missing_canonical_metric"

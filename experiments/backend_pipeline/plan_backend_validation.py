@@ -126,7 +126,10 @@ def build_run_manifest(priority_lane_table: list[dict], worksheet: dict) -> list
         selected_rows = [
             row for row in regime_rows
             if row["priority_source"] == source
-            and row["family_id"] in top_families
+            and (
+                row["family_id"] in top_families
+                or row["validation_role"] in {"review-object", "constraint-object"}
+            )
         ]
         rows = _order_rows(selected_rows, source)
         for row in rows:
@@ -177,16 +180,18 @@ def build_baseline_plan(run_manifest: list[dict], priority_lane_table: list[dict
     }
     for source in strategies:
         rows = [row for row in run_manifest if row["priority_source"] == source]
-        selected_families = []
+        selected_families = _top_families_for_source(priority_lane_table, source, family_limit)
+        special_role_families = []
         for row in rows:
-            if row["family_id"] not in selected_families:
-                selected_families.append(row["family_id"])
+            if row["validation_role"] in {"review-object", "constraint-object"} and row["family_id"] not in selected_families and row["family_id"] not in special_role_families:
+                special_role_families.append(row["family_id"])
         selected_regimes = []
         for row in rows:
             if row["regime_id"] not in selected_regimes:
                 selected_regimes.append(row["regime_id"])
         plan["strategies"][source] = {
             "selected_families": selected_families,
+            "special_role_families": special_role_families,
             "selected_regimes": selected_regimes,
             "run_count": len(rows),
         }

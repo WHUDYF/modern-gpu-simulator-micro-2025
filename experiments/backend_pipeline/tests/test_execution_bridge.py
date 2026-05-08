@@ -52,7 +52,7 @@ def test_builtin_profile_loads_existing_repo_assets():
 def test_builtin_smoke_profile_enables_trimmed_trace_mode():
     profile = load_workload_profile("mini_transformer_v4", smoke_mode=True)
     assert profile["execution_mode"] == "smoke"
-    assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
+    assert profile["extra_cli_args"] == ["-is_extra_traces_enabled", "0", "-gpgpu_max_cycle", "10"]
     assert "R1_qkv_projection_dense" in profile["smoke_trace_builder"]["kernel_launches"]
 
 
@@ -91,7 +91,7 @@ def test_custom_profile_respects_smoke_mode_override(tmp_path):
         (tmp_path / name).write_text("x")
     profile = load_workload_profile("mini_transformer_v4", profile_path, smoke_mode=True)
     assert profile["execution_mode"] == "smoke"
-    assert profile["extra_cli_args"] == ["-gpgpu_max_cycle", "10"]
+    assert profile["extra_cli_args"] == ["--custom-flag", "-gpgpu_max_cycle", "10"]
     assert profile["smoke_trace_builder"]["kernel_launches"]["R1_qkv_projection_dense"]["kernel_id"] == 99
 
 

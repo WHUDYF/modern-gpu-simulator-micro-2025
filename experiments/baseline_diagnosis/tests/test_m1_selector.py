@@ -46,6 +46,17 @@ def test_gate5_consumes_projection_and_writes_formal_artifacts(monkeypatch, tmp_
     assert (tmp_path / "pka_kmeans_clusters_l1.json").exists()
     assert (tmp_path / "representative_anchor_table_l1.json").exists()
     assert (tmp_path / "pka_compression_evaluation_l1.json").exists()
+    anchor_table = json.loads((tmp_path / "representative_anchor_table_l1.json").read_text())
+    assert isinstance(anchor_table, list)
+    assert {
+        "rep_kernel_id",
+        "kernel_name",
+        "cluster_id",
+        "member_invocations",
+        "coverage_count",
+        "coverage_weight",
+        "time_weight",
+    } <= set(anchor_table[0])
 
 
 def test_gate5_honors_timing_weight_contract(monkeypatch, tmp_path):

@@ -273,6 +273,10 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
+def _merge_extra_cli_args(base_args: list[Any], smoke_args: list[Any]) -> list[Any]:
+    return list(base_args) + list(smoke_args)
+
+
 def _validate_profile(profile: dict[str, Any]) -> None:
     missing = REQUIRED_PROFILE_FIELDS - set(profile.keys())
     if missing:
@@ -326,6 +330,8 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
     if smoke_mode:
         if workload_id not in SMOKE_PROFILE_OVERRIDES:
             raise KeyError(f"Unknown smoke profile override for workload: {workload_id}")
+        base_extra_cli_args = list(raw_profile.get("extra_cli_args", []))
+        smoke_extra_cli_args = list(SMOKE_PROFILE_OVERRIDES[workload_id].get("extra_cli_args", []))
         if profile_path is not None:
             if "smoke_trace_builder" not in raw_profile:
                 raise ValueError(
@@ -338,6 +344,7 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
         else:
             raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
         raw_profile["execution_mode"] = "smoke"
+        raw_profile["extra_cli_args"] = _merge_extra_cli_args(base_extra_cli_args, smoke_extra_cli_args)
     _validate_profile(raw_profile)
     normalized = _normalize_profile(raw_profile, base_dir=base_dir)
     if normalized["workload_id"] != workload_id:

@@ -114,9 +114,22 @@ def run() -> dict:
     }
     write_json(kmeans_path, kmeans_artifact)
 
-    anchors = []
+    records_by_id = {str(row.get("record_id") or row.get("kernel_invocation_id")): row for row in records}
+    anchor_table = []
+    anchor_metadata_rows = []
     for index, row in enumerate(outputs["anchors"]):
-        anchors.append({
+        representative_record = records_by_id.get(row["rep_record_id"], {})
+        representative_kernel = representative_record.get("kernel_invocation_id") or row["rep_kernel_id"]
+        anchor_table.append({
+            "rep_kernel_id": row["rep_kernel_id"],
+            "kernel_name": str(representative_kernel),
+            "cluster_id": row["cluster_id"],
+            "member_invocations": row["member_invocations"],
+            "coverage_count": row["coverage_count"],
+            "coverage_weight": row["coverage_weight"],
+            "time_weight": row["coverage_weight"],
+        })
+        anchor_metadata_rows.append({
             "anchor_id": f"m1_anchor_{index:03d}",
             "cluster_id": row["cluster_id"],
             "representative_record_id": row["rep_record_id"],
@@ -136,12 +149,12 @@ def run() -> dict:
         "clustering_config": kmeans_meta,
         "selection_rule": "nearest_centroid_record",
         "forbidden_field_audit": forbidden_audit,
-        "anchors": anchors,
+        "anchors": anchor_metadata_rows,
         "input_selector_projection_hash": selector_hash,
         "gate4_eligibility_hash": eligibility_hash,
         "deterministic_replay_hash": replay_hash,
     }
-    write_json(anchor_path, anchor_artifact)
+    write_json(anchor_path, anchor_table)
 
     evaluation = outputs["evaluation"]
     evaluation.update({

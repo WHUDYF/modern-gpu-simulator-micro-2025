@@ -133,9 +133,6 @@ def evaluate() -> dict[str, Any]:
             row_errors.append({"record_id": row.get("record_id"), "errors": errors})
         if row.get("feature_mode") != "pka_m1_measured":
             feature_mode_violations.append(row.get("record_id"))
-        forbidden = sorted(FORBIDDEN_SELECTOR_FIELDS & set(row))
-        if forbidden:
-            forbidden_violations.append({"record_id": row.get("record_id"), "fields": forbidden})
 
     timing_units = set()
     for row in features:
@@ -180,6 +177,10 @@ def evaluate() -> dict[str, Any]:
                 },
             })
     write_json(SELECTOR_INPUT_PATH, selector_records)
+    for row in selector_records:
+        forbidden = sorted(FORBIDDEN_SELECTOR_FIELDS & set(row))
+        if forbidden:
+            forbidden_violations.append({"record_id": row.get("record_id"), "fields": forbidden})
 
     repair_rows = []
     for entry in entries:

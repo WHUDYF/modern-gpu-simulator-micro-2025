@@ -119,7 +119,8 @@ def run() -> dict:
     anchor_metadata_rows = []
     for index, row in enumerate(outputs["anchors"]):
         representative_record = records_by_id.get(row["rep_record_id"], {})
-        representative_kernel = representative_record.get("kernel_invocation_id") or row["rep_kernel_id"]
+        representative_invocation = str(representative_record.get("kernel_invocation_id") or row["rep_kernel_id"])
+        representative_kernel = representative_invocation.rsplit("#", 1)[0]
         structural_coverage_weight = row["coverage_count"] / len(records)
         time_weight = row["coverage_weight"] if weight_mode == "timing_weight" else structural_coverage_weight
         anchor_table.append({

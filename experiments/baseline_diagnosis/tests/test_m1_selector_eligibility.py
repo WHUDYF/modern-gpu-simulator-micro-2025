@@ -15,6 +15,7 @@ def _feature_row(idx: int, duration_ns: float | None = None) -> dict:
         "record_id": f"r{idx}",
         "manifest_id": f"L1_{idx}",
         "kernel_invocation_id": f"k{idx}#1",
+        "source_path": f"profiles/k{idx}.csv",
         "feature_mode": "pka_m1_measured",
         "duration_ns": duration_ns,
         "features": {
@@ -87,6 +88,8 @@ def test_gate4_uses_duration_ns_for_timing_weight(monkeypatch, tmp_path):
     assert eligibility["weight_mode"] == "timing_weight"
     assert eligibility["timing_unit"] == "duration_ns"
     assert [row["weight_input"]["value"] for row in selector_rows] == [10.0, 20.0, 30.0]
+    assert "source_path" not in selector_rows[0]
+    assert eligibility["feature_table_preflight"]["forbidden_field_violations"] == []
 
 
 def test_gate4_missing_feature_table_is_invalid(monkeypatch, tmp_path):

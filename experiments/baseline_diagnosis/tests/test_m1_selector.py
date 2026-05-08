@@ -57,6 +57,7 @@ def test_gate5_consumes_projection_and_writes_formal_artifacts(monkeypatch, tmp_
         "coverage_weight",
         "time_weight",
     } <= set(anchor_table[0])
+    assert all("#" not in row["kernel_name"] for row in anchor_table)
 
 
 def test_gate5_honors_timing_weight_contract(monkeypatch, tmp_path):

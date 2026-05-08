@@ -120,14 +120,16 @@ def run() -> dict:
     for index, row in enumerate(outputs["anchors"]):
         representative_record = records_by_id.get(row["rep_record_id"], {})
         representative_kernel = representative_record.get("kernel_invocation_id") or row["rep_kernel_id"]
+        structural_coverage_weight = row["coverage_count"] / len(records)
+        time_weight = row["coverage_weight"] if weight_mode == "timing_weight" else structural_coverage_weight
         anchor_table.append({
             "rep_kernel_id": row["rep_kernel_id"],
             "kernel_name": str(representative_kernel),
             "cluster_id": row["cluster_id"],
             "member_invocations": row["member_invocations"],
             "coverage_count": row["coverage_count"],
-            "coverage_weight": row["coverage_weight"],
-            "time_weight": row["coverage_weight"],
+            "coverage_weight": structural_coverage_weight,
+            "time_weight": time_weight,
         })
         anchor_metadata_rows.append({
             "anchor_id": f"m1_anchor_{index:03d}",

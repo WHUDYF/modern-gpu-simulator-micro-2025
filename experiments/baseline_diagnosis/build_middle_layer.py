@@ -78,7 +78,6 @@ def load_middle_layer_sources(repo_root: Path) -> dict[str, Any]:
         "squash": experiment_dir / "mechanisms" / "squash.json",
         "batch": experiment_dir / "mechanisms" / "batch.json",
         "baseline_ape": result_dir / "baseline_ape.json",
-        "e5": result_dir / "E5_stageC_validation.md",
     }
     missing = [str(path) for path in required.values() if not path.exists()]
     if missing:

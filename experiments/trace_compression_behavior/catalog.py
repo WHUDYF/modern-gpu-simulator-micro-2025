@@ -26,6 +26,7 @@ class Catalog:
 
 
 def load_catalog(path: Path) -> Catalog:
+    catalog_dir = path.resolve().parent
     data = json.loads(path.read_text())
     entries = data.get("entries")
     if not isinstance(entries, list) or not entries:
@@ -39,7 +40,7 @@ def load_catalog(path: Path) -> Catalog:
                 id=str(entry["id"]),
                 label=str(entry["label"]),
                 role=str(entry["role"]),
-                source_path=_resolve_source_path(str(entry["source_path"]), REPO_ROOT),
+                source_path=_resolve_source_path(str(entry["source_path"]), catalog_dir),
                 record_pointer=str(entry["record_pointer"]),
             )
             for entry in entries
@@ -54,11 +55,14 @@ def load_catalog_records(catalog: Catalog) -> dict[str, Any]:
     }
 
 
-def _resolve_source_path(source_path: str, root: Path) -> Path:
+def _resolve_source_path(source_path: str, catalog_dir: Path) -> Path:
     path = Path(source_path)
     if path.is_absolute():
         return path
-    return (root / path).resolve()
+    catalog_relative = (catalog_dir / path).resolve()
+    if catalog_relative.exists():
+        return catalog_relative
+    return (REPO_ROOT / path).resolve()
 
 
 def _read_json_pointer(data: Any, pointer: str) -> Any:

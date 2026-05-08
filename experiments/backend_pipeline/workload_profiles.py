@@ -328,21 +328,22 @@ def load_workload_profile(workload_id: str, profile_path: Path | None = None, *,
         raw_profile = DEFAULT_WORKLOAD_PROFILES[workload_id]
         base_dir = REPO_ROOT
     if smoke_mode:
-        if workload_id not in SMOKE_PROFILE_OVERRIDES:
+        if profile_path is None and workload_id not in SMOKE_PROFILE_OVERRIDES:
             raise KeyError(f"Unknown smoke profile override for workload: {workload_id}")
         base_extra_cli_args = list(raw_profile.get("extra_cli_args", []))
-        smoke_extra_cli_args = list(SMOKE_PROFILE_OVERRIDES[workload_id].get("extra_cli_args", []))
+        smoke_profile_overrides = SMOKE_PROFILE_OVERRIDES.get(workload_id, {})
+        smoke_extra_cli_args = list(smoke_profile_overrides.get("extra_cli_args", []))
         if profile_path is not None:
             if "smoke_trace_builder" not in raw_profile:
                 raise ValueError(
                     "Custom workload profile must define its own 'smoke_trace_builder' when smoke-mode is enabled. "
                     "The built-in smoke_trace_builder is tied to mini_transformer_v4 and cannot be reused for custom profiles."
                 )
-            smoke_overrides = {k: v for k, v in SMOKE_PROFILE_OVERRIDES[workload_id].items()
+            smoke_overrides = {k: v for k, v in smoke_profile_overrides.items()
                                if k != "smoke_trace_builder"}
             raw_profile = _deep_merge(raw_profile, smoke_overrides)
         else:
-            raw_profile = _deep_merge(raw_profile, SMOKE_PROFILE_OVERRIDES[workload_id])
+            raw_profile = _deep_merge(raw_profile, smoke_profile_overrides)
         raw_profile["execution_mode"] = "smoke"
         raw_profile["extra_cli_args"] = _merge_extra_cli_args(base_extra_cli_args, smoke_extra_cli_args)
     _validate_profile(raw_profile)

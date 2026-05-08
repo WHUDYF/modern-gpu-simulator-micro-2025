@@ -79,3 +79,8 @@ def test_gate5_honors_timing_weight_contract(monkeypatch, tmp_path):
     assert outputs["evaluation"]["weight_mode"] == "timing_weight"
     assert outputs["evaluation"]["timing_unit"] == "duration_ns"
     assert outputs["evaluation"]["weighted_coverage"] == 1.0
+    anchor_table = json.loads((tmp_path / "representative_anchor_table_l1.json").read_text())
+    assert all(row["coverage_weight"] == row["coverage_count"] / len(records) for row in anchor_table)
+    assert sum(row["coverage_weight"] for row in anchor_table) == 1.0
+    assert sum(row["time_weight"] for row in anchor_table) == 1.0
+    assert any(row["coverage_weight"] != row["time_weight"] for row in anchor_table)

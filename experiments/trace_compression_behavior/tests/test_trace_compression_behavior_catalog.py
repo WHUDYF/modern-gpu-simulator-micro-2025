@@ -28,3 +28,26 @@ def test_load_catalog_records_resolves_repo_relative_fixture_paths():
     records = load_catalog_records(catalog)
 
     assert records["regular_memory_fixture"]["dynamic_stats"]["total_dynamic_insts"] == 1000000.0
+
+
+def test_load_catalog_records_resolves_paths_relative_to_catalog_file(tmp_path):
+    records_path = tmp_path / "records.json"
+    records_path.write_text('{"entries": [{"value": 7}]}')
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        """{
+  "catalog_id": "local_catalog",
+  "entries": [
+    {
+      "id": "local",
+      "label": "Local",
+      "role": "target",
+      "source_path": "records.json",
+      "record_pointer": "/entries/0"
+    }
+  ]
+}"""
+    )
+    catalog = load_catalog(catalog_path)
+    records = load_catalog_records(catalog)
+    assert records["local"]["value"] == 7

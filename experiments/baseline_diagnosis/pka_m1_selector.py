@@ -6,8 +6,12 @@ import json
 import sys
 from pathlib import Path
 
-from pka_selector_core import build_outputs
-from shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
+try:
+    from .pka_selector_core import build_outputs
+    from .shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
+except ImportError:
+    from pka_selector_core import build_outputs
+    from shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
 
 ELIGIBILITY_PATH = ARTIFACT_DIR / "m1_selector_eligibility_l1.json"
 SELECTOR_INPUT_PATH = ARTIFACT_DIR / "m1_selector_input_l1.json"

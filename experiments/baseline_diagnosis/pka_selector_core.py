@@ -7,7 +7,10 @@ from typing import Any
 
 import numpy as np
 
-from shared_acquisition import COUNT_FEATURES, FEATURE_ORDER, RATIO_FEATURES, stable_hash
+try:
+    from .shared_acquisition import COUNT_FEATURES, FEATURE_ORDER, RATIO_FEATURES, stable_hash
+except ImportError:
+    from shared_acquisition import COUNT_FEATURES, FEATURE_ORDER, RATIO_FEATURES, stable_hash
 
 
 def validate_selector_records(records: list[dict[str, Any]], expected_feature_mode: str | None = None) -> None:

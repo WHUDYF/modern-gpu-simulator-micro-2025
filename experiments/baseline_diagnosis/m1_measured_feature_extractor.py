@@ -7,21 +7,38 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import (
-    ARTIFACT_DIR,
-    FEATURE_ORDER,
-    FEATURE_SPECS,
-    REPO_ROOT,
-    artifact_ref,
-    feature_record,
-    kernel_name_matches,
-    missing_feature_record,
-    parse_ncu_csv,
-    read_json,
-    repo_path,
-    valid_environment_manifest,
-    write_json,
-)
+try:
+    from .shared_acquisition import (
+        ARTIFACT_DIR,
+        FEATURE_ORDER,
+        FEATURE_SPECS,
+        REPO_ROOT,
+        artifact_ref,
+        feature_record,
+        kernel_name_matches,
+        missing_feature_record,
+        parse_ncu_csv,
+        read_json,
+        repo_path,
+        valid_environment_manifest,
+        write_json,
+    )
+except ImportError:
+    from shared_acquisition import (
+        ARTIFACT_DIR,
+        FEATURE_ORDER,
+        FEATURE_SPECS,
+        REPO_ROOT,
+        artifact_ref,
+        feature_record,
+        kernel_name_matches,
+        missing_feature_record,
+        parse_ncu_csv,
+        read_json,
+        repo_path,
+        valid_environment_manifest,
+        write_json,
+    )
 
 ATTEMPTS_PATH = ARTIFACT_DIR / "m1_ncu_capture_attempts_l1.json"
 FEATURE_TABLE_PATH = ARTIFACT_DIR / "pka_feature_table_l1.json"

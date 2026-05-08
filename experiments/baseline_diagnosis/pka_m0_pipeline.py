@@ -6,8 +6,12 @@ import json
 import sys
 from pathlib import Path
 
-from pka_selector_core import build_outputs
-from shared_acquisition import ARTIFACT_DIR, REPO_ROOT, stable_hash, write_json
+try:
+    from .pka_selector_core import build_outputs
+    from .shared_acquisition import ARTIFACT_DIR, REPO_ROOT, stable_hash, write_json
+except ImportError:
+    from pka_selector_core import build_outputs
+    from shared_acquisition import ARTIFACT_DIR, REPO_ROOT, stable_hash, write_json
 
 FIXTURE_PATH = REPO_ROOT / "experiments" / "baseline_diagnosis" / "fixtures" / "pka_m0_feature_table_l1.json"
 
@@ -34,4 +38,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -193,12 +193,60 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     records = execute_run_specs(run_specs, timeout_seconds=5)
     summary = build_result_summary(run_specs, records, profile["parser"])
     assert records[0]["execution_status"] == "success"
-    assert summary[0]["result_status"] == "success"
+    assert summary[0]["result_status"] == "inconclusive"
     assert summary[0]["parse_status"] == "parsed-validation"
     assert summary[0]["sim_cycles"] == 42
     assert summary[0]["observed_metric_values"]["simulation_time"] == 1.25
     parser_report = json.loads(Path(records[0]["parser_report_path"]).read_text())
     assert parser_report["parse_status"] == "parsed-validation"
+
+
+def test_result_summary_promotes_only_with_explicit_result_evidence(tmp_path):
+    stdout_path = tmp_path / "stdout.log"
+    stderr_path = tmp_path / "stderr.log"
+    parser_report_path = tmp_path / "parser_report.json"
+    stdout_path.write_text("gpu_tot_sim_cycle = 42\nbackend_result_status = success\n")
+    stderr_path.write_text("")
+    run_specs = [
+        {
+            "run_id": "RUN_explicit_success",
+            "workload_id": "mini_transformer_v4",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "execution_mode": "validation",
+        }
+    ]
+    records = [
+        {
+            "run_id": "RUN_explicit_success",
+            "workload_id": "mini_transformer_v4",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "execution_status": "success",
+            "exit_code": 0,
+            "elapsed_wall_time": 0.1,
+            "failure_reason": None,
+            "output_dir": str(tmp_path),
+            "stdout_path": str(stdout_path),
+            "stderr_path": str(stderr_path),
+            "metadata_path": str(tmp_path / "metadata.json"),
+            "command_path": str(tmp_path / "command.sh"),
+            "parser_report_path": str(parser_report_path),
+        }
+    ]
+    parser = {
+        "sim_cycles_patterns": [r"gpu_tot_sim_cycle\s*=\s*([0-9]+)"],
+        "result_status_patterns": {"success": [r"backend_result_status\s*=\s*success"]},
+    }
+    summary = build_result_summary(run_specs, records, parser)
+    assert summary[0]["result_status"] == "success"
+    assert summary[0]["result_status_evidence"]["status"] == "success"
+    parser_report = json.loads(parser_report_path.read_text())
+    assert parser_report["result_status_evidence"]["status"] == "success"
 
 
 def test_execute_run_specs_records_timeout(tmp_path):

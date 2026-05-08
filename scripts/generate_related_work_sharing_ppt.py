@@ -1,3 +1,6 @@
+import argparse
+from pathlib import Path
+
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
@@ -5,7 +8,34 @@ from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
 
-OUTPUT = "/home/dyf/modern-gpu-simulator-micro-2025/hangroup vibe coding sharing - related work 2026-04-25.pptx"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = REPO_ROOT / "docs" / "slides" / "related_work_sharing_2026-04-25.pptx"
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Generate the related-work sharing slide deck.")
+    parser.add_argument(
+        "--template",
+        type=Path,
+        default=None,
+        help="Optional PowerPoint template path. If omitted, python-pptx creates a blank deck.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT,
+        help=f"Output .pptx path. Defaults to {DEFAULT_OUTPUT}.",
+    )
+    return parser.parse_args(argv)
+
+
+def load_presentation(template: Path | None):
+    if template is None:
+        return Presentation()
+    template = template.expanduser().resolve()
+    if not template.exists():
+        raise FileNotFoundError(f"template not found: {template}")
+    return Presentation(str(template))
 
 
 def set_run_style(run, size, bold=False, color=(0, 0, 0), font="Aptos"):
@@ -167,8 +197,9 @@ def add_paper_slide(slide, title, venue, target, method, takeaway, color):
     set_run_style(r, 18, bold=True, color=(45, 45, 45))
 
 
-def main():
-    prs = Presentation("/home/dyf/modern-gpu-simulator-micro-2025/hangroup vibe coding sharing.pptx")
+def main(argv=None):
+    args = parse_args(argv)
+    prs = load_presentation(args.template)
     while len(prs.slides) > 0:
         rId = prs.slides._sldIdLst[0].rId
         prs.part.drop_rel(rId)
@@ -371,7 +402,9 @@ def main():
     )
     add_footer(slide)
 
-    prs.save(OUTPUT)
+    output = args.output.expanduser().resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    prs.save(str(output))
 
 
 if __name__ == "__main__":

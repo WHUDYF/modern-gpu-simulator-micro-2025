@@ -504,6 +504,22 @@ def _extract_first(patterns: list[str], text: str) -> float | None:
     return None
 
 
+def _extract_terminal_result_status(parser_config: dict[str, Any], text: str) -> tuple[str | None, dict[str, str] | None]:
+    patterns_by_status = parser_config.get("result_status_patterns", {})
+    if not isinstance(patterns_by_status, dict):
+        return None, None
+    for status in ("failed", "weak", "success"):
+        patterns = patterns_by_status.get(status, [])
+        if not isinstance(patterns, list):
+            continue
+        for pattern in patterns:
+            if not isinstance(pattern, str):
+                continue
+            if re.search(pattern, text, re.MULTILINE):
+                return status, {"status": status, "pattern": pattern}
+    return None, None
+
+
 REQUIRED_EXECUTION_RECORD_FIELDS = {
     "run_id",
     "workload_id",
@@ -594,6 +610,7 @@ def build_result_summary(
         combined = stdout_text + "\n" + stderr_text
         sim_cycles = _extract_first(parser_config.get("sim_cycles_patterns", []), combined)
         simulation_time = _extract_first(parser_config.get("simulation_time_patterns", []), combined)
+        terminal_status, terminal_status_evidence = _extract_terminal_result_status(parser_config, combined)
 
         if record["execution_status"] == "success":
             if sim_cycles is not None:
@@ -601,10 +618,14 @@ def build_result_summary(
                     result_status = "inconclusive"
                     parse_status = "parsed-smoke"
                     parse_note = "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation."
-                else:
-                    result_status = "success"
+                elif terminal_status is not None:
+                    result_status = terminal_status
                     parse_status = "parsed-validation"
-                    parse_note = "Parsed sim_cycles from simulator output; validation run completed successfully."
+                    parse_note = f"Parsed sim_cycles from simulator output with explicit {terminal_status} result evidence."
+                else:
+                    result_status = "inconclusive"
+                    parse_status = "parsed-validation"
+                    parse_note = "Parsed sim_cycles from simulator output; validation decision remains pending until response analysis is applied."
                 parsed_source = record["stdout_path"]
             else:
                 result_status = "parse-failed"
@@ -630,6 +651,7 @@ def build_result_summary(
             "sim_cycles": int(sim_cycles) if sim_cycles is not None else None,
             "simulation_time": simulation_time,
             "parse_note": parse_note,
+            "result_status_evidence": terminal_status_evidence,
             "parsed_source_path": parsed_source,
             "stdout_path": record["stdout_path"],
             "stderr_path": record["stderr_path"],
@@ -658,6 +680,7 @@ def build_result_summary(
                     "sim_cycles": int(sim_cycles) if sim_cycles is not None else None,
                     "simulation_time": simulation_time,
                 },
+                "result_status_evidence": terminal_status_evidence,
                 "baseline_delta": {},
                 "sensitivity_score": None,
                 "coverage_gain": None,

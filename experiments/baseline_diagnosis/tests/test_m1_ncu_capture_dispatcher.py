@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import m1_ncu_capture_dispatcher as dispatcher
-from shared_acquisition import selected_metric_records
+from shared_acquisition import metric_available_in_query, selected_metric_records
 
 
 def test_gate2_dedups_commands_and_never_uses_set_full(monkeypatch, tmp_path):
@@ -69,11 +69,17 @@ def test_gate2_rejects_nonempty_malformed_csv(tmp_path):
 
 def test_gate2_timeout_with_valid_csv_remains_gate3_eligible(tmp_path):
     csv_path = tmp_path / "capture.csv"
-    csv_path.write_text("ID,Kernel Name,Grid Size,Metric Name,Metric Value\n")
+    csv_path.write_text("==PROF==\nID,Kernel Name,Grid Size,Metric Name,Metric Value\n")
     status, eligible, reason = dispatcher._classify(None, "", csv_path, timed_out=True)
     assert status == "ncu_capture_timeout"
     assert eligible is True
     assert reason == "timeout_with_partial_csv"
+
+
+def test_gate2_metric_query_matching_requires_exact_metric_name():
+    query_text = "smsp__inst_executed.sum.per_cycle_active\nsmsp__inst_executed_op_global_ld.sum\n"
+    assert not metric_available_in_query("smsp__inst_executed.sum", query_text)
+    assert metric_available_in_query("smsp__inst_executed_op_global_ld.sum", query_text)
 
 
 def test_gate2_timeout_with_malformed_csv_stays_timeout(tmp_path):

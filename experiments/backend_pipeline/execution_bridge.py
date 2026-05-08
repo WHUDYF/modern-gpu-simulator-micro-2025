@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -432,14 +434,22 @@ def execute_run_specs(run_specs: list[dict[str, Any]], timeout_seconds: int) -> 
         failure_reason = None
         try:
             with stdout_path.open("w") as stdout_handle, stderr_path.open("w") as stderr_handle:
-                completed = subprocess.run(
+                proc = subprocess.Popen(
                     ["bash", str(command_path)],
                     stdout=stdout_handle,
                     stderr=stderr_handle,
-                    timeout=timeout_seconds,
-                    check=False,
+                    start_new_session=True,
                 )
-            exit_code = completed.returncode
+                try:
+                    exit_code = proc.wait(timeout=timeout_seconds)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait()
+                    raise
             if exit_code != 0:
                 execution_status = "run-failed"
                 failure_reason = f"command exited with code {exit_code}"

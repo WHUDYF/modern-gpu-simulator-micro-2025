@@ -243,7 +243,11 @@ def valid_environment_manifest(data: dict[str, Any]) -> bool:
 
 
 def metric_available_in_query(metric: str, query_text: str) -> bool:
-    return metric in query_text
+    for line in query_text.splitlines():
+        tokens = [token.strip() for token in re.split(r"[\s,]+", line.strip()) if token.strip()]
+        if metric in tokens:
+            return True
+    return False
 
 
 def selected_metric_records(query_text: str = "", query_status: str = "static_fixture") -> list[dict[str, Any]]:
@@ -300,7 +304,8 @@ def has_ncu_csv_header(path: Path) -> bool:
         for row in reader:
             if not row:
                 continue
-            return row[0].strip() == "ID" or any(col.strip() == "Metric Name" for col in row)
+            if row[0].strip() == "ID" or any(col.strip() == "Metric Name" for col in row):
+                return True
     return False
 
 

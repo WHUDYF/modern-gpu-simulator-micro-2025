@@ -47,6 +47,15 @@ def test_gate2_dedups_commands_and_never_uses_set_full(monkeypatch, tmp_path):
     assert "launch_grid_size" not in ",".join(attempts[0]["selected_metrics"])
     assert attempts[0]["gate3_eligible"] is False
     assert gaps[0]["capture_status"] == "dry_run_capture_skipped"
+    attempts_doc = json.loads((tmp_path / "attempts.json").read_text())
+    assert attempts_doc["artifact_name"] == "m1_ncu_capture_attempts_l1"
+    assert attempts_doc["summary"]["capture_job_count"] == 1
+    command_doc = json.loads((tmp_path / "results" / attempts[0]["capture_job_id"] / "capture_command.json").read_text())
+    assert command_doc["target_run_command"] == [sys.executable, "-c", "print(1)"]
+    assert command_doc["selected_metrics"]
+    env_doc = json.loads((tmp_path / "results" / attempts[0]["capture_job_id"] / "capture_env_manifest.json").read_text())
+    for key in ("gpu_name", "compute_capability", "driver_version", "cuda_version", "nsight_compute_version", "environment_signature", "capture_timestamp", "target_run_command", "ncu_capture_command", "selected_metrics", "output_csv_path"):
+        assert key in env_doc
 
 
 def test_gate2_rejects_nonempty_malformed_csv(tmp_path):
@@ -56,6 +65,15 @@ def test_gate2_rejects_nonempty_malformed_csv(tmp_path):
     assert status == "malformed_ncu_csv"
     assert eligible is False
     assert reason == "missing_ncu_csv_header"
+
+
+def test_gate2_timeout_with_valid_csv_remains_gate3_eligible(tmp_path):
+    csv_path = tmp_path / "capture.csv"
+    csv_path.write_text("ID,Kernel Name,Grid Size,Metric Name,Metric Value\n")
+    status, eligible, reason = dispatcher._classify(None, "", csv_path, timed_out=True)
+    assert status == "ncu_capture_timeout"
+    assert eligible is True
+    assert reason == "timeout_with_partial_csv"
 
 
 def test_gate2_classifies_permission_blocker(tmp_path):

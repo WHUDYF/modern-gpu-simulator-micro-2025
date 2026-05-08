@@ -12,12 +12,14 @@ from shared_acquisition import (
     FEATURE_ORDER,
     FEATURE_SPECS,
     REPO_ROOT,
+    artifact_ref,
     feature_record,
     kernel_name_matches,
     missing_feature_record,
     parse_ncu_csv,
     read_json,
     repo_path,
+    valid_environment_manifest,
     write_json,
 )
 
@@ -35,6 +37,41 @@ def _allowed_sources(attempt: dict[str, Any]) -> dict[str, str]:
         row["feature_name"]: row.get("actual_source_metric")
         for row in rows
         if row.get("resolution_status") in {"available", "rollup_resolved", "launch_metadata"}
+    }
+
+
+def _gap_row(
+    entry_id: str,
+    attempt: dict[str, Any],
+    kernel_or_case: str,
+    reason: str,
+    missing_features: list[str] | None = None,
+    join_status: str | None = None,
+    detail: str | None = None,
+    meta: dict[str, Any] | None = None,
+    inv: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    meta = meta or {}
+    return {
+        "record_id": f"{entry_id}:{reason}",
+        "manifest_entry_id": entry_id,
+        "capture_job_id": attempt.get("capture_job_id"),
+        "dataset_level": "L1",
+        "source_type": meta.get("source_type"),
+        "benchmark_name": meta.get("benchmark_name"),
+        "kernel_or_case": kernel_or_case,
+        "kernel_invocation_id": f"{kernel_or_case}#{(inv or {}).get('occurrence_index', 0) + 1}" if kernel_or_case else None,
+        "failed_gate": "Gate3",
+        "gate": "Gate3",
+        "gap_reason": reason,
+        "missing_features": missing_features or [],
+        "join_status": join_status,
+        "capture_status": attempt.get("capture_status"),
+        "source_artifact_path": attempt.get("capture_csv_path"),
+        "selected_metrics_path": artifact_ref(Path(attempt.get("capture_csv_path", ".")).parent / "selected_metrics.json"),
+        "environment_manifest_path": attempt.get("environment_manifest_path"),
+        "suggested_repair_action": f"Repair Gate3 acquisition gap {reason}",
+        "detail": detail,
     }
 
 
@@ -79,7 +116,8 @@ def _extract_features(inv: dict[str, Any], attempt: dict[str, Any], allowed: dic
         if feature_name == "num_thread_blocks":
             grid_value = inv.get("grid_size_normalized")
             if grid_value is None:
-                features[feature_name] = missing_feature_record(feature_name, source_path, "grid_size_missing")
+                grid_reason = "grid_size_parse_failed" if inv.get("grid_size_provenance", {}).get("normalization_rule") == "parse_failed" else "grid_size_missing"
+                features[feature_name] = missing_feature_record(feature_name, source_path, grid_reason)
                 missing.append(feature_name)
             else:
                 features[feature_name] = feature_record(
@@ -111,24 +149,40 @@ def _extract_features(inv: dict[str, Any], attempt: dict[str, Any], allowed: dic
 
 
 def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    attempts = read_json(ATTEMPTS_PATH, [])
+    attempts_doc = read_json(ATTEMPTS_PATH, [])
+    attempts = attempts_doc.get("attempts", []) if isinstance(attempts_doc, dict) else attempts_doc
     features: list[dict[str, Any]] = []
     gaps: list[dict[str, Any]] = []
     join_audit: list[dict[str, Any]] = []
     for attempt in [row for row in attempts if row.get("gate3_eligible") is True]:
+        env_ref = attempt.get("environment_manifest_path")
+        env_path = repo_path(env_ref) if env_ref else None
+        env_manifest = read_json(env_path, {}) if env_path and env_path.is_file() else {}
+        if not env_ref or not valid_environment_manifest(env_manifest):
+            for index, (entry_id, kernel_or_case) in enumerate(zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"])):
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    "env_manifest_missing" if not env_path or not env_path.exists() else "env_manifest_invalid",
+                    meta=_entry_metadata(attempt, index, entry_id, kernel_or_case),
+                    detail="missing or invalid Gate2 environment manifest",
+                ))
+            continue
         csv_path = repo_path(attempt["capture_csv_path"])
         try:
             invocations = parse_ncu_csv(csv_path)
         except Exception as exc:  # noqa: BLE001 - gate artifact should capture parser failure.
-            for entry_id, kernel_or_case in zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"]):
-                gaps.append({
-                    "manifest_entry_id": entry_id,
-                    "capture_job_id": attempt["capture_job_id"],
-                    "kernel_or_case": kernel_or_case,
-                    "gate": "Gate3",
-                    "gap_reason": "csv_parse_failed",
-                    "detail": str(exc),
-                })
+            for index, (entry_id, kernel_or_case) in enumerate(zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"])):
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    "incomplete_12d_feature_vector",
+                    join_status="csv_parse_failed",
+                    meta=_entry_metadata(attempt, index, entry_id, kernel_or_case),
+                    detail=str(exc),
+                ))
             continue
         allowed = _allowed_sources(attempt)
         kernel_counts = {
@@ -158,32 +212,47 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 "reason": reason,
             })
             if inv is None:
-                gaps.append({
-                    "record_id": f"{entry_id}:gap",
-                    "manifest_entry_id": entry_id,
-                    "source_type": meta.get("source_type"),
-                    "benchmark_name": meta.get("benchmark_name"),
-                    "capture_job_id": attempt["capture_job_id"],
-                    "kernel_or_case": kernel_or_case,
-                    "gate": "Gate3",
-                    "gap_reason": join_status,
-                    "detail": reason,
-                })
+                reason_map = {
+                    "missing_kernel": "missing_kernel_in_csv",
+                    "ambiguous_kernel": "ambiguous_kernel_match",
+                    "occurrence_mismatch": "occurrence_mismatch",
+                    "empty_kernel_name": "empty_kernel_name",
+                }
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    reason_map.get(join_status, "incomplete_12d_feature_vector"),
+                    join_status=join_status,
+                    meta=meta,
+                    detail=reason,
+                ))
                 continue
             record_features, missing = _extract_features(inv, attempt, allowed)
             if missing:
-                gaps.append({
-                    "record_id": f"{entry_id}:{inv['csv_invocation_id']}:gap",
-                    "manifest_entry_id": entry_id,
-                    "source_type": meta.get("source_type"),
-                    "benchmark_name": meta.get("benchmark_name"),
-                    "capture_job_id": attempt["capture_job_id"],
-                    "kernel_or_case": kernel_or_case,
-                    "gate": "Gate3",
-                    "gap_reason": "missing_required_metrics",
-                    "missing_features": missing,
-                })
+                missing_reasons = {
+                    name: record_features[name]["provenance"].get("missing_reason")
+                    for name in missing
+                }
+                if "num_thread_blocks" in missing:
+                    gap_reason = missing_reasons["num_thread_blocks"]
+                elif any(reason == "selected_metric_absent_in_csv" for reason in missing_reasons.values()):
+                    gap_reason = "missing_canonical_metric"
+                else:
+                    gap_reason = "incomplete_12d_feature_vector"
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    gap_reason,
+                    missing_features=missing,
+                    join_status=join_status,
+                    meta=meta,
+                    inv=inv,
+                ))
                 continue
+            duration_ns = inv.get("duration")
+            elapsed_cycles = inv.get("elapsed_cycles")
             features.append({
                 "record_id": f"{entry_id}:{inv['csv_invocation_id']}",
                 "dataset_level": "L1",
@@ -201,8 +270,12 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 "capture_exit_code": attempt.get("capture_exit_code"),
                 "capture_stderr_path": attempt.get("capture_stderr_path"),
                 "capture_warning": "non_zero_exit" if attempt.get("capture_status") == "capture_non_zero_exit_with_partial_csv" else None,
+                "duration_ns": duration_ns,
+                "elapsed_cycles": elapsed_cycles,
+                "timing_basis": "duration_ns" if duration_ns is not None else ("elapsed_cycles" if elapsed_cycles is not None else None),
                 "feature_provenance": {
                     "selected_metrics_path": str(Path(attempt["capture_csv_path"]).parent / "selected_metrics.json"),
+                    "environment_manifest_path": attempt.get("environment_manifest_path"),
                     "join_status": join_status,
                     "csv_invocation_id": inv["csv_invocation_id"],
                     "capture_status": attempt.get("capture_status"),

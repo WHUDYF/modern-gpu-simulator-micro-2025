@@ -16,14 +16,33 @@ def _write_fixture_csv(path: Path, kernel_name: str = "my_kernel") -> None:
         if not metric["selected_for_ncu_metrics"]:
             continue
         rows.append(f"0,{kernel_name},(2, 3, 1),{metric['actual_source_metric']},1")
+    rows.append(f"0,{kernel_name},(2, 3, 1),gpu__time_duration.sum,123")
     path.write_text("\n".join(rows) + "\n")
+
+
+def _write_env(path: Path) -> None:
+    path.write_text(json.dumps({
+        "gpu_name": "test-gpu",
+        "compute_capability": "9.0",
+        "driver_version": "test-driver",
+        "cuda_version": "test-cuda",
+        "nsight_compute_version": "test-ncu",
+        "environment_signature": {"test": True},
+        "capture_timestamp": "2026-05-08T00:00:00Z",
+        "target_run_command": ["app"],
+        "ncu_capture_command": ["ncu"],
+        "selected_metrics": ["metric"],
+        "output_csv_path": "capture.csv",
+    }))
 
 
 def test_gate3_extracts_complete_measured_row(monkeypatch, tmp_path):
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
     _write_fixture_csv(csv_path)
+    _write_env(env_path)
     (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
     attempts_path = tmp_path / "attempts.json"
     attempts_path.write_text(json.dumps([
@@ -34,6 +53,7 @@ def test_gate3_extracts_complete_measured_row(monkeypatch, tmp_path):
             "capture_exit_code": 0,
             "capture_stderr_path": "stderr.log",
             "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
             "consuming_manifest_entry_ids": ["L1_A"],
             "consuming_kernel_or_cases": ["my_kernel"],
             "consuming_manifest_entries": [
@@ -53,6 +73,8 @@ def test_gate3_extracts_complete_measured_row(monkeypatch, tmp_path):
     assert features[0]["dataset_level"] == "L1"
     assert features[0]["feature_status"] == "complete_measured"
     assert features[0]["capture_status"] == "captured"
+    assert features[0]["duration_ns"] == 123.0
+    assert features[0]["timing_basis"] == "duration_ns"
     assert set(features[0]["features"]) == set(FEATURE_ORDER)
     assert features[0]["features"]["num_thread_blocks"]["value"] == 6.0
 
@@ -61,6 +83,8 @@ def test_gate3_occurrence_join_and_nonzero_exit_provenance(monkeypatch, tmp_path
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
+    _write_env(env_path)
     rows = ["ID,Kernel Name,Grid Size,Metric Name,Metric Value"]
     for inv_id in ("0", "1"):
         for metric in selected_metric_records():
@@ -77,6 +101,7 @@ def test_gate3_occurrence_join_and_nonzero_exit_provenance(monkeypatch, tmp_path
             "capture_exit_code": 9,
             "capture_stderr_path": "stderr.log",
             "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
             "consuming_manifest_entry_ids": ["L1_A", "L1_B"],
             "consuming_kernel_or_cases": ["repeat_kernel", "repeat_kernel"],
             "consuming_manifest_entries": [
@@ -103,7 +128,9 @@ def test_gate3_reports_empty_kernel_name(monkeypatch, tmp_path):
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
     _write_fixture_csv(csv_path, kernel_name="")
+    _write_env(env_path)
     (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
     attempts_path = tmp_path / "attempts.json"
     attempts_path.write_text(json.dumps([
@@ -112,6 +139,7 @@ def test_gate3_reports_empty_kernel_name(monkeypatch, tmp_path):
             "gate3_eligible": True,
             "capture_status": "captured",
             "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
             "consuming_manifest_entry_ids": ["L1_A"],
             "consuming_kernel_or_cases": ["my_kernel"],
         }
@@ -130,7 +158,9 @@ def test_gate3_reports_occurrence_mismatch(monkeypatch, tmp_path):
     job_dir = tmp_path / "job"
     job_dir.mkdir()
     csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
     _write_fixture_csv(csv_path, kernel_name="repeat_kernel")
+    _write_env(env_path)
     (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
     attempts_path = tmp_path / "attempts.json"
     attempts_path.write_text(json.dumps([
@@ -139,6 +169,7 @@ def test_gate3_reports_occurrence_mismatch(monkeypatch, tmp_path):
             "gate3_eligible": True,
             "capture_status": "captured",
             "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
             "consuming_manifest_entry_ids": ["L1_A", "L1_B"],
             "consuming_kernel_or_cases": ["repeat_kernel", "repeat_kernel"],
         }
@@ -151,3 +182,31 @@ def test_gate3_reports_occurrence_mismatch(monkeypatch, tmp_path):
     features, gaps = extractor.extract()
     assert len(features) == 1
     assert gaps[0]["gap_reason"] == "occurrence_mismatch"
+
+
+def test_gate3_rejects_missing_environment_manifest(monkeypatch, tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    csv_path = job_dir / "capture.csv"
+    _write_fixture_csv(csv_path)
+    (job_dir / "selected_metrics.json").write_text(json.dumps(selected_metric_records()))
+    attempts_path = tmp_path / "attempts.json"
+    attempts_path.write_text(json.dumps({"attempts": [
+        {
+            "capture_job_id": "job",
+            "gate3_eligible": True,
+            "capture_status": "captured",
+            "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(job_dir / "missing_env.json"),
+            "consuming_manifest_entry_ids": ["L1_A"],
+            "consuming_kernel_or_cases": ["my_kernel"],
+        }
+    ]}))
+    monkeypatch.setattr(extractor, "ATTEMPTS_PATH", attempts_path)
+    monkeypatch.setattr(extractor, "FEATURE_TABLE_PATH", tmp_path / "features.json")
+    monkeypatch.setattr(extractor, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(extractor, "FEATURE_AUDIT_PATH", tmp_path / "audit.json")
+    monkeypatch.setattr(extractor, "JOIN_AUDIT_PATH", tmp_path / "join.json")
+    features, gaps = extractor.extract()
+    assert not features
+    assert gaps[0]["gap_reason"] == "env_manifest_missing"

@@ -9,6 +9,8 @@ import math
 import os
 import re
 import shutil
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -183,11 +185,61 @@ def normalize_grid_size(raw: str | None) -> tuple[float | None, dict[str, Any]]:
 
 
 def environment_signature() -> dict[str, Any]:
+    def run_tail(command: list[str], timeout: int = 5) -> dict[str, Any]:
+        try:
+            proc = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+            return {
+                "command": command,
+                "exit_code": proc.returncode,
+                "stdout_tail": proc.stdout[-4000:],
+                "stderr_tail": proc.stderr[-4000:],
+            }
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {"command": command, "exit_code": None, "stdout_tail": "", "stderr_tail": str(exc)}
+
+    nvidia = run_tail(["nvidia-smi", "--query-gpu=name,compute_cap,driver_version", "--format=csv,noheader"])
+    nvcc = run_tail(["nvcc", "--version"]) if shutil.which("nvcc") else {"command": ["nvcc", "--version"], "exit_code": None, "stdout_tail": "", "stderr_tail": "nvcc not found"}
+    ncu_version = run_tail(["ncu", "--version"]) if shutil.which("ncu") else {"command": ["ncu", "--version"], "exit_code": None, "stdout_tail": "", "stderr_tail": "ncu not found"}
+    gpu_name = None
+    compute_capability = None
+    driver_version = None
+    if nvidia.get("stdout_tail"):
+        parts = [part.strip() for part in nvidia["stdout_tail"].splitlines()[0].split(",")]
+        if len(parts) >= 3:
+            gpu_name, compute_capability, driver_version = parts[:3]
     return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "PATH": os.environ.get("PATH", ""),
         "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES", ""),
         "ncu_path": shutil.which("ncu"),
+        "gpu_name": gpu_name,
+        "compute_capability": compute_capability,
+        "driver_version": driver_version,
+        "cuda_version": nvcc.get("stdout_tail"),
+        "nsight_compute_version": ncu_version.get("stdout_tail"),
+        "probe_results": {
+            "nvidia_smi": nvidia,
+            "nvcc": nvcc,
+            "ncu_version": ncu_version,
+        },
     }
+
+
+def valid_environment_manifest(data: dict[str, Any]) -> bool:
+    required = {
+        "gpu_name",
+        "compute_capability",
+        "driver_version",
+        "cuda_version",
+        "nsight_compute_version",
+        "environment_signature",
+        "capture_timestamp",
+        "target_run_command",
+        "ncu_capture_command",
+        "selected_metrics",
+        "output_csv_path",
+    }
+    return required.issubset(data)
 
 
 def metric_available_in_query(metric: str, query_text: str) -> bool:

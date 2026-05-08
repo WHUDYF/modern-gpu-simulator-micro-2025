@@ -56,6 +56,12 @@ def _valid_feature_row(row: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _unwrap_rows(doc: Any, key: str) -> list[dict[str, Any]]:
+    if isinstance(doc, dict):
+        return doc.get(key, [])
+    return doc or []
+
+
 def _earliest_gap(entry_id: str, resolution_gaps: list[dict[str, Any]], capture_gaps: list[dict[str, Any]], acq_gaps: list[dict[str, Any]]) -> dict[str, Any] | None:
     for gap in resolution_gaps:
         if gap.get("manifest_entry_id") == entry_id:
@@ -69,9 +75,24 @@ def _earliest_gap(entry_id: str, resolution_gaps: list[dict[str, Any]], capture_
     return None
 
 
-def _repair_action(gate: str, reason: str | None) -> dict[str, str | None]:
+def _repair_action(gate: str, reason: str | None, source: dict[str, Any] | None = None) -> dict[str, Any]:
+    source = source or {}
     if gate == "Gate1":
-        return {"action_type": "manual_action", "description": f"Fix workload registry/binary/smoke run for reason: {reason}", "command": None}
+        if source.get("build_command"):
+            return {
+                "action_type": "executable_command",
+                "description": f"Run the registry build command for missing binary: {reason}",
+                "command": source.get("build_command"),
+                "working_directory": source.get("working_directory"),
+                "command_source": "workload_registry_l1.json",
+            }
+        return {
+            "action_type": "manual_action",
+            "description": f"Provide the registry binary or add an allowlisted build command for reason: {reason}",
+            "command": None,
+            "working_directory": source.get("working_directory"),
+            "command_source": "workload_registry_l1.json",
+        }
     if gate == "Gate2":
         return {"action_type": "environment_action", "description": f"Fix NCU capture environment or metric selection for reason: {reason}", "command": None}
     if gate == "Gate3":
@@ -93,10 +114,11 @@ def _gate_status(entry_id: str, measured_ids: set[str], resolution_gaps: list[di
 
 def evaluate() -> dict[str, Any]:
     entries = _p0_entries()
-    features = read_json(FEATURE_TABLE_PATH, [])
+    feature_table_exists = FEATURE_TABLE_PATH.exists()
+    features = read_json(FEATURE_TABLE_PATH, []) if feature_table_exists else []
     acq_gaps = read_json(ACQ_GAP_PATH, [])
     resolution_gaps = read_json(RESOLUTION_GAP_PATH, [])
-    capture_gaps = read_json(CAPTURE_GAP_PATH, [])
+    capture_gaps = _unwrap_rows(read_json(CAPTURE_GAP_PATH, []), "gaps")
     measured_ids = {row.get("manifest_id") for row in features}
 
     row_errors = []
@@ -112,9 +134,19 @@ def evaluate() -> dict[str, Any]:
         if forbidden:
             forbidden_violations.append({"record_id": row.get("record_id"), "fields": forbidden})
 
-    timing_units = {row.get("timing_basis") for row in features if row.get("timing_basis")}
+    timing_units = set()
+    for row in features:
+        if row.get("duration_ns") is not None:
+            timing_units.add("duration_ns")
+        elif row.get("elapsed_cycles") is not None:
+            timing_units.add("elapsed_cycles")
+        elif row.get("timing_basis"):
+            timing_units.add(row.get("timing_basis"))
     blocking_reasons = []
-    if row_errors:
+    if not feature_table_exists:
+        state = "selector_blocked_invalid_feature_table"
+        blocking_reasons.append("feature_table_missing")
+    elif row_errors:
         state = "selector_blocked_invalid_feature_table"
         blocking_reasons.append("invalid_feature_table")
     elif len(timing_units) > 1:
@@ -141,7 +173,7 @@ def evaluate() -> dict[str, Any]:
                 "weight_input": {
                     "weight_mode": weight_mode,
                     "timing_unit": next(iter(timing_units), None) if weight_mode == "timing_weight" else None,
-                    "value": float(row.get("duration") or row.get("elapsed_time") or 1.0),
+                    "value": float(row.get("duration_ns") or row.get("elapsed_cycles") or row.get("duration") or row.get("elapsed_time") or 1.0),
                 },
             })
     write_json(SELECTOR_INPUT_PATH, selector_records)
@@ -169,7 +201,7 @@ def evaluate() -> dict[str, Any]:
         gap = _earliest_gap(entry_id, resolution_gaps, capture_gaps, acq_gaps)
         gate = gap["earliest_failed_gate"] if gap else "Gate4"
         reason = gap["gap_reason"] if gap else "not_measured_without_prior_gap"
-        action = _repair_action(gate, reason)
+        action = _repair_action(gate, reason, gap.get("source") if gap else None)
         repair_rows.append({
             "manifest_entry_id": entry_id,
             "kernel_or_case": entry.get("kernel_or_case"),
@@ -182,12 +214,14 @@ def evaluate() -> dict[str, Any]:
             "repair_action_type": action["action_type"],
             "suggested_repair_action": action["description"],
             "executable_command": action["command"],
+            "working_directory": action.get("working_directory"),
+            "command_source": action.get("command_source"),
             "allowed_to_auto_run": False,
         })
 
     generated_at = datetime.now(timezone.utc).isoformat()
     preflight = {
-        "status": "failed" if row_errors or forbidden_violations or feature_mode_violations else "passed",
+        "status": "failed" if (not feature_table_exists) or row_errors or forbidden_violations or feature_mode_violations else "passed",
         "checked_rows": len(features),
         "complete_12d_rows": len(features) - len(row_errors),
         "invalid_rows": row_errors,
@@ -200,7 +234,12 @@ def evaluate() -> dict[str, Any]:
         "timing_unit": next(iter(timing_units), None) if len(timing_units) == 1 else None,
         "conflicting_units": sorted(timing_units) if len(timing_units) > 1 else [],
         "conflict_records": [
-            {"record_id": row.get("record_id"), "timing_basis": row.get("timing_basis")}
+            {
+                "record_id": row.get("record_id"),
+                "timing_basis": row.get("timing_basis"),
+                "duration_ns": row.get("duration_ns"),
+                "elapsed_cycles": row.get("elapsed_cycles"),
+            }
             for row in features
             if len(timing_units) > 1
         ],

@@ -122,7 +122,16 @@ def resolve(dry_run_smoke: bool = False) -> tuple[list[dict[str, Any]], list[dic
         binary_exists = binary_path.exists()
         binary_executable = binary_path.is_file() and binary_path.stat().st_mode & 0o111 != 0
         if not binary_exists:
-            gaps.append({**base, "resolution_status": "gap", "gap_reason": "binary_missing", "resolved_binary_path": str(binary_path)})
+            gaps.append({
+                **base,
+                "resolution_status": "gap",
+                "gap_reason": "binary_missing",
+                "resolved_binary_path": str(binary_path),
+                "build_command": reg.get("build_command"),
+                "working_directory": str(cwd),
+                "build_attempted": build_attempted,
+                "build_status": build_status,
+            })
             continue
         if not binary_executable:
             gaps.append({**base, "resolution_status": "gap", "gap_reason": "binary_not_executable", "resolved_binary_path": str(binary_path)})

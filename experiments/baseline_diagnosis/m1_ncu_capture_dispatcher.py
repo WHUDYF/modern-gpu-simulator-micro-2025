@@ -147,17 +147,17 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
             *first["resolved_run_command"],
         ]
         timed_out = False
-        if not metrics:
-            stdout = ""
-            stderr = "No NCU metrics resolved from query artifact"
-            exit_code = None
-            status, eligible, reason = "metric_resolution_blocked", False, "selected_metrics_empty"
-        elif dry_run:
+        if dry_run:
             stdout = ""
             stderr = "dry-run capture skipped"
             exit_code = 0
             csv_path.write_text("")
             status, eligible, reason = "dry_run_capture_skipped", False, "dry_run"
+        elif not metrics:
+            stdout = ""
+            stderr = "No NCU metrics resolved from query artifact"
+            exit_code = None
+            status, eligible, reason = "metric_resolution_blocked", False, "selected_metrics_empty"
         elif shutil.which("ncu") is None:
             stdout = ""
             stderr = "ncu executable not found"

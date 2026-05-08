@@ -123,7 +123,38 @@ def test_gate2_blocks_empty_metric_resolution(monkeypatch, tmp_path):
     monkeypatch.setattr(dispatcher, "RESOLUTION_TABLE_PATH", tmp_path / "resolution_table.json")
     monkeypatch.setattr(dispatcher, "RESULTS_DIR", tmp_path / "results")
     monkeypatch.setattr(dispatcher, "_write_query_artifacts", lambda: empty_metric_rows)
-    attempts, gaps = dispatcher.dispatch(dry_run=True)
+    attempts, gaps = dispatcher.dispatch(dry_run=False)
     assert attempts[0]["capture_status"] == "metric_resolution_blocked"
     assert attempts[0]["gate3_eligible"] is False
     assert gaps[0]["gap_reason"] == "selected_metrics_empty"
+
+
+def test_gate2_dry_run_skips_even_when_metric_resolution_is_empty(monkeypatch, tmp_path):
+    resolution_path = tmp_path / "resolution.json"
+    resolution_path.write_text(json.dumps([
+        {
+            "manifest_entry_id": "L1_A",
+            "resolution_status": "resolved",
+            "workload_id": "w",
+            "kernel_or_case": "ka",
+            "resolved_run_command": [sys.executable, "-c", "print(1)"],
+            "working_directory": str(tmp_path),
+            "capture_timeout_seconds": 5,
+        }
+    ]))
+    empty_metric_rows = [
+        {**row, "resolution_status": "unsupported", "selected_for_ncu_metrics": False}
+        for row in selected_metric_records()
+    ]
+    monkeypatch.setattr(dispatcher, "RESOLUTION_PATH", resolution_path)
+    monkeypatch.setattr(dispatcher, "ATTEMPTS_PATH", tmp_path / "attempts.json")
+    monkeypatch.setattr(dispatcher, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(dispatcher, "QUERY_PATH", tmp_path / "query.json")
+    monkeypatch.setattr(dispatcher, "RESOLUTION_TABLE_PATH", tmp_path / "resolution_table.json")
+    monkeypatch.setattr(dispatcher, "RESULTS_DIR", tmp_path / "results")
+    monkeypatch.setattr(dispatcher, "_write_query_artifacts", lambda: empty_metric_rows)
+    attempts, gaps = dispatcher.dispatch(dry_run=True)
+    assert attempts[0]["capture_status"] == "dry_run_capture_skipped"
+    assert attempts[0]["selected_metrics"] == []
+    assert attempts[0]["gate3_eligible"] is False
+    assert gaps[0]["gap_reason"] == "dry_run"

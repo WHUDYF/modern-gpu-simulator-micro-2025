@@ -76,6 +76,15 @@ def test_gate2_timeout_with_valid_csv_remains_gate3_eligible(tmp_path):
     assert reason == "timeout_with_partial_csv"
 
 
+def test_gate2_timeout_with_malformed_csv_stays_timeout(tmp_path):
+    csv_path = tmp_path / "capture.csv"
+    csv_path.write_text("garbage\n")
+    status, eligible, reason = dispatcher._classify(None, "", csv_path, timed_out=True)
+    assert status == "ncu_capture_timeout"
+    assert eligible is False
+    assert reason == "timeout"
+
+
 def test_gate2_classifies_permission_blocker(tmp_path):
     csv_path = tmp_path / "capture.csv"
     status, eligible, reason = dispatcher._classify(1, "ERR_NVGPUCTRPERM", csv_path)

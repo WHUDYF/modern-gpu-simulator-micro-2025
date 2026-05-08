@@ -84,14 +84,14 @@ def _repair_action(gate: str, reason: str | None, source: dict[str, Any] | None 
                 "description": f"Run the registry build command for missing binary: {reason}",
                 "command": source.get("build_command"),
                 "working_directory": source.get("working_directory"),
-                "command_source": "workload_registry_l1.json",
+                "source_of_command": "workload_registry_l1.json",
             }
         return {
             "action_type": "manual_action",
             "description": f"Provide the registry binary or add an allowlisted build command for reason: {reason}",
             "command": None,
             "working_directory": source.get("working_directory"),
-            "command_source": "workload_registry_l1.json",
+            "source_of_command": "workload_registry_l1.json",
         }
     if gate == "Gate2":
         return {"action_type": "environment_action", "description": f"Fix NCU capture environment or metric selection for reason: {reason}", "command": None}
@@ -215,7 +215,7 @@ def evaluate() -> dict[str, Any]:
             "suggested_repair_action": action["description"],
             "executable_command": action["command"],
             "working_directory": action.get("working_directory"),
-            "command_source": action.get("command_source"),
+            "source_of_command": action.get("source_of_command"),
             "allowed_to_auto_run": False,
         })
 

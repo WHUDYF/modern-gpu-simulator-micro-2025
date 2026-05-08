@@ -78,12 +78,12 @@ def _classify(exit_code: int | None, stderr: str, csv_path: Path, timed_out: boo
     stderr_lower = stderr.lower()
     if "err_nvgpuctrperm" in stderr_lower or "permission" in stderr_lower:
         return "permission_blocked", False, "ncu_permission_blocked"
+    if timed_out:
+        if has_ncu_csv_header(csv_path):
+            return "ncu_capture_timeout", True, "timeout_with_partial_csv"
+        return "ncu_capture_timeout", False, "timeout"
     if csv_path.exists() and csv_path.stat().st_size > 0 and not has_ncu_csv_header(csv_path):
         return "malformed_ncu_csv", False, "missing_ncu_csv_header"
-    if timed_out and has_ncu_csv_header(csv_path):
-        return "ncu_capture_timeout", True, "timeout_with_partial_csv"
-    if timed_out:
-        return "ncu_capture_timeout", False, "timeout"
     if exit_code == 0 and has_ncu_csv_header(csv_path):
         return "captured", True, None
     if exit_code not in (0, None) and has_ncu_csv_header(csv_path):

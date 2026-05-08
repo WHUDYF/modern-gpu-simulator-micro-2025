@@ -30,14 +30,24 @@ FEATURE_AUDIT_PATH = ARTIFACT_DIR / "pka_feature_audit_l1.json"
 JOIN_AUDIT_PATH = ARTIFACT_DIR / "pka_join_audit_l1.json"
 
 
-def _allowed_sources(attempt: dict[str, Any]) -> dict[str, str]:
+def _selected_metrics_path(attempt: dict[str, Any]) -> Path:
+    return repo_path(Path(attempt["capture_csv_path"]).parent / "selected_metrics.json")
+
+
+def _allowed_sources(attempt: dict[str, Any]) -> tuple[dict[str, str], str | None]:
     selected_path = repo_path(Path(attempt["capture_csv_path"]).parent / "selected_metrics.json")
+    if not selected_path.exists():
+        return {}, "selected_metrics_missing"
     rows = read_json(selected_path, [])
-    return {
-        row["feature_name"]: row.get("actual_source_metric")
-        for row in rows
-        if row.get("resolution_status") in {"available", "rollup_resolved", "launch_metadata"}
-    }
+    if not isinstance(rows, list) or not rows:
+        return {}, "selected_metrics_invalid"
+    allowed: dict[str, str] = {}
+    for row in rows:
+        if not isinstance(row, dict) or "feature_name" not in row or "resolution_status" not in row:
+            return {}, "selected_metrics_invalid"
+        if row.get("resolution_status") in {"available", "rollup_resolved", "launch_metadata"}:
+            allowed[row["feature_name"]] = row.get("actual_source_metric")
+    return allowed, None
 
 
 def _gap_row(
@@ -130,8 +140,11 @@ def _extract_features(inv: dict[str, Any], attempt: dict[str, Any], allowed: dic
             continue
         actual_metric = allowed.get(feature_name)
         value = inv.get("metric_map", {}).get(actual_metric)
-        if actual_metric is None or value is None:
-            features[feature_name] = missing_feature_record(feature_name, source_path, "selected_metric_absent_in_csv")
+        if actual_metric is None:
+            features[feature_name] = missing_feature_record(feature_name, source_path, "metric_not_in_selected_allowlist")
+            missing.append(feature_name)
+        elif value is None:
+            features[feature_name] = missing_feature_record(feature_name, source_path, "missing_canonical_metric")
             missing.append(feature_name)
         else:
             features[feature_name] = feature_record(
@@ -184,7 +197,18 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     detail=str(exc),
                 ))
             continue
-        allowed = _allowed_sources(attempt)
+        allowed, selected_error = _allowed_sources(attempt)
+        if selected_error:
+            for index, (entry_id, kernel_or_case) in enumerate(zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"])):
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    selected_error,
+                    meta=_entry_metadata(attempt, index, entry_id, kernel_or_case),
+                    detail="missing or invalid selected_metrics.json",
+                ))
+            continue
         kernel_counts = {
             kernel: attempt.get("consuming_kernel_or_cases", []).count(kernel)
             for kernel in attempt.get("consuming_kernel_or_cases", [])
@@ -236,7 +260,9 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 }
                 if "num_thread_blocks" in missing:
                     gap_reason = missing_reasons["num_thread_blocks"]
-                elif any(reason == "selected_metric_absent_in_csv" for reason in missing_reasons.values()):
+                elif any(reason == "metric_not_in_selected_allowlist" for reason in missing_reasons.values()):
+                    gap_reason = "metric_not_in_selected_allowlist"
+                elif any(reason == "missing_canonical_metric" for reason in missing_reasons.values()):
                     gap_reason = "missing_canonical_metric"
                 else:
                     gap_reason = "incomplete_12d_feature_vector"
@@ -282,18 +308,53 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 },
                 "features": record_features,
             })
+    audit_entries = [
+        {
+            "manifest_entry_id": row.get("manifest_entry_id") or row.get("manifest_id"),
+            "record_id": row.get("record_id"),
+            "status": "measured",
+            "capture_job_id": row.get("capture_job_id"),
+            "gap_reason": None,
+        }
+        for row in features
+    ] + [
+        {
+            "manifest_entry_id": row.get("manifest_entry_id"),
+            "record_id": row.get("record_id"),
+            "status": "gap",
+            "capture_job_id": row.get("capture_job_id"),
+            "gap_reason": row.get("gap_reason"),
+        }
+        for row in gaps
+    ]
     audit = {
-        "measured_records": len(features),
-        "gap_records": len(gaps),
-        "missing_feature_counts": {
-            name: sum(1 for gap in gaps if name in gap.get("missing_features", []))
-            for name in FEATURE_ORDER
+        "artifact_name": "pka_feature_audit_l1",
+        "summary": {
+            "total_consuming_manifest_entries": len(audit_entries),
+            "gate3_eligible_capture_jobs": len([row for row in attempts if row.get("gate3_eligible") is True]),
+            "parsed_capture_jobs": len({row.get("capture_job_id") for row in features + gaps if row.get("capture_job_id")}),
+            "measured_records": len(features),
+            "gap_records": len(gaps),
+            "missing_feature_counts": {
+                name: sum(1 for gap in gaps if name in gap.get("missing_features", []))
+                for name in FEATURE_ORDER
+            },
         },
+        "entries": audit_entries,
+    }
+    join_doc = {
+        "artifact_name": "pka_join_audit_l1",
+        "summary": {
+            "join_rows": len(join_audit),
+            "matched": sum(1 for row in join_audit if row.get("join_status") == "matched"),
+            "gaps": sum(1 for row in join_audit if row.get("join_status") != "matched"),
+        },
+        "entries": join_audit,
     }
     write_json(FEATURE_TABLE_PATH, features)
     write_json(GAP_PATH, gaps)
     write_json(FEATURE_AUDIT_PATH, audit)
-    write_json(JOIN_AUDIT_PATH, join_audit)
+    write_json(JOIN_AUDIT_PATH, join_doc)
     return features, gaps
 
 

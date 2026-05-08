@@ -133,3 +133,4 @@ def test_gate4_surfaces_registry_build_command_in_repair(monkeypatch, tmp_path):
     repair = json.loads((tmp_path / "repair.json").read_text())
     assert repair["entries"][0]["repair_action_type"] == "executable_command"
     assert repair["entries"][0]["executable_command"] == ["make", "target"]
+    assert repair["entries"][0]["source_of_command"] == "workload_registry_l1.json"

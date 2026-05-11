@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,21 @@ CURATED_WORKLOADS = {
 }
 
 SCAN_DIRECTORIES = ("cuda", "CUDA", "src", "test")
+HECBENCH_CUDA_CANDIDATES = (
+    "bfs",
+    "sgemm",
+    "spmv",
+    "backprop",
+    "hotspot",
+    "lud",
+    "nw",
+    "attention",
+    "streamcluster",
+    "particlefilter",
+    "b+tree",
+    "cfd",
+    "lavaMD",
+)
 
 
 def default_generated_at() -> str:
@@ -75,6 +91,14 @@ def pressure_for(source_id: str, name: str) -> tuple[str, str, str, str]:
     return ("benchmark_kernel", "low", "medium", "medium")
 
 
+def slugify_workload_part(value: str) -> str:
+    """Normalize workload ID parts to lowercase [a-z0-9._-] slugs."""
+    lowered = value.lower()
+    portable = re.sub(r"[^a-z0-9._-]+", "-", lowered)
+    collapsed = re.sub(r"-{2,}", "-", portable)
+    return collapsed.strip("-")
+
+
 def make_record(
     source_id: str,
     name: str,
@@ -84,8 +108,10 @@ def make_record(
     irregularity: str,
     relative_path: str,
 ) -> dict[str, str]:
+    normalized_source_id = slugify_workload_part(source_id)
+    normalized_name = slugify_workload_part(name)
     return {
-        "workload_id": f"{source_id}_{name}".replace("/", "_"),
+        "workload_id": f"{normalized_source_id}_{normalized_name}",
         "source_id": source_id,
         "workload_name": name,
         "workload_family": family,
@@ -101,15 +127,64 @@ def make_record(
     }
 
 
+def discover_gpu_parboil_workloads(source_id: str, root: Path) -> list[dict[str, str]]:
+    benchmarks_root = root / "benchmarks"
+    if not benchmarks_root.is_dir():
+        return []
+
+    workloads = []
+    for benchmark in sorted(benchmarks_root.iterdir(), key=lambda path: path.name):
+        source_dir = benchmark / "src"
+        if not benchmark.is_dir() or benchmark.name.startswith(".") or not source_dir.is_dir():
+            continue
+        family, kernel_count, large_kernel, irregularity = pressure_for(source_id, benchmark.name)
+        workloads.append(
+            make_record(
+                source_id,
+                benchmark.name,
+                family,
+                kernel_count,
+                large_kernel,
+                irregularity,
+                str(source_dir.relative_to(root)),
+            )
+        )
+    return workloads
+
+
+def discover_hecbench_workloads(source_id: str, root: Path) -> list[dict[str, str]]:
+    workloads = []
+    for name in HECBENCH_CUDA_CANDIDATES:
+        cuda_path = root / "src" / f"{name}-cuda"
+        if not cuda_path.is_dir():
+            continue
+        family, kernel_count, large_kernel, irregularity = pressure_for(source_id, name)
+        workloads.append(
+            make_record(
+                source_id,
+                name,
+                family,
+                kernel_count,
+                large_kernel,
+                irregularity,
+                str(cuda_path.relative_to(root)),
+            )
+        )
+    return workloads
+
+
 def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, str]]:
     if source_id in CURATED_WORKLOADS:
         return [
             make_record(source_id, name, family, kernel_count, large_kernel, irregularity, ".")
             for name, family, kernel_count, large_kernel, irregularity in CURATED_WORKLOADS[source_id]
         ]
+    if source_id == "gpu-parboil":
+        return discover_gpu_parboil_workloads(source_id, root)
+    if source_id == "hecbench":
+        return discover_hecbench_workloads(source_id, root)
 
     workloads: list[dict[str, str]] = []
-    seen_ids: set[str] = set()
     for directory_name in SCAN_DIRECTORIES:
         scan_root = root / directory_name
         if not scan_root.is_dir():
@@ -127,20 +202,27 @@ def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, 
                 irregularity,
                 str(child.relative_to(root)),
             )
-            if record["workload_id"] in seen_ids:
-                continue
-            seen_ids.add(record["workload_id"])
             workloads.append(record)
     return workloads
+
+
+def append_unique_workload(workloads: list[dict[str, str]], workload: dict[str, str], seen_ids: set[str]) -> None:
+    workload_id = workload["workload_id"]
+    if workload_id in seen_ids:
+        raise ValueError(f"Duplicate workload_id after slug normalization: {workload_id}")
+    seen_ids.add(workload_id)
+    workloads.append(workload)
 
 
 def build_workload_registry(source_registry_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     source_registry = json.loads(source_registry_path.read_text())
     workloads = []
+    seen_ids: set[str] = set()
     for source in source_registry["sources"]:
         if source.get("availability_status") == "source_unavailable":
             continue
-        workloads.extend(discover_workloads_for_source(source["source_id"], Path(source["local_path"])))
+        for workload in discover_workloads_for_source(source["source_id"], Path(source["local_path"])):
+            append_unique_workload(workloads, workload, seen_ids)
     return {
         "schema_version": "workload_registry_v1",
         "generated_at": generated_at or default_generated_at(),

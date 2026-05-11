@@ -12,7 +12,11 @@ from scripts.generate_source_registry import (
     infer_clone_mode,
     parse_clone_status,
 )
-from scripts.generate_workload_registry import discover_workloads_for_source
+from scripts.generate_workload_registry import (
+    build_workload_registry,
+    discover_workloads_for_source,
+    slugify_workload_part,
+)
 
 
 def init_git_repo(path: Path) -> str:
@@ -160,3 +164,114 @@ def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_
     assert "mlperf-inference_bert" in ids
     assert "mlperf-inference_resnet50" in ids
     assert all(item["workload_family"] == "full_network" for item in workloads)
+
+
+def test_discover_workloads_for_gpu_parboil_benchmark_src_dirs(tmp_path):
+    root = tmp_path / "gpu-parboil"
+    for name in ["bfs", "histo", "sgemm", "spmv"]:
+        (root / "benchmarks" / name / "src").mkdir(parents=True)
+    (root / "benchmarks" / "no-src").mkdir(parents=True)
+
+    workloads = discover_workloads_for_source("gpu-parboil", root)
+    ids = {item["workload_id"] for item in workloads}
+    paths = {item["workload_id"]: item["relative_path"] for item in workloads}
+
+    assert {"gpu-parboil_bfs", "gpu-parboil_histo", "gpu-parboil_sgemm", "gpu-parboil_spmv"} <= ids
+    assert "gpu-parboil_no-src" not in ids
+    assert paths["gpu-parboil_bfs"] == "benchmarks/bfs/src"
+
+
+def test_discover_workloads_for_hecbench_uses_curated_cuda_candidates(tmp_path):
+    root = tmp_path / "hecbench"
+    for name in ["bfs-cuda", "bfs-hip", "sgemm-cuda", "sgemm-omp", "attention-cuda"]:
+        (root / "src" / name).mkdir(parents=True)
+
+    workloads = discover_workloads_for_source("hecbench", root)
+    ids = {item["workload_id"] for item in workloads}
+
+    assert {"hecbench_bfs", "hecbench_sgemm", "hecbench_attention"} <= ids
+    assert "hecbench_bfs-hip" not in ids
+    assert len(workloads) < 20
+    assert all(item["relative_path"].endswith("-cuda") for item in workloads)
+
+
+def test_slugify_workload_part_uses_portable_lowercase_charset():
+    assert slugify_workload_part("B+Tree CUDA!") == "b-tree-cuda"
+    assert slugify_workload_part("A___B...C") == "a___b...c"
+    assert slugify_workload_part("---Bad/Name---") == "bad-name"
+
+
+def test_build_workload_registry_detects_duplicate_normalized_ids(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    (first / "cuda" / "B+Tree").mkdir(parents=True)
+    (second / "cuda" / "b-tree").mkdir(parents=True)
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "source",
+                        "local_path": str(first),
+                        "availability_status": "source_available",
+                    },
+                    {
+                        "source_id": "source",
+                        "local_path": str(second),
+                        "availability_status": "source_available",
+                    },
+                ],
+            }
+        )
+    )
+
+    try:
+        build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+    except ValueError as exc:
+        assert "source_b-tree" in str(exc)
+    else:
+        raise AssertionError("Expected duplicate workload_id ValueError")
+
+
+def test_workload_registry_cli_writes_outputs(tmp_path):
+    root = tmp_path / "gpu-parboil"
+    (root / "benchmarks" / "bfs" / "src").mkdir(parents=True)
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "gpu-parboil",
+                        "local_path": str(root),
+                        "availability_status": "source_available",
+                    }
+                ],
+            }
+        )
+    )
+    output = tmp_path / "registry"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "generate_workload_registry.py"),
+            "--source-registry",
+            str(source_registry),
+            "--output-dir",
+            str(output),
+            "--generated-at",
+            "2026-05-11T00:00:00+00:00",
+        ],
+        check=True,
+    )
+
+    registry = json.loads((output / "workload_registry.json").read_text())
+    assert registry["generated_at"] == "2026-05-11T00:00:00+00:00"
+    assert registry["workloads"][0]["workload_id"] == "gpu-parboil_bfs"
+    assert "gpu-parboil_bfs" in (output / "workload_registry.md").read_text()

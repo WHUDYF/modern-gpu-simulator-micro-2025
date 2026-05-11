@@ -42,6 +42,7 @@
 - **状态：** complete
 
 ### 阶段 6：Gate C2/C3 准备
+- [x] 编写 workload suite 说明文档
 - [ ] 为完整网络、graph、HPC input assets 写下载/许可计划
 - [ ] 验证 build/run/trace smoke 的最小候选
 - **状态：** pending

@@ -59,6 +59,13 @@
   - `registry/workload_registry.json`
   - `registry/workload_registry.md`
 
+### 阶段 6：Gate C2/C3 准备
+- **状态：** in_progress
+- 执行的操作：
+  - 编写 workload suite 中文说明文档，解释各 source / workload family 的科研作用和 Photon 压力类型。
+- 创建/修改的文件：
+  - `docs/workload_suite_explainer.md`
+
 ## 测试结果
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|

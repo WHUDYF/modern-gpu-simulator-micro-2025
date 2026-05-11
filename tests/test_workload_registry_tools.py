@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ def init_git_repo(path: Path) -> str:
     subprocess.run(["git", "init"], cwd=path, check=True, stdout=subprocess.DEVNULL)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, check=True)
     subprocess.run(["git", "config", "user.name", "Test User"], cwd=path, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=path, check=True)
     (path / "README.md").write_text("# fixture\n")
     subprocess.run(["git", "add", "README.md"], cwd=path, check=True)
     subprocess.run(["git", "commit", "-m", "fixture"], cwd=path, check=True, stdout=subprocess.DEVNULL)
@@ -67,3 +69,68 @@ def test_build_source_registry_uses_local_git_commit(tmp_path):
     assert registry["sources"][0]["source_id"] == "gpu-rodinia"
     assert registry["sources"][0]["commit"] == commit
     assert registry["sources"][0]["availability_status"] == "source_available"
+
+
+def test_build_source_registry_accepts_git_worktree_with_git_file(tmp_path):
+    main = tmp_path / "main"
+    commit = init_git_repo(main)
+    worktree = tmp_path / "worktree"
+    subprocess.run(["git", "worktree", "add", str(worktree)], cwd=main, check=True, stdout=subprocess.DEVNULL)
+    status = tmp_path / "clone_status.tsv"
+    status.write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        f"gpu-rodinia\texists\told\t{worktree}\thttps://example/rodinia.git\n"
+    )
+
+    registry = build_source_registry(status)
+
+    assert (worktree / ".git").is_file()
+    assert registry["sources"][0]["commit"] == commit
+    assert registry["sources"][0]["clone_mode"] == "shallow_or_full"
+    assert registry["sources"][0]["availability_status"] == "source_available"
+
+
+def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
+    source = tmp_path / "sources" / "gpu-rodinia"
+    init_git_repo(source)
+    root = tmp_path / "workloads"
+    root.mkdir()
+    (root / "clone_status.tsv").write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        f"gpu-rodinia\texists\told\t{source}\thttps://example/rodinia.git\n"
+    )
+    output = tmp_path / "registry"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "generate_source_registry.py"),
+            "--root",
+            str(root),
+            "--output-dir",
+            str(output),
+            "--generated-at",
+            "2026-05-11T00:00:00+00:00",
+        ],
+        check=True,
+    )
+
+    first_json = (output / "source_registry.json").read_text()
+    first_md = (output / "source_registry.md").read_text()
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "generate_source_registry.py"),
+            "--root",
+            str(root),
+            "--output-dir",
+            str(output),
+            "--generated-at",
+            "2026-05-11T00:00:00+00:00",
+        ],
+        check=True,
+    )
+
+    assert (output / "source_registry.json").read_text() == first_json
+    assert (output / "source_registry.md").read_text() == first_md
+    assert json.loads(first_json)["generated_at"] == "2026-05-11T00:00:00+00:00"

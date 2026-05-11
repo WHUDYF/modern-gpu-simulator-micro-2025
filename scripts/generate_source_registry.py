@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,7 +49,7 @@ def parse_clone_status(path: Path) -> list[dict[str, str]]:
 
 
 def is_git_checkout(path: Path) -> bool:
-    return path.exists() and (path / ".git").exists()
+    return run_git(path, ["rev-parse", "--is-inside-work-tree"]) == "true"
 
 
 def git_config_true(path: Path, key: str) -> bool:
@@ -72,7 +73,14 @@ def infer_availability(path: Path) -> str:
     return "source_available"
 
 
-def build_source_registry(status_path: Path) -> dict[str, Any]:
+def default_generated_at() -> str:
+    source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if source_date_epoch:
+        return datetime.fromtimestamp(int(source_date_epoch), timezone.utc).isoformat()
+    return datetime.now(timezone.utc).isoformat()
+
+
+def build_source_registry(status_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     sources = []
     for row in parse_clone_status(status_path):
         source_id = row["name"]
@@ -97,7 +105,7 @@ def build_source_registry(status_path: Path) -> dict[str, Any]:
 
     return {
         "schema_version": "source_registry_v1",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": generated_at or default_generated_at(),
         "sources": sources,
     }
 
@@ -144,12 +152,16 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUTPUT_DIR,
         help="Directory for source_registry.json and source_registry.md.",
     )
+    parser.add_argument(
+        "--generated-at",
+        help="Timestamp to write into generated artifacts for deterministic output.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    registry = build_source_registry(args.root / "clone_status.tsv")
+    registry = build_source_registry(args.root / "clone_status.tsv", generated_at=args.generated_at)
     write_json(args.output_dir / "source_registry.json", registry)
     write_markdown(args.output_dir / "source_registry.md", registry)
     return 0

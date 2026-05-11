@@ -1,6 +1,6 @@
 # GPU Workload Trace Corpus Source Registry
 
-Generated at: `2026-05-11T07:18:00.418393+00:00`
+Generated at: `2026-05-11T00:00:00+00:00`
 
 | Source | Type | Role | Availability | Clone Mode | Commit | License |
 | --- | --- | --- | --- | --- | --- | --- |

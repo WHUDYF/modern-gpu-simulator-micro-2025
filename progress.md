@@ -49,6 +49,7 @@
   - 生成 source registry。
   - 生成 workload registry draft。
   - 运行 registry tests 和 baseline tests。
+  - 完成最终 review，确认 12 个 sources、77 个 workloads、无 duplicate workload id。
 - 创建/修改的文件：
   - `scripts/generate_source_registry.py`
   - `scripts/generate_workload_registry.py`
@@ -71,6 +72,7 @@
 | source registry generation | `python scripts/generate_source_registry.py --generated-at 2026-05-11T00:00:00+00:00` | exit 0 | exit 0 | pass |
 | workload registry generation | `python scripts/generate_workload_registry.py` | exit 0 | exit 0 | pass |
 | baseline tests | `pytest -q tests/test_build_kernel_cards.py tests/test_build_middle_layer.py tests/test_check_analysis_cards.py` | 22 passed | 22 passed | pass |
+| final review | registry invariants | 12 sources / 77 workloads / no duplicate ids | pass | pass |
 
 ## 错误日志
 | 时间戳 | 错误 | 尝试次数 | 解决方案 |

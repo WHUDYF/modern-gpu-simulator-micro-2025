@@ -41,6 +41,11 @@
 - [x] 运行 baseline tests
 - **状态：** complete
 
+### 阶段 6：Gate C2/C3 准备
+- [ ] 为完整网络、graph、HPC input assets 写下载/许可计划
+- [ ] 验证 build/run/trace smoke 的最小候选
+- **状态：** pending
+
 ## 关键问题
 1. MLPerf / HPC full app 是否后续下载完整数据集与模型权重？
 2. 第一轮 acquisition 先从哪些 suite 中挑选可 build/run 的 CUDA workload？
@@ -53,6 +58,7 @@
 | 使用 shallow clone | 快速建立本地候选池，后续需要历史时再加深 |
 | MLPerf / HeCBench 使用 sparse/partial clone | 普通 shallow clone 下载停滞，sparse/partial clone 能先落地源码结构 |
 | 将 workload suite 升级为 trace corpus | 完整网络和训练集资产对 Photon 与后续工作都有复用价值 |
+| Gate C0/C1 registry 已完成 | 已生成 source registry 和 workload registry draft，下一步转向 input/build/trace smoke |
 
 ## 遇到的错误
 | 错误 | 尝试次数 | 解决方案 |

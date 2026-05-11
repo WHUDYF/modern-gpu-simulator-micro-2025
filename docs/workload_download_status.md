@@ -45,4 +45,4 @@
 - 本阶段只下载源码 / benchmark harness。
 - 未下载 MLPerf 数据集、模型权重、SPEC ACCEL licensed packages 或大型 simulation input decks。
 - `mlperf-inference` 和 `hecbench` 使用 sparse/partial clone，后续应按具体 workload 目录逐个展开和验证。
-- 下一步应扫描每个 suite 的 CUDA/HIP/OpenCL workload 入口，生成 M1.5 workload registry 草案。
+- 已生成 M1.5 workload registry 草案；下一步是 Gate C2/C3：为完整网络、graph、HPC input assets 写下载/许可计划，并验证 build/run/trace smoke。

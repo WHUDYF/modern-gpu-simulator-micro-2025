@@ -1,0 +1,150 @@
+{
+  "schema_version": "source_registry_v1",
+  "generated_at": "2026-05-11T07:18:00.418393+00:00",
+  "sources": [
+    {
+      "source_id": "gpu-rodinia",
+      "source_type": "benchmark_suite",
+      "corpus_role": "control_and_candidate",
+      "url": "https://github.com/yuhc/gpu-rodinia.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/gpu-rodinia",
+      "commit": "9c10d3e",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "gpu-parboil",
+      "source_type": "benchmark_suite",
+      "corpus_role": "control_and_candidate",
+      "url": "https://github.com/yuhc/gpu-parboil.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/gpu-parboil",
+      "commit": "ccf3d31",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "shoc",
+      "source_type": "benchmark_suite",
+      "corpus_role": "control_and_candidate",
+      "url": "https://github.com/vetter/shoc.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/shoc",
+      "commit": "00b25e2",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "altis",
+      "source_type": "benchmark_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/utcs-scea/altis.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/altis",
+      "commit": "042e292",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "deepbench",
+      "source_type": "dnn_primitive_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/baidu-research/DeepBench.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/deepbench",
+      "commit": "da81ba7",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "cutlass",
+      "source_type": "kernel_generator",
+      "corpus_role": "candidate",
+      "url": "https://github.com/NVIDIA/cutlass.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/cutlass",
+      "commit": "ae6bccf",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "mlperf-inference",
+      "source_type": "full_network_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/mlcommons/inference.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/mlperf-inference",
+      "commit": "7b11eeb",
+      "clone_status": "exists",
+      "clone_mode": "sparse_partial",
+      "availability_status": "source_sparse_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "gunrock",
+      "source_type": "graph_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/gunrock/gunrock.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/gunrock",
+      "commit": "748f79e",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "pannotia",
+      "source_type": "graph_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/pannotia/pannotia.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/pannotia",
+      "commit": "16c1f09",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "hecbench",
+      "source_type": "heterogeneous_suite",
+      "corpus_role": "candidate",
+      "url": "https://github.com/zjin-lcf/HeCBench.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/hecbench",
+      "commit": "48992b6",
+      "clone_status": "exists",
+      "clone_mode": "sparse_partial",
+      "availability_status": "source_sparse_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "lammps",
+      "source_type": "hpc_full_application",
+      "corpus_role": "candidate",
+      "url": "https://github.com/lammps/lammps.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/lammps",
+      "commit": "a793f27",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    },
+    {
+      "source_id": "gromacs",
+      "source_type": "hpc_full_application",
+      "corpus_role": "candidate",
+      "url": "https://github.com/gromacs/gromacs.git",
+      "local_path": "/home/dyf/workloads/trace-compressions-industrial-codex-workload/sources/gromacs",
+      "commit": "cecaeca",
+      "clone_status": "exists",
+      "clone_mode": "shallow_or_full",
+      "availability_status": "source_available",
+      "license_status": "needs_review"
+    }
+  ]
+}

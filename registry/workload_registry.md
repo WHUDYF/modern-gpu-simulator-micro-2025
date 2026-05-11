@@ -1,6 +1,6 @@
 # GPU Workload Trace Corpus Workload Registry Draft
 
-Generated at: `2026-05-11T07:44:22.745647+00:00`
+Generated at: `2026-05-11T07:50:39.819665+00:00`
 
 | Workload | Source | Family | Kernel Count | Large Kernel | Irregularity | Path |
 | --- | --- | --- | --- | --- | --- | --- |

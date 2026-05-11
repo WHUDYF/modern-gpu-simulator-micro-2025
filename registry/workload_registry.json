@@ -1,6 +1,6 @@
 {
   "schema_version": "workload_registry_v1",
-  "generated_at": "2026-05-11T07:44:22.745647+00:00",
+  "generated_at": "2026-05-11T07:50:39.819665+00:00",
   "workloads": [
     {
       "workload_id": "gpu-rodinia_b-tree",

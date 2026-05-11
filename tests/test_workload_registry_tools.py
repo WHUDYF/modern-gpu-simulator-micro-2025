@@ -12,6 +12,7 @@ from scripts.generate_source_registry import (
     infer_clone_mode,
     parse_clone_status,
 )
+from scripts.generate_workload_registry import discover_workloads_for_source
 
 
 def init_git_repo(path: Path) -> str:
@@ -134,3 +135,28 @@ def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
     assert (output / "source_registry.json").read_text() == first_json
     assert (output / "source_registry.md").read_text() == first_md
     assert json.loads(first_json)["generated_at"] == "2026-05-11T00:00:00+00:00"
+
+
+def test_discover_workloads_for_gpu_rodinia_cuda_dirs(tmp_path):
+    root = tmp_path / "gpu-rodinia"
+    (root / "cuda" / "bfs").mkdir(parents=True)
+    (root / "cuda" / "hotspot").mkdir(parents=True)
+
+    workloads = discover_workloads_for_source("gpu-rodinia", root)
+    ids = {item["workload_id"] for item in workloads}
+
+    assert "gpu-rodinia_bfs" in ids
+    assert "gpu-rodinia_hotspot" in ids
+    assert all(item["source_id"] == "gpu-rodinia" for item in workloads)
+
+
+def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_path):
+    root = tmp_path / "mlperf-inference"
+    root.mkdir()
+
+    workloads = discover_workloads_for_source("mlperf-inference", root)
+    ids = {item["workload_id"] for item in workloads}
+
+    assert "mlperf-inference_bert" in ids
+    assert "mlperf-inference_resnet50" in ids
+    assert all(item["workload_family"] == "full_network" for item in workloads)

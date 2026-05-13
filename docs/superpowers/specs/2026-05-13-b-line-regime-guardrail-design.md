@@ -107,58 +107,67 @@ Regime builder 只能使用以下证据：
 
 多个 anchors 可以合并为同一个 regime，必须同时满足以下条件：
 
-1. **Same family**  
+1. **Same family**
    Anchors 必须属于同一个 family。不同 family 的 anchors 不允许合并为同一个 regime。
 
-2. **Compatible hardware pattern**  
+2. **Compatible hardware pattern**
    Dominant hardware axis 相同，或 axis distribution 明确相容。例如 compute-heavy 和 compute-memory-mixed 可以相容，但 compute-heavy 和 irregular-control-heavy 不应直接合并。
 
-3. **Compatible network role**  
-   Network role 相同或在同一算法阶段中承担相近功能。例如多个 projection anchors 可以合并；projection 和 softmax 不应合并。
+3. **Compatible network context**
+   Network context 不与合并结论冲突。Network role 不是直接分组规则；它只用于判断两个 anchors 是否真的服务于同一个 C-line validation target。
 
-4. **Similar temporal importance class**  
+4. **Similar temporal importance class**
    Measured timing weight 或 network prior 的重要性等级不能强烈冲突。例如 high-time main object 不应和 low-time constraint object 合并。
 
-5. **Same validation role**  
+5. **Same validation role**
    `main-object`、`review-object`、`constraint-object` 不应混合进同一个 stable regime。
 
-6. **Representative consistency**  
+6. **Representative consistency**
    Representative record 的硬件轴和 member summary 不能明显冲突。
 
 合并后的 regime 必须记录：
 
 ```text
-merge_reason = same family + compatible hardware pattern + compatible network role + similar temporal importance + same validation role
+merge_reason = same family + compatible hardware pattern + network context does not contradict validation target + similar temporal importance + same validation role
 ```
 
 如果某一项只是弱相容，应标记 `provisional`，不能标记 `stable`。
 
 ## 7. Split Rules
 
-同一个 family 内出现以下情况时，必须拆成不同 regimes：
+同一个 family 内出现以下情况时，必须拆成不同 regimes。注意：下面这些是拆分证据，不是字符串匹配规则。Regime builder 不能因为某个 kernel name、operator name 或 network role label 出现就自动拆分；它必须说明这些证据如何改变 C-line validation target。
 
-1. **Network role 不同且会改变验证意义**  
-   例如 dense family 内的 QKV projection、attention score、FFN expand 虽然硬件机制相近，但网络位置和时间意义不同，应拆开。
+1. **Validation target 不同**
+   这是最核心的拆分因素。如果两个 anchors 虽然同属一个 family，但 C 线要验证的问题不同，就必须拆开。例如一个对象用于寻找 tuning gain，另一个对象只用于 regression constraint，它们不能合成 stable regime。
 
-2. **Temporal importance 强差异**  
+2. **Temporal importance 强差异**
    高时间贡献对象不应和低时间贡献对象合并。这里的时间重要性可以来自 measured timing、cycle proxy 或带 provenance 的 network prior。
 
-3. **Hardware pattern 强差异**  
+3. **Hardware pattern 强差异**
    同 family 内如果一个 anchor 明显 compute-heavy，另一个明显 memory-mixed 或 shared-memory-coupled，应拆开。
 
-4. **Validation role 不同**  
+4. **Validation role 不同**
    主调参对象、review object 和 constraint/regression object 必须拆开。
 
-5. **Member evidence 显示混合行为**  
+5. **Primary lane 不同**
+   如果 anchors 需要不同 primary lane，通常应拆 regime。第一版不允许一个 stable regime 有多个互相竞争的 primary lanes。
+
+6. **Member evidence 显示混合行为**
    如果同一个 PKA cluster 的 members 在硬件轴或 network role 上分裂，B 线必须拆 regime 或标 boundary，不能照搬 cluster。
 
-6. **Lane mapping 不同**  
-   如果 anchors 需要不同 primary lane，通常应拆 regime。第一版不允许一个 stable regime 有多个互相竞争的 primary lanes。
+7. **Network context 改变验证目标**
+   Network role 本身不是拆分规则。只有当 network context 说明两个 anchors 在时间关键性、算法依赖位置或 validation purpose 上不同，导致 C 线不能用同一个 scenario 验证时，才作为拆分证据。
+
+8. **Scale / shape 改变硬件响应**
+   Grid/block shape、launch scale 或 problem size 不能单独决定 regime。但如果它们导致 occupancy、memory transaction、shared path 或 timing class 明显不同，就应作为拆分证据。
+
+9. **Representative 不能代表 member summary**
+   如果 representative record 的硬件轴、timing 或 network context 与 member summary 明显不一致，不能生成 stable merged regime。应拆分或标 boundary。
 
 拆分后的 regime 必须记录 `split_reason`。例如：
 
 ```text
-split_reason = same dense family, but attention-score role has higher temporal prior and different validation role from projection anchors
+split_reason = same family, but candidate anchors require different C-line validation targets because timing class and primary lane differ
 ```
 
 ## 8. Boundary Rules
@@ -208,30 +217,30 @@ Lane 回答：
 
 ## 10. 例子
 
-### 10.1 Dense Family 内必须拆开的 regimes
+### 10.1 同 Family 内拆分不是按算子名
 
-以下 anchors 可能都属于 `dense_compute` family：
+以下 anchors 可能都属于同一个 family：
 
-- QKV projection；
-- attention score matmul；
-- output projection；
-- FFN expand；
-- FFN contract。
+| Anchor | Hardware pattern | Temporal importance | Network context | Validation role | 结论 |
+|---|---|---|---|---|---|
+| A1 | compute-heavy | high | role-compatible | main-object | 可与 A2 合并 |
+| A2 | compute-heavy | high | role-compatible | main-object | 可与 A1 合并 |
+| A3 | compute-memory-mixed | high | role-compatible | main-object | 可能拆分，取决于 primary lane |
+| A4 | compute-heavy | low | role-compatible 或 unknown | constraint-object | 必须拆分 |
 
-它们不能因为同属 dense family 就合并成一个 regime。合理拆分原因包括：
+这里的拆分原因不是 network role 名字，而是：
 
-- network role 不同；
-- temporal importance 不同；
-- shape / launch scale 不同；
-- validation role 不同。
+- A3 的 hardware pattern 可能需要不同 primary lane；
+- A4 的 temporal importance 和 validation role 与 A1/A2 不同；
+- 如果 A3 最终 primary lane 仍与 A1/A2 相同、timing class 相近、validation role 一致，则不应因为 network context label 不同而自动拆分。
 
-### 10.2 Reduction Family 内的 stable regime
+### 10.2 同 Family 内可以合并的 stable regime
 
-多个 softmax anchors 可以合并为同一个 regime，当它们满足：
+多个 anchors 可以合并为同一个 regime，当它们满足：
 
 - 同属 `reduction_normalization`；
 - shared / reduction path 证据相容；
-- network role 都是 softmax；
+- network context 不改变 C-line validation target；
 - timing importance 等级相近；
 - primary lane 都是 `reduction_path_sensitive`。
 
@@ -239,9 +248,9 @@ Lane 回答：
 
 如果一个 PKA cluster 覆盖：
 
-- 一个 attention score record；
-- 一个 FFN dense record；
-- 一个 low-time bookkeeping record；
+- 一个 high-time main-object record；
+- 一个同 family 但 primary lane 不同的 record；
+- 一个 low-time constraint record；
 
 即使 PKA 认为它们 feature 距离接近，B 线也不能直接生成一个 stable regime。它必须拆分或标 boundary。
 
@@ -274,11 +283,11 @@ Spec 和实现必须把 regime 定义为 family 内部的最小 C-line validatio
 
 ### AC-3: Merge 有证据
 
-合并 anchors 必须满足 same family、hardware pattern 相容、network role 相容、temporal importance 相近、validation role 一致。
+合并 anchors 必须满足 same family、hardware pattern 相容、network context 不改变 validation target、temporal importance 相近、validation role 一致。
 
 ### AC-4: Split 有规则
 
-同 family 内 network role、temporal importance、hardware pattern、validation role 或 primary lane 明显不同，必须拆开。
+同 family 内 validation target、temporal importance、hardware pattern、validation role 或 primary lane 明显不同，必须拆开。Network context 只有在改变 validation target 时才作为拆分证据。
 
 ### AC-5: Boundary 不强行解释
 

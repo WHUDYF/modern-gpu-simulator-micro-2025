@@ -4,20 +4,22 @@
 
 ## 1. 目标
 
-本 spec 专门定义 B 线 `regime` 的职责、输入证据、merge/split/boundary 规则和 implementation plan guardrails。
+本 spec 专门定义 B 线 `regime` 的职责、输入证据、提取顺序、merge/split/boundary 规则和 implementation plan guardrails。
 
-它服务于 PKA 与 B/C 线结合方法中的一个关键风险：`regime` 容易被实现成简单数值区间、kernel name 分类、operator label，或 PKA cluster 的重命名。这样的实现会让 B 线偏离 simulator-side decision layer 的职责。
+这份文档修正一个容易出错的理解：regime 不是“反算法拆分”。原 B 线方法一直允许并且需要按算法路径结构拆分，但使用的概念是 `Route Primitive`、`phase context` 和 `context_scope`，不是直接用 kernel name、operator string 或网络模块名称做分类。
 
 本 spec 的核心定义是：
 
 ```text
-regime = family 内部的最小 C-line validation target
+regime = 同一 family 内，由 phase + route primitive + hardware template + shape/size regime + resource signature
+         共同确定的 representative execution regime
 ```
 
-它只回答一个问题：
+它回答的问题是：
 
 ```text
-在同一个 family 里，哪些 anchors 应该一起被验证，哪些必须拆开？
+在同一个 family 里，哪些 anchors / records 属于同一段可复用的执行工作区间，
+哪些必须拆成独立的 C-line validation target？
 ```
 
 ## 2. Regime 不是什么
@@ -28,57 +30,72 @@ Regime 不是：
 - family 的别名；
 - lane 的别名；
 - kernel name 或 operator name 分类；
-- 单纯按数值阈值切出的执行区间；
-- 网络模块名称，例如 attention、FFN、embedding；
+- 只按单个数值阈值切出的区间；
+- attention、FFN、embedding 这类网络模块名称；
 - backend parameter scenario。
 
-这些对象都可以为 regime 提供证据，但不能替代 regime。
+这些信息可以提供 evidence 或 provenance，但不能单独定义 stable regime。
 
 ## 3. Regime 的职责
 
-Regime 是 B 线交给 C 线的最小可验证对象。它必须同时具备：
+Regime 是 B 线送进 C 线的代表执行工作区间。它比 family 更细，比单个 representative kernel 更稳。
 
-1. 明确所属 `family`；
-2. 明确来源 anchors；
-3. 可解释的硬件执行证据；
-4. 可解释的 network / algorithm role；
-5. 时间重要性来源；
-6. 明确 validation role；
-7. 明确 boundary status。
-
-Regime 的职责不是“多分一点组”，而是让 C 线可以生成一个清晰问题：
+Family 负责说明：
 
 ```text
-这个对象作为一个 validation target，是否能帮助 backend 更快找到有效 tuning 或约束？
+这些对象是否共享硬件执行机制？
 ```
+
+Regime 继续说明：
+
+```text
+在这个 family 内，它们是否共享同一段 phase / route / template / shape / resource 组合，
+从而可以作为同一个 simulator validation target？
+```
+
+Regime 必须同时表达：
+
+1. 所属 `family`；
+2. 所属 `phase` 或 phase context；
+3. 算法路径角色，即 `Route Primitive`；
+4. GPU 执行骨架，即 `Hardware Execution Template`；
+5. shape / size 区间；
+6. resource signature；
+7. coverage / timing / decision weights；
+8. validation role 和 lane advice；
+9. boundary status。
 
 ## 4. 允许的输入证据
 
-Regime builder 只能使用以下证据：
+Regime builder 允许使用以下证据：
 
 | 证据 | 来源 | 用途 |
 |---|---|---|
-| `family_id` | B 线 family builder | 限定 regime 只在同 family 内 merge/split |
+| `family_id` | B 线 family builder | 限定只在同 family 内提取 regime |
+| `phase_id` / `phase_context` | squash / anchor context / network context | 保留时间结构，防止跨 phase 误并 |
+| `route_primitive` | route primitive table / network structure context | 表达算法路径角色，是 regime 主拆分维度之一 |
+| `hardware_template` | family / route-template mapping / 12D hardware axes | 表达 GPU 执行骨架 |
+| `shape_size_signature` | launch metadata / model shape / anchor context | 形成 shape / size regime |
+| `resource_signature` | 12D hardware-axis weights / profiling summary | 检查资源敏感性是否相容 |
 | `source_anchor_ids` | RepresentativeAnchorTable | 追踪 regime 覆盖哪些 anchors |
 | `member_record_ids` | RepresentativeAnchorTable | 汇总成员级 evidence |
 | `coverage_weight` | RepresentativeAnchorTable | 衡量覆盖贡献 |
-| `hardware_axis_weights` | RepresentationWeightSummary | 判断硬件行为是否相容 |
-| `dominant_hardware_axis` | RepresentationWeightSummary | 判断主硬件压力 |
 | `algorithmic_weight` | RepresentationWeightSummary | 提供 measured/proxy timing 权重 |
-| `network_structure_prior` | NetworkStructureContext | 提供网络结构位置和时间重要性先验 |
+| `network_structure_prior` | NetworkStructureContext | 提供 phase、route、context、时间重要性先验 |
 | `boundary_evidence` | join / consistency checks | 防止错误 stable grouping |
 
 禁止作为主证据：
 
+- raw `source_cluster_id`；
 - kernel name；
-- raw cluster id；
+- operator string；
 - workload label；
-- trace order；
+- trace order 的孤立值；
 - grid/block shape 的孤立值；
 - 未带 provenance 的人工判断；
 - fixture-only artifact。
 
-这些字段可以进入 debug note 或 provenance，但不能单独决定 regime。
+这些禁止项可以进入 debug note 或 provenance，但不能单独生成 stable regime。
 
 ## 5. Regime 的最小输出字段
 
@@ -90,87 +107,179 @@ Regime builder 只能使用以下证据：
 | `family_id` | 所属 family |
 | `source_anchor_ids` | 来源 anchors |
 | `source_record_ids` | 来源 member records |
-| `hardware_pattern_summary` | dominant axis、secondary axes、axis confidence |
-| `network_role_summary` | network role、scope、confidence、source |
-| `temporal_importance_summary` | measured timing、network prior、importance provenance |
+| `phase_id` / `phase_context` | 所属稳定 phase 或过渡 phase |
+| `route_primitive` | 算法路径角色 |
+| `hardware_template` | GPU 执行骨架 |
+| `shape_size_regime` | shape / size 区间，不是孤立 shape |
+| `context_scope` | workload / network 路线中的上下文 |
+| `resource_signature` | register、occupancy、shared、DRAM、cache、locality、reduction 等资源签名 |
+| `coverage_weight` | 覆盖权重 |
+| `time_weight` | measured timing / cycle proxy / provenance-tagged prior |
+| `decision_weight` | 本地决策权重 |
 | `validation_role` | `main-object`、`review-object` 或 `constraint-object` |
 | `primary_lane_id` | C 线主要验证方向 |
 | `secondary_lane_hints` | 可选辅助方向 |
 | `merge_reason` | 为什么这些 anchors 可以合并 |
 | `split_reason` | 为什么没有和相邻候选合并 |
-| `boundary_status` | `stable`、`provisional`、`boundary` 或 `blocked` |
+| `boundary_status` | `stable`、`weak-share`、`provisional`、`boundary` 或 `blocked` |
 | `evidence_status` | `claim_bearing`、`fixture_non_claim_bearing` 或 blocker |
 
-`merge_reason` 和 `split_reason` 都必须存在。没有可解释原因的 regime 不允许标记为 `stable`。
+没有 `phase_id`、`route_primitive`、`hardware_template`、`shape_size_regime` 和 `resource_signature` 的 regime 不能标记为 `stable`。
 
-## 6. Merge Rules
+## 6. Regime 提取顺序
 
-多个 anchors 可以合并为同一个 regime，必须同时满足以下条件：
+Regime builder 必须按下面顺序提取对象。
+
+### Step 1: 先按 phase context 切开
+
+不同稳定 phase 默认不直接合并 regime。过渡 phase 中的对象优先单独观察或标 `provisional`。
+
+原因：phase 表示 workload 时间结构。即使两个 kernel 名字或硬件模板相似，如果它们出现在不同 phase，其 simulator reasoning lane 也可能不同。
+
+### Step 2: 在同一 phase 内按 Route Primitive 切第一刀
+
+`Route Primitive` 回答：
+
+```text
+这个对象在 workload 主计算路径中扮演什么算法角色？
+```
+
+这是 regime 的正式拆分维度之一。它不是 operator string，而是归一化后的算法路径角色。
+
+示例 primitive 包括：
+
+- `Dense Projection/Transform`
+- `Pairwise Score`
+- `Reduction / Normalize`
+- `Weighted Aggregation`
+- `Elementwise Fusion`
+
+在同一 phase 中，primitive 不同的对象默认不生成同一个 stable regime。它们可以进入 family-level weak sharing，但 regime 层必须保留边界。
+
+### Step 3: 在同一 Route Primitive 内按 Hardware Execution Template 切第二刀
+
+`Hardware Execution Template` 回答：
+
+```text
+这个对象在 GPU 上主要通过什么执行骨架实现？
+```
+
+示例 template 包括：
+
+- `Dense Tiled Compute`
+- `Reduction Template`
+- `Streaming Aggregation Template`
+- `Elementwise Template`
+
+同 primitive 内如果 template 不同，默认拆成不同 regimes。
+
+### Step 4: 在同一 primitive + template 内形成 shape / size regime
+
+Regime 不是单个孤立 shape，而是一段 shape / size 空间里的典型工作方式。
+
+实现时应把 shape 处理成区间或类别，例如：
+
+- small / medium / large sequence length；
+- projection-like dense region；
+- expansion-like dense region；
+- row-wise normalization region；
+- streaming aggregation region。
+
+Grid/block shape、M/N/K、sequence length、head dimension、batch size 等不能单独决定 regime；只有当它们共同定义了可复用的 shape / size 区间时，才作为 regime 字段。
+
+### Step 5: 用 resource signature 做最后检查
+
+即使对象已经同 phase、同 route primitive、同 hardware template、shape/size 相近，如果 resource signature 明显不同，也必须继续拆分或标 boundary。
+
+常见 resource signature 包括：
+
+- register / occupancy sensitive；
+- shared-memory coupled；
+- DRAM bandwidth / DRAM pressure；
+- cache-capacity sensitive；
+- locality / L1-resident；
+- reduction / synchronization sensitive；
+- irregular control / atomic sensitive。
+
+这一步防止把“算法路径相近但后端响应不同”的对象强行并成一个 regime。
+
+## 7. Merge Rules
+
+多个 anchors 可以合并为同一个 stable regime，必须同时满足：
 
 1. **Same family**
-   Anchors 必须属于同一个 family。不同 family 的 anchors 不允许合并为同一个 regime。
+   不同 family 不合并为同一个 regime。
 
-2. **Compatible hardware pattern**
-   Dominant hardware axis 相同，或 axis distribution 明确相容。例如 compute-heavy 和 compute-memory-mixed 可以相容，但 compute-heavy 和 irregular-control-heavy 不应直接合并。
+2. **Compatible phase context**
+   同一稳定 phase，或有明确证据说明跨 phase 可以共享同一 execution regime。
 
-3. **Compatible network context**
-   Network context 不与合并结论冲突。Network role 不是直接分组规则；它只用于判断两个 anchors 是否真的服务于同一个 C-line validation target。
+3. **Same or compatible Route Primitive**
+   Primitive 相同最稳。Primitive 不同只能进入 weak-share 或 boundary，不能默认 stable merge。
 
-4. **Similar temporal importance class**
-   Measured timing weight 或 network prior 的重要性等级不能强烈冲突。例如 high-time main object 不应和 low-time constraint object 合并。
+4. **Same or compatible Hardware Execution Template**
+   Template 不同默认拆分。
 
-5. **Same validation role**
-   `main-object`、`review-object`、`constraint-object` 不应混合进同一个 stable regime。
+5. **Similar shape / size regime**
+   对象落在相近 shape / size 区间，而不是只碰巧有相同 kernel name。
 
-6. **Representative consistency**
-   Representative record 的硬件轴和 member summary 不能明显冲突。
+6. **Compatible resource signature**
+   主导资源压力和敏感性相容。
+
+7. **Similar weight / decision role**
+   coverage、time、decision role 不能强烈冲突。
+
+8. **Representative consistency**
+   representative record 与 member summary 不能明显冲突。
 
 合并后的 regime 必须记录：
 
 ```text
-merge_reason = same family + compatible hardware pattern + network context does not contradict validation target + similar temporal importance + same validation role
+merge_reason = same family + compatible phase + compatible route primitive
+             + compatible hardware template + similar shape/size regime
+             + compatible resource signature + similar decision role
 ```
 
-如果某一项只是弱相容，应标记 `provisional`，不能标记 `stable`。
+如果某一项只是弱相容，应标记 `weak-share` 或 `provisional`，不能标记 `stable`。
 
-## 7. Split Rules
+## 8. Split Rules
 
-同一个 family 内出现以下情况时，必须拆成不同 regimes。注意：下面这些是拆分证据，不是字符串匹配规则。Regime builder 不能因为某个 kernel name、operator name 或 network role label 出现就自动拆分；它必须说明这些证据如何改变 C-line validation target。
+同一 family 内出现以下情况时，必须拆成不同 regimes 或标 boundary：
 
-1. **Validation target 不同**
-   这是最核心的拆分因素。如果两个 anchors 虽然同属一个 family，但 C 线要验证的问题不同，就必须拆开。例如一个对象用于寻找 tuning gain，另一个对象只用于 regression constraint，它们不能合成 stable regime。
+1. **Phase context 不同**
+   不同主 phase 默认不合并。过渡 phase 优先单独观察。
 
-2. **Temporal importance 强差异**
-   高时间贡献对象不应和低时间贡献对象合并。这里的时间重要性可以来自 measured timing、cycle proxy 或带 provenance 的 network prior。
+2. **Route Primitive 不同**
+   Primitive 是算法路径层面的正式拆分因素。不同 primitive 不应直接生成同一个 stable regime。
 
-3. **Hardware pattern 强差异**
-   同 family 内如果一个 anchor 明显 compute-heavy，另一个明显 memory-mixed 或 shared-memory-coupled，应拆开。
+3. **Hardware Execution Template 不同**
+   Template 不同表示 GPU 执行骨架不同，必须拆分。
 
-4. **Validation role 不同**
-   主调参对象、review object 和 constraint/regression object 必须拆开。
+4. **Shape / size regime 不同**
+   同 primitive + template 内，如果 shape / size 区间不同到会改变后端响应，应拆分。
 
-5. **Primary lane 不同**
-   如果 anchors 需要不同 primary lane，通常应拆 regime。第一版不允许一个 stable regime 有多个互相竞争的 primary lanes。
+5. **Resource signature 不同**
+   例如一个 register-limited，另一个 shared-memory-coupled；一个 locality-dominated，另一个 DRAM-pressure-dominated，应拆分。
 
-6. **Member evidence 显示混合行为**
-   如果同一个 PKA cluster 的 members 在硬件轴或 network role 上分裂，B 线必须拆 regime 或标 boundary，不能照搬 cluster。
+6. **Time / decision role 强差异**
+   high-time main object 不应和 low-time constraint object 合并。
 
-7. **Network context 改变验证目标**
-   Network role 本身不是拆分规则。只有当 network context 说明两个 anchors 在时间关键性、算法依赖位置或 validation purpose 上不同，导致 C 线不能用同一个 scenario 验证时，才作为拆分证据。
+7. **Primary lane 不同**
+   第一版不允许一个 stable regime 有多个互相竞争的 primary lanes。
 
-8. **Scale / shape 改变硬件响应**
-   Grid/block shape、launch scale 或 problem size 不能单独决定 regime。但如果它们导致 occupancy、memory transaction、shared path 或 timing class 明显不同，就应作为拆分证据。
+8. **Member evidence 显示混合行为**
+   如果同一个 PKA cluster 的 members 在 phase、route、template、shape 或 resource signature 上分裂，B 线必须拆 regime 或标 boundary，不能照搬 cluster。
 
 9. **Representative 不能代表 member summary**
-   如果 representative record 的硬件轴、timing 或 network context 与 member summary 明显不一致，不能生成 stable merged regime。应拆分或标 boundary。
+   如果 representative record 的 phase/route/template/resource/timing 与 member summary 明显不一致，不能生成 stable merged regime。
 
-拆分后的 regime 必须记录 `split_reason`。例如：
+拆分后的 regime 必须记录 `split_reason`，例如：
 
 ```text
-split_reason = same family, but candidate anchors require different C-line validation targets because timing class and primary lane differ
+split_reason = same family, but route primitive and resource signature differ;
+               objects should share family-level reasoning only, not one stable regime
 ```
 
-## 8. Boundary Rules
+## 9. Boundary Rules
 
 出现以下情况时，不允许输出 stable regime：
 
@@ -179,124 +288,127 @@ split_reason = same family, but candidate anchors require different C-line valid
 | 缺 anchor membership | `blocked_missing_anchor_membership` |
 | 缺完整 12D measured representation | `blocked_missing_12d_representation` |
 | Anchor members 无法 join representation rows | `blocked_unjoined_members` |
+| 缺 phase / route / template / shape / resource 任一关键字段 | `blocked_missing_regime_basis` |
 | Representative record 与 member summary 明显冲突 | `boundary_representative_mismatch` |
-| Hardware axis 分布过度混合 | `boundary_mixed_hardware_pattern` |
+| PKA cluster 内部 phase/route/template 混合 | `boundary_mixed_structural_context` |
+| Hardware axis 或 resource signature 过度混合 | `boundary_mixed_resource_signature` |
 | Network prior 与 measured timing 强冲突 | `boundary_prior_timing_conflict` |
 | 无法确定 primary lane | `pending_lane_mapping` |
 | 只有 fixture evidence | `fixture_non_claim_bearing` |
 
 Boundary regime 可以输出给 review 和测试，但不能进入 claim-bearing C-line formal validation。
 
-## 9. Regime 与 Family / Lane 的关系
+## 10. Regime 与 Family / Lane 的关系
 
 Family 回答：
 
 ```text
-这个对象属于哪类硬件执行机制？
+这些对象是否共享硬件执行机制和 simulator reasoning family？
 ```
 
 Regime 回答：
 
 ```text
-在这个 family 内，它是否是一个独立 C-line validation target？
+在这个 family 内，它们是否共享同一段 phase / route / template / shape / resource 执行工作区间？
 ```
 
 Lane 回答：
 
 ```text
-这个 regime 应该沿哪个 backend 方向验证？
+这个 regime 应该沿哪个 backend 参数方向验证？
 ```
 
 因此：
 
-- family 是硬件机制大类；
-- regime 是验证对象；
+- family 是共享机制组织层；
+- regime 是代表执行工作区间；
 - lane 是验证方向。
 
 一个 regime 必须有一个 primary lane。可以有 secondary lane hints，但第一版 C 线只强制消费 primary lane，避免 scenario matrix 爆炸。
 
-## 10. 例子
+## 11. 例子
 
-### 10.1 同 Family 内拆分不是按算子名
+### 11.1 同 family 内仍然必须保留 route / shape / resource regimes
 
-以下 anchors 可能都属于同一个 family：
+同属 `dense_compute` 或 `dense_tiled_backbone` family 的 anchors 可以共享 dense tiled execution template，但仍可能需要多个 regimes：
 
-| Anchor | Hardware pattern | Temporal importance | Network context | Validation role | 结论 |
-|---|---|---|---|---|---|
-| A1 | compute-heavy | high | role-compatible | main-object | 可与 A2 合并 |
-| A2 | compute-heavy | high | role-compatible | main-object | 可与 A1 合并 |
-| A3 | compute-memory-mixed | high | role-compatible | main-object | 可能拆分，取决于 primary lane |
-| A4 | compute-heavy | low | role-compatible 或 unknown | constraint-object | 必须拆分 |
+| Regime evidence | 为什么独立 |
+|---|---|
+| `Phase A + Dense Projection/Transform + Dense Tiled Compute + projection-like shape + register-limited` | front projection path，shape 和 phase 稳定 |
+| `Phase B + Pairwise Score + Dense Tiled Compute + pairwise-score shape + shared-memory-coupled` | route primitive 和 resource signature 与 generic projection 不同 |
+| `Phase C + Dense Projection/Transform + Dense Tiled Compute + expansion-like shape + register-sensitive` | route primitive 可相近，但 shape/size 和 time/decision role 不同 |
 
-这里的拆分原因不是 network role 名字，而是：
+这里不是按 kernel name 拆，也不是按网络模块名拆，而是按 phase、route primitive、hardware template、shape/size 和 resource signature 拆。
 
-- A3 的 hardware pattern 可能需要不同 primary lane；
-- A4 的 temporal importance 和 validation role 与 A1/A2 不同；
-- 如果 A3 最终 primary lane 仍与 A1/A2 相同、timing class 相近、validation role 一致，则不应因为 network context label 不同而自动拆分。
+### 11.2 同 attention 路线内不一定同 regime
 
-### 10.2 同 Family 内可以合并的 stable regime
+同属 attention 上层路线的对象可能需要拆开：
 
-多个 anchors 可以合并为同一个 regime，当它们满足：
+| Route Primitive | Hardware Template | 结论 |
+|---|---|---|
+| `Pairwise Score` | `Dense Tiled Compute` | dense score regime |
+| `Reduction / Normalize` | `Reduction Template` | reduction regime |
+| `Weighted Aggregation` | `Streaming Aggregation Template` | streaming aggregation regime |
 
-- 同属 `reduction_normalization`；
-- shared / reduction path 证据相容；
-- network context 不改变 C-line validation target；
-- timing importance 等级相近；
-- primary lane 都是 `reduction_path_sensitive`。
+原因是它们 route primitive 和 hardware template 都不同。上层同属 attention 不能作为合并 regime 的理由。
 
-### 10.3 PKA Cluster 不能直接变 regime
+### 11.3 PKA Cluster 不能直接变 regime
 
 如果一个 PKA cluster 覆盖：
 
-- 一个 high-time main-object record；
-- 一个同 family 但 primary lane 不同的 record；
+- 一个 `Dense Projection/Transform` record；
+- 一个 `Pairwise Score` record；
 - 一个 low-time constraint record；
 
-即使 PKA 认为它们 feature 距离接近，B 线也不能直接生成一个 stable regime。它必须拆分或标 boundary。
+即使 PKA 认为它们 feature 距离接近，B 线也不能直接生成一个 stable regime。它必须按 phase / route / template / shape / resource 拆分，或标 boundary。
 
-## 11. Implementation Plan Guardrails
+## 12. Implementation Plan Guardrails
 
 任何 implementation plan 如果涉及 regime builder，必须包含以下检查项：
 
 1. Regime builder 不直接按 `source_cluster_id` 建 regime；
 2. Regime builder 不直接按 kernel name / operator name 建 regime；
-3. Regime builder 先约束 family，再在 family 内 merge/split；
+3. Regime builder 先约束 family，再在 family 内按 phase / route / template / shape / resource 提取 regime；
 4. Regime builder join anchor membership 和 12D representation；
-5. Regime builder 支持 network_structure_prior，但标明 provenance；
+5. Regime builder 支持 NetworkStructureContext，并将其归一化为 phase、route primitive、context scope 和 temporal prior；
 6. Regime builder 输出 merge_reason 和 split_reason；
 7. Regime builder 输出 boundary_status；
 8. Regime builder 不把 fixture evidence 标成 claim-bearing；
 9. C-line adapter 只消费 stable/provisional regimes，blocked regimes 只进入 report；
-10. Tests 覆盖 merge、split、boundary 三类行为。
+10. Tests 覆盖 phase split、route split、template split、shape/resource split、merge、boundary 六类行为。
 
 如果 plan 缺少这些检查项，应视为偏离本 spec。
 
-## 12. Acceptance Criteria
+## 13. Acceptance Criteria
 
 ### AC-1: Regime 定义清晰
 
-Spec 和实现必须把 regime 定义为 family 内部的最小 C-line validation target。
+Spec 和实现必须把 regime 定义为 family 内部由 phase、Route Primitive、Hardware Execution Template、shape/size regime 和 resource signature 共同确定的 representative execution regime。
 
 ### AC-2: Regime 不等于 cluster / kernel / operator
 
 任何直接由 cluster id、kernel name 或 operator name 生成 stable regime 的实现都不合格。
 
-### AC-3: Merge 有证据
+### AC-3: Route Primitive 是正式拆分维度
 
-合并 anchors 必须满足 same family、hardware pattern 相容、network context 不改变 validation target、temporal importance 相近、validation role 一致。
+实现必须支持按 Route Primitive 在同一 family 内拆 regime。Route Primitive 是算法路径结构，不是 raw operator string。
 
-### AC-4: Split 有规则
+### AC-4: Hardware Template 和 Resource Signature 共同约束 regime
 
-同 family 内 validation target、temporal importance、hardware pattern、validation role 或 primary lane 明显不同，必须拆开。Network context 只有在改变 validation target 时才作为拆分证据。
+同 primitive 内 template 或 resource signature 明显不同，必须拆分或标 boundary。
 
-### AC-5: Boundary 不强行解释
+### AC-5: Shape / Size 是区间，不是孤立值
+
+实现必须把 shape / size 作为 regime 区间或类别处理，不能只按单个 grid/block 数值做硬切分。
+
+### AC-6: Boundary 不强行解释
 
 证据缺失、冲突或无法映射 lane 时，必须输出 blocker 或 boundary status，不能输出 stable regime。
 
-### AC-6: Regime 可被 C 线消费
+### AC-7: Regime 可被 C 线消费
 
 每个 stable/provisional regime 必须有 primary lane、validation role、importance provenance 和清晰 source anchors。
 
-### AC-7: Plan 不偏离
+### AC-8: Plan 不偏离
 
-后续 implementation plan 必须显式引用本 spec 的 merge/split/boundary guardrails。
+后续 implementation plan 必须显式引用本 spec 的 phase / route / template / shape / resource guardrails。

@@ -1,12 +1,12 @@
-# A-line GCL-Sampler Overall Architecture Design
+# A 线 GCL-Sampler 总体架构设计
 
-Date: 2026-05-13
+日期：2026-05-13
 
-## 1. Background
+## 1. 背景
 
-A-line currently has a PKA-compatible measured baseline path. That path turns invocation-level records into a fixed 12-dimensional behavior feature space, applies preprocessing and PCA, clusters the projected points, and emits representative anchors with membership and coverage metadata.
+A 线当前已经有一条 PKA-compatible 的 measured baseline 路径。该路径把 invocation-level records 转成固定的 12 维行为特征空间，经过 preprocessing 和 PCA 后，对投影点进行聚类，并输出带 membership 与 coverage metadata 的 representative anchors。
 
-GCL-Sampler targets the same sampled GPU simulation problem, but changes the representation layer. Instead of relying on hand-crafted PKA features, it learns kernel similarity from trace graphs. The paper's pipeline is:
+GCL-Sampler 解决的是同一个 sampled GPU simulation 问题，但它替换的是 representation layer。它不再依赖 PKA 的手工行为特征，而是从 trace graph 中学习 kernel similarity。论文中的主流程是：
 
 ```text
 NVBit SASS trace
@@ -17,35 +17,35 @@ NVBit SASS trace
   -> representative simulation points
 ```
 
-This design defines how A-line should absorb GCL-Sampler without losing the stable PKA baseline and without mixing learned representation work into downstream family or simulator concerns.
+这份设计定义 A 线应该如何吸收 GCL-Sampler：既不破坏已经稳定的 PKA baseline，也不把 learned representation 工作混入下游 family 或 simulator 语义。
 
-## 2. Goals
+## 2. 目标
 
-The GCL architecture must:
+GCL 架构必须满足：
 
-- Preserve the current representative compression contract: anchors, memberships, weights, and evaluation metadata.
-- Replace only the PKA representation layer when running in GCL mode.
-- Define trace, graph, embedding, selector, and evaluation artifacts with replayable inputs.
-- Support a staged implementation path from offline embeddings to real trace graph learning.
-- Keep PKA and GCL results comparable at the selector and anchor artifact level.
-- Make every stage auditable enough to explain why two kernel invocations were grouped together.
+- 保留当前 representative compression contract：anchors、memberships、weights 和 evaluation metadata。
+- 在 GCL mode 下，只替换 PKA 的 representation layer。
+- 定义 trace、graph、embedding、selector 和 evaluation artifacts，并保证输入可 replay。
+- 支持从 offline embeddings 到真实 trace graph learning 的分阶段实现路径。
+- 保持 PKA 与 GCL 在 selector 和 anchor artifact 层面的可比较性。
+- 每个阶段都要足够可审计，能够解释两个 kernel invocations 为什么被分到一起。
 
-## 3. Non-goals
+## 3. 非目标
 
-This design does not:
+这份设计不做：
 
-- Claim a full GCL-Sampler reproduction.
-- Require immediate NVBit integration.
-- Require immediate RGCN training infrastructure.
-- Replace the PKA-M1 baseline.
-- Use kernel name as a primary grouping key.
-- Introduce B-line family, regime, route primitive, or simulator semantic metadata into the GCL selector.
-- Claim simulator accuracy or measured speedup before a simulator evaluation stage exists.
-- Define production GPU tracing permissions, cluster scheduling, or long-running training orchestration.
+- 声称完整复现 GCL-Sampler。
+- 要求立即集成 NVBit。
+- 要求立即搭建 RGCN training infrastructure。
+- 替换 PKA-M1 baseline。
+- 把 kernel name 作为主 grouping key。
+- 把 B 线 family、regime、route primitive 或 simulator semantic metadata 引入 GCL selector。
+- 在 simulator evaluation 阶段存在之前，声称 simulator accuracy 或 measured speedup。
+- 定义生产环境 GPU tracing 权限、集群调度或长时间训练 orchestration。
 
-## 4. Relationship to PKA Baseline
+## 4. 与 PKA Baseline 的关系
 
-PKA and GCL should share the same outer selector role:
+PKA 和 GCL 应共享同一个外层 selector 角色：
 
 ```text
 selector input representation
@@ -54,9 +54,9 @@ selector input representation
   -> structural compression evaluation
 ```
 
-They differ in how the selector input representation is produced.
+二者的差异在于 selector input representation 如何产生。
 
-PKA:
+PKA：
 
 ```text
 measured 12D feature record
@@ -65,7 +65,7 @@ measured 12D feature record
   -> K-Means
 ```
 
-GCL:
+GCL：
 
 ```text
 SASS trace
@@ -75,173 +75,173 @@ SASS trace
   -> K-Means
 ```
 
-The anchor table, cluster membership table, coverage weight, deterministic replay hash, and structural compression summary should remain structurally comparable. This keeps PKA as the formal baseline and GCL as a representation replacement experiment.
+Anchor table、cluster membership table、coverage weight、deterministic replay hash 和 structural compression summary 应保持结构可比较。这样 PKA 继续作为正式 baseline，GCL 则作为 representation replacement experiment。
 
-## 5. End-to-End Pipeline
+## 5. 端到端 Pipeline
 
-The full GCL pipeline has six layers.
+完整 GCL pipeline 分为六层。
 
 ### 5.1 Trace Acquisition
 
-Input:
+输入：
 
 - workload invocation manifest
 - selected kernel invocation identifiers
 - tracing configuration
 
-Output:
+输出：
 
-- one trace bundle per kernel invocation
+- 每个 kernel invocation 一个 trace bundle
 - trace acquisition manifest
 - acquisition gap report
 
-The trace layer is responsible only for collecting dynamic SASS-level execution evidence. It must not decide cluster membership.
+Trace layer 只负责收集动态 SASS-level execution evidence。它不得决定 cluster membership。
 
 ### 5.2 Trace Graph Construction
 
-Input:
+输入：
 
-- normalized trace entries grouped by kernel invocation and warp
+- 按 kernel invocation 和 warp 分组后的 normalized trace entries
 
-Output:
+输出：
 
-- one graph bundle per kernel invocation
+- 每个 kernel invocation 一个 graph bundle
 - graph construction audit
 - node and edge schema summary
 
-The graph layer turns temporal trace records into heterogeneous relational graphs with typed nodes and typed directed edges.
+Graph layer 把时间顺序 trace records 转换为带 typed nodes 和 typed directed edges 的 heterogeneous relational graphs。
 
 ### 5.3 Graph Preprocessing and Augmentation
 
-Input:
+输入：
 
 - canonical graph bundles
 
-Output:
+输出：
 
 - node feature tensors
 - relation-indexed edge tensors
 - augmentation manifest
 
-This layer initializes node vectors and defines contrastive views. It must preserve the canonical graph bundle separately from augmented training views.
+这一层负责初始化 node vectors，并定义 contrastive views。它必须把 canonical graph bundle 与 augmented training views 分开保存。
 
 ### 5.4 RGCN Contrastive Learning
 
-Input:
+输入：
 
 - training graph tensors
 - augmentation configuration
 - training configuration
 
-Output:
+输出：
 
 - trained encoder checkpoint
 - training metrics
 - validation metrics
 - model provenance manifest
 
-This layer learns a graph encoder without labels. It produces a reusable representation model.
+这一层在无标签条件下学习 graph encoder，并产出可复用的 representation model。
 
 ### 5.5 Embedding Generation
 
-Input:
+输入：
 
 - canonical graph tensors
 - trained encoder checkpoint
 
-Output:
+输出：
 
-- one kernel embedding row per kernel invocation
+- 每个 kernel invocation 一行 kernel embedding
 - embedding metadata
 - embedding replay hash
 
-The embedding layer is the GCL equivalent of PKA's PCA projection artifact.
+Embedding layer 是 GCL 中对应 PKA PCA projection artifact 的部分。
 
 ### 5.6 Clustering and Anchor Export
 
-Input:
+输入：
 
 - GCL embedding table
 - selector eligibility/audit metadata
 - weight input
 
-Output:
+输出：
 
 - GCL cluster assignment artifact
 - GCL representative anchor table
 - GCL structural compression evaluation
 
-This layer should reuse the existing anchor and evaluation semantics wherever possible.
+这一层应尽量复用现有 anchor 和 evaluation semantics。
 
-## 6. Stage Plan
+## 6. 阶段计划
 
-### 6.1 GCL-M0: Offline Embedding Selector
+### 6.1 GCL-M0：Offline Embedding Selector
 
-Purpose:
+目的：
 
-- Validate GCL as a selector representation without requiring trace graph generation or model training.
+- 在不要求 trace graph generation 或 model training 的前提下，先验证 GCL 作为 selector representation 的可行性。
 
-Inputs:
+输入：
 
-- fixture embedding table, one row per kernel invocation
-- optional fixture weight input
+- fixture embedding table，每个 kernel invocation 一行
+- 可选 fixture weight input
 
-Outputs:
+输出：
 
 - `gcl_embedding_table_l1.json`
 - `gcl_kmeans_clusters_l1.json`
 - `gcl_representative_anchor_table_l1.json`
 - `gcl_compression_evaluation_l1.json`
 
-Required behavior:
+必要行为：
 
-- Validate embedding dimensionality and numeric values.
-- Run clustering on embeddings, not PKA 12D features.
-- Emit anchors in the same structural shape as PKA where fields overlap.
-- Preserve `representation_mode` as `gcl_m0_embedding_fixture`.
+- 校验 embedding dimensionality 和 numeric values。
+- 在 embeddings 上运行 clustering，而不是使用 PKA 12D features。
+- 在字段重合处，输出与 PKA 结构一致的 anchors。
+- 保留 `representation_mode = "gcl_m0_embedding_fixture"`。
 
-M0 is complete when a PKA-style selector can be driven by embedding rows and produce comparable anchor artifacts.
+当 PKA-style selector 能由 embedding rows 驱动并产出可比较 anchor artifacts 时，M0 完成。
 
-### 6.2 GCL-M1: Trace Graph Construction
+### 6.2 GCL-M1：Trace Graph Construction
 
-Purpose:
+目的：
 
-- Build deterministic graph artifacts from trace-like inputs.
+- 从 trace-like inputs 构建 deterministic graph artifacts。
 
-Inputs:
+输入：
 
-- trace fixture or real trace subset
+- trace fixture 或真实 trace subset
 - trace schema manifest
 
-Outputs:
+输出：
 
 - `gcl_trace_manifest_l1.json`
-- `gcl_trace_graphs_l1.jsonl` or sharded graph bundle
+- `gcl_trace_graphs_l1.jsonl` 或 sharded graph bundle
 - `gcl_graph_construction_audit_l1.json`
 
-Required behavior:
+必要行为：
 
-- Parse trace entries into per-kernel and per-warp sequences.
-- Create instruction, pseudo, and variable nodes.
-- Create control-flow and data-flow edges.
-- Record graph size, node type counts, edge type counts, and dropped/invalid trace entries.
-- Keep graph construction deterministic for the same input trace.
+- 将 trace entries 解析为 per-kernel、per-warp sequences。
+- 创建 instruction、pseudo 和 variable nodes。
+- 创建 control-flow 和 data-flow edges。
+- 记录 graph size、node type counts、edge type counts，以及 dropped/invalid trace entries。
+- 对相同输入 trace 保持 graph construction deterministic。
 
-M1 is complete when graph artifacts can be replayed and validated without training a model.
+当 graph artifacts 可以在不训练模型的情况下 replay 和 validate 时，M1 完成。
 
-### 6.3 GCL-M2: RGCN Embedding and Selector
+### 6.3 GCL-M2：RGCN Embedding and Selector
 
-Purpose:
+目的：
 
-- Train or load an RGCN contrastive encoder and generate GCL embeddings from canonical graph artifacts.
+- 训练或加载 RGCN contrastive encoder，并从 canonical graph artifacts 生成 GCL embeddings。
 
-Inputs:
+输入：
 
-- graph bundles from M1
+- M1 产出的 graph bundles
 - training configuration
 - augmentation configuration
 
-Outputs:
+输出：
 
 - `gcl_rgcn_training_report_l1.json`
 - `gcl_rgcn_model_manifest_l1.json`
@@ -250,55 +250,55 @@ Outputs:
 - `gcl_representative_anchor_table_l1.json`
 - `gcl_compression_evaluation_l1.json`
 
-Required behavior:
+必要行为：
 
-- Generate two augmented graph views per training graph.
-- Train with symmetric InfoNCE.
-- Export canonical, non-augmented graph embeddings for selector use.
-- Run clustering and anchor selection on embeddings.
-- Preserve training seed, model config, data split, checkpoint hash, and embedding hash.
+- 为每个 training graph 生成两个 augmented graph views。
+- 使用 symmetric InfoNCE 训练。
+- 为 selector 导出 canonical、non-augmented graph embeddings。
+- 在 embeddings 上运行 clustering 和 anchor selection。
+- 保留 training seed、model config、data split、checkpoint hash 和 embedding hash。
 
-M2 is complete when the learned embeddings can drive the same structural compression outputs as M0.
+当 learned embeddings 能驱动与 M0 相同结构的 compression outputs 时，M2 完成。
 
-### 6.4 GCL-M3: Simulator and Cross-Architecture Evaluation
+### 6.4 GCL-M3：Simulator and Cross-Architecture Evaluation
 
-Purpose:
+目的：
 
-- Evaluate whether GCL-selected representatives preserve simulator-relevant metrics.
+- 评估 GCL-selected representatives 是否保持 simulator-relevant metrics。
 
-Inputs:
+输入：
 
 - representative anchor table
 - full workload metric table
 - sampled representative metric table
-- optional cross-GPU metric tables
+- 可选 cross-GPU metric tables
 
-Outputs:
+输出：
 
 - `gcl_simulator_accuracy_l1.json`
 - `gcl_microarchitectural_metric_error_l1.json`
 - `gcl_cross_architecture_transfer_l1.json`
 
-Required behavior:
+必要行为：
 
-- Compare sampled reconstruction against full workload metrics.
-- Report error for cycles and selected microarchitectural metrics.
-- Keep structural compression speedup separate from measured simulator speedup.
-- Compare PKA and GCL on the same workload set when both inputs are available.
+- 比较 sampled reconstruction 与 full workload metrics。
+- 报告 cycles 和 selected microarchitectural metrics 的 error。
+- 将 structural compression speedup 与 measured simulator speedup 分开。
+- 在 PKA 和 GCL 都可用时，对同一 workload set 进行比较。
 
-M3 is complete only when measured full-vs-sampled evaluation exists.
+只有存在 measured full-vs-sampled evaluation 时，M3 才算完成。
 
 ## 7. Artifact Contracts
 
 ### 7.1 Trace Manifest
 
-Canonical path:
+Canonical path：
 
 ```text
 artifacts/a_line/l1/gcl/gcl_trace_manifest_l1.json
 ```
 
-Each trace row must include:
+每条 trace row 必须包含：
 
 - `record_id`
 - `kernel_invocation_id`
@@ -313,24 +313,24 @@ Each trace row must include:
 - `gap_reason`
 - `trace_hash`
 
-Allowed `status` values:
+允许的 `status`：
 
 - `collected`
 - `missing`
 - `invalid`
 - `unsupported`
 
-Only `collected` rows can enter graph construction.
+只有 `collected` rows 可以进入 graph construction。
 
 ### 7.2 Graph Bundle
 
-Canonical path:
+Canonical path：
 
 ```text
 artifacts/a_line/l1/gcl/gcl_trace_graphs_l1.jsonl
 ```
 
-Each graph record must include:
+每条 graph record 必须包含：
 
 - `record_id`
 - `kernel_invocation_id`
@@ -343,17 +343,17 @@ Each graph record must include:
 - `source_trace_hash`
 - `graph_hash`
 
-The graph bundle is canonical data. Training augmentations must not overwrite it.
+Graph bundle 是 canonical data。Training augmentations 不得覆盖它。
 
 ### 7.3 Embedding Table
 
-Canonical path:
+Canonical path：
 
 ```text
 artifacts/a_line/l1/gcl/gcl_embedding_table_l1.json
 ```
 
-Each embedding row must include:
+每条 embedding row 必须包含：
 
 - `record_id`
 - `kernel_invocation_id`
@@ -365,19 +365,19 @@ Each embedding row must include:
 - `embedding_hash`
 - `weight_input`
 
-The selector may read `record_id`, `kernel_invocation_id`, `embedding`, `representation_mode`, and `weight_input`. It must not read kernel name or downstream semantic metadata for clustering.
+Selector 可以读取 `record_id`、`kernel_invocation_id`、`embedding`、`representation_mode` 和 `weight_input`。它不得为了 clustering 读取 kernel name 或 downstream semantic metadata。
 
-In GCL-M0, where embeddings are fixture or offline rows rather than model outputs, `source_graph_hash` must point to the fixture source hash and `encoder_manifest_hash` must point to the fixture embedding manifest hash. These fields must not be omitted or set to an unexplained null value.
+在 GCL-M0 中，embeddings 来自 fixture 或 offline rows，而不是真实 model outputs。此时 `source_graph_hash` 必须指向 fixture source hash，`encoder_manifest_hash` 必须指向 fixture embedding manifest hash。这些字段不得省略，也不得设置为无法解释的 null value。
 
 ### 7.4 Cluster Artifact
 
-Canonical path:
+Canonical path：
 
 ```text
 artifacts/a_line/l1/gcl/gcl_kmeans_clusters_l1.json
 ```
 
-The cluster artifact must include:
+Cluster artifact 必须包含：
 
 - `artifact_name`
 - `mode`
@@ -395,13 +395,13 @@ The cluster artifact must include:
 
 ### 7.5 Anchor Artifact
 
-Canonical path:
+Canonical path：
 
 ```text
 artifacts/a_line/l1/gcl/gcl_representative_anchor_table_l1.json
 ```
 
-The anchor artifact must include:
+Anchor artifact 必须包含：
 
 - `artifact_name`
 - `mode`
@@ -415,7 +415,7 @@ The anchor artifact must include:
 - `input_embedding_table_hash`
 - `deterministic_replay_hash`
 
-Each anchor row must include:
+每条 anchor row 必须包含：
 
 - `anchor_id`
 - `cluster_id`
@@ -429,14 +429,14 @@ Each anchor row must include:
 
 ## 8. Trace Acquisition Contract
 
-The trace acquisition layer should eventually use NVBit-style SASS tracing, but the architecture allows fixture trace records before real NVBit integration.
+Trace acquisition layer 最终应使用 NVBit-style SASS tracing，但架构允许在真实 NVBit 集成前先使用 fixture trace records。
 
-Each trace entry should normalize these fields when available:
+每条 trace entry 应在可用时归一化这些字段：
 
-- CTA coordinates: `tbx`, `tby`, `tbz`
+- CTA coordinates：`tbx`、`tby`、`tbz`
 - `warp_id`
-- program counter: `pc`
-- active lane mask: `mask`
+- program counter：`pc`
+- active lane mask：`mask`
 - destination registers
 - opcode
 - source registers
@@ -444,40 +444,40 @@ Each trace entry should normalize these fields when available:
 - dynamic operand values
 - memory addresses when available
 
-The first implementation may support a strict subset, but missing fields must be explicit in the acquisition gap report. Missing dynamic values may make variable node initialization weaker, but they must not be silently replaced with fabricated values.
+第一版实现可以只支持严格子集，但缺失字段必须显式进入 acquisition gap report。缺失 dynamic values 可能削弱 variable node initialization，但不得静默替换为伪造值。
 
-Collection scope must be recorded. The preferred long-term scope follows the paper's single-representative-SM strategy: trace all CTAs executed on one selected SM for each kernel invocation. If a different scope is used, the scope must be visible in the manifest and evaluation report.
+Collection scope 必须被记录。长期推荐 scope 与论文一致：每个 kernel invocation 选择一个代表性 SM，并 trace 该 SM 上执行的所有 CTAs。如果使用不同 scope，必须在 manifest 和 evaluation report 中可见。
 
 ## 9. Trace Graph Construction
 
-Graph construction is per kernel invocation.
+Graph construction 以 kernel invocation 为单位。
 
-Within each invocation:
+每个 invocation 内部：
 
-1. Group trace entries by warp.
-2. Preserve temporal order inside each warp.
-3. Build one directed graph per warp.
-4. Union warp graphs into the kernel graph.
-5. Record warp partitions so readout can aggregate by warp before kernel-level pooling.
+1. 按 warp 对 trace entries 分组。
+2. 保留每个 warp 内的 temporal order。
+3. 为每个 warp 构建一个 directed graph。
+4. 将 warp graphs union 成 kernel graph。
+5. 记录 warp partitions，使 readout 可以先聚合到 warp，再聚合到 kernel level。
 
-Graph construction must be deterministic:
+Graph construction 必须 deterministic：
 
-- node ids are assigned from stable tuple keys
-- edge ids are emitted in stable sorted order after construction
-- duplicate edge handling is specified in the graph audit
-- invalid entries are reported with counts and reasons
+- node ids 从 stable tuple keys 分配。
+- edge ids 在 construction 后按稳定顺序输出。
+- duplicate edge handling 必须写入 graph audit。
+- invalid entries 必须记录 counts 和 reasons。
 
-The graph builder must not use runtime cycle counts, full-workload metric labels, or simulator outcomes when creating graph topology.
+Graph builder 在创建 graph topology 时不得使用 runtime cycle counts、full-workload metric labels 或 simulator outcomes。
 
 ## 10. Node Schema
 
-GCL uses three node categories.
+GCL 使用三类 nodes。
 
 ### 10.1 Instruction Nodes
 
-Instruction nodes represent executed SASS instructions.
+Instruction nodes 表示已执行的 SASS instructions。
 
-Required fields:
+必要字段：
 
 - `node_id`
 - `node_type = "instruction"`
@@ -487,7 +487,7 @@ Required fields:
 - `opcode`
 - `active_mask`
 
-Initial feature inputs:
+Initial feature inputs：
 
 - opcode token id
 - normalized PC
@@ -495,48 +495,48 @@ Initial feature inputs:
 
 ### 10.2 Pseudo Nodes
 
-Pseudo nodes represent internal operation concepts that should be visible to graph learning but do not exist as separate SASS instructions.
+Pseudo nodes 表示应被 graph learning 看见、但并不作为单独 SASS instruction 存在的内部操作概念。
 
-Initial pseudo node classes:
+初始 pseudo node classes：
 
 - `mem_ref`
 - `address_calc`
 - `predicate`
 
-The first implementation may support only `mem_ref`, but the schema must reserve typed pseudo nodes so the graph can grow without changing the artifact format.
+第一版实现可以只支持 `mem_ref`，但 schema 必须保留 typed pseudo nodes，使 graph 后续扩展时不需要改 artifact format。
 
 ### 10.3 Variable Nodes
 
-Variable nodes represent dynamic values.
+Variable nodes 表示 dynamic values。
 
-Initial variable node classes:
+初始 variable node classes：
 
 - register version node
 - memory value/address node
 - predicate value node
 
-Variable nodes are versioned by writes. A new variable node is created for each write. Later reads connect to the most recent visible version within the warp trace. If no visible producer exists, the node is marked as an input variable.
+Variable nodes 按写入进行 versioning。每次 write 创建一个新的 variable node。之后的 reads 连接到 warp trace 内最近可见的版本。如果没有可见 producer，该 node 标记为 input variable。
 
-Initial feature inputs:
+Initial feature inputs：
 
 - variable token id
 - dynamic value summary when available
-- zero vector for derived values whose value should be computed through graph propagation
+- 对 derived values 使用 zero vector，让其值通过 graph propagation 计算得到
 
 ## 11. Edge Schema
 
-GCL uses typed directed edges.
+GCL 使用 typed directed edges。
 
-Required edge categories:
+必要 edge categories：
 
-- `control_flow`: connects consecutive instruction nodes in a warp trace.
-- `data_left_source`: source variable or pseudo node to operation/instruction node.
-- `data_right_source`: source variable or pseudo node to operation/instruction node.
-- `data_destination`: operation/instruction node to destination variable node.
+- `control_flow`：连接同一 warp trace 中连续的 instruction nodes。
+- `data_left_source`：从 source variable 或 pseudo node 指向 operation/instruction node。
+- `data_right_source`：从 source variable 或 pseudo node 指向 operation/instruction node。
+- `data_destination`：从 operation/instruction node 指向 destination variable node。
 
-The exact source-side edge labels may be generalized to `data_source` in M0/M1 if operand ordering is unavailable, but the graph format must record whether operand position is known.
+如果 operand ordering 不可用，M0/M1 中可以把 source-side edge labels 泛化为 `data_source`，但 graph format 必须记录 operand position 是否已知。
 
-Each edge row must include:
+每条 edge row 必须包含：
 
 - `edge_id`
 - `src_node_id`
@@ -547,17 +547,17 @@ Each edge row must include:
 
 ## 12. Node Feature Initialization
 
-The canonical graph artifact stores semantic fields, not final tensors. Tensorization converts graph records into model inputs.
+Canonical graph artifact 存 semantic fields，而不是最终 tensors。Tensorization 会把 graph records 转换为 model inputs。
 
-Initial tensorization target:
+初始 tensorization target：
 
-- uniform node feature width: 64
-- instruction token embedding plus PC positional encoding
-- variable token embedding plus dynamic value summary
+- uniform node feature width：64
+- instruction token embedding 加 PC positional encoding
+- variable token embedding 加 dynamic value summary
 - pseudo token embedding
-- zero padding to 64 dimensions where needed
+- 必要时 zero padding 到 64 维
 
-Dynamic value summary should include, when values are available:
+如果 dynamic values 可用，dynamic value summary 应包括：
 
 - mean
 - standard deviation
@@ -568,66 +568,66 @@ Dynamic value summary should include, when values are available:
 - 75th percentile
 - skewness
 
-If dynamic values are missing, the tensorizer must mark the summary as missing and use a deterministic zero summary, with the missingness recorded in tensorization metadata.
+如果 dynamic values 缺失，tensorizer 必须标记 summary missing，并使用 deterministic zero summary，同时在 tensorization metadata 中记录 missingness。
 
 ## 13. Graph Augmentation
 
-Contrastive training uses augmented views derived from canonical graph tensors.
+Contrastive training 使用从 canonical graph tensors 派生出的 augmented views。
 
-Allowed augmentations:
+允许的 augmentations：
 
 - node dropping
 - edge dropping
 - feature noise injection
 
-Default configuration:
+默认配置：
 
-- node dropping rate: `0.15`
-- edge dropping rate: `0.15`
-- feature noise standard deviation: `0.01`
-- one or two augmentations per view
-- two views per graph
+- node dropping rate：`0.15`
+- edge dropping rate：`0.15`
+- feature noise standard deviation：`0.01`
+- 每个 view 使用一种或两种 augmentations
+- 每个 graph 生成两个 views
 
-Augmentation must be training-only. Selector embeddings must be generated from canonical, non-augmented graphs.
+Augmentation 只用于 training。Selector embeddings 必须从 canonical、non-augmented graphs 生成。
 
-The augmentation manifest must record:
+Augmentation manifest 必须记录：
 
 - random seed
 - augmentation pool
 - rates
 - view generation policy
-- graph ids used for training and validation
+- 用于 training 和 validation 的 graph ids
 
 ## 14. RGCN Encoder and Contrastive Training
 
-The default encoder mirrors the paper unless M0/M1 scope requires a lighter fixture path.
+默认 encoder 与论文保持一致，除非 M0/M1 scope 需要更轻量的 fixture path。
 
-Default architecture:
+默认 architecture：
 
-- 3 RGCN layers
-- input dimension: 64
-- hidden dimension: 128
-- graph embedding dimension: 256
-- basis decomposition enabled
-- layer normalization after convolution
+- 3 个 RGCN layers
+- input dimension：64
+- hidden dimension：128
+- graph embedding dimension：256
+- 启用 basis decomposition
+- convolution 后使用 layer normalization
 - ReLU activation
-- dropout except on the final RGCN layer
-- mean pooling from node embeddings to warp embeddings
-- average pooling from warp embeddings to kernel embedding
+- final RGCN layer 之外使用 dropout
+- 从 node embeddings mean pooling 到 warp embeddings
+- 从 warp embeddings average pooling 到 kernel embedding
 
-Projection head for training:
+Training projection head：
 
-- MLP hidden dimension: 128
-- output dimension: 64
-- ReLU and dropout between projection layers
+- MLP hidden dimension：128
+- output dimension：64
+- projection layers 之间使用 ReLU 和 dropout
 
-Loss:
+Loss：
 
 - symmetric InfoNCE
-- cosine similarity on L2-normalized projection outputs
-- default temperature: `0.05`
+- 在 L2-normalized projection outputs 上计算 cosine similarity
+- default temperature：`0.05`
 
-Training metadata must include:
+Training metadata 必须包含：
 
 - optimizer
 - learning rate
@@ -639,71 +639,71 @@ Training metadata must include:
 - graph bundle hash
 - model checkpoint hash
 
-The selector consumes the 256-dimensional kernel embedding before the projection head, not the 64-dimensional projection output used for contrastive loss.
+Selector 消费 projection head 之前的 256 维 kernel embedding，而不是 contrastive loss 使用的 64 维 projection output。
 
 ## 15. Embedding Generation
 
-Embedding generation is a separate replayable step.
+Embedding generation 是一个独立、可 replay 的步骤。
 
-For each canonical graph:
+对每个 canonical graph：
 
-1. Load graph tensor.
-2. Run the trained encoder without augmentation.
-3. Read out the 256-dimensional kernel embedding.
-4. Emit one embedding row per `record_id`.
-5. Hash the embedding row after numeric normalization.
+1. 加载 graph tensor。
+2. 在无 augmentation 条件下运行 trained encoder。
+3. 读取 256 维 kernel embedding。
+4. 每个 `record_id` 输出一条 embedding row。
+5. 对 numeric normalization 后的 embedding row 计算 hash。
 
-Embedding normalization for clustering should be explicit. The default is z-score normalization across embedding dimensions before K-Means. The raw embedding and normalized embedding metadata must both be recoverable from artifacts.
+用于 clustering 的 embedding normalization 必须显式记录。默认做法是在 K-Means 前对 embedding dimensions 做 z-score normalization。Raw embedding 和 normalized embedding metadata 都必须能从 artifacts 中恢复。
 
 ## 16. Clustering and Representative Selection
 
-The GCL selector should support two K selection modes.
+GCL selector 应支持两种 K selection modes。
 
 ### 16.1 Deterministic Fixed-K Mode
 
-Purpose:
+目的：
 
-- Make GCL-M0 comparable to the current deterministic PKA selector.
+- 让 GCL-M0 能与当前 deterministic PKA selector 比较。
 
-Default:
+默认：
 
 ```text
 k = ceil(sqrt(n_records)), clamped to [2, n_records]
 ```
 
-Initialization:
+Initialization：
 
 - deterministic farthest-first
-- first center is lexicographically smallest `record_id`
-- tie-breakers use `record_id`
+- 第一个 center 是 lexicographically smallest `record_id`
+- tie-breakers 使用 `record_id`
 
-Representative:
+Representative：
 
-- nearest real record to centroid
+- 选择距离 centroid 最近的真实 record
 
 ### 16.2 Silhouette-K Mode
 
-Purpose:
+目的：
 
-- Match GCL-Sampler's paper-level clustering intent.
+- 对齐 GCL-Sampler 论文中的 clustering intent。
 
-Behavior:
+行为：
 
-- evaluate candidate K values in a bounded range
-- choose K with maximum silhouette coefficient
-- if multiple K values are comparable, choose the smaller K
+- 在有界 candidate K values 中评估。
+- 选择 silhouette coefficient 最大的 K。
+- 当多个 K 近似等价时，选择更小的 K。
 
-The first implementation should keep deterministic fixed-K as the default and treat silhouette-K as an explicit mode. This prevents early results from mixing representation quality with changing K policy.
+第一版实现应保留 deterministic fixed-K 作为默认模式，并把 silhouette-K 作为显式 mode。这样可以避免早期结果把 representation quality 与 K policy 变化混在一起。
 
 ## 17. Evaluation Semantics
 
-GCL has three evaluation layers.
+GCL 有三层 evaluation。
 
 ### 17.1 Structural Compression Evaluation
 
-This layer requires only selector artifacts.
+这一层只需要 selector artifacts。
 
-Metrics:
+Metrics：
 
 - input record count
 - anchor count
@@ -714,13 +714,13 @@ Metrics:
 - anchor balance
 - cluster size distribution
 
-This layer can be implemented in M0.
+这一层可以在 M0 实现。
 
 ### 17.2 Representation Comparison
 
-This layer compares PKA and GCL on the same record set.
+这一层在同一 record set 上比较 PKA 和 GCL。
 
-Metrics:
+Metrics：
 
 - PKA anchor count vs GCL anchor count
 - PKA top-k coverage vs GCL top-k coverage
@@ -728,13 +728,13 @@ Metrics:
 - representative overlap
 - embedding nearest-neighbor examples
 
-This layer should not claim simulator accuracy.
+这一层不得声称 simulator accuracy。
 
 ### 17.3 Full Metric Reconstruction Evaluation
 
-This layer requires full and sampled metric tables.
+这一层需要 full 和 sampled metric tables。
 
-Metrics:
+Metrics：
 
 - cycle error
 - IPC error
@@ -743,11 +743,11 @@ Metrics:
 - achieved occupancy error
 - measured or estimated speedup
 
-This layer belongs to M3.
+这一层属于 M3。
 
 ## 18. Forbidden Fields and Audit
 
-The GCL selector must not use these fields for clustering:
+GCL selector 不得使用以下字段进行 clustering：
 
 - `kernel_name`
 - `source_path`
@@ -762,13 +762,13 @@ The GCL selector must not use these fields for clustering:
 - full-workload cycle totals
 - B-line semantic metadata
 
-These fields may appear in separate audit or explanation artifacts, but the selector input table must not contain them unless the selector explicitly ignores and reports them as forbidden-field violations.
+这些字段可以出现在单独的 audit 或 explanation artifacts 中，但 selector input table 不得包含它们，除非 selector 明确忽略并报告 forbidden-field violations。
 
 ## 19. Determinism and Replay
 
-Every stage must emit enough metadata to replay or explain outputs.
+每个阶段都必须输出足够 metadata，用于 replay 或解释 outputs。
 
-Required hashes:
+必要 hashes：
 
 - trace file hash
 - graph hash
@@ -780,30 +780,30 @@ Required hashes:
 - cluster assignment hash
 - anchor table hash
 
-Randomized stages must record seeds. Deterministic stages must sort inputs by `record_id` unless temporal order is part of the stage's explicit semantics.
+随机阶段必须记录 seeds。Deterministic 阶段必须按 `record_id` 排序输入，除非 temporal order 是该阶段显式语义的一部分。
 
-Floating point artifacts should use stable JSON formatting and recorded precision. The implementation may use arrays in sidecar binary files later, but the first architecture-level artifacts should remain JSON or JSONL for auditability.
+Floating point artifacts 应使用 stable JSON formatting 和 recorded precision。后续实现可以使用 sidecar binary files 存 arrays，但第一版 architecture-level artifacts 应保持 JSON 或 JSONL，便于 audit。
 
 ## 20. Acceptance Criteria
 
-The overall architecture is satisfied when the repo has specs and implementation plans that make the following sequence possible:
+当 repo 中的 specs 和 implementation plans 能支持以下序列时，该总体架构满足要求：
 
-1. Run PKA-M1 unchanged as the formal baseline.
-2. Run GCL-M0 on fixture embeddings and produce GCL anchors.
-3. Build GCL-M1 trace graph artifacts from trace-like inputs.
-4. Run GCL-M2 embedding generation and clustering from graph artifacts.
-5. Compare PKA and GCL structural compression on the same record set.
-6. Run GCL-M3 full-vs-sampled metric reconstruction before making accuracy or speedup claims.
+1. 不改变 PKA-M1，继续作为 formal baseline 运行。
+2. 在 fixture embeddings 上运行 GCL-M0，并产出 GCL anchors。
+3. 从 trace-like inputs 构建 GCL-M1 trace graph artifacts。
+4. 从 graph artifacts 运行 GCL-M2 embedding generation 和 clustering。
+5. 在同一 record set 上比较 PKA 和 GCL structural compression。
+6. 在声称 accuracy 或 speedup 之前，运行 GCL-M3 full-vs-sampled metric reconstruction。
 
 ## 21. Open Risks
 
-The main risks are:
+主要风险：
 
-- NVBit trace collection may be expensive or hard to reproduce in the current environment.
-- Trace graph size may require sharding before model training is practical.
-- Dynamic operand values may be unavailable in early traces, reducing the value of variable node features.
-- RGCN training introduces dependency and GPU-resource requirements not present in PKA.
-- Silhouette-K may improve paper alignment but reduce comparability with deterministic PKA unless evaluated separately.
-- A learned embedding can be hard to explain unless nearest-neighbor, cluster membership, and graph statistics are preserved.
+- NVBit trace collection 在当前环境中可能成本高，且难以稳定复现。
+- Trace graph size 可能很大，在 model training 之前就需要 sharding。
+- Dynamic operand values 在早期 traces 中可能不可用，从而削弱 variable node features 的价值。
+- RGCN training 引入了 PKA 中不存在的 dependency 和 GPU-resource requirements。
+- Silhouette-K 更贴近论文，但如果不单独评估，可能降低与 deterministic PKA 的可比较性。
+- Learned embedding 难以解释，因此必须保留 nearest-neighbor、cluster membership 和 graph statistics。
 
-These risks do not block M0. They should be addressed incrementally in M1 and M2 specs.
+这些风险不阻塞 M0。它们应在 M1 和 M2 specs 中逐步处理。

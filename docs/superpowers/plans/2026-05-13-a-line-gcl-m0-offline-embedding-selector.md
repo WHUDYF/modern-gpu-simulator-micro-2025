@@ -1,18 +1,18 @@
-# A-line GCL-M0 Offline Embedding Selector Implementation Plan
+# A 线 GCL-M0 Offline Embedding Selector 实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给 agentic workers：** 必需子技能：使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans` 按任务逐步执行本计划。步骤使用 checkbox（`- [ ]`）语法跟踪。
 
-**Goal:** Build the first GCL path that consumes fixture/offline kernel embeddings and emits GCL cluster, anchor, and structural compression artifacts comparable to PKA-M0.
+**目标：** 构建第一条 GCL 路径：消费 fixture/offline kernel embeddings，并输出可与 PKA-M0 比较的 GCL cluster、anchor 和 structural compression artifacts。
 
-**Architecture:** Add a GCL-specific selector core that validates embedding rows, normalizes embeddings, runs deterministic farthest-first K-Means, and builds anchor/evaluation rows. Add a thin `gcl_m0_pipeline.py` wrapper that reads a fixture embedding table and writes artifacts under the requested output directory. PKA code remains unchanged except for importing shared deterministic K-Means helpers.
+**架构：** 新增一个 GCL-specific selector core，负责校验 embedding rows、归一化 embeddings、运行 deterministic farthest-first K-Means，并构建 anchor/evaluation rows。再新增一个薄 wrapper `gcl_m0_pipeline.py`，读取 fixture embedding table，并把 artifacts 写入指定 output directory。PKA 代码保持不变，只在 GCL core 中导入共享的 deterministic K-Means helpers。
 
-**Tech Stack:** Python 3, NumPy, pytest, existing `experiments/baseline_diagnosis` artifact helpers.
+**技术栈：** Python 3、NumPy、pytest，以及现有 `experiments/baseline_diagnosis` artifact helpers。
 
 ---
 
-## Scope Check
+## 范围检查
 
-This plan implements only GCL-M0 from the overall GCL architecture spec:
+本计划只实现 GCL 总体架构 spec 中的 GCL-M0：
 
 - fixture/offline embedding table input
 - embedding validation
@@ -20,52 +20,52 @@ This plan implements only GCL-M0 from the overall GCL architecture spec:
 - representative anchor export
 - structural compression evaluation
 
-This plan does not implement trace acquisition, graph construction, RGCN training, graph augmentation, silhouette-K, simulator execution, or cross-architecture evaluation. Those belong to later GCL-M1/M2/M3 plans.
+本计划不实现 trace acquisition、graph construction、RGCN training、graph augmentation、silhouette-K、simulator execution 或 cross-architecture evaluation。这些内容属于后续 GCL-M1/M2/M3 计划。
 
-## File Structure
+## 文件结构
 
-Create:
+新增：
 
 - `experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`
-  - Fixture embedding input with four deterministic records.
+  - 包含四条 deterministic records 的 fixture embedding input。
 - `experiments/baseline_diagnosis/gcl_selector_core.py`
-  - Pure GCL-M0 embedding selector logic.
+  - 纯 GCL-M0 embedding selector logic。
 - `experiments/baseline_diagnosis/gcl_m0_pipeline.py`
-  - Thin pipeline wrapper that loads fixtures and writes formal artifacts.
+  - 薄 pipeline wrapper，负责加载 fixtures 并写出 formal artifacts。
 - `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
-  - Unit tests for validation, normalization, forbidden-field rejection, and output semantics.
+  - validation、normalization、forbidden-field rejection 和 output semantics 的 unit tests。
 - `experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`
-  - Wrapper/artifact tests.
+  - Wrapper/artifact tests。
 
-Modify:
+修改：
 
-- No existing production file needs modification for M0.
-- Existing PKA tests must continue to pass unchanged.
+- M0 不需要修改现有 production file。
+- 现有 PKA tests 必须继续原样通过。
 
-## Artifact Names
+## Artifact 名称
 
-GCL-M0 writes:
+GCL-M0 写出：
 
 - `gcl_embedding_table_l1.json`
 - `gcl_kmeans_clusters_l1.json`
 - `gcl_representative_anchor_table_l1.json`
 - `gcl_compression_evaluation_l1.json`
 
-The fixture input uses:
+Fixture input 使用：
 
 - `representation_mode = "gcl_m0_embedding_fixture"`
 
 ---
 
-### Task 1: Add GCL-M0 Fixture Embedding Table
+### 任务 1：新增 GCL-M0 Fixture Embedding Table
 
-**Files:**
-- Create: `experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`
-- Test: `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
+**文件：**
+- 新增：`experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`
+- 测试：`experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
 
-- [ ] **Step 1: Write the failing fixture validation test**
+- [ ] **步骤 1：编写会失败的 fixture validation test**
 
-Create `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py` with this initial content:
+创建 `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`，初始内容如下：
 
 ```python
 from __future__ import annotations
@@ -102,23 +102,23 @@ def test_fixture_embedding_rows_are_valid():
     assert all(row["encoder_manifest_hash"] for row in records)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **步骤 2：运行测试，确认它失败**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py::test_fixture_embedding_rows_are_valid
 ```
 
-Expected:
+预期：
 
 ```text
 ModuleNotFoundError: No module named 'gcl_selector_core'
 ```
 
-- [ ] **Step 3: Add the fixture embedding table**
+- [ ] **步骤 3：新增 fixture embedding table**
 
-Create `experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`:
+创建 `experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`：
 
 ```json
 [
@@ -169,9 +169,9 @@ Create `experiments/baseline_diagnosis/fixtures/gcl_m0_embedding_table_l1.json`:
 ]
 ```
 
-- [ ] **Step 4: Add the minimal validation module**
+- [ ] **步骤 4：新增最小 validation module**
 
-Create `experiments/baseline_diagnosis/gcl_selector_core.py`:
+创建 `experiments/baseline_diagnosis/gcl_selector_core.py`：
 
 ```python
 """Deterministic selector core for GCL-M0 embedding inputs."""
@@ -231,21 +231,21 @@ def validate_embedding_records(
             raise ValueError(f"{record_id}: missing embedding_hash")
 ```
 
-- [ ] **Step 5: Run the fixture validation test**
+- [ ] **步骤 5：运行 fixture validation test**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py::test_fixture_embedding_rows_are_valid
 ```
 
-Expected:
+预期：
 
 ```text
 1 passed
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add \
@@ -257,15 +257,15 @@ git commit -m "Add GCL M0 embedding fixture validation"
 
 ---
 
-### Task 2: Implement Embedding Matrix and Normalization
+### 任务 2：实现 Embedding Matrix 和 Normalization
 
-**Files:**
-- Modify: `experiments/baseline_diagnosis/gcl_selector_core.py`
-- Modify: `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
+**文件：**
+- 修改：`experiments/baseline_diagnosis/gcl_selector_core.py`
+- 修改：`experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
 
-- [ ] **Step 1: Add failing tests for matrix extraction, z-score normalization, and validation failures**
+- [ ] **步骤 1：新增 matrix extraction、z-score normalization 和 validation failures 的失败测试**
 
-Append these tests to `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`:
+将以下测试追加到 `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`：
 
 ```python
 import pytest
@@ -330,23 +330,23 @@ def test_validate_embedding_records_rejects_mixed_dimensions():
         )
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **步骤 2：运行测试，确认它们失败**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
 ```
 
-Expected:
+预期：
 
 ```text
 FAILED ... AttributeError: module 'gcl_selector_core' has no attribute 'build_embedding_matrix'
 ```
 
-- [ ] **Step 3: Implement matrix extraction and normalization**
+- [ ] **步骤 3：实现 matrix extraction 和 normalization**
 
-Replace `experiments/baseline_diagnosis/gcl_selector_core.py` with:
+将 `experiments/baseline_diagnosis/gcl_selector_core.py` 替换为：
 
 ```python
 """Deterministic selector core for GCL-M0 embedding inputs."""
@@ -450,21 +450,21 @@ def preprocess_embeddings(matrix: np.ndarray) -> tuple[np.ndarray, dict[str, Any
     }
 ```
 
-- [ ] **Step 4: Run the core tests**
+- [ ] **步骤 4：运行 core tests**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
 ```
 
-Expected:
+预期：
 
 ```text
 4 passed
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add experiments/baseline_diagnosis/gcl_selector_core.py experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
@@ -473,15 +473,15 @@ git commit -m "Add GCL embedding normalization"
 
 ---
 
-### Task 3: Build GCL Selector Outputs in Core
+### 任务 3：在 Core 中构建 GCL Selector Outputs
 
-**Files:**
-- Modify: `experiments/baseline_diagnosis/gcl_selector_core.py`
-- Modify: `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
+**文件：**
+- 修改：`experiments/baseline_diagnosis/gcl_selector_core.py`
+- 修改：`experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
 
-- [ ] **Step 1: Add failing output tests**
+- [ ] **步骤 1：新增 output 失败测试**
 
-Append this test to `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`:
+将以下测试追加到 `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`：
 
 ```python
 def test_build_gcl_outputs_uses_embeddings_and_writes_comparable_semantics():
@@ -508,23 +508,23 @@ def test_build_gcl_outputs_uses_embeddings_and_writes_comparable_semantics():
     assert outputs["deterministic_replay_hash"]
 ```
 
-- [ ] **Step 2: Run the output test to verify it fails**
+- [ ] **步骤 2：运行 output test，确认它失败**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py::test_build_gcl_outputs_uses_embeddings_and_writes_comparable_semantics
 ```
 
-Expected:
+预期：
 
 ```text
 AttributeError: module 'gcl_selector_core' has no attribute 'build_gcl_outputs'
 ```
 
-- [ ] **Step 3: Implement GCL output builder**
+- [ ] **步骤 3：实现 GCL output builder**
 
-Append this code to `experiments/baseline_diagnosis/gcl_selector_core.py`:
+将以下代码追加到 `experiments/baseline_diagnosis/gcl_selector_core.py`：
 
 ```python
 from pka_selector_core import _dist2, farthest_first_kmeans
@@ -703,21 +703,21 @@ def build_gcl_outputs(
     }
 ```
 
-- [ ] **Step 4: Run the core tests**
+- [ ] **步骤 4：运行 core tests**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
 ```
 
-Expected:
+预期：
 
 ```text
 5 passed
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add experiments/baseline_diagnosis/gcl_selector_core.py experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
@@ -726,15 +726,15 @@ git commit -m "Build GCL M0 selector outputs"
 
 ---
 
-### Task 4: Add GCL-M0 Pipeline Wrapper and Artifact Tests
+### 任务 4：新增 GCL-M0 Pipeline Wrapper 和 Artifact Tests
 
-**Files:**
-- Create: `experiments/baseline_diagnosis/gcl_m0_pipeline.py`
-- Create: `experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`
+**文件：**
+- 新增：`experiments/baseline_diagnosis/gcl_m0_pipeline.py`
+- 新增：`experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`
 
-- [ ] **Step 1: Write the failing pipeline test**
+- [ ] **步骤 1：编写会失败的 pipeline test**
 
-Create `experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`:
+创建 `experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`：
 
 ```python
 from __future__ import annotations
@@ -768,23 +768,23 @@ def test_gcl_m0_pipeline_writes_deterministic_artifacts(tmp_path):
     assert len(anchors["anchors"]) == 2
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **步骤 2：运行测试，确认它失败**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py
 ```
 
-Expected:
+预期：
 
 ```text
 ModuleNotFoundError: No module named 'gcl_m0_pipeline'
 ```
 
-- [ ] **Step 3: Implement the pipeline wrapper**
+- [ ] **步骤 3：实现 pipeline wrapper**
 
-Create `experiments/baseline_diagnosis/gcl_m0_pipeline.py`:
+创建 `experiments/baseline_diagnosis/gcl_m0_pipeline.py`：
 
 ```python
 """M0 wrapper for the GCL offline embedding selector."""
@@ -837,21 +837,21 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the pipeline test**
+- [ ] **步骤 4：运行 pipeline test**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py
 ```
 
-Expected:
+预期：
 
 ```text
 1 passed
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add experiments/baseline_diagnosis/gcl_m0_pipeline.py experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py
@@ -860,14 +860,14 @@ git commit -m "Add GCL M0 pipeline wrapper"
 
 ---
 
-### Task 5: Add Timing Weight Coverage Test
+### 任务 5：新增 Timing Weight Coverage Test
 
-**Files:**
-- Modify: `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
+**文件：**
+- 修改：`experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
 
-- [ ] **Step 1: Add failing timing-weight test**
+- [ ] **步骤 1：新增 timing-weight 失败测试**
 
-Append this test to `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`:
+将以下测试追加到 `experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`：
 
 ```python
 def test_build_gcl_outputs_honors_timing_weight():
@@ -895,25 +895,25 @@ def test_build_gcl_outputs_honors_timing_weight():
     assert outputs["evaluation"]["top_k_coverage"]["2"] == 1.0
 ```
 
-- [ ] **Step 2: Run the timing-weight test**
+- [ ] **步骤 2：运行 timing-weight test**
 
-Run:
+运行：
 
 ```bash
 pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py::test_build_gcl_outputs_honors_timing_weight
 ```
 
-Expected:
+预期：
 
 ```text
 1 passed
 ```
 
-If this fails because cluster membership changes, inspect `outputs["anchors"]["anchors"]` and update the fixture embeddings so the first two records remain one cluster and the last two records remain another cluster. Do not change production logic to satisfy this test.
+如果该测试因为 cluster membership 变化而失败，检查 `outputs["anchors"]["anchors"]`，并更新 fixture embeddings，使前两条 records 保持在一个 cluster，后两条 records 保持在另一个 cluster。不要为了满足该测试而修改 production logic。
 
-- [ ] **Step 3: Run all GCL tests**
+- [ ] **步骤 3：运行全部 GCL tests**
 
-Run:
+运行：
 
 ```bash
 pytest -q \
@@ -921,13 +921,13 @@ pytest -q \
   experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py
 ```
 
-Expected:
+预期：
 
 ```text
 7 passed
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **步骤 4：提交**
 
 ```bash
 git add experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
@@ -936,15 +936,15 @@ git commit -m "Cover GCL M0 timing weights"
 
 ---
 
-### Task 6: Run PKA Regression and Wrapper Smoke
+### 任务 6：运行 PKA Regression 和 Wrapper Smoke
 
-**Files:**
-- No code changes expected.
-- Verification only.
+**文件：**
+- 预期不修改代码。
+- 仅做验证。
 
-- [ ] **Step 1: Run GCL and PKA focused tests**
+- [ ] **步骤 1：运行 GCL 和 PKA focused tests**
 
-Run:
+运行：
 
 ```bash
 pytest -q \
@@ -954,15 +954,15 @@ pytest -q \
   experiments/baseline_diagnosis/tests/test_m1_selector.py
 ```
 
-Expected:
+预期：
 
 ```text
 all selected tests pass
 ```
 
-- [ ] **Step 2: Run the GCL-M0 wrapper smoke into a temporary directory**
+- [ ] **步骤 2：将 GCL-M0 wrapper smoke 运行到临时目录**
 
-Run:
+运行：
 
 ```bash
 tmpdir="$(mktemp -d)"
@@ -982,62 +982,62 @@ PY
 rm -rf "$tmpdir"
 ```
 
-Expected:
+预期：
 
 ```text
 GCL M0 wrapper smoke complete
 ```
 
-The command writes to a temporary output directory, so no runtime artifacts should appear in the repository.
+该命令写入临时 output directory，因此 repo 中不应出现 runtime artifacts。
 
-- [ ] **Step 3: Inspect git status**
+- [ ] **步骤 3：检查 git status**
 
-Run:
+运行：
 
 ```bash
 git status --short
 ```
 
-Expected:
+预期：
 
 ```text
 Only intentional GCL-M0 source, fixture, and test files are modified or untracked.
 Generated artifacts under artifacts/a_line/l1 are not staged.
 ```
 
-- [ ] **Step 4: Commit final verification metadata only if source files changed**
+- [ ] **步骤 4：只有 source files 发生变化时才提交最终 verification metadata**
 
-If Step 1 or Step 2 required source/test fixes, commit those fixes:
+如果步骤 1 或步骤 2 需要 source/test fixes，提交这些修复：
 
 ```bash
 git add experiments/baseline_diagnosis
 git commit -m "Stabilize GCL M0 selector verification"
 ```
 
-If no source/test files changed, do not create an empty commit.
+如果没有 source/test files 变化，不要创建空提交。
 
 ---
 
-## Self-Review Checklist
+## 自查清单
 
-Spec coverage:
+Spec 覆盖：
 
-- GCL-M0 fixture embedding input is covered by Task 1.
-- Embedding validation and finite numeric checks are covered by Tasks 1 and 2.
-- Clustering on embeddings rather than PKA 12D features is covered by Task 3.
-- Anchor artifact and structural compression evaluation are covered by Tasks 3 and 4.
-- `representation_mode = "gcl_m0_embedding_fixture"` is covered by Tasks 1, 3, and 4.
-- Forbidden-field audit is covered by Tasks 2 and 3.
-- Timing/member-count weights are covered by Tasks 3 and 5.
-- PKA baseline non-regression is covered by Task 6.
+- GCL-M0 fixture embedding input 由任务 1 覆盖。
+- Embedding validation 和 finite numeric checks 由任务 1、任务 2 覆盖。
+- 在 embeddings 上 clustering，而不是在 PKA 12D features 上 clustering，由任务 3 覆盖。
+- Anchor artifact 和 structural compression evaluation 由任务 3、任务 4 覆盖。
+- `representation_mode = "gcl_m0_embedding_fixture"` 由任务 1、任务 3、任务 4 覆盖。
+- Forbidden-field audit 由任务 2、任务 3 覆盖。
+- Timing/member-count weights 由任务 3、任务 5 覆盖。
+- PKA baseline non-regression 由任务 6 覆盖。
 
-Implementation boundaries:
+实现边界：
 
-- No trace acquisition, graph construction, RGCN training, or simulator accuracy is included.
-- No existing PKA production file is modified.
-- K selection is deterministic fixed-K only.
+- 不包含 trace acquisition、graph construction、RGCN training 或 simulator accuracy。
+- 不修改现有 PKA production file。
+- K selection 只使用 deterministic fixed-K。
 
-Verification commands:
+验证命令：
 
 - `pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py`
 - `pytest -q experiments/baseline_diagnosis/tests/test_gcl_m0_pipeline.py`

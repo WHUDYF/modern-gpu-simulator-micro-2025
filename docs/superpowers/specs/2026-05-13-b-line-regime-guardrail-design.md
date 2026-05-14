@@ -213,7 +213,11 @@ regime = family 内可以送入 C 线验证的具体执行工作区间
 
 Regime 不是单个孤立 shape，而是一段 shape / size 空间里的典型工作方式。
 
-实现时应把 shape 处理成区间或类别，例如：
+实现时应先复用 PKA cluster 内的 measured scale/work evidence，例如 `num_instructions`、`num_thread_blocks`、memory operation counts、atomics 和 divergence summary，检查 cluster 内 shape/size 行为是否已经紧凑。
+
+如果 PKA measured evidence 已经紧凑，shape/size 层只需要输出 coarse label 和 reason，不应强制进入复杂 template-specific split。
+
+只有当 PKA cluster 内部出现规模混合、outlier，或 C 线需要更明确 validation target 时，才启用 template-specific constrained refinement，把 shape 处理成区间或类别，例如：
 
 - small / medium / large sequence length；
 - projection-like dense region；

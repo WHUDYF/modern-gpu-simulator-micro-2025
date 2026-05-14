@@ -11,14 +11,14 @@
 本 spec 的核心定义是：
 
 ```text
-regime = 同一 family 内，由 phase + route primitive + hardware template + shape/size regime + resource signature
+regime = 同一 phase 内，由 family + route primitive + hardware template + shape/size regime + resource signature
          共同确定的 representative execution regime
 ```
 
 它回答的问题是：
 
 ```text
-在同一个 family 里，哪些 anchors / records 属于同一段可复用的执行工作区间，
+在 squash 提取出的同一个 phase 里，哪些 anchors / records 属于同一段可复用的执行工作区间，
 哪些必须拆成独立的 C-line validation target？
 ```
 
@@ -40,23 +40,29 @@ Regime 不是：
 
 Regime 是 B 线送进 C 线的代表执行工作区间。它比 family 更细，比单个 representative kernel 更稳。
 
-Family 负责说明：
+Squash 先负责说明：
 
 ```text
-这些对象是否共享硬件执行机制？
+这些对象属于 workload 时间轴上的哪个稳定 phase？
+```
+
+Family 再负责说明：
+
+```text
+在这个 phase 内，这些对象是否共享硬件执行机制？
 ```
 
 Regime 继续说明：
 
 ```text
-在这个 family 内，它们是否共享同一段 phase / route / template / shape / resource 组合，
+在这个 phase 和 family 内，它们是否共享同一段 route / template / shape / resource 组合，
 从而可以作为同一个 simulator validation target？
 ```
 
 Regime 必须同时表达：
 
-1. 所属 `family`；
-2. 所属 `phase` 或 phase context；
+1. 所属 `phase` 或 phase context；
+2. 所属 `family`；
 3. 算法路径角色，即 `Route Primitive`；
 4. GPU 执行骨架，即 `Hardware Execution Template`；
 5. shape / size 区间；
@@ -71,7 +77,7 @@ Regime builder 允许使用以下证据：
 
 | 证据 | 来源 | 用途 |
 |---|---|---|
-| `family_id` | B 线 family builder | 限定只在同 family 内提取 regime |
+| `family_id` | B 线 family builder | 在同一 phase 内限定 family 边界 |
 | `phase_id` / `phase_context` | squash / anchor context / network context | 保留时间结构，防止跨 phase 误并 |
 | `route_primitive` | route primitive table / network structure context | 表达算法路径角色，是 regime 主拆分维度之一 |
 | `hardware_template` | family / route-template mapping / 12D hardware axes | 表达 GPU 执行骨架 |
@@ -136,7 +142,19 @@ Regime builder 必须按下面顺序提取对象。
 
 原因：phase 表示 workload 时间结构。即使两个 kernel 名字或硬件模板相似，如果它们出现在不同 phase，其 simulator reasoning lane 也可能不同。
 
-### Step 2: 在同一 phase 内按 Route Primitive 切第一刀
+### Step 2: 在同一 phase 内先形成 family 候选
+
+Family 不应在全 workload 上脱离 phase 直接展开。更稳的做法是：
+
+```text
+squash 提取 phase
+  -> 在每个 phase 内做 family / shared mechanism 判断
+  -> 再在 phase + family 内提取 regime
+```
+
+原因：family 是共享机制组织层，但共享机制是否能复用通常依赖 phase 上下文。同一个硬件模板跨 phase 出现时，可以记录 family-level reuse，但 regime 层默认仍保留 phase 边界。
+
+### Step 3: 在同一 phase + family 内按 Route Primitive 切第一刀
 
 `Route Primitive` 回答：
 
@@ -156,7 +174,7 @@ Regime builder 必须按下面顺序提取对象。
 
 在同一 phase 中，primitive 不同的对象默认不生成同一个 stable regime。它们可以进入 family-level weak sharing，但 regime 层必须保留边界。
 
-### Step 3: 在同一 Route Primitive 内按 Hardware Execution Template 切第二刀
+### Step 4: 在同一 Route Primitive 内按 Hardware Execution Template 切第二刀
 
 `Hardware Execution Template` 回答：
 
@@ -173,7 +191,7 @@ Regime builder 必须按下面顺序提取对象。
 
 同 primitive 内如果 template 不同，默认拆成不同 regimes。
 
-### Step 4: 在同一 primitive + template 内形成 shape / size regime
+### Step 5: 在同一 primitive + template 内形成 shape / size regime
 
 Regime 不是单个孤立 shape，而是一段 shape / size 空间里的典型工作方式。
 
@@ -187,7 +205,7 @@ Regime 不是单个孤立 shape，而是一段 shape / size 空间里的典型�
 
 Grid/block shape、M/N/K、sequence length、head dimension、batch size 等不能单独决定 regime；只有当它们共同定义了可复用的 shape / size 区间时，才作为 regime 字段。
 
-### Step 5: 用 resource signature 做最后检查
+### Step 6: 用 resource signature 做最后检查
 
 即使对象已经同 phase、同 route primitive、同 hardware template、shape/size 相近，如果 resource signature 明显不同，也必须继续拆分或标 boundary。
 
@@ -207,11 +225,11 @@ Grid/block shape、M/N/K、sequence length、head dimension、batch size 等不�
 
 多个 anchors 可以合并为同一个 stable regime，必须同时满足：
 
-1. **Same family**
-   不同 family 不合并为同一个 regime。
-
-2. **Compatible phase context**
+1. **Compatible phase context**
    同一稳定 phase，或有明确证据说明跨 phase 可以共享同一 execution regime。
+
+2. **Same family within that phase**
+   在同一 phase 内属于同一个 family。不同 family 不合并为同一个 regime。
 
 3. **Same or compatible Route Primitive**
    Primitive 相同最稳。Primitive 不同只能进入 weak-share 或 boundary，不能默认 stable merge。
@@ -234,7 +252,7 @@ Grid/block shape、M/N/K、sequence length、head dimension、batch size 等不�
 合并后的 regime 必须记录：
 
 ```text
-merge_reason = same family + compatible phase + compatible route primitive
+merge_reason = compatible phase + same family within phase + compatible route primitive
              + compatible hardware template + similar shape/size regime
              + compatible resource signature + similar decision role
 ```
@@ -300,16 +318,22 @@ Boundary regime 可以输出给 review 和测试，但不能进入 claim-bearing
 
 ## 10. Regime 与 Family / Lane 的关系
 
+Squash / phase 回答：
+
+```text
+这个对象出现在 workload 时间轴上的哪个稳定上下文里？
+```
+
 Family 回答：
 
 ```text
-这些对象是否共享硬件执行机制和 simulator reasoning family？
+在这个 phase 内，这些对象是否共享硬件执行机制和 simulator reasoning family？
 ```
 
 Regime 回答：
 
 ```text
-在这个 family 内，它们是否共享同一段 phase / route / template / shape / resource 执行工作区间？
+在这个 phase 和 family 内，它们是否共享同一段 route / template / shape / resource 执行工作区间？
 ```
 
 Lane 回答：
@@ -320,7 +344,8 @@ Lane 回答：
 
 因此：
 
-- family 是共享机制组织层；
+- phase 是时间结构层；
+- family 是 phase 内的共享机制组织层；
 - regime 是代表执行工作区间；
 - lane 是验证方向。
 
@@ -368,7 +393,7 @@ Lane 回答：
 
 1. Regime builder 不直接按 `source_cluster_id` 建 regime；
 2. Regime builder 不直接按 kernel name / operator name 建 regime；
-3. Regime builder 先约束 family，再在 family 内按 phase / route / template / shape / resource 提取 regime；
+3. Regime builder 先使用 squash/phase context，再在每个 phase 内展开 family / regime / lane；
 4. Regime builder join anchor membership 和 12D representation；
 5. Regime builder 支持 NetworkStructureContext，并将其归一化为 phase、route primitive、context scope 和 temporal prior；
 6. Regime builder 输出 merge_reason 和 split_reason；
@@ -383,7 +408,7 @@ Lane 回答：
 
 ### AC-1: Regime 定义清晰
 
-Spec 和实现必须把 regime 定义为 family 内部由 phase、Route Primitive、Hardware Execution Template、shape/size regime 和 resource signature 共同确定的 representative execution regime。
+Spec 和实现必须把 regime 定义为 phase 内部由 family、Route Primitive、Hardware Execution Template、shape/size regime 和 resource signature 共同确定的 representative execution regime。
 
 ### AC-2: Regime 不等于 cluster / kernel / operator
 
@@ -391,7 +416,7 @@ Spec 和实现必须把 regime 定义为 family 内部由 phase、Route Primitiv
 
 ### AC-3: Route Primitive 是正式拆分维度
 
-实现必须支持按 Route Primitive 在同一 family 内拆 regime。Route Primitive 是算法路径结构，不是 raw operator string。
+实现必须支持按 Route Primitive 在同一 phase + family 内拆 regime。Route Primitive 是算法路径结构，不是 raw operator string。
 
 ### AC-4: Hardware Template 和 Resource Signature 共同约束 regime
 
@@ -411,4 +436,4 @@ Spec 和实现必须把 regime 定义为 family 内部由 phase、Route Primitiv
 
 ### AC-8: Plan 不偏离
 
-后续 implementation plan 必须显式引用本 spec 的 phase / route / template / shape / resource guardrails。
+后续 implementation plan 必须显式引用本 spec 的 squash/phase-first 以及 family / route / template / shape / resource guardrails。

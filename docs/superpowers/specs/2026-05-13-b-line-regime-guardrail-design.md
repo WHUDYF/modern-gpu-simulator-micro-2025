@@ -174,7 +174,7 @@ squash 提取 phase
 
 在同一 phase 中，primitive 不同的对象默认不生成同一个 stable regime。它们可以进入 family-level weak sharing，但 regime 层必须保留边界。
 
-### Step 4: 在同一 Route Primitive 内按 Hardware Execution Template 切第二刀
+### Step 4: 在同一 phase + family + Route Primitive 内校验 Hardware Execution Template 相容性
 
 `Hardware Execution Template` 回答：
 
@@ -189,7 +189,25 @@ squash 提取 phase
 - `Streaming Aggregation Template`
 - `Elementwise Template`
 
-同 primitive 内如果 template 不同，默认拆成不同 regimes。
+这一步不是重新定义 family，也不是在 family 之后再引入一个完全独立的分类体系。它的职责是做 template compatibility check，从而保证 `family` 和 `regime` 保持相对独立：
+
+```text
+family = phase 内可共享 simulator reasoning 的机制组
+hardware template = 当前 route primitive 的具体 GPU 执行骨架
+regime = family 内可以送入 C 线验证的具体执行工作区间
+```
+
+判断规则：
+
+1. 如果某个 family 已经唯一约束一个 template，Step 4 只确认 template 字段，不额外拆分。
+2. 如果同一 family 内允许多个 template，Step 4 必须按 template 相容性拆分或标 boundary。
+3. 如果 template evidence 缺失或冲突，regime 不能标记为 `stable`。
+4. 同 primitive 内如果 template 明显不同，默认拆成不同 regimes。
+
+这样做的目的不是增加概念，而是防止两种错误：
+
+- 把 `family` 做成 `Hardware Execution Template` 的别名，导致 family 失去共享机制组织层的作用；
+- 只看 family，不检查具体 template，导致同一 family 内不同 GPU 执行骨架被误合并为一个 stable regime。
 
 ### Step 5: 在同一 primitive + template 内形成 shape / size regime
 
@@ -235,7 +253,7 @@ Grid/block shape、M/N/K、sequence length、head dimension、batch size 等不�
    Primitive 相同最稳。Primitive 不同只能进入 weak-share 或 boundary，不能默认 stable merge。
 
 4. **Same or compatible Hardware Execution Template**
-   Template 不同默认拆分。
+   Template 是 compatibility check。若 family 已唯一约束 template，这一项只做确认；若同一 family 内存在多个 template，template 不同默认拆分或标 boundary。
 
 5. **Similar shape / size regime**
    对象落在相近 shape / size 区间，而不是只碰巧有相同 kernel name。

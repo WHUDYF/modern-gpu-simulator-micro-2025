@@ -155,7 +155,7 @@ Route Primitive 不同 -> 默认拆开，或 weak-share / boundary
 Route Primitive 相同 -> 继续看 Hardware Execution Template
 ```
 
-## 7. 第 4 层：看 Hardware Execution Template
+## 7. 第 4 层：检查 Hardware Execution Template 相容性
 
 `Hardware Execution Template` 表示这个对象在 GPU 上主要通过什么执行骨架实现。
 
@@ -174,6 +174,20 @@ Route Primitive 相同 -> 继续看 Hardware Execution Template
 | `Streaming Aggregation Template` | streaming read / aggregation |
 | `Elementwise Template` | elementwise 执行路径 |
 
+这里更准确地说是“检查”，不是再创建一个和 family 平行的新分类层。
+
+原因是 family 和 template 的职责不同：
+
+```text
+family = 在 phase 内共享硬件机制和 simulator reasoning 的组织层
+hardware template = 这个 route primitive 在 GPU 上的具体执行骨架
+regime = 进入 C 线验证的具体执行工作区间
+```
+
+所以如果一个 family 已经唯一对应一个 template，这一步只是确认字段，不额外拆分。
+
+但如果同一个 family 内可能出现多个 template，这一步就必须把它们拆开或标成 boundary。
+
 同一个上层路线里的对象也可能有不同 hardware template。
 
 例如 attention 路线中：
@@ -189,8 +203,9 @@ Route Primitive 相同 -> 继续看 Hardware Execution Template
 判断：
 
 ```text
-Hardware Template 不同 -> 拆开
-Hardware Template 相同 -> 继续看 shape / size regime
+family 已唯一约束 template -> 只确认，不额外拆分
+同 family 内 template 不同 -> 拆开或 boundary
+Hardware Template 相同或相容 -> 继续看 shape / size regime
 ```
 
 ## 8. 第 5 层：看 shape / size regime

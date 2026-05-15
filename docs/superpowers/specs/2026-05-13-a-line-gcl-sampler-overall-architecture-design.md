@@ -663,7 +663,7 @@ GCL selector 应支持两种 K selection modes。
 
 目的：
 
-- 让 GCL-M0 能与当前 deterministic PKA selector 比较。
+- 作为 GCL-M0 的 baseline/ablation mode，让结果能与当前 deterministic PKA selector 直接比较。
 
 默认：
 
@@ -686,6 +686,7 @@ Representative：
 目的：
 
 - 对齐 GCL-Sampler 论文中的 clustering intent。
+- 作为 GCL-M0 默认 mode，让 embedding space 自己决定更合适的 cluster count。
 
 行为：
 
@@ -693,7 +694,7 @@ Representative：
 - 选择 silhouette coefficient 最大的 K。
 - 当多个 K 近似等价时，选择更小的 K。
 
-第一版实现应保留 deterministic fixed-K 作为默认模式，并把 silhouette-K 作为显式 mode。这样可以避免早期结果把 representation quality 与 K policy 变化混在一起。
+GCL-M0 第一版应同时实现 deterministic fixed-K 和 silhouette-K。默认使用 silhouette-K，以便 M0 更贴近 GCL-Sampler 论文；deterministic fixed-K 必须作为显式 mode 保留，用于和 PKA selector 做 ablation 对照。
 
 ## 17. Evaluation Semantics
 

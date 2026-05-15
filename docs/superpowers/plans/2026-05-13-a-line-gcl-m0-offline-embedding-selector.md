@@ -4,7 +4,7 @@
 
 **目标：** 构建第一条 GCL 路径：消费 fixture/offline kernel embeddings，并输出可与 PKA-M0 比较的 GCL cluster、anchor 和 structural compression artifacts。
 
-**架构：** 新增一个 GCL-specific selector core，负责校验 embedding rows、归一化 embeddings、运行 deterministic farthest-first K-Means，并构建 anchor/evaluation rows。再新增一个薄 wrapper `gcl_m0_pipeline.py`，读取 fixture embedding table，并把 artifacts 写入指定 output directory。PKA 代码保持不变，只在 GCL core 中导入共享的 deterministic K-Means helpers。
+**架构：** 新增一个 GCL-specific selector core，负责校验 embedding rows、归一化 embeddings、支持 silhouette-K 和 deterministic fixed-K 两种 K selection modes，并构建 anchor/evaluation rows。默认使用 `silhouette_k`，同时保留 `deterministic_fixed_k` 作为 PKA 对照/ablation mode。再新增一个薄 wrapper `gcl_m0_pipeline.py`，读取 fixture embedding table，并把 artifacts 写入指定 output directory。PKA 代码保持不变，只在 GCL core 中导入共享的 deterministic K-Means helpers。
 
 **技术栈：** Python 3、NumPy、pytest，以及现有 `experiments/baseline_diagnosis` artifact helpers。
 
@@ -16,11 +16,12 @@
 
 - fixture/offline embedding table input
 - embedding validation
-- deterministic fixed-K clustering
+- silhouette-K clustering by default
+- deterministic fixed-K clustering as explicit ablation mode
 - representative anchor export
 - structural compression evaluation
 
-本计划不实现 trace acquisition、graph construction、RGCN training、graph augmentation、silhouette-K、simulator execution 或 cross-architecture evaluation。这些内容属于后续 GCL-M1/M2/M3 计划。
+本计划不实现 trace acquisition、graph construction、RGCN training、graph augmentation、simulator execution 或 cross-architecture evaluation。这些内容属于后续 GCL-M1/M2/M3 计划。
 
 ## 文件结构
 
@@ -495,7 +496,9 @@ def test_build_gcl_outputs_uses_embeddings_and_writes_comparable_semantics():
 
     assert outputs["embedding_table"]["representation_mode"] == "gcl_m0_embedding_fixture"
     assert outputs["clusters"]["method"] == "deterministic_farthest_first_kmeans"
-    assert outputs["clusters"]["k_selection"]["mode"] == "deterministic_fixed_k"
+    assert outputs["clusters"]["k_selection"]["mode"] == "silhouette_k"
+    assert outputs["clusters"]["k_selection"]["selected_k"] == 2
+    assert set(outputs["clusters"]["k_selection"]["silhouette_scores"]) == {"2", "3"}
     assert outputs["clusters"]["k"] == 2
     assert outputs["anchors"]["selector_name"] == "gcl_m0_embedding_selector"
     assert outputs["anchors"]["forbidden_field_audit"]["status"] == "passed"
@@ -506,6 +509,22 @@ def test_build_gcl_outputs_uses_embeddings_and_writes_comparable_semantics():
     assert outputs["evaluation"]["top_k_coverage"]["1"] == 0.5
     assert outputs["evaluation"]["top_k_coverage"]["2"] == 1.0
     assert outputs["deterministic_replay_hash"]
+
+
+def test_build_gcl_outputs_supports_explicit_fixed_k_mode():
+    records = json.loads(FIXTURE_PATH.read_text())
+
+    outputs = gcl.build_gcl_outputs(
+        records,
+        mode="gcl_m0_embedding_fixture",
+        representation_mode="gcl_m0_embedding_fixture",
+        k_selection_mode="deterministic_fixed_k",
+    )
+
+    assert outputs["clusters"]["k_selection"]["mode"] == "deterministic_fixed_k"
+    assert outputs["clusters"]["k_selection"]["selected_k"] == 2
+    assert outputs["clusters"]["k_selection"]["rule"] == "ceil(sqrt(n_records)), clamped to [2, n_records]"
+    assert outputs["clusters"]["k"] == 2
 ```
 
 - [ ] **步骤 2：运行 output test，确认它失败**
@@ -537,17 +556,102 @@ def _weights(records: list[dict[str, Any]], weight_mode: str) -> list[float]:
     return [1.0 for _ in records]
 
 
+def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
+    return math.sqrt(_dist2(a, b))
+
+
+def _silhouette_score(points: np.ndarray, assignments: list[int]) -> float:
+    labels = sorted(set(assignments))
+    if len(labels) < 2 or len(labels) >= len(points):
+        return -1.0
+
+    scores = []
+    for idx, point in enumerate(points):
+        own_label = assignments[idx]
+        own_members = [j for j, label in enumerate(assignments) if label == own_label and j != idx]
+        if not own_members:
+            scores.append(0.0)
+            continue
+        a_distance = float(np.mean([_euclidean(point, points[j]) for j in own_members]))
+
+        other_distances = []
+        for label in labels:
+            if label == own_label:
+                continue
+            members = [j for j, member_label in enumerate(assignments) if member_label == label]
+            other_distances.append(float(np.mean([_euclidean(point, points[j]) for j in members])))
+        b_distance = min(other_distances)
+        denominator = max(a_distance, b_distance)
+        scores.append(0.0 if denominator == 0 else (b_distance - a_distance) / denominator)
+    return float(np.mean(scores))
+
+
+def _run_kmeans_with_selection(
+    points: np.ndarray,
+    record_ids: list[str],
+    k_selection_mode: str,
+) -> tuple[list[int], list[list[float]], dict[str, Any], dict[str, Any]]:
+    if k_selection_mode == "deterministic_fixed_k":
+        assignments, centers, kmeans_meta = farthest_first_kmeans(points, record_ids)
+        k_selection = {
+            "mode": "deterministic_fixed_k",
+            "rule": "ceil(sqrt(n_records)), clamped to [2, n_records]",
+            "n_records": len(record_ids),
+            "selected_k": kmeans_meta["k"],
+        }
+        return assignments, centers, kmeans_meta, k_selection
+
+    if k_selection_mode != "silhouette_k":
+        raise ValueError(f"unsupported k_selection_mode: {k_selection_mode}")
+
+    n_records = len(record_ids)
+    if n_records < 3:
+        assignments, centers, kmeans_meta = farthest_first_kmeans(points, record_ids)
+        k_selection = {
+            "mode": "silhouette_k",
+            "candidate_k": [],
+            "silhouette_scores": {},
+            "fallback": "n_records_less_than_3",
+            "selected_k": kmeans_meta["k"],
+        }
+        return assignments, centers, kmeans_meta, k_selection
+
+    max_k = min(n_records - 1, max(2, math.ceil(math.sqrt(n_records)) * 2))
+    candidate_k = list(range(2, max_k + 1))
+    scored = []
+    for k in candidate_k:
+        assignments, centers, kmeans_meta = farthest_first_kmeans(points, record_ids, k=k)
+        score = _silhouette_score(points, assignments)
+        scored.append((score, -k, k, assignments, centers, kmeans_meta))
+
+    best_score, _, selected_k, assignments, centers, kmeans_meta = max(scored, key=lambda row: (row[0], row[1]))
+    k_selection = {
+        "mode": "silhouette_k",
+        "candidate_k": candidate_k,
+        "silhouette_scores": {str(k): score for score, _, k, *_ in scored},
+        "selected_k": selected_k,
+        "selected_score": best_score,
+        "tie_breaker": "smaller_k",
+    }
+    return assignments, centers, kmeans_meta, k_selection
+
+
 def build_gcl_outputs(
     records: list[dict[str, Any]],
     mode: str,
     representation_mode: str,
     weight_mode: str = "member_count_fallback",
     timing_unit: str | None = None,
+    k_selection_mode: str = "silhouette_k",
 ) -> dict[str, Any]:
     validate_embedding_records(records, expected_representation_mode=representation_mode)
     sorted_records, record_ids, matrix = build_embedding_matrix(records)
     normalized, preprocessing = preprocess_embeddings(matrix)
-    assignments, centers, kmeans_meta = farthest_first_kmeans(normalized, record_ids)
+    assignments, centers, kmeans_meta, k_selection = _run_kmeans_with_selection(
+        normalized,
+        record_ids,
+        k_selection_mode,
+    )
     kmeans_meta["centroids"] = centers
     kmeans_meta["distance"] = "squared_euclidean_in_normalized_embedding_space"
 
@@ -614,11 +718,6 @@ def build_gcl_outputs(
         })
 
     sorted_anchor_weights = sorted((row["coverage_weight"] for row in anchor_rows), reverse=True)
-    k_selection = {
-        "mode": "deterministic_fixed_k",
-        "rule": "ceil(sqrt(n_records)), clamped to [2, n_records]",
-        "n_records": len(record_ids),
-    }
     forbidden_field_audit = {
         "status": "passed",
         "forbidden_fields": sorted(FORBIDDEN_SELECTOR_FIELDS),
@@ -714,7 +813,7 @@ pytest -q experiments/baseline_diagnosis/tests/test_gcl_selector_core.py
 预期：
 
 ```text
-5 passed
+6 passed
 ```
 
 - [ ] **步骤 5：提交**
@@ -753,6 +852,7 @@ def test_gcl_m0_pipeline_writes_deterministic_artifacts(tmp_path):
 
     assert outputs["embedding_table"]["artifact_name"] == "gcl_embedding_table_l1"
     assert outputs["clusters"]["method"] == "deterministic_farthest_first_kmeans"
+    assert outputs["clusters"]["k_selection"]["mode"] == "silhouette_k"
     assert outputs["anchors"]["selector_name"] == "gcl_m0_embedding_selector"
     assert outputs["evaluation"]["metric_scope"] == "structural_only_not_simulator_accuracy"
     assert outputs["evaluation"]["compression_ratio"] == 2.0
@@ -924,7 +1024,7 @@ pytest -q \
 预期：
 
 ```text
-7 passed
+8 passed
 ```
 
 - [ ] **步骤 4：提交**
@@ -972,6 +1072,7 @@ import gcl_m0_pipeline
 
 out = Path("$tmpdir")
 outputs = gcl_m0_pipeline.run(output_dir=out)
+assert outputs["clusters"]["k_selection"]["mode"] == "silhouette_k"
 assert outputs["evaluation"]["compression_ratio"] == 2.0
 assert (out / "gcl_embedding_table_l1.json").exists()
 assert (out / "gcl_kmeans_clusters_l1.json").exists()
@@ -1025,6 +1126,7 @@ Spec 覆盖：
 - GCL-M0 fixture embedding input 由任务 1 覆盖。
 - Embedding validation 和 finite numeric checks 由任务 1、任务 2 覆盖。
 - 在 embeddings 上 clustering，而不是在 PKA 12D features 上 clustering，由任务 3 覆盖。
+- 默认 silhouette-K 与 explicit deterministic fixed-K ablation mode 由任务 3 覆盖。
 - Anchor artifact 和 structural compression evaluation 由任务 3、任务 4 覆盖。
 - `representation_mode = "gcl_m0_embedding_fixture"` 由任务 1、任务 3、任务 4 覆盖。
 - Forbidden-field audit 由任务 2、任务 3 覆盖。
@@ -1035,7 +1137,7 @@ Spec 覆盖：
 
 - 不包含 trace acquisition、graph construction、RGCN training 或 simulator accuracy。
 - 不修改现有 PKA production file。
-- K selection 只使用 deterministic fixed-K。
+- K selection 默认使用 silhouette-K，并保留 deterministic fixed-K 作为显式 ablation mode。
 
 验证命令：
 

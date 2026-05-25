@@ -181,6 +181,30 @@ Embedding layer 是 GCL 中对应 PKA PCA projection artifact 的部分。
 
 - 在不要求 trace graph generation 或 model training 的前提下，先验证 GCL 作为 selector representation 的可行性。
 
+最小闭环定义：
+
+```text
+fixture/offline embedding table
+  -> embedding row validation
+  -> stable record ordering
+  -> z-score embedding normalization
+  -> K selection
+  -> deterministic K-Means
+  -> nearest-centroid representative selection
+  -> structural compression evaluation
+  -> replayable GCL artifacts
+```
+
+这里的“最小闭环”有四层含义。
+
+第一，M0 的输入已经是 embedding table，而不是 raw trace、trace graph 或 RGCN checkpoint。M0 不追问 embedding 如何产生，只要求 embedding row 满足 selector input contract。这样可以先验证 GCL representation 能否接入现有 representative compression 语义。
+
+第二，M0 必须覆盖从输入校验到 artifact 写出的完整 selector 路径。它不能只停在“读入 embedding”或“跑出 cluster assignment”。一个 M0 run 必须能产出 anchor、membership、coverage、weight 和 structural evaluation，否则还没有形成可与 PKA 对齐的闭环。
+
+第三，M0 的输出必须可 replay、可比较、可审计。相同 embedding rows、相同 `k_selection_mode` 和相同排序规则应得到稳定的 cluster / anchor / evaluation artifacts，并记录 replay hash、normalization config、K selection metadata 和 forbidden-field audit。
+
+第四，M0 的闭环只验证 selector interface 和 artifact semantics，不验证 learned representation quality。它不能声称 simulator accuracy、cycle error、cross-architecture robustness 或 causal speedup。
+
 输入：
 
 - fixture embedding table，每个 kernel invocation 一行
@@ -195,12 +219,27 @@ Embedding layer 是 GCL 中对应 PKA PCA projection artifact 的部分。
 
 必要行为：
 
-- 校验 embedding dimensionality 和 numeric values。
-- 在 embeddings 上运行 clustering，而不是使用 PKA 12D features。
-- 在字段重合处，输出与 PKA 结构一致的 anchors。
+- 校验 `record_id` / `kernel_invocation_id`、`representation_mode`、embedding dimensionality、finite numeric values、hash fields 和 forbidden fields。
+- 按 stable `record_id` 排序，保证相同输入的 replay 顺序稳定。
+- 对 embeddings 做 z-score normalization，并在 artifact 中记录 mean、std、zero-std dimensions 和 normalization mode。
+- 默认使用 `silhouette_k` 做 K selection，同时支持 `deterministic_fixed_k` 作为显式 ablation mode。
+- 在 normalized embeddings 上运行 deterministic K-Means，而不是使用 PKA 12D features。
+- 每个 cluster 选择距离 centroid 最近的真实 record 作为 representative，不生成 synthetic representative。
+- 计算 structural compression metrics，包括 anchor count、compression ratio、coverage count、weighted coverage、top-k coverage、anchor balance 和 cluster size distribution。
+- 在字段重合处，输出与 PKA 结构一致的 anchors，并保留 GCL-specific `representation_mode` / embedding hash / K selection metadata。
 - 保留 `representation_mode = "gcl_m0_embedding_fixture"`。
 
-当 PKA-style selector 能由 embedding rows 驱动并产出可比较 anchor artifacts 时，M0 完成。
+闭环边界：
+
+- M0 不采集 NVBit trace。
+- M0 不构建 trace graph。
+- M0 不训练 RGCN。
+- M0 不做 graph augmentation。
+- M0 不运行 simulator。
+- M0 不报告 sampled simulation accuracy。
+- M0 不报告 causal performance contribution。
+
+当 PKA-style selector 能由 embedding rows 驱动，并稳定产出可比较、可 replay、可审计的 GCL anchor / cluster / evaluation artifacts 时，M0 完成。
 
 ### 6.2 GCL-M1：Trace Graph Construction
 

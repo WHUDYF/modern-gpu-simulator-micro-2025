@@ -88,7 +88,155 @@ selector 是否使用了 forbidden fields？
 
 ---
 
-## 4. 输入契约
+## 4. GCL 压缩方法在 M0 中的含义
+
+GCL-Sampler 的最终目标不是压缩 trace 文件本身，而是在 sampled simulation 场景下用少量 representative kernel invocations 代表完整 workload。
+
+在 M0 中，压缩方法被限定为 selector-side representative compression：
+
+```text
+N 个 kernel invocation records
+  -> embedding space 中的 K 个 clusters
+  -> K 个 representative anchors
+```
+
+因此，M0 的压缩对象是：
+
+```text
+kernel invocation set
+```
+
+不是：
+
+```text
+SASS trace bytes
+trace graph nodes / edges
+RGCN training samples
+simulator execution cycles
+```
+
+### 4.1 压缩流程
+
+M0 的 representative compression 由四步组成。
+
+第一，使用 embedding 表示每个 kernel invocation：
+
+```text
+kernel invocation -> embedding vector
+```
+
+第二，在 normalized embedding space 中执行 K selection 和 deterministic K-Means：
+
+```text
+embedding vectors -> clusters
+```
+
+第三，在每个 cluster 中选择距离 centroid 最近的真实 record：
+
+```text
+cluster -> nearest-centroid real representative
+```
+
+第四，用 representative anchors 覆盖原始 members，并计算 structural compression metrics：
+
+```text
+representative anchors -> coverage / compression evaluation
+```
+
+### 4.2 压缩比含义
+
+M0 中的 compression ratio 是 structural compression ratio：
+
+```text
+compression_ratio = input_record_count / anchor_count
+```
+
+例如：
+
+```text
+input_record_count = 100
+anchor_count = 8
+compression_ratio = 12.5
+```
+
+这只表示 100 个 kernel invocation records 被 8 个 representative anchors 覆盖。
+
+它不等价于：
+
+```text
+trace file size reduction
+measured simulator speedup
+sampled reconstruction accuracy
+```
+
+这些 claim 必须等到后续 M3 存在 full-vs-sampled simulator evaluation 后才能提出。
+
+### 4.3 与完整 GCL-Sampler 的关系
+
+完整 GCL-Sampler 的 compression path 是：
+
+```text
+trace graph / RGCN embedding
+  -> clustering
+  -> representative simulation points
+  -> sampled simulation
+```
+
+M0 只验证后半段：
+
+```text
+embedding
+  -> clustering
+  -> representative anchors
+  -> structural compression evaluation
+```
+
+M0 不验证前半段：
+
+```text
+trace acquisition
+trace graph construction
+graph size control
+RGCN contrastive learning
+kernel embedding quality
+```
+
+所以 M0 可以证明 GCL 的 selector-side compression contract 已经闭合，但不能证明 GCL 的 trace-to-embedding pipeline 已经可用。
+
+### 4.4 与 PKA 的比较边界
+
+M0 应和 PKA 在同一层比较：
+
+```text
+PKA feature space -> clustering -> representative anchors
+GCL embedding space -> clustering -> representative anchors
+```
+
+比较对象是：
+
+```text
+anchor_count
+compression_ratio
+coverage_count
+weighted_coverage
+cluster_size_distribution
+anchor_balance
+```
+
+不是：
+
+```text
+cycle error
+IPC error
+cache metric error
+measured speedup
+```
+
+后者属于 simulator-side evaluation，不属于 M0。
+
+---
+
+## 5. 输入契约
 
 输入是 embedding table。每条 row 至少包含：
 
@@ -112,7 +260,7 @@ representation_mode = gcl_m0_embedding_fixture
 
 M0 不关心 embedding 是怎么来的，可以是 fixture，也可以是离线导出结果。它只关心该 embedding table 是否满足 selector contract。
 
-### 4.1 字段语义
+### 5.1 字段语义
 
 `record_id`：
 
@@ -152,7 +300,7 @@ M0 不关心 embedding 是怎么来的，可以是 fixture，也可以是离线�
 
 ---
 
-## 5. 输入验证
+## 6. 输入验证
 
 GCL-M0 必须严格校验 input rows。
 
@@ -174,7 +322,7 @@ GCL-M0 必须严格校验 input rows。
 
 ---
 
-## 6. 禁止字段
+## 7. 禁止字段
 
 selector input 不允许包含或使用：
 
@@ -205,7 +353,7 @@ M0 要验证 embedding 本身能否做 representative compression，
 
 ---
 
-## 7. Normalization
+## 8. Normalization
 
 M0 在 clustering 前必须对 embedding 做 z-score normalization。
 
@@ -226,7 +374,7 @@ Normalization 的目的不是改变 embedding 语义，而是避免某些维度�
 
 ---
 
-## 8. K Selection
+## 9. K Selection
 
 GCL-M0 支持两种 mode：
 
@@ -241,7 +389,7 @@ deterministic_fixed_k
 silhouette_k
 ```
 
-### 8.1 `silhouette_k`
+### 9.1 `silhouette_k`
 
 `silhouette_k` 用来贴近 GCL-Sampler 论文，让 embedding space 自己决定 cluster count。
 
@@ -264,7 +412,7 @@ artifact 必须记录：
 - tie-breaker rule；
 - final K-Means metadata。
 
-### 8.2 `deterministic_fixed_k`
+### 9.2 `deterministic_fixed_k`
 
 `deterministic_fixed_k` 用作 PKA 对照：
 
@@ -284,7 +432,7 @@ GCL embedding + silhouette-K
 
 ---
 
-## 9. Clustering
+## 10. Clustering
 
 M0 使用 deterministic K-Means。
 
@@ -320,7 +468,7 @@ K-Means metadata 至少记录：
 
 ---
 
-## 10. Representative Selection
+## 11. Representative Selection
 
 每个 cluster 选一个真实 record：
 
@@ -334,7 +482,7 @@ nearest real record to centroid
 
 ---
 
-## 11. 输出 Artifacts
+## 12. 输出 Artifacts
 
 M0 输出四类 artifacts：
 
@@ -345,7 +493,7 @@ gcl_representative_anchor_table_l1.json
 gcl_compression_evaluation_l1.json
 ```
 
-### 11.1 `gcl_embedding_table_l1.json`
+### 12.1 `gcl_embedding_table_l1.json`
 
 记录：
 
@@ -357,7 +505,7 @@ gcl_compression_evaluation_l1.json
 - embedding hash；
 - normalization config。
 
-### 11.2 `gcl_kmeans_clusters_l1.json`
+### 12.2 `gcl_kmeans_clusters_l1.json`
 
 记录：
 
@@ -370,7 +518,7 @@ gcl_compression_evaluation_l1.json
 - inertia；
 - replay hash。
 
-### 11.3 `gcl_representative_anchor_table_l1.json`
+### 12.3 `gcl_representative_anchor_table_l1.json`
 
 记录：
 
@@ -382,7 +530,7 @@ gcl_compression_evaluation_l1.json
 - representative distance to centroid；
 - forbidden-field audit。
 
-### 11.4 `gcl_compression_evaluation_l1.json`
+### 12.4 `gcl_compression_evaluation_l1.json`
 
 记录：
 
@@ -396,7 +544,7 @@ gcl_compression_evaluation_l1.json
 
 ---
 
-## 12. Evaluation Scope
+## 13. Evaluation Scope
 
 M0 只做 structural evaluation。
 
@@ -426,7 +574,7 @@ causal contribution
 
 ---
 
-## 13. Replay 与 Audit
+## 14. Replay 与 Audit
 
 M0 的 artifacts 必须足以 replay 和审计。
 
@@ -451,7 +599,7 @@ selector 是否使用 forbidden fields？
 
 ---
 
-## 14. 与 Joint Mechanism Network 的关系
+## 15. 与 Joint Mechanism Network 的关系
 
 GCL-M0 本身不做 mechanism attribution、knob matching 或 validation priority。
 
@@ -481,7 +629,7 @@ embedding_ref
 
 ---
 
-## 15. 非目标
+## 16. 非目标
 
 GCL-M0 不做：
 
@@ -507,7 +655,7 @@ M0 也不声称：
 
 ---
 
-## 16. 成功标准
+## 17. 成功标准
 
 GCL-M0 完成标准：
 
@@ -525,7 +673,7 @@ GCL-M0 完成标准：
 
 ---
 
-## 17. 和后续阶段的关系
+## 18. 和后续阶段的关系
 
 M0 完成后：
 

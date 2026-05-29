@@ -33,7 +33,7 @@ real kernel trace graph
 第一版目标是跑通：
 
 ```text
-real kernel -> top-k mechanism microbench anchors -> top-k subtype/knob candidates
+real kernel -> adaptive mechanism microbench anchors -> ranked subtype/knob candidates
 ```
 
 而不是立即训练一个端到端调参模型。
@@ -67,7 +67,7 @@ SASS / trace
   -> heterogeneous relational graph
   -> R-GCN / graph contrastive learning
   -> kernel embedding
-  -> KMeans / clustering
+  -> KMeans / clustering with silhouette-selected K
   -> representative selection
 ```
 
@@ -148,18 +148,65 @@ similarity(real_kernel_i, microbench_anchor_j)
 
 ### 5.1 基本匹配
 
-对每个 real kernel / representative anchor，找 top-k mechanism microbench anchors：
+对每个 real kernel / representative anchor，找一组机制 microbench anchors。第一版不使用固定 `top_k = 5` 作为最终候选数，而采用与 GCL-Sampler 论文一致的思想：由 embedding 空间中的分离度决定候选数量。
 
 ```text
-top_k_anchors(real_kernel) =
-  nearest microbench anchors in embedding space
+candidate_anchors(real_kernel) =
+  adaptive nearest microbench anchors in embedding space
 ```
 
 推荐第一版使用：
 
 ```text
 cosine similarity
-top_k = 5
+max_candidate_anchors = 5
+selection_policy = adaptive_silhouette_or_gap
+```
+
+其中 `max_candidate_anchors = 5` 只是搜索上限，不是最终固定输出数量。
+
+### 5.2 Adaptive Candidate Count
+
+GCL-Sampler 论文在 clustering 阶段用 silhouette coefficient 选择 cluster 数量，并在分数接近时偏向更小的 `K`。我们在 nearest-anchor matching 中采用同样原则：
+
+```text
+1. 对 real kernel 与所有 microbench anchors 计算 cosine similarity；
+2. 取最多 max_candidate_anchors 个最近 anchors 作为候选池；
+3. 对候选池的 embedding / similarity 分布计算分离度；
+4. 选择能形成清晰机制邻域的最小 candidate count；
+5. 如果候选分数接近且跨 family / subtype，则保留 mixed / boundary 标记，而不是强行输出固定 5 个候选。
+```
+
+第一版可实现两个等价策略：
+
+```text
+adaptive_silhouette:
+  对候选池中 k=1..max_candidate_anchors 的局部机制分组计算 silhouette-like separation；
+  选择分离度最高的 k；
+  如果多个 k 分数接近，选择更小的 k。
+
+adaptive_gap:
+  按 similarity 排序；
+  寻找明显 score gap；
+  gap 前的 anchors 作为候选；
+  如果没有明显 gap，则最多保留 max_candidate_anchors 并标记 low_separation。
+```
+
+默认策略：
+
+```text
+adaptive_silhouette if enough anchors exist
+otherwise adaptive_gap
+```
+
+输出必须记录：
+
+```text
+selected_anchor_count
+max_candidate_anchors
+selection_policy
+separation_score
+low_separation flag
 ```
 
 输出示例：
@@ -167,6 +214,13 @@ top_k = 5
 ```json
 {
   "record_id": "real_kernel_A",
+  "anchor_selection": {
+    "selection_policy": "adaptive_silhouette",
+    "selected_anchor_count": 1,
+    "max_candidate_anchors": 5,
+    "separation_score": 0.64,
+    "low_separation": false
+  },
   "nearest_microbench_anchors": [
     {
       "anchor_id": "mb_fp64_pipeline_v1",
@@ -179,7 +233,7 @@ top_k = 5
 }
 ```
 
-### 5.2 Mechanism Candidate Score
+### 5.3 Mechanism Candidate Score
 
 第一版 score 使用确定性公式：
 
@@ -194,12 +248,12 @@ anchor_candidate_score =
 
 ```text
 subtype_score =
-  weighted_top_mean(anchor_candidate_scores for subtype)
+  weighted_mean(selected anchor_candidate_scores for subtype)
 ```
 
-推荐第一版使用 top-2 weighted mean，避免单个异常 anchor 主导。
+`selected anchors` 由 adaptive candidate count 决定，避免固定 `top-2` 或固定 `top-5` 这种工程常数。若只有一个 anchor 被选中，必须在 audit 中记录单 anchor sensitivity。
 
-### 5.3 Mixed Mechanism
+### 5.4 Mixed Mechanism
 
 真实 kernel 可能同时靠近多个 anchors。第一版不强行单标签，输出 distribution / ranking：
 
@@ -362,7 +416,7 @@ microbench_anchor_dataset_card.md
 目标：
 
 ```text
-对每个 real kernel / representative 找 top-k mechanism anchors。
+对每个 real kernel / representative 自适应选择 mechanism anchors。
 ```
 
 输出：
@@ -375,7 +429,7 @@ gcl_anchor_matching_report.md
 验收：
 
 ```text
-每个 real kernel 有 top-k anchors、similarity、anchor label quality 和 audit。
+每个 real kernel 有 selected anchors、similarity、anchor label quality、selection_policy 和 audit。
 ```
 
 ### Stage 3 - Registry-Constrained Candidate Export
@@ -477,6 +531,13 @@ abstain / boundary loss
     {
       "record_id": "real_kernel_A",
       "cluster_id": "gcl_cluster_03",
+      "anchor_selection": {
+        "selection_policy": "adaptive_silhouette",
+        "selected_anchor_count": 1,
+        "max_candidate_anchors": 5,
+        "separation_score": 0.64,
+        "low_separation": false
+      },
       "nearest_anchors": [
         {
           "anchor_id": "mb_fp64_pipeline_v1",
@@ -602,7 +663,7 @@ C-Line 仍负责：
 
 ```text
 只把 microbench 当 prototype，不当 real workload ground truth。
-输出 top-k candidates 和 boundary flags。
+输出 ranked candidates 和 boundary flags。
 用 validation feedback 校正。
 ```
 
@@ -649,7 +710,7 @@ C-Line 仍负责：
 
 1. 已复现或读取 GCL kernel embeddings；
 2. microbench anchors 能进入同一个 embedding 空间；
-3. real kernel 能输出 top-k nearest mechanism anchors；
+3. real kernel 能输出自适应选择的 nearest mechanism anchors；
 4. anchor candidates 能映射到合法 family / subtype；
 5. subtype candidates 能通过 registry 映射到 knob candidates；
 6. validation priority 明确包含 time、similarity、quality、purity、readiness；

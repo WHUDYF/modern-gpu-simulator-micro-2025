@@ -189,18 +189,28 @@ position_source = normalized PC
 instruction_feature_dim = 64
 ```
 
-Instruction token ID 的 dense embedding 是 learned embedding。Normalized PC positional encoding 是 deterministic input feature 或 deterministic encoding。两者如何 combine 可以采用以下一种方式，但必须在 manifest 中记录：
+Instruction token ID 的 dense embedding 是 learned embedding。Normalized PC positional encoding 是 deterministic input feature。Phase A 默认 combine 方式固定为：
+
+```text
+concat_opcode63_normalized_pc1
+```
+
+具体配置：
+
+```text
+instruction_feature_combine = concat_opcode63_normalized_pc1
+opcode_embedding_dim = 63
+normalized_pc_dim = 1
+position_encoding_method = normalized_pc_scalar
+```
+
+以下方式只能作为 ablation 或 future extension，不作为 Phase A 默认：
 
 ```text
 concat_then_projection_to_64
 add_after_matching_dim_projection
 paper_compatible_encoder_default
-```
-
-Phase A 推荐默认：
-
-```text
-instruction_feature_combine = paper_compatible_encoder_default
+sinusoidal_normalized_pc_v1
 ```
 
 ### 5.2 Variable Node Feature
@@ -486,7 +496,7 @@ Phase A 完成标准：
 6. `node_feature_schema` 记录 strict paper reproduction mode；
 7. variable node 使用 32 维 token embedding + 8 维 dynamic value statistics + `[40:64)` zero padding；
 8. pseudo node 使用 16 维 token embedding + `[16:64)` zero padding；
-9. instruction node 使用 opcode token dense embedding + normalized PC derived positional encoding 生成 64 维 feature；
+9. instruction node 默认使用 63 维 opcode token dense embedding + 1 维 normalized PC scalar 生成 64 维 feature；
 10. 能通过 minimal RGCN contrastive training 生成 kernel embedding；
 11. embedding table 满足 M0 输入契约；
 12. 能调用 M0 selector 输出 cluster / representative anchor / structural evaluation artifacts；

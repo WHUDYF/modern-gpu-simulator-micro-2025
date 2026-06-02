@@ -6,16 +6,17 @@
 
 这份 spec 定义 GCL Phase A 中 instruction node 的 `normalized_pc_positional_encoding` 如何生成。
 
-它对应 Phase A node feature schema 中的这一段：
+它对应 GCL-Sampler 论文中这句话的工程解释：
 
 ```text
-instruction node feature:
-  [16:24) normalized_pc_positional_encoding
+dense embedding of opcode token ID
++ positional encoding derived from normalized PC value
+-> 64-dimensional instruction node feature
 ```
 
-这 8 维 positional encoding 的作用是让 instruction node 不只知道“自己是什么 opcode”，还知道“自己大概位于 kernel code 的什么位置”。
+GCL-Sampler 论文没有规定 positional encoding 在 64 维 instruction feature 内部的固定 index range。因此 Phase A strict paper reproduction 不默认使用 `[16:24)` 这类固定 block。
 
-这份 spec 不改变 GCL-Sampler 的整体流程，也不替代 Phase A spec。它只细化 instruction node 64 维 feature 中的 position block。
+这份 spec 不改变 GCL-Sampler 的整体流程，也不替代 Phase A spec。它只定义 normalized PC 如何产生，以及 positional encoding config 如何记录。
 
 ## 2. 背景问题
 
@@ -60,7 +61,7 @@ dense embedding of opcode token ID
 + positional encoding derived from normalized PC value
 ```
 
-我们在 Phase A 中把后者落到 `[16:24)` 这 8 维 block。
+Phase A strict paper reproduction 不固定该 encoding 在 64 维 instruction feature 内部的 index range。具体 combine 方式必须通过 manifest 记录。
 
 ## 3. PC 与 Normalized PC
 
@@ -105,16 +106,16 @@ pc_range_degenerate = true
 
 ## 4. 默认 Encoding 方法
 
-Phase A 默认使用 deterministic sinusoidal positional encoding。
+GCL-Sampler 论文没有明确给出 positional encoding 的具体公式。Phase A 可以使用 deterministic sinusoidal positional encoding 作为工程默认，但必须把它标记为 implementation choice，而不是论文原文 claim。
 
 输入：
 
 ```text
 normalized_pc in [0, 1]
-encoding_dim = 8
+encoding_dim = implementation-defined
 ```
 
-频率：
+若实现选择 8 维 sinusoidal encoding，频率可以定义为：
 
 ```text
 frequency_j = 2^j * 2*pi
@@ -134,21 +135,14 @@ pe[6] = sin(normalized_pc * frequency_3)
 pe[7] = cos(normalized_pc * frequency_3)
 ```
 
-这 8 个值写入：
-
-```text
-instruction_node_feature[16:24)
-```
-
 默认 block 属性：
 
 ```text
 block_name = normalized_pc_positional_encoding
-start_index = 16
-end_index = 24
 block_kind = fixed_numeric
 trainable = false
 encoding_method = sinusoidal_normalized_pc_v1
+paper_defined_formula = false
 ```
 
 ## 5. 为什么使用 Sinusoidal Encoding
@@ -258,8 +252,7 @@ Tensorization 必须在 `node_feature_schema` 或 tensor manifest 中记录：
 ```text
 positional_encoding_config:
   block_name
-  start_index
-  end_index
+  index_range
   position_source
   normalization_scope
   encoding_method
@@ -275,12 +268,11 @@ Phase A 默认：
 
 ```text
 block_name = normalized_pc_positional_encoding
-start_index = 16
-end_index = 24
+index_range = not_fixed_by_paper
 position_source = pc
 normalization_scope = per_kernel_invocation
 encoding_method = sinusoidal_normalized_pc_v1
-encoding_dim = 8
+encoding_dim = implementation_defined
 frequency_schedule = powers_of_two_times_2pi
 ```
 
@@ -295,22 +287,25 @@ encoder_manifest_hash
 
 ## 9. 可选模式
 
-第一版只要求默认模式：
+第一版 strict paper reproduction 只要求：
+
+```text
+position_source = normalized_pc
+encoding_method is recorded
+paper_defined_formula = false unless a paper-defined formula is implemented
+```
+
+允许的 implementation choices：
 
 ```text
 sinusoidal_normalized_pc_v1
-```
-
-允许作为 ablation 的模式：
-
-```text
 normalized_pc_scalar_plus_padding
 learned_pc_bucket_embedding
 trace_index_sinusoidal_encoding
 no_positional_encoding
 ```
 
-这些模式不得作为默认实现。若使用，必须记录：
+若使用，必须记录：
 
 ```text
 position_source
@@ -323,13 +318,9 @@ ablation_reason
 Instruction node 的 Phase A layout 是：
 
 ```text
-[0:16)   opcode_token_embedding
-[16:24)  normalized_pc_positional_encoding
-[24:32)  instruction_class_embedding
-[32:40)  operand_shape_embedding
-[40:48)  memory_access_embedding
-[48:56)  predicate_active_mask_features
-[56:64)  numeric_flags_or_reserved
+dense embedding(opcode token ID)
+  + positional encoding(normalized PC)
+  -> 64-dimensional instruction node feature
 ```
 
 其中：
@@ -339,7 +330,8 @@ opcode_token_embedding:
   learned embedding，训练中更新
 
 normalized_pc_positional_encoding:
-  fixed numeric feature，训练中不更新
+  deterministic input feature，训练中不更新；
+  在 64 维 feature 中的 index range 不由论文固定
 
 RGCN weights:
   训练中更新，并学习如何使用 position signal
@@ -360,13 +352,13 @@ edge relation type
 
 Phase A positional encoding 完成标准：
 
-1. 每个 instruction node 都能得到 8 维 `normalized_pc_positional_encoding`；
-2. 输出写入 `instruction_node_feature[16:24)`；
-3. normalized PC 使用 per-kernel invocation 的 `min_pc` / `max_pc`；
-4. `max_pc == min_pc` 时结果可复现，并记录 `pc_range_degenerate = true`；
-5. PC 缺失时不得静默生成随机值；
-6. `node_feature_schema` 记录 block range、encoding method、position source 和 trainable 状态；
+1. 每个 instruction node 都能得到由 normalized PC 派生的 positional encoding；
+2. normalized PC 使用 per-kernel invocation 的 `min_pc` / `max_pc`；
+3. `max_pc == min_pc` 时结果可复现，并记录 `pc_range_degenerate = true`；
+4. PC 缺失时不得静默生成随机值；
+5. `node_feature_schema` 记录 encoding method、position source 和 trainable 状态；
+6. `node_feature_schema` 不把固定 index range 伪装成论文要求；
 7. `tensor_hash` 和 `encoder_manifest_hash` 能反映 positional encoding config 的变化；
-8. 默认模式为 `sinusoidal_normalized_pc_v1`；
+8. `sinusoidal_normalized_pc_v1` 被标记为 implementation choice；
 9. trace index encoding 只作为 ablation，不作为默认模式；
-10. 该 block 与 Phase A `feature_width = 64` 的 instruction node schema 一致。
+10. 该 encoding 与 Phase A `feature_width = 64` 的 instruction node schema 一致。

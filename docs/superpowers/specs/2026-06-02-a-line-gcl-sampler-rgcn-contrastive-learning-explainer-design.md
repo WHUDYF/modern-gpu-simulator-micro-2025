@@ -220,7 +220,7 @@ block 内部的 learned embedding 维度不一定有人工语义。
 例如：
 
 ```text
-[0:16) opcode_token_embedding
+opcode token embedding block
 ```
 
 这个 block 的来源很明确：它来自 opcode token。但 block 内部的每一维不应该解释成：

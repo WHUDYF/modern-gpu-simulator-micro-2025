@@ -123,7 +123,7 @@ Phase A 默认：
 feature_width = 64
 ```
 
-`feature_width = 64` 对齐 GCL-Sampler 论文中的 RGCN input dimension。它不是 64 个固定人工语义维度，而是一个统一 node feature vector 宽度。不同 node type 使用不同 feature block layout，不足部分 zero-pad 到 64 维。
+`feature_width = 64` 对齐 GCL-Sampler 论文中的 RGCN input dimension。它不是 64 个固定人工语义维度，而是一个统一 node feature vector 宽度。Phase A 第一版必须优先复现论文描述的 node feature initialization，不引入论文没有明确给出的 instruction sub-block 拆分。
 
 M2 不得修改 canonical graph artifact。任何 tensorization result 都是派生产物，必须引用 `input_graph_hash`。
 
@@ -135,84 +135,84 @@ Phase A 必须把每个 graph node 编码成 64 维向量：
 node_features.shape = [node_count, 64]
 ```
 
-这些 64 维由 feature blocks 组成。Block 可以是：
+这些 64 维由论文定义的 node-type-specific initialization 产生。第一版只固定论文明确给出的组成关系：
 
 ```text
-learned embedding block
-fixed numeric feature block
-zero padding / reserved block
+instruction node:
+  dense embedding(opcode token ID)
+  + positional encoding(normalized PC)
+  -> 64-dimensional vector
+
+variable node:
+  32-dimensional token ID embedding
+  + 8-dimensional dynamic value statistics
+  = 40-dimensional vector
+  -> zero-pad to 64
+
+pseudo node:
+  16-dimensional token ID embedding
+  -> zero-pad to 64
 ```
 
-`learned embedding block` 中的每一维不是固定语义；它们是训练参数，会随着 contrastive learning 更新。`fixed numeric feature block` 才对应明确的数值统计或 flag。
+其中 dense embedding 内部的每一维不是固定人工语义；它们是训练参数，会随着 contrastive learning 更新。Dynamic value statistics 和 normalized PC derived positional encoding 属于固定数值输入或确定性编码。
 
 ### 5.1 Instruction Node Feature
 
 Instruction node 表示一条动态 SASS instruction。
 
-Phase A 推荐 layout：
+Phase A 默认严格按 GCL-Sampler 论文描述：
 
 ```text
-[0:16)   opcode_token_embedding
-[16:24)  normalized_pc_positional_encoding
-[24:32)  instruction_class_embedding
-[32:40)  operand_shape_embedding
-[40:48)  memory_access_embedding
-[48:56)  predicate_active_mask_features
-[56:64)  numeric_flags_or_reserved
+dense embedding(opcode token ID)
+  + positional encoding(normalized PC)
+  -> 64-dimensional instruction node feature
 ```
 
-字段含义：
+论文没有规定 instruction node 内部必须使用 `[0:16)`、`[16:24)` 这类固定 block range。因此 Phase A 第一版不得把 instruction feature 默认拆成：
 
-`opcode_token_embedding`：
+```text
+instruction_class_embedding
+operand_shape_embedding
+memory_access_embedding
+predicate_active_mask_features
+numeric_flags_or_reserved
+```
 
-- learned embedding；
-- 输入来自 normalized opcode token，例如 `LDG`、`STG`、`IMAD`、`FADD`、`BRA`；
-- 不直接把 opcode id 当连续数值使用。
+这些额外字段可以作为 Phase B/M2 ablation 或 future extension，但不能作为 Phase A strict paper reproduction 的默认 schema。
 
-`normalized_pc_positional_encoding`：
+Phase A 必须记录：
 
-- fixed numeric feature 或 deterministic encoding；
-- 输入来自 normalized PC 或 instruction position；
-- 用来保留 instruction 在 kernel code / trace ordering 中的位置线索。
-- 具体方法见 `docs/superpowers/specs/2026-06-02-a-line-gcl-phase-a-normalized-pc-positional-encoding-design.md`。
+```text
+instruction_feature_mode = paper_opcode_embedding_plus_normalized_pc_position
+opcode_token_source = opcode token ID
+position_source = normalized PC
+instruction_feature_dim = 64
+```
 
-`instruction_class_embedding`：
+Instruction token ID 的 dense embedding 是 learned embedding。Normalized PC positional encoding 是 deterministic input feature 或 deterministic encoding。两者如何 combine 可以采用以下一种方式，但必须在 manifest 中记录：
 
-- learned embedding；
-- 表示 load、store、integer arithmetic、floating arithmetic、control、barrier、special function、unknown 等粗粒度类别。
+```text
+concat_then_projection_to_64
+add_after_matching_dim_projection
+paper_compatible_encoder_default
+```
 
-`operand_shape_embedding`：
+Phase A 推荐默认：
 
-- learned embedding；
-- 表示 source operand count、destination operand count、register / predicate / immediate / memory operand pattern。
-
-`memory_access_embedding`：
-
-- learned embedding 或 fixed flags；
-- 表示 no memory、global load、global store、shared load、shared store、local memory、constant memory、unknown memory。
-
-`predicate_active_mask_features`：
-
-- fixed numeric features；
-- 表示是否 predicated、active lane count、active mask density 等。
-
-`numeric_flags_or_reserved`：
-
-- 第一版可以用于 is_branch、is_barrier、is_atomic、has_immediate、is_vectorized 等 flags；
-- 如果信息不可用，zero-pad，并在 `missing_value_policy` 中记录。
+```text
+instruction_feature_combine = paper_compatible_encoder_default
+```
 
 ### 5.2 Variable Node Feature
 
 Variable node 表示 register version、predicate、memory reference value、input variable 或 unknown variable。
 
-Phase A 推荐 layout：
+Phase A 默认严格按 GCL-Sampler 论文描述：
 
 ```text
 [0:32)   variable_token_embedding
 [32:40)  dynamic_value_statistics
-[40:48)  variable_kind_embedding
-[48:56)  producer_consumer_context
-[56:64)  zero_padding_or_reserved
+[40:64)  zero_padding
 ```
 
 字段含义：
@@ -242,33 +242,21 @@ skewness
 
 如果某个 variable 没有可用动态值，必须使用 `missing_value_policy` 明确处理，例如 zero-fill plus missing flag，不能静默写入随机值。
 
-`variable_kind_embedding`：
+`zero_padding`：
 
-- learned embedding；
-- 表示 register_version、predicate_version、memory_value、memory_address、input_variable、unknown_variable。
-
-`producer_consumer_context`：
-
-- fixed numeric features 或 small learned embedding；
-- 可记录 producer instruction class、consumer count bucket、last-use distance bucket 等。
-
-`zero_padding_or_reserved`：
-
-- 第一版默认 zero-pad；
-- 后续可以扩展，但必须更新 `node_feature_schema` 和 `tensorizer_version`。
+- `[40:64)` 必须 zero-pad；
+- Phase A strict reproduction 不在该区域加入 `variable_kind_embedding` 或 `producer_consumer_context`；
+- 后续扩展必须更新 `node_feature_schema`、`tensorizer_version` 和 `representation_mode`，并作为 ablation 与 strict reproduction 对照。
 
 ### 5.3 Pseudo Node Feature
 
 Pseudo node 表示不是单条 SASS instruction、但对 graph learning 有意义的中间概念，例如 `mem_ref`。
 
-Phase A 推荐 layout：
+Phase A 默认严格按 GCL-Sampler 论文描述：
 
 ```text
 [0:16)   pseudo_token_embedding
-[16:24)  pseudo_kind_embedding
-[24:32)  memory_access_class
-[32:40)  fan_in_fan_out_summary
-[40:64)  zero_padding_or_reserved
+[16:64)  zero_padding
 ```
 
 字段含义：
@@ -278,25 +266,11 @@ Phase A 推荐 layout：
 - learned embedding；
 - 输入来自 mem_ref、address_calc、predicate_context、unknown_pseudo 等 token。
 
-`pseudo_kind_embedding`：
+`zero_padding`：
 
-- learned embedding；
-- 表示 pseudo node 的粗粒度类别。
-
-`memory_access_class`：
-
-- learned embedding 或 fixed flags；
-- 对 `mem_ref` 记录 global、shared、local、constant、unknown 等类别。
-
-`fan_in_fan_out_summary`：
-
-- fixed numeric features；
-- 可记录 incoming edge count、outgoing edge count、data_source count、data_destination count 等归一化统计。
-
-`zero_padding_or_reserved`：
-
-- 第一版默认 zero-pad；
-- 后续扩展必须保持 schema version 可追踪。
+- `[16:64)` 必须 zero-pad；
+- Phase A strict reproduction 不在该区域加入 `pseudo_kind_embedding`、`memory_access_class` 或 `fan_in_fan_out_summary`；
+- 后续扩展必须保持 schema version 可追踪，并作为 ablation 与 strict reproduction 对照。
 
 ### 5.4 Schema Manifest
 
@@ -310,8 +284,11 @@ node_type_layouts
 embedding_blocks
 numeric_feature_blocks
 padding_blocks
+instruction_feature_mode
+instruction_feature_combine
 normalization_policy
 missing_value_policy
+paper_reproduction_mode
 ```
 
 每个 block 至少记录：
@@ -325,6 +302,7 @@ source_fields
 normalization
 default_value
 trainable
+paper_defined
 ```
 
 `block_kind` 允许：
@@ -339,7 +317,8 @@ reserved
 Phase A 默认 schema 名称：
 
 ```text
-node_feature_schema = gcl_m2_phase_a_node_feature_v1
+node_feature_schema = gcl_m2_phase_a_paper_node_feature_v1
+paper_reproduction_mode = strict_gcl_sampler_node_features
 ```
 
 任何后续修改都必须递增 schema version，并改变 `tensor_hash` / `encoder_manifest_hash`。
@@ -504,10 +483,13 @@ Phase A 完成标准：
 3. canonical graph artifact 包含 `warp_partitions`；
 4. 能完成 tensorization，并记录 `input_graph_hash`；
 5. `node_features.shape = [node_count, 64]`；
-6. `node_feature_schema` 记录每个 feature block 的来源、范围和 trainable 状态；
-7. 能通过 minimal RGCN contrastive training 生成 kernel embedding；
-8. embedding table 满足 M0 输入契约；
-9. 能调用 M0 selector 输出 cluster / representative anchor / structural evaluation artifacts；
-10. 不声称 learned embedding quality；
-11. 不声称 simulator accuracy；
-12. 不引入 instruction stream compression 作为前置条件。
+6. `node_feature_schema` 记录 strict paper reproduction mode；
+7. variable node 使用 32 维 token embedding + 8 维 dynamic value statistics + `[40:64)` zero padding；
+8. pseudo node 使用 16 维 token embedding + `[16:64)` zero padding；
+9. instruction node 使用 opcode token dense embedding + normalized PC derived positional encoding 生成 64 维 feature；
+10. 能通过 minimal RGCN contrastive training 生成 kernel embedding；
+11. embedding table 满足 M0 输入契约；
+12. 能调用 M0 selector 输出 cluster / representative anchor / structural evaluation artifacts；
+13. 不声称 learned embedding quality；
+14. 不声称 simulator accuracy；
+15. 不引入 instruction stream compression 作为前置条件。

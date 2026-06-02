@@ -52,7 +52,202 @@ Phase A 不处理：
 - instruction stream dedup；
 - simulator accuracy。
 
-## 3. M1 输出：Canonical Graph
+## 3. 默认验证数据集
+
+Phase A 默认验证数据集为：
+
+```text
+gcl_phase_a_controlled_trace_fixture_v1
+```
+
+它是一个 small controlled trace fixture，只用于验证语义通路闭合，不作为性能 benchmark 或 sampling accuracy 证据。
+
+### 3.1 数据集规模
+
+默认规模：
+
+```text
+kernel_invocation_count = 12
+trace_family_count = 3
+kernel_invocations_per_family = 4
+warp_count_per_invocation = 2
+dynamic_instruction_count_per_warp = 6
+total_dynamic_instruction_entries = 144
+collection_scope = selected_warps_fixture
+```
+
+每个 kernel invocation 生成一个 canonical graph，因此：
+
+```text
+expected_graph_count = 12
+expected_embedding_table_rows = 12
+```
+
+该规模足够覆盖：
+
+- 多个 kernel invocation 的 contrastive batch；
+- 每个 graph 的两个 augmented views；
+- `warp_partitions`；
+- node -> warp -> kernel readout；
+- M0 selector 的 embedding table 输入；
+- silhouette / K-Means / representative anchor artifact 生成。
+
+同时它仍然足够小，便于人工检查 trace、graph、tensor 和 selector 输出。
+
+### 3.2 Trace Families
+
+Fixture 必须包含 3 个 trace family。`trace_family` 只用于 fixture coverage 和 debug，不作为训练标签输入 RGCN。
+
+```text
+trace_family = mem_load_fadd_store
+kernel_invocation_ids = gcl_pa_k000 .. gcl_pa_k003
+per_warp_opcode_sequence =
+  MOV
+  IMAD.WIDE
+  LDG.E.64.SYS
+  FADD
+  STG.E.64.SYS
+  EXIT
+required_pseudo_nodes =
+  mem_ref for LDG
+  mem_ref for STG
+```
+
+```text
+trace_family = integer_imad_store
+kernel_invocation_ids = gcl_pa_k004 .. gcl_pa_k007
+per_warp_opcode_sequence =
+  MOV
+  IMAD
+  IMAD
+  IADD3
+  STG.E.64.SYS
+  EXIT
+required_pseudo_nodes =
+  mem_ref for STG
+```
+
+```text
+trace_family = load_branch_store
+kernel_invocation_ids = gcl_pa_k008 .. gcl_pa_k011
+per_warp_opcode_sequence =
+  LDG.E.64.SYS
+  ISETP
+  BRA
+  FADD
+  STG.E.64.SYS
+  EXIT
+required_pseudo_nodes =
+  mem_ref for LDG
+  mem_ref for STG
+```
+
+每个 invocation 内部使用两个 fixture warp：
+
+```text
+warp_id = 0
+warp_id = 1
+```
+
+两个 warp 的 opcode sequence 可以相同，但必须使用不同 `trace_index`、`pc`、register version 和 observed dynamic values，以验证 `warp_partitions` 和 variable statistics 不会被错误合并。
+
+### 3.3 Trace Entry 最小字段
+
+每条 dynamic instruction entry 至少包含：
+
+```text
+kernel_invocation_id
+trace_family
+collection_scope
+warp_id
+trace_index
+pc
+opcode
+active_mask
+destination_operands
+source_operands
+observed_dynamic_values
+source_entry_hash
+```
+
+其中：
+
+```text
+collection_scope = selected_warps_fixture
+```
+
+`observed_dynamic_values` 用于 variable node 的 8 维 dynamic value statistics：
+
+```text
+mean
+standard_deviation
+median
+minimum
+maximum
+percentile_25
+percentile_75
+skewness
+```
+
+每个 variable node 至少应有 4 个 observed values。缺失 observed values 时必须走 `missing_value_policy`，不得生成 random values。
+
+### 3.4 预期图结构覆盖
+
+该 fixture 必须覆盖以下 canonical graph 结构：
+
+```text
+instruction node:
+  MOV / IMAD.WIDE / LDG / FADD / STG / ISETP / BRA / EXIT
+
+variable node:
+  register_version
+  input_variable
+  unknown_variable
+
+pseudo node:
+  mem_ref
+
+edge type:
+  control_flow
+  data_source
+  data_destination
+```
+
+控制流覆盖：
+
+```text
+consecutive instruction -> consecutive instruction
+```
+
+数据流覆盖：
+
+```text
+input variable -> instruction
+instruction -> register_version
+register_version -> consumer instruction
+input address variable -> mem_ref
+mem_ref -> memory instruction
+```
+
+`mem_ref` pseudo node 不进入 control-flow 主链。它只作为 data-flow 中的 instruction-internal semantic node 出现。
+
+### 3.5 验证边界
+
+该 fixture 只验证：
+
+```text
+trace -> graph -> tensorization -> minimal RGCN training -> embedding table -> M0 selector
+```
+
+它不验证：
+
+- learned embedding quality；
+- cluster semantic correctness；
+- sampling accuracy；
+- simulator speedup；
+- real workload generalization。
+
+## 4. M1 输出：Canonical Graph
 
 M1 必须从 controlled trace 生成 canonical graph artifact。
 
@@ -92,7 +287,7 @@ data_destination
 operand_position_known = false
 ```
 
-## 4. Tensorization
+## 5. Tensorization
 
 M2 负责把 canonical graph artifact 转成训练张量：
 
@@ -127,7 +322,7 @@ feature_width = 64
 
 M2 不得修改 canonical graph artifact。任何 tensorization result 都是派生产物，必须引用 `input_graph_hash`。
 
-## 5. Node Feature Schema
+## 6. Node Feature Schema
 
 Phase A 必须把每个 graph node 编码成 64 维向量：
 
@@ -156,7 +351,7 @@ pseudo node:
 
 其中 dense embedding 内部的每一维不是固定人工语义；它们是训练参数，会随着 contrastive learning 更新。Dynamic value statistics 和 normalized PC derived positional encoding 属于固定数值输入或确定性编码。
 
-### 5.1 Instruction Node Feature
+### 6.1 Instruction Node Feature
 
 Instruction node 表示一条动态 SASS instruction。
 
@@ -204,7 +399,7 @@ normalized_pc_dim = 1
 position_encoding_method = normalized_pc_scalar
 ```
 
-### 5.2 Variable Node Feature
+### 6.2 Variable Node Feature
 
 Variable node 表示 register version、predicate、memory reference value、input variable 或 unknown variable。
 
@@ -249,7 +444,7 @@ skewness
 - Phase A strict reproduction 不在该区域加入任何额外 feature；
 - 该区域在 Phase A 必须保持 zero-padding。
 
-### 5.3 Pseudo Node Feature
+### 6.3 Pseudo Node Feature
 
 Pseudo node 表示不是单条 SASS instruction、但对 graph learning 有意义的中间概念，例如 `mem_ref`。
 
@@ -273,7 +468,7 @@ Phase A 默认严格按 GCL-Sampler 论文描述：
 - Phase A strict reproduction 不在该区域加入任何额外 feature；
 - 该区域在 Phase A 必须保持 zero-padding。
 
-### 5.4 Schema Manifest
+### 6.4 Schema Manifest
 
 Tensorization 必须输出 `node_feature_schema`，至少记录：
 
@@ -324,7 +519,7 @@ paper_reproduction_mode = strict_gcl_sampler_node_features
 
 任何偏离本 schema 的实现都不属于 Phase A strict reproduction，并且不得与本 schema 的产物混用。
 
-## 6. Minimal RGCN Contrastive Training
+## 7. Minimal RGCN Contrastive Training
 
 Phase A 使用最小 RGCN encoder，目的是验证训练路径和 embedding export，不是追求质量。
 
@@ -374,7 +569,7 @@ train_validation_split
 checkpoint_hash
 ```
 
-## 7. Phase A Augmentation
+## 8. Phase A Augmentation
 
 Phase A 可以使用最小 graph augmentation 生成 contrastive views：
 
@@ -395,7 +590,7 @@ views_per_graph = 2
 
 Augmentation 不得覆盖 canonical graph。若 node dropping 导致某个 warp partition 为空，M2 必须 reject 或 regenerate，并记录 retry count。
 
-## 8. Kernel Embedding Export
+## 9. Kernel Embedding Export
 
 Selector 使用 RGCN encoder 输出的 kernel embedding。
 
@@ -439,7 +634,7 @@ encoder_manifest_hash = hash(model config + checkpoint + tensorizer + augmentati
 weight_input = 1.0
 ```
 
-## 9. 接入 M0 Selector
+## 10. 接入 M0 Selector
 
 Phase A 必须复用 M0 selector：
 
@@ -460,7 +655,7 @@ silhouette_k
 
 `deterministic_fixed_k` 只作为 ablation 或 debug 模式。
 
-## 10. Controlled Encoder Path
+## 11. Controlled Encoder Path
 
 `controlled encoder path` 只能作为 debug / ablation 路径，用来定位：
 
@@ -475,22 +670,24 @@ silhouette_k
 trace -> graph -> tensorization -> RGCN -> embedding -> M0 selector
 ```
 
-## 11. 成功标准
+## 12. 成功标准
 
 Phase A 完成标准：
 
-1. 能读取 small controlled trace；
-2. 能生成 canonical graph artifact；
-3. canonical graph artifact 包含 `warp_partitions`；
-4. 能完成 tensorization，并记录 `input_graph_hash`；
-5. `node_features.shape = [node_count, 64]`；
-6. `node_feature_schema` 记录 strict paper reproduction mode；
-7. variable node 使用 32 维 token embedding + 8 维 dynamic value statistics + `[40:64)` zero padding；
-8. pseudo node 使用 16 维 token embedding + `[16:64)` zero padding；
-9. instruction node 默认使用 63 维 opcode token dense embedding + 1 维 normalized PC scalar 生成 64 维 feature；
-10. 能通过 minimal RGCN contrastive training 生成 kernel embedding；
-11. embedding table 满足 M0 输入契约；
-12. 能调用 M0 selector 输出 cluster / representative anchor / structural evaluation artifacts；
-13. 不声称 learned embedding quality；
-14. 不声称 simulator accuracy；
-15. 不引入 instruction stream compression 作为前置条件。
+1. 能读取 `gcl_phase_a_controlled_trace_fixture_v1`；
+2. fixture 包含 12 个 kernel invocations、3 个 trace families、每个 invocation 2 个 fixture warps；
+3. 能生成 12 个 canonical graph artifacts；
+4. 每个 canonical graph artifact 包含 `warp_partitions`；
+5. 能完成 tensorization，并记录 `input_graph_hash`；
+6. `node_features.shape = [node_count, 64]`；
+7. `node_feature_schema` 记录 strict paper reproduction mode；
+8. variable node 使用 32 维 token embedding + 8 维 dynamic value statistics + `[40:64)` zero padding；
+9. pseudo node 使用 16 维 token embedding + `[16:64)` zero padding；
+10. instruction node 默认使用 63 维 opcode token dense embedding + 1 维 normalized PC scalar 生成 64 维 feature；
+11. `mem_ref` pseudo node 只通过 data-flow 接入，不进入 control-flow 主链；
+12. 能通过 minimal RGCN contrastive training 生成 kernel embedding；
+13. embedding table 包含 12 rows，并满足 M0 输入契约；
+14. 能调用 M0 selector 输出 cluster / representative anchor / structural evaluation artifacts；
+15. 不声称 learned embedding quality；
+16. 不声称 simulator accuracy；
+17. 不引入 instruction stream compression 作为前置条件。

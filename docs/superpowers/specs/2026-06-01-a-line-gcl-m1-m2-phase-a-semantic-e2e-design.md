@@ -178,7 +178,7 @@ predicate_active_mask_features
 numeric_flags_or_reserved
 ```
 
-这些额外字段可以作为 Phase B/M2 ablation 或 future extension，但不能作为 Phase A strict paper reproduction 的默认 schema。
+Phase A 不讨论这些额外字段。当前首要目标是让 node feature 与 GCL-Sampler 论文版本对应。
 
 Phase A 必须记录：
 
@@ -202,15 +202,6 @@ instruction_feature_combine = concat_opcode63_normalized_pc1
 opcode_embedding_dim = 63
 normalized_pc_dim = 1
 position_encoding_method = normalized_pc_scalar
-```
-
-以下方式只能作为 ablation 或 future extension，不作为 Phase A 默认：
-
-```text
-concat_then_projection_to_64
-add_after_matching_dim_projection
-paper_compatible_encoder_default
-sinusoidal_normalized_pc_v1
 ```
 
 ### 5.2 Variable Node Feature
@@ -255,8 +246,8 @@ skewness
 `zero_padding`：
 
 - `[40:64)` 必须 zero-pad；
-- Phase A strict reproduction 不在该区域加入 `variable_kind_embedding` 或 `producer_consumer_context`；
-- 后续扩展必须更新 `node_feature_schema`、`tensorizer_version` 和 `representation_mode`，并作为 ablation 与 strict reproduction 对照。
+- Phase A strict reproduction 不在该区域加入任何额外 feature；
+- 该区域在 Phase A 必须保持 zero-padding。
 
 ### 5.3 Pseudo Node Feature
 
@@ -279,8 +270,8 @@ Phase A 默认严格按 GCL-Sampler 论文描述：
 `zero_padding`：
 
 - `[16:64)` 必须 zero-pad；
-- Phase A strict reproduction 不在该区域加入 `pseudo_kind_embedding`、`memory_access_class` 或 `fan_in_fan_out_summary`；
-- 后续扩展必须保持 schema version 可追踪，并作为 ablation 与 strict reproduction 对照。
+- Phase A strict reproduction 不在该区域加入任何额外 feature；
+- 该区域在 Phase A 必须保持 zero-padding。
 
 ### 5.4 Schema Manifest
 
@@ -331,7 +322,7 @@ node_feature_schema = gcl_m2_phase_a_paper_node_feature_v1
 paper_reproduction_mode = strict_gcl_sampler_node_features
 ```
 
-任何后续修改都必须递增 schema version，并改变 `tensor_hash` / `encoder_manifest_hash`。
+任何偏离本 schema 的实现都不属于 Phase A strict reproduction，并且不得与本 schema 的产物混用。
 
 ## 6. Minimal RGCN Contrastive Training
 

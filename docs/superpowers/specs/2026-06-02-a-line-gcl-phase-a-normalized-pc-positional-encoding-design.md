@@ -74,7 +74,7 @@ Phase A strict paper reproduction 使用：
 concat_opcode63_normalized_pc1
 ```
 
-也就是 63 维 opcode dense embedding 拼接 1 维 normalized PC scalar。更复杂的 sinusoidal / projection 方法只作为 ablation。
+也就是 63 维 opcode dense embedding 拼接 1 维 normalized PC scalar。当前 spec 不讨论其他 combine 方法。
 
 ## 3. PC 与 Normalized PC
 
@@ -165,7 +165,7 @@ Phase A 的目标是先复现论文语义并打通最小闭环，不是寻找最
 - 不引入额外 projection layer；
 - `opcode_embedding_dim = 63` 和 `normalized_pc_dim = 1` 的边界清楚；
 - 容易 replay 和 audit；
-- 不把论文没有写明的 sinusoidal 公式伪装成论文默认。
+- 不引入论文没有写明的额外公式。
 
 它表达的是粗粒度 code position signal：
 
@@ -174,8 +174,6 @@ normalized_pc = 0.42
 ```
 
 表示该 instruction 位于当前 kernel invocation PC 范围中的相对位置。模型可以通过后续 RGCN weights 学习如何使用这个 scalar。
-
-该方法的弱点是表达能力有限。它不能像多维 sinusoidal encoding 一样表达多尺度位置差异。因此，sinusoidal encoding 可以作为后续 ablation，但不是 Phase A 默认。
 
 Normalized PC scalar 是 deterministic fixed numeric feature，不是 learned embedding。训练会更新后续 RGCN 权重，但不会更新 normalized PC 本身。
 
@@ -213,13 +211,7 @@ trace_index = 150
 
 GCL-Sampler 论文描述的是基于 normalized PC 的 positional encoding，因此 Phase A 默认不使用 trace index encoding。
 
-`trace_index` 可以作为后续 ablation：
-
-```text
-trace_index_positional_encoding
-```
-
-但不得替代默认的 normalized PC positional encoding，除非 manifest 中明确记录 `position_source`。
+Phase A 默认只使用 normalized PC，不使用 `trace_index` 作为 instruction position feature。
 
 ## 7. 输入字段
 
@@ -232,15 +224,6 @@ node_type = instruction
 pc
 min_pc
 max_pc
-```
-
-可选字段：
-
-```text
-trace_index
-sequence_index
-basic_block_id
-source_entry_hash
 ```
 
 如果 `pc` 缺失，Phase A 不得静默生成随机 position feature。必须使用明确 fallback：
@@ -297,34 +280,19 @@ encoder_manifest_hash
 
 否则后续无法判断两个 embedding 是否使用了同一套 position encoding。
 
-## 9. 可选模式
+## 9. Schema Lock
 
-第一版 strict paper reproduction 只要求：
+Phase A strict paper reproduction 固定使用：
 
 ```text
 position_source = normalized_pc
-encoding_method is recorded
+encoding_method = normalized_pc_scalar_v1
 instruction_feature_combine = concat_opcode63_normalized_pc1
-paper_defined_formula = false unless a paper-defined formula is implemented
+opcode_embedding_dim = 63
+normalized_pc_dim = 1
 ```
 
-允许的 implementation choices：
-
-```text
-sinusoidal_normalized_pc_v1
-normalized_pc_scalar_plus_padding
-learned_pc_bucket_embedding
-trace_index_sinusoidal_encoding
-no_positional_encoding
-```
-
-若使用，必须记录：
-
-```text
-position_source
-encoding_method
-ablation_reason
-```
+当前 spec 不讨论其他 positional encoding 方法。任何偏离该 schema 的实现都不属于 Phase A strict reproduction。
 
 ## 10. 与 64 维 Instruction Feature 的关系
 
@@ -371,6 +339,6 @@ Phase A positional encoding 完成标准：
 5. `node_feature_schema` 记录 encoding method、position source 和 trainable 状态；
 6. `node_feature_schema` 记录 `instruction_feature_combine = concat_opcode63_normalized_pc1`；
 7. `tensor_hash` 和 `encoder_manifest_hash` 能反映 positional encoding config 的变化；
-8. `sinusoidal_normalized_pc_v1` 只作为 ablation，不作为 Phase A 默认；
-9. trace index encoding 只作为 ablation，不作为默认模式；
+8. 不引入其他 positional encoding 方法；
+9. 不使用 trace index encoding；
 10. 该 encoding 与 Phase A `feature_width = 64` 的 instruction node schema 一致。

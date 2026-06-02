@@ -174,6 +174,7 @@ Phase A 推荐 layout：
 - fixed numeric feature 或 deterministic encoding；
 - 输入来自 normalized PC 或 instruction position；
 - 用来保留 instruction 在 kernel code / trace ordering 中的位置线索。
+- 具体方法见 `docs/superpowers/specs/2026-06-02-a-line-gcl-phase-a-normalized-pc-positional-encoding-design.md`。
 
 `instruction_class_embedding`：
 

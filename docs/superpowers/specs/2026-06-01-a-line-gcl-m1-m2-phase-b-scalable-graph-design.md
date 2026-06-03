@@ -4,14 +4,25 @@
 
 ## 1. 定位
 
-Phase B 在 Phase A 语义闭环成立后，引入真实 trace 的规模约束。它的目标是让 GCL 可以处理更接近真实 kernel invocation 的输入，同时不默认 full-kernel dynamic graph 一定能直接送入 RGCN。
+Phase B 在 Phase A 语义闭环成立后，引入 GCL-Sampler 论文中的真实 trace scope。它的目标不是设计一套可调采样方案，而是把 Phase A 已验证的 graph / tensorization / RGCN / readout / M0 selector contract 迁移到论文默认路径：
+
+```text
+one representative SM per kernel invocation
+  -> complete traces for all CTAs executed on that SM
+  -> per-warp graph construction
+  -> node -> warp -> kernel readout
+  -> kernel embedding
+  -> K-Means / silhouette representative selection
+```
+
+Phase B 不默认使用 full-GPU full-kernel dynamic trace，也不把 bounded window、selected-warps fallback 或 attention pooling 作为第一版可选策略。任何偏离论文默认 trace scope 的路径都必须作为后续扩展 spec，而不是 Phase B strict GCL reproduction 的一部分。
 
 Phase B 路径：
 
 ```text
-scoped trace acquisition
-  -> representative SM policy audit
-  -> selected warps / bounded instruction windows
+Phase A verified artifacts
+  -> GCL-Sampler representative-SM trace acquisition
+  -> all CTAs on selected SM
   -> per-warp graph construction
   -> kernel graph union with warp_partitions
   -> graph size audit
@@ -21,53 +32,102 @@ scoped trace acquisition
   -> M0-compatible embedding table
 ```
 
-## 2. Trace Scope Strategy
+## 2. Phase A Output Handoff
 
-GCL 不默认使用 full-GPU full-kernel dynamic trace。
+Phase B 必须复用 Phase A 已经验证过的 contract，而不是重新定义一套 graph encoder。
+
+Phase A 输出中，Phase B 必须继承：
+
+```text
+canonical graph artifact schema
+warp_partitions contract
+node_feature_schema = gcl_m2_phase_a_paper_node_feature_v1
+paper_reproduction_mode = strict_gcl_sampler_node_features
+tensorization contract
+3-layer RGCN encoder config
+projection-head-before-selector rule
+node -> warp -> kernel readout rule
+M0-compatible embedding table schema
+M0 selector input contract
+```
+
+Phase B 可以替换的是 trace acquisition scope：
+
+```text
+Phase A:
+selected_warps_fixture
+
+Phase B:
+single_representative_sm_all_ctas
+```
+
+Phase B 不得替换：
+
+```text
+node feature schema
+edge relation schema
+RGCN readout semantics
+selector embedding source
+M0 selector contract
+```
+
+Phase B 的输出继续进入 Phase A 已打通的后续规划链路：
+
+```text
+canonical non-augmented graph
+  -> trained RGCN encoder
+  -> 256-dimensional kernel embedding
+  -> M0-compatible embedding table
+  -> K-Means with silhouette-selected K
+  -> representative anchor table
+  -> sampled simulation planning / downstream evaluation
+```
+
+因此，Phase B 的新增价值只在于把输入从 small controlled fixture 升级为论文对齐的 representative-SM trace，而不是改变后面的 embedding、clustering 或 representative planning 方法。
+
+## 3. GCL-Sampler Trace Scope Strategy
+
+GCL-Sampler 不使用 full-GPU full-kernel dynamic trace。Phase B strict reproduction 只允许下面这个 scope：
+
+```text
+collection_scope = single_representative_sm_all_ctas
+```
 
 每个 kernel invocation 的 trace input 必须显式声明：
 
 ```text
 collection_scope
 selected_sm
-selected_warp_ids
-max_instruction_count_per_warp
-trace_window_policy
+selected_sm_policy
+selected_sm_reason
+included_cta_ids
 instruction_count
 warp_count
 trace_hash
 ```
 
-允许的 scope：
+Phase B 不允许以下 scope 作为 strict GCL reproduction：
 
 ```text
 single_warp_fixture
 selected_warps_fixture
-single_sm_all_ctas
 bounded_instruction_window
+full_gpu_full_kernel_dynamic_trace
 ```
 
-Phase B 的推荐目标是：
+`selected_warps_fixture` 只属于 Phase A fixture。`bounded_instruction_window` 和 `selected_warps` 只能在后续 scalability extension spec 中讨论，不能混入 Phase B 的完成标准。
+
+如果 representative-SM trace 规模超过当前 M2 训练能力，Phase B 必须输出 explicit blocked status：
 
 ```text
-single_sm_all_ctas
+status = graph_scale_blocked_for_strict_gcl_phase_b
 ```
 
-如果 trace 规模超过 M2 训练上限，则必须转入 bounded policy：
+不得把 oversized trace 静默截断成 bounded window，也不得只选部分 warps 后继续声称完成 Phase B。
 
-```text
-single_sm_all_ctas
-  -> bounded_instruction_window
-  -> selected_warps
-```
+## 4. Representative SM Policy Audit
 
-禁止静默截断 trace。
-
-## 3. Representative SM Policy Audit
-
-Phase B 不应把 `selected_sm` 视为随机默认值。
-
-如果使用 `single_sm_all_ctas`，M1 必须记录：
+Phase B 不应把 `selected_sm` 视为随机默认值。M1 必须记录：
 
 ```text
 selected_sm_policy
@@ -79,14 +139,11 @@ cta_count_by_sm
 instruction_count_by_sm
 ```
 
-第一版允许的 policy：
+Phase B strict reproduction 允许的 policy：
 
 ```text
-fixture_selected_sm
 explicit_sm_id
-first_observed_sm
 max_cta_count_sm
-max_instruction_count_sm
 ```
 
 默认推荐：
@@ -96,9 +153,11 @@ explicit_sm_id for controlled replay
 max_cta_count_sm for trace-driven batch runs
 ```
 
-`first_observed_sm` 只能作为 debug fallback，并必须在 manifest 中显式标记。不得把它包装成 representative policy。
+`explicit_sm_id` 用于固定复现实验；`max_cta_count_sm` 用于 trace-driven batch runs，并接近论文中 representative SM 的实际意图。
 
-## 4. Scope Audit
+`first_observed_sm`、随机 SM、max-instruction-only SM 都不属于 Phase B strict GCL reproduction。如果临时 debug 使用这些策略，artifact 必须标记为 `debug_not_phase_b_complete`，不得进入 Phase B representative selection。
+
+## 5. Scope Audit
 
 M1 必须在 trace manifest 或 graph audit 中记录：
 
@@ -106,7 +165,6 @@ M1 必须在 trace manifest 或 graph audit 中记录：
 scope_policy
 scope_reason
 selected_sm
-selected_warp_ids
 included_cta_ids
 instruction_count_before_scope
 instruction_count_after_scope
@@ -115,25 +173,25 @@ warp_count_after_scope
 trace_scope_hash
 ```
 
-如果使用 bounded window，必须记录：
+其中：
 
 ```text
-window_start_policy
-window_length
-window_selection_reason
-truncated_instruction_count
+instruction_count_before_scope = full captured candidate trace count, if available
+instruction_count_after_scope = selected SM all-CTA trace count
+warp_count_before_scope = full candidate warp count, if available
+warp_count_after_scope = selected SM all-CTA warp count
 ```
 
-如果使用 selected warps，必须记录：
+如果 acquisition layer 无法提供 before-scope full-GPU candidate counts，必须显式记录：
 
 ```text
-selected_warp_policy
-selected_warp_ids
-candidate_warp_count
-selected_warp_count
+before_scope_counts_available = false
+missing_before_scope_reason
 ```
 
-## 5. Per-Warp Graph Construction
+不能用空值或零值伪装成 full-GPU count。
+
+## 6. Per-Warp Graph Construction
 
 M1 必须先按 warp 构建小图。
 
@@ -202,7 +260,7 @@ memory_value_source
 predicate_source
 ```
 
-## 6. Kernel Graph Union and Warp Partitions
+## 7. Kernel Graph Union and Warp Partitions
 
 M1 不应把所有 trace entries 直接混成一个无边界大图。
 
@@ -243,9 +301,9 @@ node embeddings -> warp embeddings -> kernel embedding
 all node embeddings -> kernel embedding
 ```
 
-## 7. Graph Size Audit and Eligibility
+## 8. Graph Size Audit and Eligibility
 
-M1 必须输出 graph size audit。它是 M2 判断能否训练的前置条件。
+M1 必须输出 graph size audit。它是 M2 判断 strict GCL Phase B 能否继续训练的前置条件。
 
 每个 graph 至少记录：
 
@@ -264,10 +322,9 @@ max_warp_node_count
 max_warp_edge_count
 graph_size_class
 training_eligibility
-recommended_training_policy
 ```
 
-第一版 size class：
+第一版 size class 只用于审计，不用于改变 Phase B 的 trace scope：
 
 ```text
 small: node_count <= 2,000
@@ -279,15 +336,15 @@ oversized: node_count > 50,000
 Training eligibility：
 
 ```text
-small -> eligible_full_graph
-medium -> eligible_warp_batched
-large -> eligible_sampled
+small -> eligible_strict_gcl_training
+medium -> eligible_strict_gcl_training
+large -> graph_scale_blocked_for_strict_gcl_phase_b
 oversized -> ineligible_oversized
 ```
 
-如果 graph 被标记为 `eligible_sampled` 或 `ineligible_oversized`，M2 不得静默按 full graph 训练。
+如果 graph 被标记为 `graph_scale_blocked_for_strict_gcl_phase_b` 或 `ineligible_oversized`，M2 不得改用 bounded window、selected warps 或 other sampled graph path。Phase B 必须停止在 blocked artifact，并把 scalability extension 留给后续 spec。
 
-## 8. Tensorization Boundary
+## 9. Tensorization Boundary
 
 M2 负责 tensorization：
 
@@ -312,9 +369,17 @@ missing_value_policy
 tensor_hash
 ```
 
+Tensorization 必须沿用 Phase A strict paper schema：
+
+```text
+node_feature_schema = gcl_m2_phase_a_paper_node_feature_v1
+feature_width = 64
+paper_reproduction_mode = strict_gcl_sampler_node_features
+```
+
 M2 不得改变 canonical graph artifact。任何 tensorization result 必须作为派生产物保存，并引用 `input_graph_hash`。
 
-## 9. Hierarchical Readout / Pooling
+## 10. Hierarchical Readout / Pooling
 
 M2 必须支持 hierarchical readout。
 
@@ -355,7 +420,15 @@ kernel_embedding_dim
 
 第一版不使用 attention pooling。原因是 mean/average pooling 更可 replay，也更容易和论文默认架构对齐。
 
-## 10. Graph Augmentation Safety
+Readout 输出必须和 Phase A export 规则一致：
+
+```text
+selector 使用 projection head 之前的 256-dimensional kernel embedding
+contrastive loss 使用 projection output
+embedding export 使用 canonical non-augmented graph
+```
+
+## 11. Graph Augmentation Safety
 
 Graph augmentation 只属于 M2 training。
 
@@ -403,19 +476,22 @@ retry_count
 view_hash
 ```
 
-## 11. 成功标准
+## 12. 成功标准
 
 Phase B 完成标准：
 
-1. M1 trace manifest 记录 `collection_scope`、`selected_sm`、`selected_warp_ids` 和 instruction/warp counts；
-2. M1 记录 `selected_sm_policy`，且不把随机或 first-observed 行为伪装成 representative policy；
-3. M1 能按 warp 构建 graph，并输出 `warp_partitions`；
-4. M1 graph audit 记录 graph size class 和 training eligibility；
-5. M2 tensorization 引用 canonical `graph_hash`；
-6. M2 支持 node/edge relation tensors 和 warp partition tensors；
-7. M2 生成两个 augmented views，并记录 augmentation manifest；
-8. M2 使用 node-to-warp pooling 和 warp-to-kernel pooling；
-9. M2 从 canonical non-augmented graph 导出 kernel embedding；
-10. M2 embedding table 满足 M0 输入契约；
-11. oversized graph 不会被静默送入 full-graph training；
-12. 所有 artifacts 可 replay、可 audit。
+1. Phase B 明确继承 Phase A 的 canonical graph、tensorization、RGCN、readout、embedding export 和 M0 selector contract；
+2. M1 trace manifest 记录 `collection_scope = single_representative_sm_all_ctas`；
+3. M1 trace manifest 记录 `selected_sm`、`selected_sm_policy`、`selected_sm_reason`、`included_cta_ids` 和 instruction/warp counts；
+4. M1 不允许随机 SM、first-observed SM、selected-warps fallback 或 bounded instruction window 进入 Phase B complete path；
+5. M1 能按 warp 构建 graph，并输出 `warp_partitions`；
+6. M1 graph audit 记录 graph size class 和 strict Phase B training eligibility；
+7. M2 tensorization 引用 canonical `graph_hash`，并沿用 Phase A strict paper node feature schema；
+8. M2 支持 node/edge relation tensors 和 warp partition tensors；
+9. M2 生成两个 augmented views，并记录 augmentation manifest；
+10. M2 使用 node-to-warp mean pooling 和 warp-to-kernel average pooling；
+11. M2 从 canonical non-augmented graph 导出 projection-head-before-selector 的 256 维 kernel embedding；
+12. M2 embedding table 满足 M0 输入契约；
+13. M0 selector 使用 K-Means 和 silhouette-selected K 生成 representative anchor table；
+14. graph 超出 strict GCL Phase B 训练能力时，输出 blocked artifact，而不是静默截断或改用 selected-warps / bounded-window path；
+15. 所有 artifacts 可 replay、可 audit。

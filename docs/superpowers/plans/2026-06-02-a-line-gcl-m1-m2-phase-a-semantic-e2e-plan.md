@@ -33,6 +33,39 @@ experiments/gcl_phase_a/
 tests/gcl_phase_a/
 ```
 
+## RLCR Review Phase 修正要求
+
+重新执行本计划时，必须优先处理上一轮 RLCR Review Phase 暴露出的 3 个 contract 问题。它们属于 Phase A strict reproduction 的一部分，不是 Phase B/C 扩展。
+
+1. `register_version` 必须由 graph builder 稳定生成
+   - graph builder 不能假设 trace operand 已经预先写成 `R4.v1.w0` 这类版本化 token。
+   - 对同一 warp 内的原始寄存器名，例如 `R4`，必须维护 per-warp register version state。
+   - 每次写寄存器生成新版本：`R4.v1.w0`、`R4.v2.w0`。
+   - 每次读寄存器连接到当前最新版本，不生成新版本。
+   - 测试必须覆盖 raw register reuse：同一个 warp 中 `R4` 被写两次时，graph 中必须产生两个不同 `register_version` node，后续读边连接到最新 producer。
+
+2. `mem_ref` 的 address operand 不能依赖 `Raddr*` 命名
+   - graph builder 不能只用 token 名字判断地址寄存器。
+   - Phase A 默认规则：对 `LDG*` / `STG*` memory instruction，`source_operands` 中第一个 register operand 作为 address operand。
+   - 地址寄存器可以叫 `Raddr...`，也可以是普通寄存器，例如 `R14`、`R22`。
+   - 每个 memory instruction 必须生成完整 data-flow chain：
+
+     ```text
+     address register_version -> mem_ref pseudo node -> memory instruction
+     ```
+
+   - 测试必须覆盖 raw address register：`LDG.E.64.SYS R8, [R14]` 和 `STG.E.64.SYS [R22], R9` 这类输入必须生成 `mem_ref`，不能因为地址名不是 `Raddr*` 被拒绝。
+
+3. disk-backed selector stage 必须持久化修复结果
+   - `run_selector_stage_from_disk(out_dir)` 不能只返回 regenerated selector artifact。
+   - 它必须把结果写回：
+
+     ```text
+     out_dir / selector_artifacts.json
+     ```
+
+   - 测试必须覆盖：删除 `selector_artifacts.json` 后调用 `run_selector_stage_from_disk(out_dir)`，函数返回合法 artifact，且磁盘上的 `selector_artifacts.json` 被重新创建。
+
 ## 验收标准
 
 - AC-1: Phase A fixture 可以稳定生成 12 个 kernel invocation trace records
@@ -49,19 +82,24 @@ tests/gcl_phase_a/
     - `pytest -q tests/gcl_phase_a/test_graph_builder.py::test_builds_expected_graph_count`
     - 验证每个 graph 包含 `graph_id`、`kernel_invocation_id`、`collection_scope`、`nodes`、`edges`、`warp_partitions`、`graph_summary`、`graph_hash`。
     - 验证相同 fixture 输入重复构图会得到相同 `graph_hash`。
+    - 验证 Phase A graph 至少区分 `instruction`、`register_version`、`input_variable`、`unknown_variable` 和 `pseudo` node。
+    - 验证 raw register operands 会在 graph builder 内部被版本化；同一 warp 内同一寄存器多次写入不能 collapse 成同一个 `register_version` node。
   - 负向测试（预期失败）:
     - 打乱同一 warp 内的 `trace_index` 且不重新排序时，graph validator 必须发现 ordering violation。
     - 删除 `warp_partitions` 后，graph artifact validator 必须失败。
+    - 人为把 control-flow edge 改成非 consecutive instruction edge，并重新计算 `graph_hash` 后，graph validator 仍必须失败。
 
 - AC-3: `mem_ref` pseudo node 只通过 data-flow 接入，不进入 control-flow 主链
   - 正向测试（预期通过）:
     - `pytest -q tests/gcl_phase_a/test_graph_builder.py::test_mem_ref_is_data_flow_only`
     - 验证 LDG/STG 对应的 `mem_ref` pseudo node 存在。
-    - 验证 `input address variable -> mem_ref -> memory instruction` 使用 data-flow edge。
+    - 验证 `address register_version -> mem_ref -> memory instruction` 使用 data-flow edge。
+    - 验证 memory address operand 的识别基于 operand role，而不是 `Raddr*` 命名；普通寄存器地址如 `R14` / `R22` 必须能生成 `mem_ref`。
     - 验证 control-flow edge 只连接 consecutive instruction nodes。
   - 负向测试（预期失败）:
     - 如果出现 `instruction -> mem_ref` 或 `mem_ref -> instruction` 的 `control_flow` edge，测试必须失败。
     - 如果 LDG/STG 缺少 required `mem_ref` pseudo node，测试必须失败。
+    - 删除 `address register_version -> mem_ref` data-flow edge，并重新计算 `graph_hash` 后，graph validator 仍必须失败。
 
 - AC-4: Tensorization 生成 strict GCL-Sampler node feature schema
   - 正向测试（预期通过）:
@@ -122,9 +160,12 @@ tests/gcl_phase_a/
     - `pytest -q tests/gcl_phase_a/test_pipeline.py::test_phase_a_pipeline_e2e`
     - `python -m experiments.gcl_phase_a.pipeline --out artifacts/gcl_phase_a`
     - 验证 `artifacts/gcl_phase_a` 下生成 trace fixture、graph bundle、tensor bundle、training report、checkpoint manifest、embedding table、selector artifacts。
+    - 验证 disk-backed M2 export stage 可以从 `graph_bundle.json`、`tensor_bundle.json`、`checkpoint_manifest.json` 和 checkpoint 重建并写回 `embedding_table.json`。
+    - 验证 disk-backed selector stage 可以从 `embedding_table.json` 重建并写回 `selector_artifacts.json`。
   - 负向测试（预期失败）:
     - 删除 graph bundle 后直接运行 M2 export，pipeline 必须失败并说明缺失 artifact。
     - 删除 embedding table 后运行 selector，pipeline 必须失败并说明缺失 artifact。
+    - 删除 selector artifacts 后运行 selector repair stage，必须重新创建该 artifact；如果只 return 而不写盘，测试必须失败。
 
 - AC-10: Phase A artifact replay deterministic
   - 正向测试（预期通过）:
@@ -186,8 +227,11 @@ tests/gcl_phase_a/
 
 2. 里程碑 2：Canonical Graph Builder
    - 实现 instruction / variable / pseudo node construction。
+   - 实现 per-warp register version state：write creates new version，read uses latest version。
+   - 对 raw register operand 生成稳定 `register_version` node，不依赖 fixture 预先版本化 token。
    - 实现 `control_flow`、`data_source`、`data_destination` edges。
    - 保证 `mem_ref` pseudo node 只通过 data-flow 接入。
+   - 对 `LDG*` / `STG*` 使用 operand role 识别 address register，不能只依赖 `Raddr*` 命名。
    - 实现 `warp_partitions`、`graph_summary`、`graph_hash`。
    - 写 AC-2 / AC-3 tests。
 
@@ -214,6 +258,9 @@ tests/gcl_phase_a/
 6. 里程碑 6：End-to-End Pipeline 和 Replay
    - 实现 `python -m experiments.gcl_phase_a.pipeline --out artifacts/gcl_phase_a`。
    - 保存 graph bundle、tensor bundle、training report、checkpoint manifest、embedding table、selector artifacts。
+   - 实现 disk-backed repair stages：
+     - `run_embedding_export_stage_from_disk(out_dir)` 必须重建并写回 `embedding_table.json`。
+     - `run_selector_stage_from_disk(out_dir)` 必须重建并写回 `selector_artifacts.json`。
    - 写 AC-9 / AC-10 tests。
 
 ## 实施说明
@@ -225,6 +272,9 @@ tests/gcl_phase_a/
 - pipeline 遇到缺失或非法 artifact contract 时必须明确失败。
 - Phase A 测试只验证结构闭环和 replayability，不验证模型质量。
 - 如果当前环境没有 `torch`，实现必须给出清晰的依赖错误，不能静默替换成非 RGCN 路径。
+- graph builder 必须接受 raw register operand；fixture 可以使用版本化 token，但实现不能依赖 fixture token 已经版本化。
+- memory address 识别必须基于 instruction operand role，不能 hard-code 为 `Raddr*` 命名规则。
+- 所有 disk-backed repair stage 必须既返回 artifact，也写回对应 JSON 文件。
 
 ## 建议验证命令
 
@@ -232,4 +282,7 @@ tests/gcl_phase_a/
 pytest -q tests/gcl_phase_a
 python -m experiments.gcl_phase_a.pipeline --out artifacts/gcl_phase_a
 python -m pytest -q tests/gcl_phase_a/test_pipeline.py::test_phase_a_pipeline_e2e
+python -m pytest -q tests/gcl_phase_a/test_graph_builder.py::test_raw_register_reuse_creates_distinct_register_versions
+python -m pytest -q tests/gcl_phase_a/test_graph_builder.py::test_memory_address_role_does_not_require_raddr_name
+python -m pytest -q tests/gcl_phase_a/test_pipeline.py::test_selector_stage_from_disk_recreates_selector_artifacts
 ```

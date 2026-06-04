@@ -145,6 +145,25 @@ def _remove_success_artifacts(out_dir: Path) -> None:
     (out_dir / "rgcn_checkpoint.pt").unlink(missing_ok=True)
 
 
+def _remove_tensor_and_downstream_artifacts(out_dir: Path) -> None:
+    (out_dir / ARTIFACT_FILENAMES["tensor_bundle"]).unlink(missing_ok=True)
+    _remove_tensor_downstream_artifacts(out_dir)
+
+
+def _remove_tensor_downstream_artifacts(out_dir: Path) -> None:
+    for key in {
+        "augmentation_manifests",
+        "training_report",
+        "checkpoint_manifest",
+        "readout_manifest",
+        "embedding_table",
+        "selector_artifacts",
+        "resource_blocked_artifact",
+    }:
+        (out_dir / ARTIFACT_FILENAMES[key]).unlink(missing_ok=True)
+    (out_dir / "rgcn_checkpoint.pt").unlink(missing_ok=True)
+
+
 def require_pipeline_artifact(path: Path, description: str) -> Path:
     if not path.exists():
         raise FileNotFoundError(f"missing {description}: {path}")
@@ -561,6 +580,7 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
     records = build_phase_b_trace_records(manifest)
     graphs = build_phase_b_graphs(records)
     graph_size_audits = [build_graph_size_audit(graph) for graph in graphs]
+    _remove_tensor_and_downstream_artifacts(out_dir)
     write_json(
         out_dir / ARTIFACT_FILENAMES["scope_audits"],
         {"artifact_type": "gcl_phase_b_scope_audit_bundle", "audits": scope_audits},
@@ -610,6 +630,7 @@ def run_tensorization_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:
     for graph, audit in zip(graphs, audits):
         validate_graph_size_audit(audit, graph)
     tensors = tensorize_phase_b_graphs(graphs)
+    _remove_tensor_downstream_artifacts(out_dir)
     write_json(
         out_dir / ARTIFACT_FILENAMES["tensor_bundle"],
         {

@@ -561,6 +561,29 @@ def test_from_disk_graph_stage_refreshes_pipeline_manifest_scope_and_graph_hashe
     ]
 
 
+def test_from_disk_graph_stage_invalidates_stale_tensor_and_downstream_artifacts(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_graph_invalidates_downstream"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    run_graph_construction_stage_from_disk(out_dir)
+
+    invalidated_keys = {
+        "tensor_bundle",
+        "augmentation_manifests",
+        "training_report",
+        "checkpoint_manifest",
+        "readout_manifest",
+        "embedding_table",
+        "selector_artifacts",
+        "resource_blocked_artifact",
+    }
+    for key in invalidated_keys:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    assert not (out_dir / "rgcn_checkpoint.pt").exists()
+
+
 def test_from_disk_graph_stage_rejects_selected_sm_policy_report_scope_mismatch(tmp_path):
     out_dir = tmp_path / "stage_graph_scope_mismatch"
     out_dir.mkdir()
@@ -622,6 +645,28 @@ def test_from_disk_tensorization_stage_refreshes_pipeline_manifest_tensor_hashes
     assert refreshed_manifest["hashes"]["tensor_hashes"] == [
         tensor["tensor_hash"] for tensor in tensors
     ]
+
+
+def test_from_disk_tensorization_stage_invalidates_stale_embedding_and_selector_artifacts(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_tensor_invalidates_downstream"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    run_tensorization_stage_from_disk(out_dir)
+
+    invalidated_keys = {
+        "augmentation_manifests",
+        "training_report",
+        "checkpoint_manifest",
+        "readout_manifest",
+        "embedding_table",
+        "selector_artifacts",
+        "resource_blocked_artifact",
+    }
+    for key in invalidated_keys:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    assert not (out_dir / "rgcn_checkpoint.pt").exists()
 
 
 def test_from_disk_graph_stage_rebuilds_matching_graph_size_audits(tmp_path):

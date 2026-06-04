@@ -105,3 +105,58 @@ def test_build_phase_b_trace_records_keeps_all_selected_sm_ctas():
         "cta_2",
         "cta_3",
     }
+
+
+def test_build_phase_b_trace_records_orders_cta_ordinals_by_scheduler_start_order():
+    manifest = build_representative_sm_trace_manifest()
+    invocation = copy.deepcopy(manifest["kernel_invocations"][0])
+    invocation["scheduler_metadata_by_sm"]["1"]["cta_ids"] = ["cta_10", "cta_2"]
+    invocation["scheduler_metadata_by_sm"]["1"]["warp_ids_by_cta"] = {"cta_10": [0], "cta_2": [0]}
+    invocation["scheduler_metadata_by_sm"]["1"]["trace_entry_count_by_cta"] = {"cta_10": 1, "cta_2": 1}
+    invocation["scheduler_metadata_by_sm"]["1"]["cta_start_order"] = {"cta_10": 20, "cta_2": 10}
+    invocation["scheduler_metadata_by_sm"]["1"]["cta_end_order"] = {"cta_10": 21, "cta_2": 11}
+    invocation["cta_to_sm"] = {"cta_10": 1, "cta_2": 1}
+    invocation["included_cta_ids"] = ["cta_10", "cta_2"]
+    invocation["all_trace_entries"] = [
+        {
+            "kernel_invocation_id": invocation["kernel_invocation_id"],
+            "trace_family": invocation["trace_family"],
+            "collection_scope": invocation["collection_scope"],
+            "cta_id": "cta_10",
+            "warp_id": 0,
+            "trace_index": 1,
+            "pc": 0x2010,
+            "opcode": "MOV",
+            "active_mask": "0xffffffff",
+            "destination_operands": ["R1"],
+            "source_operands": ["input:a"],
+            "observed_dynamic_values": [1.0],
+        },
+        {
+            "kernel_invocation_id": invocation["kernel_invocation_id"],
+            "trace_family": invocation["trace_family"],
+            "collection_scope": invocation["collection_scope"],
+            "cta_id": "cta_2",
+            "warp_id": 0,
+            "trace_index": 2,
+            "pc": 0x2020,
+            "opcode": "MOV",
+            "active_mask": "0xffffffff",
+            "destination_operands": ["R2"],
+            "source_operands": ["input:b"],
+            "observed_dynamic_values": [2.0],
+        },
+    ]
+    invocation["instruction_count_before_scope"] = 2
+    invocation["warp_count_before_scope"] = 2
+    invocation["instruction_count"] = 2
+    invocation["warp_count"] = 2
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    manifest["kernel_invocations"] = [invocation]
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
+
+    records = build_phase_b_trace_records(manifest)
+
+    partitions_by_cta = {warp["cta_id"]: warp["warp_partition_id"] for warp in records[0]["warps"]}
+    assert partitions_by_cta["cta_2"] == "1:0"
+    assert partitions_by_cta["cta_10"] == "2:0"

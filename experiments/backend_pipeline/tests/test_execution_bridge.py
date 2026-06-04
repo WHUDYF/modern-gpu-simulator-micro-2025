@@ -322,6 +322,69 @@ def test_smoke_runs_do_not_upgrade_to_validation_success(tmp_path):
     assert summary[0]["result_status"] == "inconclusive"
 
 
+def test_validation_mode_profile_with_smoke_builder_keeps_base_trace(tmp_path):
+    fake_sim = tmp_path / "fake_sim.sh"
+    fake_sim.write_text("#!/usr/bin/env bash\necho 'gpu_tot_sim_cycle = 42'\n")
+    fake_sim.chmod(0o755)
+    trace = tmp_path / "dynamic_trace.pb"
+    trace.write_text("real validation trace")
+    gpgpu = tmp_path / "gpgpusim.config"
+    gpgpu.write_text("cfg")
+    trace_cfg = tmp_path / "trace.config"
+    trace_cfg.write_text("cfg")
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "workload_id": "mini_transformer_v4",
+                "execution_mode": "validation",
+                "working_directory": str(tmp_path),
+                "simulator_binary": str(fake_sim),
+                "setup_script": "",
+                "trace_path": str(trace),
+                "gpgpusim_config": str(gpgpu),
+                "trace_config": str(trace_cfg),
+                "environment": {},
+                "extra_cli_args": [],
+                "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
+                "scenario_overrides": {"S1_register_pressure": {"description": "demo", "config_edits": []}},
+                "smoke_trace_builder": {
+                    "mode": "trimmed_dummy_extra_info",
+                    "kernel_launches": {
+                        "R1_qkv_projection_dense": {
+                            "kernel_id": 1,
+                            "function_unique_id": 1,
+                            "kernel_name": "smoke_kernel",
+                            "threadblock_file": "d_0_s_0_k_1_0,0,0.pb",
+                        }
+                    },
+                },
+            }
+        )
+    )
+    profile = load_workload_profile("mini_transformer_v4", profile_path)
+    rows = [
+        {
+            "run_id": "RUN_validation_with_smoke_builder",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
+            "priority_source": "importance-guided",
+            "priority_rank": 1,
+            "simulator_lane_id": "L1_dense_projection",
+            "parameter_scenario_id": "S1_register_pressure",
+            "recommended_tuning_target": "register-sensitive",
+            "validation_role": "main-object",
+            "expected_signal": "demo",
+        }
+    ]
+
+    run_specs = build_run_specs(rows, profile, {"S1_register_pressure": "register-sensitive"}, tmp_path / "runs")
+
+    assert run_specs[0]["execution_mode"] == "validation"
+    assert run_specs[0]["trace_path"] == str(trace.resolve())
+    assert run_specs[0]["smoke_trace_builder"] is None
+
+
 def test_result_summary_validation_rejects_duplicates():
     row = {
         "run_id": "RUN_dup",

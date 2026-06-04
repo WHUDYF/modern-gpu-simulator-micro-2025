@@ -264,7 +264,7 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
     workloads = []
     seen_ids: set[str] = set()
     for source in source_registry["sources"]:
-        if source.get("availability_status") == "source_unavailable":
+        if source.get("availability_status") in {"source_unavailable", "source_sparse_available"}:
             continue
         for workload in discover_workloads_for_source(source["source_id"], Path(source["local_path"])):
             append_unique_workload(workloads, workload, seen_ids)

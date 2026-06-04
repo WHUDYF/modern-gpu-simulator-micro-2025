@@ -266,6 +266,31 @@ def test_build_workload_registry_detects_duplicate_normalized_ids(tmp_path):
         raise AssertionError("Expected duplicate workload_id ValueError")
 
 
+def test_build_workload_registry_skips_sparse_available_sources(tmp_path):
+    sparse_root = tmp_path / "gpu-parboil"
+    (sparse_root / "benchmarks" / "bfs" / "src").mkdir(parents=True)
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "gpu-parboil",
+                        "local_path": str(sparse_root),
+                        "availability_status": "source_sparse_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    assert registry["workloads"] == []
+
+
 def test_workload_registry_cli_writes_outputs(tmp_path):
     root = tmp_path / "gpu-parboil"
     (root / "benchmarks" / "bfs" / "src").mkdir(parents=True)

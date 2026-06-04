@@ -104,6 +104,19 @@ def validate_scope_audit(audit: dict[str, Any], invocation: dict[str, Any]) -> N
         raise ValueError("trace_scope_hash is not reproducible")
 
 
+def _cta_ordinals_by_scheduler_order(invocation: dict[str, Any]) -> dict[str, int]:
+    selected_sm = str(invocation["selected_sm"])
+    scheduler_metadata = invocation["scheduler_metadata_by_sm"][selected_sm]
+    cta_start_order = scheduler_metadata.get("cta_start_order")
+    if not isinstance(cta_start_order, dict):
+        raise ValueError("selected SM scheduler metadata must define cta_start_order")
+    ordered_ctas = sorted(
+        invocation["included_cta_ids"],
+        key=lambda cta_id: (int(cta_start_order[cta_id]), cta_id),
+    )
+    return {cta_id: ordinal for ordinal, cta_id in enumerate(ordered_ctas, start=1)}
+
+
 def build_phase_b_trace_records(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     validate_phase_b_trace_manifest(manifest)
     records = []
@@ -112,10 +125,7 @@ def build_phase_b_trace_records(manifest: dict[str, Any]) -> list[dict[str, Any]
         grouped: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
         for entry in scoped_entries:
             grouped[(entry["cta_id"], entry["warp_id"])].append(entry)
-        cta_ordinals = {
-            cta_id: ordinal
-            for ordinal, cta_id in enumerate(sorted(invocation["included_cta_ids"]), start=1)
-        }
+        cta_ordinals = _cta_ordinals_by_scheduler_order(invocation)
         warps = []
         for (cta_id, warp_id), entries in sorted(grouped.items()):
             ordered = sorted(entries, key=lambda entry: entry["trace_index"])

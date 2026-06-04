@@ -123,6 +123,18 @@ def test_phase_b_replay_rejects_stale_augmentation_manifest_bundle(tmp_path):
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_missing_non_blocked_resource_status(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "missing_non_blocked_resource_status"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    (out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).unlink()
+
+    with pytest.raises(FileNotFoundError, match="resource blocked artifact"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_accepts_resource_blocked_artifacts(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 

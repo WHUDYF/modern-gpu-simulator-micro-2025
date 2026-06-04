@@ -37,6 +37,30 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
         expected_ctas = set(invocation["scheduler_metadata_by_sm"][str(selected_sm)]["cta_ids"])
         if set(invocation["included_cta_ids"]) != expected_ctas:
             raise ValueError("included_cta_ids must cover all selected SM CTAs")
+        scoped_entries = _scoped_entries(invocation)
+        expected_instruction_count = len(scoped_entries)
+        expected_warp_count = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
+        if invocation["instruction_count"] != expected_instruction_count:
+            raise ValueError("instruction_count does not match selected SM trace entries")
+        if invocation["warp_count"] != expected_warp_count:
+            raise ValueError("warp_count does not match selected SM trace entries")
+        if "instruction_count_before_scope" in invocation:
+            if invocation["instruction_count_before_scope"] != len(invocation.get("all_trace_entries", [])):
+                raise ValueError("instruction_count_before_scope mismatch")
+        if "warp_count_before_scope" in invocation:
+            before_warps = {
+                (entry["cta_id"], entry["warp_id"])
+                for entry in invocation.get("all_trace_entries", [])
+            }
+            if invocation["warp_count_before_scope"] != len(before_warps):
+                raise ValueError("warp_count_before_scope mismatch")
+        if invocation["trace_hash"] != hash_without(invocation, "trace_hash"):
+            raise ValueError("trace_hash is not reproducible")
+
+
+def _scoped_entries(invocation: dict[str, Any]) -> list[dict[str, Any]]:
+    included = set(invocation["included_cta_ids"])
+    return [entry for entry in invocation.get("all_trace_entries", []) if entry["cta_id"] in included]
 
 
 def build_scope_audit(invocation: dict[str, Any]) -> dict[str, Any]:
@@ -63,9 +87,12 @@ def validate_scope_audit(audit: dict[str, Any], invocation: dict[str, Any]) -> N
     if not audit.get("before_scope_counts_available"):
         if audit.get("instruction_count_before_scope") in (0, None) and not audit.get("missing_before_scope_reason"):
             raise ValueError("missing_before_scope_reason is required when before counts are unavailable")
-    if audit["instruction_count_after_scope"] != invocation["instruction_count"]:
+    scoped_entries = _scoped_entries(invocation)
+    actual_instruction_count = len(scoped_entries)
+    actual_warp_count = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
+    if audit["instruction_count_after_scope"] != actual_instruction_count:
         raise ValueError("instruction_count_after_scope mismatch")
-    if audit["warp_count_after_scope"] != invocation["warp_count"]:
+    if audit["warp_count_after_scope"] != actual_warp_count:
         raise ValueError("warp_count_after_scope mismatch")
     if audit["trace_scope_hash"] != hash_without(audit, "trace_scope_hash"):
         raise ValueError("trace_scope_hash is not reproducible")
@@ -75,11 +102,7 @@ def build_phase_b_trace_records(manifest: dict[str, Any]) -> list[dict[str, Any]
     validate_phase_b_trace_manifest(manifest)
     records = []
     for invocation in manifest["kernel_invocations"]:
-        scoped_entries = [
-            entry
-            for entry in invocation["all_trace_entries"]
-            if entry["cta_id"] in invocation["included_cta_ids"]
-        ]
+        scoped_entries = _scoped_entries(invocation)
         grouped: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
         for entry in scoped_entries:
             grouped[(entry["cta_id"], entry["warp_id"])].append(entry)

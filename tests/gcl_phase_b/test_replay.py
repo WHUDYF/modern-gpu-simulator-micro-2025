@@ -19,6 +19,8 @@ def test_phase_b_artifacts_are_replayable(tmp_path):
     assert first["hashes"]["graph_hashes"] == second["hashes"]["graph_hashes"]
     assert first["hashes"]["graph_size_audit_hashes"] == second["hashes"]["graph_size_audit_hashes"]
     assert first["hashes"]["tensor_hashes"] == second["hashes"]["tensor_hashes"]
+    assert first["hashes"]["augmentation_manifest_hashes"] == second["hashes"]["augmentation_manifest_hashes"]
+    assert first["hashes"]["readout_manifest_hashes"] == second["hashes"]["readout_manifest_hashes"]
     assert first["hashes"]["embedding_table_hash"] == second["hashes"]["embedding_table_hash"]
     assert first["hashes"]["selector_manifest_hash"] == second["hashes"]["selector_manifest_hash"]
 
@@ -36,6 +38,8 @@ def test_phase_b_replay_hash_changes_when_selected_sm_changes(tmp_path):
 
     assert first["hashes"]["selection_hashes"] != second["hashes"]["selection_hashes"]
     assert first["hashes"]["graph_hashes"] != second["hashes"]["graph_hashes"]
+    assert first["hashes"]["augmentation_manifest_hashes"] != second["hashes"]["augmentation_manifest_hashes"]
+    assert first["hashes"]["readout_manifest_hashes"] != second["hashes"]["readout_manifest_hashes"]
 
     first_manifest = json.loads((tmp_path / "first" / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
     assert first_manifest["pipeline_manifest_hash"] == first["pipeline_manifest_hash"]

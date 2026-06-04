@@ -229,9 +229,51 @@ def validate_selected_sm_policy_report(report: dict[str, Any]) -> None:
     if missing:
         raise ValueError(f"selected SM policy report missing required fields: {sorted(missing)}")
     if report["selected_sm_policy"] == POLICY:
+        _validate_signature_report_consistency(report)
         distances = report["distance_to_global_signature_by_sm"]
         expected = min(distances, key=lambda sm_id: (distances[sm_id], int(sm_id)))
         if int(expected) != int(report["selected_sm"]):
             raise ValueError("selected_sm does not match nearest scheduler signature medoid")
     if report["selection_hash"] != hash_without(report, "selection_hash"):
         raise ValueError("selection_hash is not reproducible")
+
+
+def _validate_signature_report_consistency(report: dict[str, Any]) -> None:
+    if report["signature_fields"] != SIGNATURE_FIELDS:
+        raise ValueError("signature_fields do not match scheduler signature policy")
+    if report["signature_field_weights"] != SIGNATURE_WEIGHTS:
+        raise ValueError("signature weights do not match scheduler signature policy")
+    candidate_ids = [str(sm_id) for sm_id in report["candidate_sm_ids"]]
+    raw_by_sm = report["raw_signature_by_sm"]
+    if set(raw_by_sm) != set(candidate_ids):
+        raise ValueError("raw signature candidate set mismatch")
+    for sm_id, signature in raw_by_sm.items():
+        missing = set(SIGNATURE_FIELDS).difference(signature)
+        if missing:
+            raise ValueError(f"signature for SM {sm_id} missing fields: {sorted(missing)}")
+        for count_field in ("cta_count", "warp_count", "instruction_count_proxy"):
+            if signature[count_field] <= 0.0:
+                raise ValueError("signature count fields must be positive")
+        if signature["cta_wave_coverage"] <= 0.0:
+            raise ValueError("signature cta_wave_coverage must be positive")
+    expected_normalized = _normalize(raw_by_sm)
+    if not _float_mapping_close(report["normalized_signature_by_sm"], expected_normalized):
+        raise ValueError("normalized signature does not match raw signature")
+    expected_global = _mean_signature(expected_normalized)
+    if not _float_dict_close(report["global_sm_signature"], expected_global):
+        raise ValueError("global signature does not match normalized signatures")
+    expected_distances = _distances(expected_normalized, expected_global)
+    if not _float_dict_close(report["distance_to_global_signature_by_sm"], expected_distances):
+        raise ValueError("signature distances do not match normalized signatures")
+
+
+def _float_mapping_close(actual: dict[str, dict[str, float]], expected: dict[str, dict[str, float]]) -> bool:
+    if set(actual) != set(expected):
+        return False
+    return all(_float_dict_close(actual[key], expected[key]) for key in actual)
+
+
+def _float_dict_close(actual: dict[str, float], expected: dict[str, float], tolerance: float = 1e-9) -> bool:
+    if set(actual) != set(expected):
+        return False
+    return all(abs(float(actual[key]) - float(expected[key])) <= tolerance for key in actual)

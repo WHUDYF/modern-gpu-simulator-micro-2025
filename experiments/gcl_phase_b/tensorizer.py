@@ -203,5 +203,8 @@ def validate_phase_b_tensor_artifact(tensor: dict[str, Any]) -> None:
             raise ValueError("warp partition tensor must contain node indices")
         if any(index < 0 or index >= node_count for index in node_indices):
             raise ValueError("warp partition tensor contains invalid node index")
+        edge_indices = partition.get("edge_indices", [])
+        if any(index < 0 or index >= edge_type.shape[0] for index in edge_indices):
+            raise ValueError("warp partition tensor contains invalid edge index")
     if tensor["tensor_hash"] != _tensor_hash(tensor):
         raise ValueError("tensor_hash is not reproducible")

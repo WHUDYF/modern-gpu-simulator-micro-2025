@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+from experiments.gcl_phase_b.utils import hash_without
 from experiments.gcl_phase_b.trace_scope import (
     build_phase_b_trace_records,
     build_scope_audit,
@@ -39,6 +40,23 @@ def test_trace_manifest_rejects_non_phase_b_scope_and_missing_report():
         validate_phase_b_trace_manifest(missing_report)
 
 
+def test_trace_manifest_rejects_inconsistent_scoped_counts_and_hash():
+    manifest = build_representative_sm_trace_manifest()
+    bad_count = copy.deepcopy(manifest)
+    bad_count["kernel_invocations"][0]["instruction_count"] = 999
+    bad_count["kernel_invocations"][0]["trace_hash"] = hash_without(
+        bad_count["kernel_invocations"][0], "trace_hash"
+    )
+
+    with pytest.raises(ValueError, match="instruction_count"):
+        validate_phase_b_trace_manifest(bad_count)
+
+    bad_hash = copy.deepcopy(manifest)
+    bad_hash["kernel_invocations"][0]["trace_hash"] = "stale"
+    with pytest.raises(ValueError, match="trace_hash"):
+        validate_phase_b_trace_manifest(bad_hash)
+
+
 def test_scope_audit_records_before_and_after_counts():
     manifest = build_representative_sm_trace_manifest()
     invocation = manifest["kernel_invocations"][0]
@@ -62,6 +80,16 @@ def test_scope_audit_rejects_fake_unavailable_before_counts():
     audit["missing_before_scope_reason"] = ""
 
     with pytest.raises(ValueError, match="missing_before_scope_reason"):
+        validate_scope_audit(audit, invocation)
+
+
+def test_scope_audit_rejects_after_count_mismatch_against_trace_entries():
+    manifest = build_representative_sm_trace_manifest()
+    invocation = copy.deepcopy(manifest["kernel_invocations"][0])
+    invocation["instruction_count"] = 999
+    audit = build_scope_audit(invocation)
+
+    with pytest.raises(ValueError, match="instruction_count_after_scope"):
         validate_scope_audit(audit, invocation)
 
 

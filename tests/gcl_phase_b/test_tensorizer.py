@@ -2,7 +2,11 @@ import pytest
 
 from experiments.gcl_phase_a.tensorizer import NODE_FEATURE_SCHEMA_NAME, PAPER_REPRODUCTION_MODE
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
-from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs, validate_phase_b_tensor_artifact
+from experiments.gcl_phase_b.tensorizer import (
+    _tensor_hash,
+    tensorize_phase_b_graphs,
+    validate_phase_b_tensor_artifact,
+)
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 
@@ -47,4 +51,14 @@ def test_phase_b_tensor_validator_rejects_bad_partition_index():
     tensor["warp_partition_tensors"][first_key]["node_indices"].append(tensor["node_features"].shape[0] + 1)
 
     with pytest.raises(ValueError, match="node index"):
+        validate_phase_b_tensor_artifact(tensor)
+
+
+def test_phase_b_tensor_validator_rejects_bad_partition_edge_index():
+    tensor = _tensor()
+    first_key = next(iter(tensor["warp_partition_tensors"]))
+    tensor["warp_partition_tensors"][first_key]["edge_indices"].append(tensor["edge_type"].shape[0] + 1)
+    tensor["tensor_hash"] = _tensor_hash(tensor)
+
+    with pytest.raises(ValueError, match="edge index"):
         validate_phase_b_tensor_artifact(tensor)

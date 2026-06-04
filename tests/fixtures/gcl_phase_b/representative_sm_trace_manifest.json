@@ -1,0 +1,1190 @@
+{
+  "artifact_type": "gcl_phase_b_trace_manifest",
+  "collection_scope": "single_representative_sm_all_ctas",
+  "kernel_invocations": [
+    {
+      "all_trace_entries": [
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8192,
+          "source_entry_hash": "6fc083b89c4ef591dab623461201a4cef0a9ac99f92058bbd4199f9ece0e12eb",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8200,
+          "source_entry_hash": "5c5646dc3a08dd36a0d80e3316916296fc867669393e357cab16225983dee9d0",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8208,
+          "source_entry_hash": "5a5e9a05360cd6de423690014f5281677bf0bda01eb1796e372b6e982d6c6796",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8216,
+          "source_entry_hash": "8572da8a55fcd3e83f85578b9f87a3df08cf321bb52e21a306c7afb11ca8e78d",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8256,
+          "source_entry_hash": "ba7dcd7aa8abd9838a087f9d1c51f101df1d2e21231ed80817e044ca234e6325",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8264,
+          "source_entry_hash": "ca13e77e52dcfd124f23cd6374a26c5a94024b0558c2939dbc717f8b4b5159e2",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8272,
+          "source_entry_hash": "ef2149ac92eb193af2d0aa4020390e8ed73ee73bc2fcec5f487b9c5fa3c09e51",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_0",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8280,
+          "source_entry_hash": "e2e0e4a39ee631aee8fb871e5213b855f5cb11932bc5bc973b4cc66db2fd46b5",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8192,
+          "source_entry_hash": "952d9192036ac1e82e3ab5f796fffffdaffd9082b4319d757510560c528fb48c",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8200,
+          "source_entry_hash": "9cbd8fb4c9c580ba3e5aab16ed2d6dc845b00820a892d3853497cb29390982e2",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8208,
+          "source_entry_hash": "516134ade975c8bbcac39dfd35a41eebd369e995ccad24e218010da9fb07cecc",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8216,
+          "source_entry_hash": "b4b92dcf6c92d130a5373d274a6a9fe12ec0fc95ef1ff69fac52ab2f93f3176e",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8256,
+          "source_entry_hash": "7dc434c4d16de6b4754da87e58fc2bd38c42266e34d63ac55a387ed51da97018",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8264,
+          "source_entry_hash": "a13ad0d0d5f131423d9a0de22537b1c60a40c0d3e5f8634a7e246d5a7f8760fe",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8272,
+          "source_entry_hash": "e143275c34be926797629b91f0ce918535867e3d6fa3f8c96b8e8ed7072494ae",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_1",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8280,
+          "source_entry_hash": "d2a490b8cf9faeffec2eb16a5fa844d416d2d0caa51f07ee7ae2c173efb269bd",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8192,
+          "source_entry_hash": "386d9cc2efebf6afc24462485e61ae1d73a170b2ca1b39718f4a96c74180ae27",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8200,
+          "source_entry_hash": "41ec001293ce6e334e1323dd7861fa604482ca26e472a5b7b417fc6049150a0b",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8208,
+          "source_entry_hash": "48e1dff8b3f2e292cc9802b40da9b053051632e7186e6976f62beed21d751972",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8216,
+          "source_entry_hash": "de9e0fc96e21984fb6cefeb9d7712ef642398bc691f78b24bcb742f3195a26c7",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8256,
+          "source_entry_hash": "a9fd926c1097562590c824a6d7d4146e0b7c5ba1f73d5421ffad770313cb88b1",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8264,
+          "source_entry_hash": "baf61f918eed27cac000607d053cd05668f58e4c4b7a5ba478b8668067b09609",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8272,
+          "source_entry_hash": "98c7be479dc97b76ae4f3cfa2d093456629da219e200fefd637d6e6c784d0972",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_2",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8280,
+          "source_entry_hash": "e5af6886422c0c11b7983ca7b830c8bc74bdf7cdb45b7b456ccc98dedea0c4b1",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8192,
+          "source_entry_hash": "b7667527b0b9532792537390f36ae9e0e90cb6f19e32f0d3d2f2f34bea09d31b",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8200,
+          "source_entry_hash": "e7b3673dc149e798322ccc2a9d61013857c772ac28c8e744abe4f6f46229be99",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8208,
+          "source_entry_hash": "d2ac010fddc37ed4ac90ef0334b97515124ce41569b2819b734f523a5a707f94",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8216,
+          "source_entry_hash": "1e0909558bbc2889c8399c485d7ebfa7222782affa22ab1e92bea77efef49880",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8256,
+          "source_entry_hash": "e1ebe295ab50b50f9d67e04087617fe496f7d367f82cdd4faa4e91a938a75d11",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8264,
+          "source_entry_hash": "fda2b1d9d4953c79ccf1d572067715e9e82375658eb5cae3e4309561b0571b8f",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8272,
+          "source_entry_hash": "4cdcd228abd93cb8a3a1cf8728252ead458035a6783f43dfe57ceca7e33602dc",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_3",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8280,
+          "source_entry_hash": "fba986e66d263b6bcf6e37ae0cc8b4d40971ba4dd5e363fa14edd73788ed5855",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8192,
+          "source_entry_hash": "886806adc96078c736f41a5cb7644dead9f86934620c7e67ade0b1a325311401",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8200,
+          "source_entry_hash": "a194e91c3294448e3727a25853af44f83f13ece74d35bbfc03e44286ccb4b439",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8208,
+          "source_entry_hash": "bf28d4eae55329743f260d6c3167552b489b5a1648cfe43acbe8dc44d5b266f0",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8216,
+          "source_entry_hash": "ef5a2fa2808320d814709b4e0f1689774a17fcef535479e6e83f9f64ad40545e",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 0
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R4"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "MOV",
+          "pc": 8256,
+          "source_entry_hash": "7dcd52ba05f08b439a69d224241104d979315213a3785a00ff2cccbb036e0fd2",
+          "source_operands": [
+            "input:base"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 0,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R8"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            2.0,
+            3.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "LDG.E.64.SYS",
+          "pc": 8264,
+          "source_entry_hash": "3a670dd921137e386282ec83981a70203a396cb7689fc4f146816dd8a38f4c0b",
+          "source_operands": [
+            "R4"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 1,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [
+            "R9"
+          ],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            3.0,
+            4.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "FADD",
+          "pc": 8272,
+          "source_entry_hash": "99452d72abbeed1642cc59327be02ff4aa247e2b2ef45c678e5c51cadd539f86",
+          "source_operands": [
+            "R8",
+            "input:bias"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 2,
+          "warp_id": 1
+        },
+        {
+          "active_mask": "0xffffffff",
+          "collection_scope": "single_representative_sm_all_ctas",
+          "cta_id": "cta_4",
+          "destination_operands": [],
+          "kernel_invocation_id": "gcl_pb_k000",
+          "observed_dynamic_values": [
+            4.0,
+            5.0,
+            3.0,
+            4.0
+          ],
+          "opcode": "STG.E.64.SYS",
+          "pc": 8280,
+          "source_entry_hash": "c4285dda8351e05ec758eb7ccfac07b24051518311b17ed81213e4d5967f707c",
+          "source_operands": [
+            "R4",
+            "R9"
+          ],
+          "trace_family": "phase_b_representative_sm_fixture",
+          "trace_index": 3,
+          "warp_id": 1
+        }
+      ],
+      "candidate_sm_count": 3,
+      "collection_scope": "single_representative_sm_all_ctas",
+      "cta_to_sm": {
+        "cta_0": 0,
+        "cta_1": 0,
+        "cta_2": 1,
+        "cta_3": 1,
+        "cta_4": 2
+      },
+      "included_cta_ids": [
+        "cta_2",
+        "cta_3"
+      ],
+      "instruction_count": 16,
+      "instruction_count_before_scope": 40,
+      "kernel_invocation_id": "gcl_pb_k000",
+      "scheduler_metadata_by_sm": {
+        "0": {
+          "cta_end_order": {
+            "cta_0": 1,
+            "cta_1": 2
+          },
+          "cta_ids": [
+            "cta_0",
+            "cta_1"
+          ],
+          "cta_start_order": {
+            "cta_0": 0,
+            "cta_1": 1
+          },
+          "sm_id": 0,
+          "trace_entry_count_by_cta": {
+            "cta_0": 8,
+            "cta_1": 8
+          },
+          "warp_ids_by_cta": {
+            "cta_0": [
+              0,
+              1
+            ],
+            "cta_1": [
+              0,
+              1
+            ]
+          }
+        },
+        "1": {
+          "cta_end_order": {
+            "cta_2": 3,
+            "cta_3": 4
+          },
+          "cta_ids": [
+            "cta_2",
+            "cta_3"
+          ],
+          "cta_start_order": {
+            "cta_2": 1,
+            "cta_3": 3
+          },
+          "sm_id": 1,
+          "trace_entry_count_by_cta": {
+            "cta_2": 8,
+            "cta_3": 8
+          },
+          "warp_ids_by_cta": {
+            "cta_2": [
+              0,
+              1
+            ],
+            "cta_3": [
+              0,
+              1
+            ]
+          }
+        },
+        "2": {
+          "cta_end_order": {
+            "cta_4": 4
+          },
+          "cta_ids": [
+            "cta_4"
+          ],
+          "cta_start_order": {
+            "cta_4": 4
+          },
+          "sm_id": 2,
+          "trace_entry_count_by_cta": {
+            "cta_4": 8
+          },
+          "warp_ids_by_cta": {
+            "cta_4": [
+              0,
+              1
+            ]
+          }
+        }
+      },
+      "selected_sm": 1,
+      "selected_sm_policy": "scheduler_signature_medoid_sm",
+      "selected_sm_policy_report": {
+        "artifact_name": "selected_sm_policy_report",
+        "artifact_version": "gcl_phase_b_selected_sm_policy_v1",
+        "candidate_sm_count": 3,
+        "candidate_sm_ids": [
+          0,
+          1,
+          2
+        ],
+        "distance_metric": "equal_weight_l2",
+        "distance_to_global_signature_by_sm": {
+          "0": 1.0367476448067512,
+          "1": 0.8836652066992704,
+          "2": 1.593050106548852
+        },
+        "global_sm_signature": {
+          "cta_count": 0.6666666666666666,
+          "cta_wave_coverage": 0.5555555555555555,
+          "first_cta_start_order": 0.4166666666666667,
+          "instruction_count_proxy": 0.6666666666666666,
+          "last_cta_end_order": 0.6666666666666666,
+          "tail_cta_ratio": 0.3333333333333333,
+          "warp_count": 0.6666666666666666
+        },
+        "instruction_count_proxy_source": "trace_entry_count",
+        "kernel_invocation_id": "gcl_pb_k000",
+        "normalization": {
+          "method": "per_kernel_min_max",
+          "zero_variance_policy": "set_normalized_value_to_zero_and_record_note"
+        },
+        "normalized_signature_by_sm": {
+          "0": {
+            "cta_count": 1.0,
+            "cta_wave_coverage": 0.6666666666666665,
+            "first_cta_start_order": 0.0,
+            "instruction_count_proxy": 1.0,
+            "last_cta_end_order": 0.0,
+            "tail_cta_ratio": 0.0,
+            "warp_count": 1.0
+          },
+          "1": {
+            "cta_count": 1.0,
+            "cta_wave_coverage": 1.0,
+            "first_cta_start_order": 0.25,
+            "instruction_count_proxy": 1.0,
+            "last_cta_end_order": 1.0,
+            "tail_cta_ratio": 0.0,
+            "warp_count": 1.0
+          },
+          "2": {
+            "cta_count": 0.0,
+            "cta_wave_coverage": 0.0,
+            "first_cta_start_order": 1.0,
+            "instruction_count_proxy": 0.0,
+            "last_cta_end_order": 1.0,
+            "tail_cta_ratio": 1.0,
+            "warp_count": 0.0
+          }
+        },
+        "raw_signature_by_sm": {
+          "0": {
+            "cta_count": 2.0,
+            "cta_wave_coverage": 0.6,
+            "first_cta_start_order": 0.0,
+            "instruction_count_proxy": 16.0,
+            "last_cta_end_order": 2.0,
+            "tail_cta_ratio": 0.0,
+            "warp_count": 4.0
+          },
+          "1": {
+            "cta_count": 2.0,
+            "cta_wave_coverage": 0.8,
+            "first_cta_start_order": 1.0,
+            "instruction_count_proxy": 16.0,
+            "last_cta_end_order": 4.0,
+            "tail_cta_ratio": 0.0,
+            "warp_count": 4.0
+          },
+          "2": {
+            "cta_count": 1.0,
+            "cta_wave_coverage": 0.2,
+            "first_cta_start_order": 4.0,
+            "instruction_count_proxy": 8.0,
+            "last_cta_end_order": 4.0,
+            "tail_cta_ratio": 1.0,
+            "warp_count": 2.0
+          }
+        },
+        "selected_sm": 1,
+        "selected_sm_policy": "scheduler_signature_medoid_sm",
+        "selected_sm_policy_version": "v1",
+        "selected_sm_reason": "SM 1 selected because it has the smallest equal-weight L2 distance to the global normalized scheduler signature.",
+        "selection_hash": "4649000cbf80ef03de41b322c9b0f5bd71d251123510cbd473f398f4359e9b1f",
+        "signature_field_weights": {
+          "cta_count": 1.0,
+          "cta_wave_coverage": 1.0,
+          "first_cta_start_order": 1.0,
+          "instruction_count_proxy": 1.0,
+          "last_cta_end_order": 1.0,
+          "tail_cta_ratio": 1.0,
+          "warp_count": 1.0
+        },
+        "signature_fields": [
+          "cta_count",
+          "warp_count",
+          "instruction_count_proxy",
+          "first_cta_start_order",
+          "last_cta_end_order",
+          "cta_wave_coverage",
+          "tail_cta_ratio"
+        ],
+        "tie_break_rule": "lowest_sm_id"
+      },
+      "selected_sm_policy_report_hash": "4649000cbf80ef03de41b322c9b0f5bd71d251123510cbd473f398f4359e9b1f",
+      "selected_sm_reason": "SM 1 selected because it has the smallest equal-weight L2 distance to the global normalized scheduler signature.",
+      "trace_family": "phase_b_representative_sm_fixture",
+      "trace_hash": "f32981dd9c3b9dffe669012c657a8303cc9d0f994b3fc804982c8b4efb42bdac",
+      "warp_count": 4,
+      "warp_count_before_scope": 10
+    }
+  ],
+  "manifest_version": "gcl_phase_b_trace_manifest_v1",
+  "trace_manifest_hash": "1ba7247267521bd5f21cda1647c918673681b6e47777fed1226a6b0472fe6a03"
+}

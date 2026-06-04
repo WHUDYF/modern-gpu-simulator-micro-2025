@@ -7,6 +7,7 @@ from experiments.gcl_phase_b.sm_selection import (
     select_representative_sm,
     validate_selected_sm_policy_report,
 )
+from experiments.gcl_phase_b.utils import hash_without
 
 
 def test_scheduler_signature_medoid_selects_nearest_sm():
@@ -79,4 +80,15 @@ def test_selected_sm_policy_report_rejects_inconsistent_selection():
     report["selected_sm"] = 0
 
     with pytest.raises(ValueError, match="selected_sm"):
+        validate_selected_sm_policy_report(report)
+
+
+def test_selected_sm_policy_report_rejects_zero_filled_signature_evidence():
+    manifest = build_representative_sm_trace_manifest()
+    invocation = manifest["kernel_invocations"][0]
+    report = select_representative_sm(invocation, policy="scheduler_signature_medoid_sm")
+    report["raw_signature_by_sm"]["1"]["instruction_count_proxy"] = 0.0
+    report["selection_hash"] = hash_without(report, "selection_hash")
+
+    with pytest.raises(ValueError, match="signature"):
         validate_selected_sm_policy_report(report)

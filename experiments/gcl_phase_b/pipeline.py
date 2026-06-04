@@ -404,6 +404,50 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], "pipeline manifest"
         )
     )
+    trace_manifest = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["trace_manifest"], "trace manifest")
+    )
+    validate_phase_b_trace_manifest(trace_manifest)
+    scope_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["scope_audits"], "scope audit bundle")
+    )
+    scope_audits = scope_bundle.get("audits", [])
+    if len(scope_audits) != len(trace_manifest.get("kernel_invocations", [])):
+        raise ValueError("scope audit count mismatch")
+    for audit, invocation in zip(scope_audits, trace_manifest["kernel_invocations"]):
+        validate_scope_audit(audit, invocation)
+    if pipeline_manifest["hashes"].get("trace_scope_hashes") != [
+        audit["trace_scope_hash"] for audit in scope_audits
+    ]:
+        raise ValueError("pipeline manifest trace_scope_hashes mismatch")
+
+    graph_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
+    )
+    graphs = graph_bundle.get("graphs", [])
+    if not graphs:
+        raise ValueError("graph bundle must contain graphs")
+    for graph in graphs:
+        validate_phase_b_graph_artifact(graph)
+    graph_hashes = [graph["graph_hash"] for graph in graphs]
+    if pipeline_manifest["hashes"].get("graph_hashes") != graph_hashes:
+        raise ValueError("pipeline manifest graph_hashes mismatch")
+
+    audit_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
+        )
+    )
+    graph_size_audits = audit_bundle.get("audits", [])
+    if len(graph_size_audits) != len(graphs):
+        raise ValueError("graph size audit count mismatch")
+    for audit, graph in zip(graph_size_audits, graphs):
+        validate_graph_size_audit(audit, graph)
+    if pipeline_manifest["hashes"].get("graph_size_audit_hashes") != [
+        audit["graph_size_audit_hash"] for audit in graph_size_audits
+    ]:
+        raise ValueError("pipeline manifest graph_size_audit_hashes mismatch")
+
     checkpoint_manifest = read_json(
         require_pipeline_artifact(
             out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
@@ -423,6 +467,10 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
+    if [tensor["input_graph_hash"] for tensor in tensors] != graph_hashes:
+        raise ValueError("tensor bundle input_graph_hash values do not match graph bundle")
+    if pipeline_manifest["hashes"].get("tensor_hashes") != [tensor["tensor_hash"] for tensor in tensors]:
+        raise ValueError("pipeline manifest tensor_hashes mismatch")
     source_tensor_hashes = [
         _phase_a_compatible_tensor(tensor)["tensor_hash"]
         for tensor in tensors

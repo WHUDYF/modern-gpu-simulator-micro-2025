@@ -75,3 +75,18 @@ def test_phase_b_replay_rejects_stale_checkpoint_backed_artifacts(tmp_path):
 
     with pytest.raises(ValueError, match="checkpoint_hash"):
         validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_stale_upstream_graph_artifact(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "stale_graph"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    graph_bundle_path = out_dir / ARTIFACT_FILENAMES["graph_bundle"]
+    graph_bundle = json.loads(graph_bundle_path.read_text())
+    graph_bundle["graphs"][0]["graph_hash"] = "stale"
+    graph_bundle_path.write_text(json.dumps(graph_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="graph"):
+        validate_phase_b_replay_from_disk(out_dir)

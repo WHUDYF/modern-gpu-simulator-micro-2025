@@ -43,6 +43,27 @@ def test_graph_validator_rejects_cross_warp_control_flow():
         validate_phase_b_graph_artifact(graph)
 
 
+def test_graph_validator_rejects_non_consecutive_control_flow_shortcut():
+    graph = _graph()
+    partition = graph["warp_partitions"]["1:0"]
+    instruction_ids = partition["instruction_node_ids"]
+    graph["edges"].append(
+        {
+            "edge_id": "e:shortcut",
+            "source": instruction_ids[0],
+            "target": instruction_ids[2],
+            "relation": "control_flow",
+            "warp_partition_id": "1:0",
+        }
+    )
+    partition["edge_ids"].append("e:shortcut")
+    partition["edge_count"] += 1
+    graph["graph_summary"]["edge_count"] += 1
+
+    with pytest.raises(ValueError, match="control_flow"):
+        validate_phase_b_graph_artifact(graph)
+
+
 def test_warp_partitions_are_complete_and_replayable():
     graph = _graph()
 

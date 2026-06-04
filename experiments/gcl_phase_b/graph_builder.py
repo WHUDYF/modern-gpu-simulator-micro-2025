@@ -376,6 +376,7 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
         for edge in graph["edges"]
         if edge["relation"] == "control_flow"
     }
+    expected_control_edges = set()
     for partition_id, trace_indices in observed_order.items():
         if trace_indices != sorted(trace_indices):
             raise ValueError(f"ordering violation in warp partition {partition_id}")
@@ -385,8 +386,11 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
             if node["node_type"] == "instruction" and node["warp_partition_id"] == partition_id
         ]
         for source_id, target_id in zip(instruction_ids, instruction_ids[1:]):
+            expected_control_edges.add((source_id, target_id))
             if (source_id, target_id) not in control_edges:
                 raise ValueError("missing consecutive control_flow edge")
+    if control_edges != expected_control_edges:
+        raise ValueError("control_flow edges must connect only consecutive instruction nodes")
 
     if graph["graph_summary"]["node_count"] != len(graph["nodes"]):
         raise ValueError("graph_summary node_count mismatch")

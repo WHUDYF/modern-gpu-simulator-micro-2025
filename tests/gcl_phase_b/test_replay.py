@@ -140,3 +140,25 @@ def test_phase_b_replay_accepts_resource_blocked_artifacts(tmp_path, monkeypatch
 
     assert manifest["resource_blocked"] is True
     assert validation["resource_blocked"] is True
+
+
+def test_phase_b_replay_rejects_stale_resource_blocked_pipeline_manifest(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_stale_manifest"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    pipeline_manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    pipeline_manifest = json.loads(pipeline_manifest_path.read_text())
+    pipeline_manifest["seed"] = 43
+    pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
+
+    with pytest.raises(ValueError, match="pipeline_manifest_hash"):
+        validate_phase_b_replay_from_disk(out_dir)

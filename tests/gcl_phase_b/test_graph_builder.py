@@ -8,6 +8,7 @@ from experiments.gcl_phase_b.graph_builder import (
 )
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
+from experiments.gcl_phase_b.utils import hash_without
 
 
 def _graph():
@@ -93,4 +94,26 @@ def test_graph_validator_rejects_duplicate_partition_node():
     mutated["warp_partitions"][second_key]["node_ids"].append(duplicated_node)
 
     with pytest.raises(ValueError, match="partition"):
+        validate_phase_b_graph_artifact(mutated)
+
+
+def test_graph_validator_rejects_stale_memory_address_source_edges():
+    graph = _graph()
+    mutated = copy.deepcopy(graph)
+    memory_node = next(
+        node
+        for node in mutated["nodes"]
+        if node["node_type"] == "instruction" and node["opcode"].startswith("LDG")
+    )
+    replacement = next(
+        node
+        for node in mutated["nodes"]
+        if node["node_type"] == "register_version"
+        and node["warp_partition_id"] == memory_node["warp_partition_id"]
+        and node["node_id"] != memory_node["address_source_node_id"]
+    )
+    memory_node["address_source_node_id"] = replacement["node_id"]
+    mutated["graph_hash"] = hash_without(mutated, "graph_hash")
+
+    with pytest.raises(ValueError, match="address"):
         validate_phase_b_graph_artifact(mutated)

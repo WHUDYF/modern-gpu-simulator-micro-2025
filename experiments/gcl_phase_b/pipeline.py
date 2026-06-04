@@ -627,6 +627,12 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     ]:
         raise ValueError("pipeline manifest augmentation_manifest_bundle_hash mismatch")
 
+    expected_pipeline_hash = stable_hash(
+        {key: value for key, value in pipeline_manifest.items() if key != "pipeline_manifest_hash"}
+    )
+    if pipeline_manifest.get("pipeline_manifest_hash") != expected_pipeline_hash:
+        raise ValueError("pipeline_manifest_hash is not reproducible")
+
     if pipeline_manifest.get("resource_blocked"):
         blocked = read_json(
             require_pipeline_artifact(
@@ -699,11 +705,6 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     if pipeline_manifest["hashes"].get("readout_manifest_bundle_hash") != readout_bundle["readout_manifest_bundle_hash"]:
         raise ValueError("pipeline manifest readout_manifest_bundle_hash mismatch")
 
-    expected_pipeline_hash = stable_hash(
-        {key: value for key, value in pipeline_manifest.items() if key != "pipeline_manifest_hash"}
-    )
-    if pipeline_manifest.get("pipeline_manifest_hash") != expected_pipeline_hash:
-        raise ValueError("pipeline_manifest_hash is not reproducible")
     return {
         "artifact_type": "gcl_phase_b_replay_validation",
         "checkpoint_hash": checkpoint_hash,

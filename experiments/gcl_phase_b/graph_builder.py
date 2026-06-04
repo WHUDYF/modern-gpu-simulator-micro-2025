@@ -392,6 +392,37 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
     if control_edges != expected_control_edges:
         raise ValueError("control_flow edges must connect only consecutive instruction nodes")
 
+    data_edges = {
+        (edge["source"], edge["target"])
+        for edge in graph["edges"]
+        if edge["relation"] == "data_source"
+    }
+    for memory_node in (
+        node
+        for node in graph["nodes"]
+        if node["node_type"] == "instruction" and _is_memory_opcode(node["opcode"])
+    ):
+        partition_id = memory_node["warp_partition_id"]
+        mem_ref_id = _mem_ref_id(partition_id, memory_node["trace_index"])
+        expected_address_source = memory_node.get("address_source_node_id")
+        if not expected_address_source:
+            raise ValueError("memory instructions require address_source_node_id metadata")
+        if mem_ref_id not in node_by_id:
+            raise ValueError("memory instructions require mem_ref pseudo nodes")
+        if node_by_id[mem_ref_id].get("pseudo_kind") != "mem_ref":
+            raise ValueError("memory instructions require mem_ref pseudo nodes")
+        if expected_address_source not in node_by_id:
+            raise ValueError("memory instructions require known address source node")
+        if node_by_id[expected_address_source]["node_type"] != "register_version":
+            raise ValueError("memory instructions require register_version address source")
+        if (expected_address_source, mem_ref_id) not in data_edges:
+            raise ValueError("memory instructions require exact address variable to mem_ref data-flow")
+        if (mem_ref_id, memory_node["node_id"]) not in data_edges:
+            raise ValueError("memory instructions must receive data-flow from mem_ref pseudo nodes")
+    for node in graph["nodes"]:
+        if node["node_type"] == "pseudo" and node.get("pseudo_kind") != "mem_ref":
+            raise ValueError("Phase B only supports mem_ref pseudo nodes")
+
     if graph["graph_summary"]["node_count"] != len(graph["nodes"]):
         raise ValueError("graph_summary node_count mismatch")
     if graph["graph_summary"]["edge_count"] != len(graph["edges"]):

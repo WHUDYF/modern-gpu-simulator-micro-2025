@@ -712,6 +712,9 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         )
     )
     augmentation_manifests = augmentation_bundle.get("manifests", [])
+    expected_augmentation_count = len(tensors) * 2
+    if len(augmentation_manifests) != expected_augmentation_count:
+        raise ValueError("augmentation manifest count mismatch")
     augmentation_hashes = []
     for manifest in augmentation_manifests:
         if manifest.get("augmentation_manifest_hash") != hash_without(
@@ -785,6 +788,15 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
     validate_embedding_table(embedding_table)
+    expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
+    expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]
+    embedding_rows = embedding_table.get("rows", [])
+    if len(embedding_rows) != len(tensors):
+        raise ValueError("embedding table row count does not match tensor batch")
+    if [row["source_graph_hash"] for row in embedding_rows] != expected_graph_hashes:
+        raise ValueError("embedding table source_graph_hash coverage mismatch")
+    if [row["kernel_invocation_id"] for row in embedding_rows] != expected_invocation_ids:
+        raise ValueError("embedding table kernel_invocation_id coverage mismatch")
     if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
         raise ValueError("embedding table encoder_manifest_hash mismatch")
     if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
@@ -809,9 +821,12 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     readout_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["readout_manifest"], "readout manifest")
     )
-    for manifest, tensor in zip(readout_bundle.get("manifests", []), tensors):
+    readout_manifests = readout_bundle.get("manifests", [])
+    if len(readout_manifests) != len(tensors):
+        raise ValueError("readout manifest count mismatch")
+    for manifest, tensor in zip(readout_manifests, tensors):
         validate_readout_manifest(manifest, tensor)
-    readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_bundle.get("manifests", [])]
+    readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_manifests]
     if pipeline_manifest["hashes"].get("readout_manifest_hashes") != readout_hashes:
         raise ValueError("pipeline manifest readout_manifest_hashes mismatch")
     if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(

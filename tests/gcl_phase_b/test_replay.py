@@ -8,8 +8,23 @@ from experiments.gcl_phase_b.pipeline import (
     run_pipeline,
     validate_phase_b_replay_from_disk,
 )
+from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
-from experiments.gcl_phase_b.utils import hash_without, write_json
+from experiments.gcl_phase_b.utils import hash_without, stable_hash, write_json
+
+
+def _refresh_pipeline_manifest_hashes(out_dir, hash_updates):
+    manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    manifest = json.loads(manifest_path.read_text())
+    manifest["hashes"] = {**manifest["hashes"], **hash_updates}
+    manifest["pipeline_manifest_hash"] = stable_hash(
+        {
+            key: value
+            for key, value in manifest.items()
+            if key != "pipeline_manifest_hash"
+        }
+    )
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True))
 
 
 def test_phase_b_artifacts_are_replayable(tmp_path):
@@ -77,6 +92,33 @@ def test_phase_b_replay_rejects_tampered_selector_artifacts(tmp_path):
     selector_path.write_text(json.dumps(selector_artifacts, sort_keys=True))
 
     with pytest.raises(ValueError, match="selector_manifest_hash"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "truncated_embedding"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    table = json.loads(table_path.read_text())
+    table["rows"] = table["rows"][:-1]
+    table["row_count"] = len(table["rows"])
+    table["embedding_table_hash"] = hash_without(table, "embedding_table_hash")
+    table_path.write_text(json.dumps(table, sort_keys=True))
+
+    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "embedding_table_hash": table["embedding_table_hash"],
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="embedding table"):
         validate_phase_b_replay_from_disk(out_dir)
 
 
@@ -156,6 +198,36 @@ def test_phase_b_replay_rejects_stale_augmentation_manifest_bundle(tmp_path):
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_truncated_augmentation_bundle_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "truncated_augmentation"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    augmentation_path = out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]
+    augmentation_bundle = json.loads(augmentation_path.read_text())
+    augmentation_bundle["manifests"] = augmentation_bundle["manifests"][:-1]
+    augmentation_bundle["augmentation_manifest_bundle_hash"] = hash_without(
+        augmentation_bundle, "augmentation_manifest_bundle_hash"
+    )
+    augmentation_path.write_text(json.dumps(augmentation_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "augmentation_manifest_hashes": [
+                manifest["augmentation_manifest_hash"]
+                for manifest in augmentation_bundle["manifests"]
+            ],
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="augmentation manifest count"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_missing_non_blocked_resource_status(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())
@@ -228,4 +300,32 @@ def test_phase_b_replay_rejects_tampered_resource_blocked_artifact(tmp_path, mon
     resource_path.write_text(json.dumps(resource_status, sort_keys=True))
 
     with pytest.raises(ValueError, match="resource_blocked_hash"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_truncated_readout_bundle_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "truncated_readout"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    readout_path = out_dir / ARTIFACT_FILENAMES["readout_manifest"]
+    readout_bundle = json.loads(readout_path.read_text())
+    readout_bundle["manifests"] = readout_bundle["manifests"][:-1]
+    readout_bundle["readout_manifest_bundle_hash"] = hash_without(
+        readout_bundle, "readout_manifest_bundle_hash"
+    )
+    readout_path.write_text(json.dumps(readout_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "readout_manifest_hashes": [
+                manifest["readout_manifest_hash"]
+                for manifest in readout_bundle["manifests"]
+            ],
+            "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="readout manifest count"):
         validate_phase_b_replay_from_disk(out_dir)

@@ -284,9 +284,12 @@ def test_from_disk_embedding_export_stage_runs_without_pipeline_manifest(tmp_pat
     run_tensorization_stage_from_disk(out_dir)
 
     table = run_embedding_export_stage_from_disk(out_dir, seed=42)
+    artifacts = run_selector_stage_from_disk(out_dir, seed=42)
 
     assert table["embedding_table_hash"]
     assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+    assert artifacts["selector_manifest_hash"]
+    assert (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
     assert not (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).exists()
 
 

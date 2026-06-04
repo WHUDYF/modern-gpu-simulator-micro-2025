@@ -195,10 +195,10 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         else:
             current_status = "pending-review" if base["validation_role"] == "review-object" else "pending"
 
-        if "resolved-review" in review_candidates:
-            current_review = "resolved-review"
-        elif "keep-review" in review_candidates:
+        if "keep-review" in review_candidates:
             current_review = "keep-review"
+        elif "resolved-review" in review_candidates:
+            current_review = "resolved-review"
         else:
             current_review = default_review_by_regime.get(regime_id, "no-review")
 

@@ -9,6 +9,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import m1_workload_resolver as resolver
 
 
+def test_format_command_preserves_args_placeholder_argv_boundaries(tmp_path):
+    binary = tmp_path / "runner"
+
+    command = resolver._format_command(
+        ["{binary_path}", "{args}", "--tail"],
+        binary,
+        ["--foo", "bar baz"],
+    )
+
+    assert command == [str(binary), "--foo", "bar baz", "--tail"]
+
+
 def test_gate1_resolves_each_p0_entry(monkeypatch, tmp_path):
     manifest = {
         "entries": [

@@ -29,15 +29,14 @@ def _registry_key(entry: dict[str, Any]) -> str:
 
 
 def _format_command(template: list[str], binary_path: Path, args: list[str]) -> list[str]:
-    rendered = [part.format(binary_path=str(binary_path), args=" ".join(args)) for part in template]
     expanded: list[str] = []
-    for part in rendered:
+    for part in template:
         if part == "{args}":
             expanded.extend(args)
         elif "{args}" in part:
-            expanded.extend(part.split())
+            expanded.append(part.format(binary_path=str(binary_path), args=" ".join(args)))
         else:
-            expanded.append(part)
+            expanded.append(part.format(binary_path=str(binary_path)))
     return expanded
 
 

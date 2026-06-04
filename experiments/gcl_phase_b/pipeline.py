@@ -546,7 +546,7 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     )
     artifacts = select_phase_b_representatives(table, seed=resolved_seed)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
-    _refresh_pipeline_manifest_hashes(
+    _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
             "embedding_table_hash": table["embedding_table_hash"],

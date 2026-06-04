@@ -379,6 +379,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
+    augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=resolved_seed)
     table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
     selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
     readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
@@ -391,10 +392,18 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], resource_status)
     _refresh_pipeline_manifest_hashes(
         out_dir,
         {
+            "augmentation_manifest_hashes": [
+                manifest["augmentation_manifest_hash"]
+                for manifest in augmentation_bundle["manifests"]
+            ],
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
             "encoder_manifest_hash": training_report["checkpoint_manifest"]["encoder_manifest_hash"],
             "readout_manifest_hashes": [
                 manifest["readout_manifest_hash"]
@@ -444,9 +453,16 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
         validate_selected_sm_policy_report(report)
         if invocation["selected_sm_policy_report_hash"] != report["selection_hash"]:
             raise ValueError("selected_sm_policy_report_hash mismatch")
+    scope_audits = [build_scope_audit(invocation) for invocation in manifest["kernel_invocations"]]
+    for audit, invocation in zip(scope_audits, manifest["kernel_invocations"]):
+        validate_scope_audit(audit, invocation)
     records = build_phase_b_trace_records(manifest)
     graphs = build_phase_b_graphs(records)
     graph_size_audits = [build_graph_size_audit(graph) for graph in graphs]
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["scope_audits"],
+        {"artifact_type": "gcl_phase_b_scope_audit_bundle", "audits": scope_audits},
+    )
     write_json(
         out_dir / ARTIFACT_FILENAMES["graph_bundle"],
         {"artifact_type": "gcl_phase_b_graph_bundle", "graphs": graphs},
@@ -458,6 +474,14 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
+            "selection_hashes": [
+                invocation["selected_sm_policy_report_hash"]
+                for invocation in manifest["kernel_invocations"]
+            ],
+            "trace_scope_hashes": [
+                audit["trace_scope_hash"]
+                for audit in scope_audits
+            ],
             "graph_hashes": [graph["graph_hash"] for graph in graphs],
             "graph_size_audit_hashes": [
                 audit["graph_size_audit_hash"]

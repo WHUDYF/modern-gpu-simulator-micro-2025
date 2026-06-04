@@ -256,11 +256,22 @@ def test_from_disk_embedding_stage_refreshes_downstream_manifest_hashes(tmp_path
     table = run_embedding_export_stage_from_disk(out_dir)
     validation = validate_phase_b_replay_from_disk(out_dir)
     refreshed_manifest = json.loads(pipeline_manifest_path.read_text())
+    augmentation_bundle = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]).read_text()
+    )
     selector_artifacts = json.loads(
         (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).read_text()
     )
 
     assert refreshed_manifest["seed"] == 43
+    assert refreshed_manifest["hashes"]["augmentation_manifest_hashes"] == [
+        manifest["augmentation_manifest_hash"]
+        for manifest in augmentation_bundle["manifests"]
+    ]
+    assert refreshed_manifest["hashes"]["augmentation_manifest_bundle_hash"] == augmentation_bundle[
+        "augmentation_manifest_bundle_hash"
+    ]
+    assert [manifest["random_seed"] for manifest in augmentation_bundle["manifests"]] == [43, 44]
     assert refreshed_manifest["hashes"]["embedding_table_hash"] == table["embedding_table_hash"]
     assert refreshed_manifest["hashes"]["selector_manifest_hash"] == selector_artifacts[
         "selector_manifest_hash"
@@ -341,7 +352,7 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     assert validation["selector_manifest_hash"] == artifacts["selector_manifest_hash"]
 
 
-def test_from_disk_graph_stage_refreshes_pipeline_manifest_graph_hashes(tmp_path):
+def test_from_disk_graph_stage_refreshes_pipeline_manifest_scope_and_graph_hashes(tmp_path):
     out_dir = tmp_path / "stage_graph_hash_refresh"
     out_dir.mkdir()
     manifest = build_representative_sm_trace_manifest()
@@ -363,7 +374,12 @@ def test_from_disk_graph_stage_refreshes_pipeline_manifest_graph_hashes(tmp_path
             "seed": 42,
             "resource_blocked": False,
             "paths": {},
-            "hashes": {"graph_hashes": ["stale"], "graph_size_audit_hashes": ["stale"]},
+            "hashes": {
+                "selection_hashes": ["stale"],
+                "trace_scope_hashes": ["stale"],
+                "graph_hashes": ["stale"],
+                "graph_size_audit_hashes": ["stale"],
+            },
             "pipeline_manifest_hash": "stale",
         },
     )
@@ -373,7 +389,15 @@ def test_from_disk_graph_stage_refreshes_pipeline_manifest_graph_hashes(tmp_path
         (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
     )
     audit_bundle = json.loads((out_dir / ARTIFACT_FILENAMES["graph_size_audits"]).read_text())
+    scope_bundle = json.loads((out_dir / ARTIFACT_FILENAMES["scope_audits"]).read_text())
 
+    assert refreshed_manifest["hashes"]["selection_hashes"] == [
+        invocation["selected_sm_policy_report_hash"]
+        for invocation in manifest["kernel_invocations"]
+    ]
+    assert refreshed_manifest["hashes"]["trace_scope_hashes"] == [
+        audit["trace_scope_hash"] for audit in scope_bundle["audits"]
+    ]
     assert refreshed_manifest["hashes"]["graph_hashes"] == [
         graph["graph_hash"] for graph in graphs
     ]

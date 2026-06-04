@@ -220,6 +220,7 @@ def _resource_blocked_artifact(
 ) -> dict[str, Any]:
     artifact = {
         "artifact_type": "gcl_phase_b_resource_blocked_artifact",
+        "resource_blocked": True,
         "graph_hashes": [graph["graph_hash"] for graph in graphs],
         "size_audits": graph_size_audits,
         "failed_stage": failed_stage,
@@ -244,6 +245,34 @@ def _resource_not_blocked_artifact(graphs: list[dict[str, Any]]) -> dict[str, An
     }
     artifact["resource_blocked_hash"] = hash_without(artifact, "resource_blocked_hash")
     return artifact
+
+
+def _validate_resource_status_artifact(
+    artifact: dict[str, Any],
+    graphs: list[dict[str, Any]],
+    graph_size_audits: list[dict[str, Any]],
+    expected_resource_blocked: bool,
+) -> None:
+    if artifact.get("artifact_type") != "gcl_phase_b_resource_blocked_artifact":
+        raise ValueError("resource blocked artifact_type mismatch")
+    if artifact.get("resource_blocked_hash") != hash_without(artifact, "resource_blocked_hash"):
+        raise ValueError("resource_blocked_hash is not reproducible")
+    if artifact.get("resource_blocked") is not expected_resource_blocked:
+        raise ValueError("resource_blocked status mismatch")
+    if artifact.get("graph_hashes") != [graph["graph_hash"] for graph in graphs]:
+        raise ValueError("resource blocked graph_hashes mismatch")
+    if expected_resource_blocked:
+        if artifact.get("size_audits") != graph_size_audits:
+            raise ValueError("resource blocked size_audits mismatch")
+        if not artifact.get("failed_stage"):
+            raise ValueError("resource blocked failed_stage is required")
+        if not artifact.get("resource_failure_reason"):
+            raise ValueError("resource blocked resource_failure_reason is required")
+    else:
+        if artifact.get("failed_stage") is not None:
+            raise ValueError("non-blocked failed_stage must be null")
+        if artifact.get("resource_failure_reason") is not None:
+            raise ValueError("non-blocked resource_failure_reason must be null")
 
 
 def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602) -> dict[str, Any]:
@@ -712,6 +741,12 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             "resource blocked artifact",
         )
     )
+    _validate_resource_status_artifact(
+        resource_status,
+        graphs,
+        graph_size_audits,
+        bool(pipeline_manifest.get("resource_blocked")),
+    )
     if resource_status.get("resource_blocked_hash") != pipeline_manifest["hashes"].get(
         "resource_blocked_hash"
     ):
@@ -763,6 +798,10 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     )
     if selector_artifacts.get("source_embedding_table_hash") != embedding_table["embedding_table_hash"]:
         raise ValueError("selector source_embedding_table_hash mismatch")
+    if selector_artifacts.get("selector_manifest_hash") != hash_without(
+        selector_artifacts, "selector_manifest_hash"
+    ):
+        raise ValueError("selector_manifest_hash is not reproducible")
     if pipeline_manifest["hashes"].get("selector_manifest_hash") != selector_artifacts["selector_manifest_hash"]:
         raise ValueError("pipeline manifest selector_manifest_hash mismatch")
 

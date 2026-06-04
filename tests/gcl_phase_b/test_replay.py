@@ -65,6 +65,21 @@ def test_phase_b_disk_replay_validator_accepts_clean_artifacts(tmp_path):
     assert validation["selector_manifest_hash"] == manifest["hashes"]["selector_manifest_hash"]
 
 
+def test_phase_b_replay_rejects_tampered_selector_artifacts(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "tampered_selector"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    selector_path = out_dir / ARTIFACT_FILENAMES["selector_artifacts"]
+    selector_artifacts = json.loads(selector_path.read_text())
+    selector_artifacts["representative_anchor_table"][0]["representative_record_id"] = "tampered"
+    selector_path.write_text(json.dumps(selector_artifacts, sort_keys=True))
+
+    with pytest.raises(ValueError, match="selector_manifest_hash"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_stale_checkpoint_backed_artifacts(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())
@@ -173,4 +188,26 @@ def test_phase_b_replay_rejects_stale_resource_blocked_pipeline_manifest(tmp_pat
     pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
 
     with pytest.raises(ValueError, match="pipeline_manifest_hash"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_tampered_resource_blocked_artifact(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_tampered_resource_status"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    resource_path = out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]
+    resource_status = json.loads(resource_path.read_text())
+    resource_status["resource_failure_reason"] = "tampered"
+    resource_path.write_text(json.dumps(resource_status, sort_keys=True))
+
+    with pytest.raises(ValueError, match="resource_blocked_hash"):
         validate_phase_b_replay_from_disk(out_dir)

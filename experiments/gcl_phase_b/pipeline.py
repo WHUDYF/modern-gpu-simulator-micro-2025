@@ -409,7 +409,10 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
-    source_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
+    source_tensor_hashes = [
+        _phase_a_compatible_tensor(tensor)["tensor_hash"]
+        for tensor in tensors
+    ]
     if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
         raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")
 

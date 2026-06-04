@@ -51,6 +51,19 @@ def test_phase_b_replay_hash_changes_when_selected_sm_changes(tmp_path):
     assert first_manifest["pipeline_manifest_hash"] == first["pipeline_manifest_hash"]
 
 
+def test_phase_b_disk_replay_validator_accepts_clean_artifacts(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "clean_replay"
+    manifest = run_pipeline(manifest_path, out_dir, seed=42)
+
+    validation = validate_phase_b_replay_from_disk(out_dir)
+
+    assert validation["encoder_manifest_hash"] == manifest["hashes"]["encoder_manifest_hash"]
+    assert validation["embedding_table_hash"] == manifest["hashes"]["embedding_table_hash"]
+    assert validation["selector_manifest_hash"] == manifest["hashes"]["selector_manifest_hash"]
+
+
 def test_phase_b_replay_rejects_stale_checkpoint_backed_artifacts(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())

@@ -1,0 +1,41 @@
+import json
+
+from experiments.gcl_phase_b.pipeline import ARTIFACT_FILENAMES, run_pipeline
+from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+from experiments.gcl_phase_b.utils import write_json
+
+
+def test_phase_b_artifacts_are_replayable(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    first_out = tmp_path / "first"
+    second_out = tmp_path / "second"
+
+    first = run_pipeline(manifest_path, first_out, seed=42)
+    second = run_pipeline(manifest_path, second_out, seed=42)
+
+    assert first["hashes"]["selection_hashes"] == second["hashes"]["selection_hashes"]
+    assert first["hashes"]["trace_scope_hashes"] == second["hashes"]["trace_scope_hashes"]
+    assert first["hashes"]["graph_hashes"] == second["hashes"]["graph_hashes"]
+    assert first["hashes"]["graph_size_audit_hashes"] == second["hashes"]["graph_size_audit_hashes"]
+    assert first["hashes"]["tensor_hashes"] == second["hashes"]["tensor_hashes"]
+    assert first["hashes"]["embedding_table_hash"] == second["hashes"]["embedding_table_hash"]
+    assert first["hashes"]["selector_manifest_hash"] == second["hashes"]["selector_manifest_hash"]
+
+
+def test_phase_b_replay_hash_changes_when_selected_sm_changes(tmp_path):
+    manifest = build_representative_sm_trace_manifest()
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, manifest)
+    first = run_pipeline(manifest_path, tmp_path / "first", seed=42)
+
+    mutated = build_representative_sm_trace_manifest(selected_sm=0)
+    mutated_path = tmp_path / "mutated_manifest.json"
+    write_json(mutated_path, mutated)
+    second = run_pipeline(mutated_path, tmp_path / "second", seed=42)
+
+    assert first["hashes"]["selection_hashes"] != second["hashes"]["selection_hashes"]
+    assert first["hashes"]["graph_hashes"] != second["hashes"]["graph_hashes"]
+
+    first_manifest = json.loads((tmp_path / "first" / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
+    assert first_manifest["pipeline_manifest_hash"] == first["pipeline_manifest_hash"]

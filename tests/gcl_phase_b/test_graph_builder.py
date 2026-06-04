@@ -1,0 +1,75 @@
+import copy
+
+import pytest
+
+from experiments.gcl_phase_b.graph_builder import (
+    build_phase_b_graphs,
+    validate_phase_b_graph_artifact,
+)
+from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
+
+
+def _graph():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    return build_phase_b_graphs(records)[0]
+
+
+def test_builds_per_warp_graphs_then_kernel_union():
+    graph = _graph()
+
+    validate_phase_b_graph_artifact(graph)
+    assert graph["collection_scope"] == "single_representative_sm_all_ctas"
+    assert {
+        "graph_id",
+        "kernel_invocation_id",
+        "nodes",
+        "edges",
+        "warp_partitions",
+        "graph_summary",
+        "graph_hash",
+    }.issubset(graph)
+    assert set(graph["warp_partitions"]) == {"1:0", "1:1", "2:0", "2:1"}
+
+
+def test_graph_validator_rejects_cross_warp_control_flow():
+    graph = _graph()
+    instruction_nodes = [node for node in graph["nodes"] if node["node_type"] == "instruction"]
+    first = next(node for node in instruction_nodes if node["warp_partition_id"] == "1:0")
+    other = next(node for node in instruction_nodes if node["warp_partition_id"] == "2:0")
+    graph["edges"].append({"source": first["node_id"], "target": other["node_id"], "relation": "control_flow"})
+
+    with pytest.raises(ValueError, match="control_flow"):
+        validate_phase_b_graph_artifact(graph)
+
+
+def test_warp_partitions_are_complete_and_replayable():
+    graph = _graph()
+
+    validate_phase_b_graph_artifact(graph)
+    seen = []
+    for partition in graph["warp_partitions"].values():
+        assert {
+            "warp_id",
+            "cta_id",
+            "node_ids",
+            "edge_ids",
+            "instruction_count",
+            "node_count",
+            "edge_count",
+            "first_trace_index",
+            "last_trace_index",
+        }.issubset(partition)
+        seen.extend(partition["node_ids"])
+    assert sorted(seen) == sorted(node["node_id"] for node in graph["nodes"])
+
+
+def test_graph_validator_rejects_duplicate_partition_node():
+    graph = _graph()
+    mutated = copy.deepcopy(graph)
+    first_key, second_key = list(mutated["warp_partitions"])[:2]
+    duplicated_node = mutated["warp_partitions"][first_key]["node_ids"][0]
+    mutated["warp_partitions"][second_key]["node_ids"].append(duplicated_node)
+
+    with pytest.raises(ValueError, match="partition"):
+        validate_phase_b_graph_artifact(mutated)

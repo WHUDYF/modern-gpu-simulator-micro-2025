@@ -56,6 +56,16 @@ CURATED_WORKLOADS = {
 }
 
 SCAN_DIRECTORIES = ("cuda", "CUDA", "src", "test")
+SUPPORT_DIRECTORY_NAMES = {
+    "common",
+    "cuda",
+    "include",
+    "mpi",
+    "opencl",
+    "stability",
+    "util",
+    "utils",
+}
 HECBENCH_CUDA_CANDIDATES = (
     "bfs",
     "sgemm",
@@ -173,6 +183,37 @@ def discover_hecbench_workloads(source_id: str, root: Path) -> list[dict[str, st
     return workloads
 
 
+def discover_nested_cuda_workloads(source_id: str, root: Path) -> list[dict[str, str]]:
+    cuda_root = root / "src" / "cuda"
+    if not cuda_root.is_dir():
+        return []
+
+    workloads = []
+    for level_dir in sorted(cuda_root.iterdir(), key=lambda path: path.name):
+        if not level_dir.is_dir() or level_dir.name.startswith("."):
+            continue
+        if not level_dir.name.lower().startswith("level"):
+            continue
+        for child in sorted(level_dir.iterdir(), key=lambda path: path.name):
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            if child.name.lower() in SUPPORT_DIRECTORY_NAMES:
+                continue
+            family, kernel_count, large_kernel, irregularity = pressure_for(source_id, child.name)
+            workloads.append(
+                make_record(
+                    source_id,
+                    child.name,
+                    family,
+                    kernel_count,
+                    large_kernel,
+                    irregularity,
+                    str(child.relative_to(root)),
+                )
+            )
+    return workloads
+
+
 def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, str]]:
     if source_id in CURATED_WORKLOADS:
         return [
@@ -183,6 +224,8 @@ def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, 
         return discover_gpu_parboil_workloads(source_id, root)
     if source_id == "hecbench":
         return discover_hecbench_workloads(source_id, root)
+    if source_id in {"shoc", "altis"}:
+        return discover_nested_cuda_workloads(source_id, root)
 
     workloads: list[dict[str, str]] = []
     for directory_name in SCAN_DIRECTORIES:
@@ -191,6 +234,8 @@ def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, 
             continue
         for child in sorted(scan_root.iterdir(), key=lambda path: path.name):
             if not child.is_dir() or child.name.startswith("."):
+                continue
+            if child.name.lower() in SUPPORT_DIRECTORY_NAMES:
                 continue
             family, kernel_count, large_kernel, irregularity = pressure_for(source_id, child.name)
             record = make_record(

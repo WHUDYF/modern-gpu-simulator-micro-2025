@@ -145,13 +145,43 @@ def test_discover_workloads_for_gpu_rodinia_cuda_dirs(tmp_path):
     root = tmp_path / "gpu-rodinia"
     (root / "cuda" / "bfs").mkdir(parents=True)
     (root / "cuda" / "hotspot").mkdir(parents=True)
+    (root / "cuda" / "util").mkdir(parents=True)
 
     workloads = discover_workloads_for_source("gpu-rodinia", root)
     ids = {item["workload_id"] for item in workloads}
 
     assert "gpu-rodinia_bfs" in ids
     assert "gpu-rodinia_hotspot" in ids
+    assert "gpu-rodinia_util" not in ids
     assert all(item["source_id"] == "gpu-rodinia" for item in workloads)
+
+
+def test_discover_workloads_for_shoc_and_altis_nested_cuda_benchmarks(tmp_path):
+    shoc_root = tmp_path / "shoc"
+    (shoc_root / "src" / "common").mkdir(parents=True)
+    (shoc_root / "src" / "opencl").mkdir(parents=True)
+    (shoc_root / "src" / "cuda" / "level0" / "BusSpeedDownload").mkdir(parents=True)
+    (shoc_root / "src" / "cuda" / "level1" / "BFS").mkdir(parents=True)
+
+    altis_root = tmp_path / "altis"
+    (altis_root / "src" / "common").mkdir(parents=True)
+    (altis_root / "src" / "cuda" / "level1" / "bfs").mkdir(parents=True)
+    (altis_root / "src" / "cuda" / "level1" / "hotspot").mkdir(parents=True)
+
+    shoc_workloads = discover_workloads_for_source("shoc", shoc_root)
+    altis_workloads = discover_workloads_for_source("altis", altis_root)
+    shoc_ids = {item["workload_id"] for item in shoc_workloads}
+    altis_ids = {item["workload_id"] for item in altis_workloads}
+    shoc_paths = {item["workload_id"]: item["relative_path"] for item in shoc_workloads}
+
+    assert {"shoc_busspeeddownload", "shoc_bfs"} <= shoc_ids
+    assert "shoc_common" not in shoc_ids
+    assert "shoc_cuda" not in shoc_ids
+    assert "shoc_opencl" not in shoc_ids
+    assert shoc_paths["shoc_bfs"] == "src/cuda/level1/BFS"
+    assert {"altis_bfs", "altis_hotspot"} <= altis_ids
+    assert "altis_common" not in altis_ids
+    assert "altis_cuda" not in altis_ids
 
 
 def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_path):

@@ -58,14 +58,39 @@ def validate_readout_manifest(manifest: dict[str, Any], tensor: dict[str, Any]) 
         raise ValueError("readout manifest input_graph_hash mismatch")
     if len(manifest["warps"]) != len(tensor["warp_partitions"]):
         raise ValueError("readout manifest warp count mismatch")
-    if manifest["kernel"].get("pooling_method") != "average":
-        raise ValueError("kernel readout must use average pooling")
-    if manifest["kernel"].get("kernel_embedding_dim") != 256:
-        raise ValueError("kernel embedding dimension must be 256")
+    expected_partitions = tensor["warp_partitions"]
+    seen_partition_ids = set()
     for row in manifest["warps"]:
+        required_warp = {
+            "partition_id",
+            "node_count_used",
+            "pooling_method",
+            "warp_embedding_dim",
+        }
+        missing_warp = required_warp.difference(row)
+        if missing_warp:
+            raise ValueError(f"readout warp row missing required fields: {sorted(missing_warp)}")
+        partition_id = row["partition_id"]
+        if partition_id not in expected_partitions:
+            raise ValueError("readout manifest references unknown partition_id")
+        if partition_id in seen_partition_ids:
+            raise ValueError("readout manifest contains duplicate partition_id")
+        seen_partition_ids.add(partition_id)
         if row.get("pooling_method") != "mean":
             raise ValueError("warp readout must use mean pooling")
-        if row.get("node_count_used", 0) <= 0:
+        if row["node_count_used"] != len(expected_partitions[partition_id]):
+            raise ValueError("readout node_count_used mismatch")
+        if row["node_count_used"] <= 0:
             raise ValueError("warp readout cannot use empty warp partition")
+        if row["warp_embedding_dim"] != 256:
+            raise ValueError("readout warp_embedding_dim must be 256")
+    if seen_partition_ids != set(expected_partitions):
+        raise ValueError("readout manifest partition_id set mismatch")
+    if manifest["kernel"].get("pooling_method") != "average":
+        raise ValueError("kernel readout must use average pooling")
+    if manifest["kernel"].get("warp_count_used") != len(expected_partitions):
+        raise ValueError("kernel readout warp_count_used mismatch")
+    if manifest["kernel"].get("kernel_embedding_dim") != 256:
+        raise ValueError("kernel embedding dimension must be 256")
     if manifest["readout_manifest_hash"] != hash_without(manifest, "readout_manifest_hash"):
         raise ValueError("readout_manifest_hash is not reproducible")

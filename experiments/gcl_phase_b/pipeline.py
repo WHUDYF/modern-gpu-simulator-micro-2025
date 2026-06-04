@@ -13,7 +13,7 @@ from experiments.gcl_phase_a.tensorizer import _tensor_hash as phase_a_tensor_ha
 
 from .graph_audit import build_graph_size_audit, validate_graph_size_audit
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
-from .readout import build_readout_manifest
+from .readout import build_readout_manifest, validate_readout_manifest
 from .selector import select_phase_b_representatives
 from .sm_selection import validate_selected_sm_policy_report
 from .tensorizer import (
@@ -382,6 +382,85 @@ def run_tensorization_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:
         },
     )
     return tensors
+
+
+def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
+    pipeline_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], "pipeline manifest"
+        )
+    )
+    checkpoint_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
+        )
+    )
+    checkpoint_path = require_pipeline_artifact(out_dir / "rgcn_checkpoint.pt", "RGCN checkpoint")
+    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
+        raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
+    expected_encoder_hash = hash_without(
+        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
+    )
+    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
+        raise ValueError("encoder_manifest_hash is not reproducible")
+
+    tensor_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
+    )
+    tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
+    source_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
+    if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
+        raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")
+
+    embedding_table = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
+    )
+    validate_embedding_table(embedding_table)
+    if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
+        raise ValueError("embedding table encoder_manifest_hash mismatch")
+    if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
+        raise ValueError("pipeline manifest encoder_manifest_hash mismatch")
+    if pipeline_manifest["hashes"].get("embedding_table_hash") != embedding_table["embedding_table_hash"]:
+        raise ValueError("pipeline manifest embedding_table_hash mismatch")
+
+    selector_artifacts = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["selector_artifacts"], "selector artifacts"
+        )
+    )
+    if selector_artifacts.get("source_embedding_table_hash") != embedding_table["embedding_table_hash"]:
+        raise ValueError("selector source_embedding_table_hash mismatch")
+    if pipeline_manifest["hashes"].get("selector_manifest_hash") != selector_artifacts["selector_manifest_hash"]:
+        raise ValueError("pipeline manifest selector_manifest_hash mismatch")
+
+    readout_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["readout_manifest"], "readout manifest")
+    )
+    for manifest, tensor in zip(readout_bundle.get("manifests", []), tensors):
+        validate_readout_manifest(manifest, tensor)
+    readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_bundle.get("manifests", [])]
+    if pipeline_manifest["hashes"].get("readout_manifest_hashes") != readout_hashes:
+        raise ValueError("pipeline manifest readout_manifest_hashes mismatch")
+    if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(
+        readout_bundle, "readout_manifest_bundle_hash"
+    ):
+        raise ValueError("readout_manifest_bundle_hash is not reproducible")
+    if pipeline_manifest["hashes"].get("readout_manifest_bundle_hash") != readout_bundle["readout_manifest_bundle_hash"]:
+        raise ValueError("pipeline manifest readout_manifest_bundle_hash mismatch")
+
+    expected_pipeline_hash = stable_hash(
+        {key: value for key, value in pipeline_manifest.items() if key != "pipeline_manifest_hash"}
+    )
+    if pipeline_manifest.get("pipeline_manifest_hash") != expected_pipeline_hash:
+        raise ValueError("pipeline_manifest_hash is not reproducible")
+    return {
+        "artifact_type": "gcl_phase_b_replay_validation",
+        "checkpoint_hash": checkpoint_hash,
+        "encoder_manifest_hash": checkpoint_manifest["encoder_manifest_hash"],
+        "embedding_table_hash": embedding_table["embedding_table_hash"],
+        "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

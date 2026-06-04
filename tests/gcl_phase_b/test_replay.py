@@ -4,6 +4,7 @@ import pytest
 
 from experiments.gcl_phase_b.pipeline import (
     ARTIFACT_FILENAMES,
+    PhaseBResourceError,
     run_pipeline,
     validate_phase_b_replay_from_disk,
 )
@@ -90,3 +91,37 @@ def test_phase_b_replay_rejects_stale_upstream_graph_artifact(tmp_path):
 
     with pytest.raises(ValueError, match="graph"):
         validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_stale_selected_sm_policy_report_bundle(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "stale_selection"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    report_path = out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"]
+    report_bundle = json.loads(report_path.read_text())
+    report_bundle["reports"][0]["selection_hash"] = "stale"
+    report_path.write_text(json.dumps(report_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_accepts_resource_blocked_artifacts(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_replay"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    manifest = run_pipeline(manifest_path, out_dir, seed=42)
+
+    validation = validate_phase_b_replay_from_disk(out_dir)
+
+    assert manifest["resource_blocked"] is True
+    assert validation["resource_blocked"] is True

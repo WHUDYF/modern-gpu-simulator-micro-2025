@@ -13,7 +13,7 @@ from experiments.gcl_phase_b.pipeline import (
     run_tensorization_stage_from_disk,
 )
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
-from experiments.gcl_phase_b.utils import write_json
+from experiments.gcl_phase_b.utils import hash_without, write_json
 
 
 def test_phase_b_pipeline_e2e_on_eligible_trace_batch(tmp_path):
@@ -123,6 +123,24 @@ def test_training_resource_failure_writes_resource_blocked_artifact(tmp_path, mo
     assert not (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
 
 
+def test_non_resource_runtime_error_is_not_marked_resource_blocked(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "runtime_error"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise RuntimeError("simulated programming error")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+
+    with pytest.raises(RuntimeError, match="simulated programming error"):
+        run_pipeline(manifest_path, out_dir)
+
+    assert not (out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).exists()
+
+
 def test_pipeline_requires_selected_sm_policy_report(tmp_path):
     manifest = build_representative_sm_trace_manifest()
     del manifest["kernel_invocations"][0]["selected_sm_policy_report_hash"]
@@ -131,6 +149,19 @@ def test_pipeline_requires_selected_sm_policy_report(tmp_path):
 
     with pytest.raises(ValueError, match="selected_sm_policy_report_hash"):
         run_pipeline(manifest_path, tmp_path / "bad")
+
+
+def test_pipeline_requires_inline_selected_sm_policy_report(tmp_path):
+    manifest = build_representative_sm_trace_manifest()
+    del manifest["kernel_invocations"][0]["selected_sm_policy_report"]
+    manifest["kernel_invocations"][0]["trace_hash"] = hash_without(
+        manifest["kernel_invocations"][0], "trace_hash"
+    )
+    manifest_path = tmp_path / "bad_inline_manifest.json"
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+        run_pipeline(manifest_path, tmp_path / "bad_inline")
 
 
 def test_from_disk_graph_stage_requires_selected_sm_policy_report(tmp_path):

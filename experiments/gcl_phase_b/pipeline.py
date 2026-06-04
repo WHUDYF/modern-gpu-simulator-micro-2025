@@ -202,6 +202,8 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     validate_phase_b_trace_manifest(trace_manifest)
     selected_sm_policy_reports = []
     for invocation in trace_manifest["kernel_invocations"]:
+        if "selected_sm_policy_report" not in invocation:
+            raise ValueError("selected_sm_policy_report is required in Phase B trace manifest")
         validate_selected_sm_policy_report(invocation["selected_sm_policy_report"])
         if invocation["selected_sm_policy_report_hash"] != invocation["selected_sm_policy_report"]["selection_hash"]:
             raise ValueError("selected_sm_policy_report_hash mismatch")
@@ -248,7 +250,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
 
     try:
         embedding_table, training_report = run_embedding_export(tensors, out_dir, seed=seed)
-    except (RuntimeError, PhaseBResourceError) as exc:
+    except PhaseBResourceError as exc:
         blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
         write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
         manifest = {
@@ -421,6 +423,27 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     ]:
         raise ValueError("pipeline manifest trace_scope_hashes mismatch")
 
+    report_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+            "selected SM policy report",
+        )
+    )
+    selected_reports = report_bundle.get("reports", [])
+    if len(selected_reports) != len(trace_manifest.get("kernel_invocations", [])):
+        raise ValueError("selected_sm_policy_report count mismatch")
+    selection_hashes = []
+    for invocation, report in zip(trace_manifest["kernel_invocations"], selected_reports):
+        try:
+            validate_selected_sm_policy_report(report)
+        except ValueError as exc:
+            raise ValueError(f"selected_sm_policy_report validation failed: {exc}") from exc
+        if invocation["selected_sm_policy_report_hash"] != report["selection_hash"]:
+            raise ValueError("selected_sm_policy_report hash mismatch")
+        selection_hashes.append(report["selection_hash"])
+    if pipeline_manifest["hashes"].get("selection_hashes") != selection_hashes:
+        raise ValueError("pipeline manifest selection_hashes mismatch")
+
     graph_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
     )
@@ -448,6 +471,30 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     ]:
         raise ValueError("pipeline manifest graph_size_audit_hashes mismatch")
 
+    tensor_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
+    )
+    tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
+    if [tensor["input_graph_hash"] for tensor in tensors] != graph_hashes:
+        raise ValueError("tensor bundle input_graph_hash values do not match graph bundle")
+    if pipeline_manifest["hashes"].get("tensor_hashes") != [tensor["tensor_hash"] for tensor in tensors]:
+        raise ValueError("pipeline manifest tensor_hashes mismatch")
+
+    if pipeline_manifest.get("resource_blocked"):
+        blocked = read_json(
+            require_pipeline_artifact(
+                out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"],
+                "resource blocked artifact",
+            )
+        )
+        if blocked.get("resource_blocked_hash") != pipeline_manifest["hashes"].get("resource_blocked_hash"):
+            raise ValueError("resource_blocked_hash mismatch")
+        return {
+            "artifact_type": "gcl_phase_b_replay_validation",
+            "resource_blocked": True,
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
+        }
+
     checkpoint_manifest = read_json(
         require_pipeline_artifact(
             out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
@@ -462,15 +509,6 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     )
     if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
         raise ValueError("encoder_manifest_hash is not reproducible")
-
-    tensor_bundle = read_json(
-        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
-    )
-    tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
-    if [tensor["input_graph_hash"] for tensor in tensors] != graph_hashes:
-        raise ValueError("tensor bundle input_graph_hash values do not match graph bundle")
-    if pipeline_manifest["hashes"].get("tensor_hashes") != [tensor["tensor_hash"] for tensor in tensors]:
-        raise ValueError("pipeline manifest tensor_hashes mismatch")
     source_tensor_hashes = [
         _phase_a_compatible_tensor(tensor)["tensor_hash"]
         for tensor in tensors

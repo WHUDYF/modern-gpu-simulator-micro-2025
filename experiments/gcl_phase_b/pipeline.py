@@ -416,13 +416,44 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
     augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=resolved_seed)
-    table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
-    selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
-    readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
     graph_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
     )
-    resource_status = _resource_not_blocked_artifact(graph_bundle.get("graphs", []))
+    graphs = graph_bundle.get("graphs", [])
+    audit_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
+        )
+    )
+    graph_size_audits = audit_bundle.get("audits", [])
+    try:
+        table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        _remove_success_artifacts(out_dir)
+        blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
+        write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+        _refresh_pipeline_manifest_hashes(
+            out_dir,
+            {
+                "augmentation_manifest_hashes": [
+                    manifest["augmentation_manifest_hash"]
+                    for manifest in augmentation_bundle["manifests"]
+                ],
+                "augmentation_manifest_bundle_hash": augmentation_bundle[
+                    "augmentation_manifest_bundle_hash"
+                ],
+                "resource_blocked_hash": blocked["resource_blocked_hash"],
+                "embedding_table_hash": None,
+                "selector_manifest_hash": None,
+            },
+            top_level_updates={"resource_blocked": True},
+        )
+        raise
+    selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
+    readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
     write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
@@ -489,6 +520,7 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
         validate_selected_sm_policy_report(report)
         if invocation["selected_sm_policy_report_hash"] != report["selection_hash"]:
             raise ValueError("selected_sm_policy_report_hash mismatch")
+        _validate_selected_sm_report_matches_invocation(invocation, report)
     scope_audits = [build_scope_audit(invocation) for invocation in manifest["kernel_invocations"]]
     for audit, invocation in zip(scope_audits, manifest["kernel_invocations"]):
         validate_scope_audit(audit, invocation)

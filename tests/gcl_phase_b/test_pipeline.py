@@ -350,6 +350,32 @@ def test_from_disk_embedding_stage_clears_resource_blocked_after_success(tmp_pat
     assert validation["embedding_table_hash"] == table["embedding_table_hash"]
 
 
+def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_stale_outputs(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_embedding_failure"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+    assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+
+    def fail_training(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    with pytest.raises(pipeline_module.PhaseBResourceError):
+        run_embedding_export_stage_from_disk(out_dir)
+
+    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
+    assert blocked["resource_blocked"] is True
+    for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    assert not (out_dir / "rgcn_checkpoint.pt").exists()
+
+
 def test_from_disk_repair_refreshes_pipeline_manifest_paths_after_copy(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     original_out = tmp_path / "stage_original_paths"
@@ -449,6 +475,31 @@ def test_from_disk_graph_stage_refreshes_pipeline_manifest_scope_and_graph_hashe
     assert refreshed_manifest["hashes"]["graph_size_audit_hashes"] == [
         audit["graph_size_audit_hash"] for audit in audit_bundle["audits"]
     ]
+
+
+def test_from_disk_graph_stage_rejects_selected_sm_policy_report_scope_mismatch(tmp_path):
+    out_dir = tmp_path / "stage_graph_scope_mismatch"
+    out_dir.mkdir()
+    manifest = build_representative_sm_trace_manifest()
+    mismatched_report = build_representative_sm_trace_manifest(selected_sm=0)["kernel_invocations"][0][
+        "selected_sm_policy_report"
+    ]
+    invocation = manifest["kernel_invocations"][0]
+    invocation["selected_sm_policy_report"] = mismatched_report
+    invocation["selected_sm_policy_report_hash"] = mismatched_report["selection_hash"]
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
+    write_json(out_dir / ARTIFACT_FILENAMES["trace_manifest"], manifest)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+        {
+            "artifact_type": "gcl_phase_b_selected_sm_policy_report_bundle",
+            "reports": [mismatched_report],
+        },
+    )
+
+    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+        run_graph_construction_stage_from_disk(out_dir)
 
 
 def test_from_disk_tensorization_stage_refreshes_pipeline_manifest_tensor_hashes(tmp_path):

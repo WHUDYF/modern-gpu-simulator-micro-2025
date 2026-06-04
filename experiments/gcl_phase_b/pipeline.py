@@ -320,6 +320,7 @@ def _recorded_seed(out_dir: Path, fallback: int) -> int:
 def _refresh_pipeline_manifest_hashes(
     out_dir: Path,
     hash_updates: dict[str, Any],
+    top_level_updates: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     manifest = read_json(
         require_pipeline_artifact(
@@ -327,12 +328,25 @@ def _refresh_pipeline_manifest_hashes(
         )
     )
     manifest = dict(manifest)
+    if top_level_updates:
+        manifest.update(top_level_updates)
+    manifest["paths"] = _paths(out_dir)
     manifest["hashes"] = {**manifest.get("hashes", {}), **hash_updates}
     manifest["pipeline_manifest_hash"] = stable_hash(
         {key: value for key, value in manifest.items() if key != "pipeline_manifest_hash"}
     )
     write_json(out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], manifest)
     return manifest
+
+
+def _refresh_pipeline_manifest_hashes_if_present(
+    out_dir: Path,
+    hash_updates: dict[str, Any],
+    top_level_updates: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    if not (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).exists():
+        return None
+    return _refresh_pipeline_manifest_hashes(out_dir, hash_updates, top_level_updates)
 
 
 def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
@@ -347,11 +361,16 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
     selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
     readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    graph_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
+    )
+    resource_status = _resource_not_blocked_artifact(graph_bundle.get("graphs", []))
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
     write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], resource_status)
     _refresh_pipeline_manifest_hashes(
         out_dir,
         {
@@ -363,7 +382,9 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
             "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
             "embedding_table_hash": table["embedding_table_hash"],
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+            "resource_blocked_hash": resource_status["resource_blocked_hash"],
         },
+        top_level_updates={"resource_blocked": False},
     )
     return table
 
@@ -413,6 +434,16 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
         out_dir / ARTIFACT_FILENAMES["graph_size_audits"],
         {"artifact_type": "gcl_phase_b_graph_size_audit_bundle", "audits": graph_size_audits},
     )
+    _refresh_pipeline_manifest_hashes_if_present(
+        out_dir,
+        {
+            "graph_hashes": [graph["graph_hash"] for graph in graphs],
+            "graph_size_audit_hashes": [
+                audit["graph_size_audit_hash"]
+                for audit in graph_size_audits
+            ],
+        },
+    )
     return graphs
 
 
@@ -438,6 +469,10 @@ def run_tensorization_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:
             "artifact_type": "gcl_phase_b_tensor_bundle",
             "tensors": [tensor_to_jsonable(tensor) for tensor in tensors],
         },
+    )
+    _refresh_pipeline_manifest_hashes_if_present(
+        out_dir,
+        {"tensor_hashes": [tensor["tensor_hash"] for tensor in tensors]},
     )
     return tensors
 

@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 import sys
 
@@ -246,6 +247,51 @@ def test_from_disk_embedding_stage_refreshes_downstream_manifest_hashes(tmp_path
     assert validation["embedding_table_hash"] == table["embedding_table_hash"]
 
 
+def test_from_disk_embedding_stage_clears_resource_blocked_after_success(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_blocked_recovery"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    blocked_manifest = run_pipeline(manifest_path, out_dir, seed=42)
+    assert blocked_manifest["resource_blocked"] is True
+
+    monkeypatch.undo()
+    table = run_embedding_export_stage_from_disk(out_dir)
+    validation = validate_phase_b_replay_from_disk(out_dir)
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+
+    assert refreshed_manifest["resource_blocked"] is False
+    assert refreshed_manifest["hashes"]["resource_blocked_hash"] is not None
+    assert validation["embedding_table_hash"] == table["embedding_table_hash"]
+
+
+def test_from_disk_repair_refreshes_pipeline_manifest_paths_after_copy(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    original_out = tmp_path / "stage_original_paths"
+    copied_out = tmp_path / "stage_copied_paths"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, original_out, seed=42)
+    shutil.copytree(original_out, copied_out)
+
+    run_selector_stage_from_disk(copied_out)
+    refreshed_manifest = json.loads(
+        (copied_out / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+
+    assert refreshed_manifest["paths"]["embedding_table"] == str(
+        copied_out / ARTIFACT_FILENAMES["embedding_table"]
+    )
+    assert all(str(copied_out) in path for path in refreshed_manifest["paths"].values())
+
+
 def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     out_dir = tmp_path / "stage_selector_refresh"
@@ -272,6 +318,85 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
         "selector_manifest_hash"
     ]
     assert validation["selector_manifest_hash"] == artifacts["selector_manifest_hash"]
+
+
+def test_from_disk_graph_stage_refreshes_pipeline_manifest_graph_hashes(tmp_path):
+    out_dir = tmp_path / "stage_graph_hash_refresh"
+    out_dir.mkdir()
+    manifest = build_representative_sm_trace_manifest()
+    write_json(out_dir / ARTIFACT_FILENAMES["trace_manifest"], manifest)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+        {
+            "artifact_type": "gcl_phase_b_selected_sm_policy_report_bundle",
+            "reports": [
+                invocation["selected_sm_policy_report"]
+                for invocation in manifest["kernel_invocations"]
+            ],
+        },
+    )
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["pipeline_manifest"],
+        {
+            "artifact_type": "gcl_phase_b_pipeline_manifest",
+            "seed": 42,
+            "resource_blocked": False,
+            "paths": {},
+            "hashes": {"graph_hashes": ["stale"], "graph_size_audit_hashes": ["stale"]},
+            "pipeline_manifest_hash": "stale",
+        },
+    )
+
+    graphs = run_graph_construction_stage_from_disk(out_dir)
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+    audit_bundle = json.loads((out_dir / ARTIFACT_FILENAMES["graph_size_audits"]).read_text())
+
+    assert refreshed_manifest["hashes"]["graph_hashes"] == [
+        graph["graph_hash"] for graph in graphs
+    ]
+    assert refreshed_manifest["hashes"]["graph_size_audit_hashes"] == [
+        audit["graph_size_audit_hash"] for audit in audit_bundle["audits"]
+    ]
+
+
+def test_from_disk_tensorization_stage_refreshes_pipeline_manifest_tensor_hashes(tmp_path):
+    out_dir = tmp_path / "stage_tensor_hash_refresh"
+    out_dir.mkdir()
+    manifest = build_representative_sm_trace_manifest()
+    write_json(out_dir / ARTIFACT_FILENAMES["trace_manifest"], manifest)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+        {
+            "artifact_type": "gcl_phase_b_selected_sm_policy_report_bundle",
+            "reports": [
+                invocation["selected_sm_policy_report"]
+                for invocation in manifest["kernel_invocations"]
+            ],
+        },
+    )
+    run_graph_construction_stage_from_disk(out_dir)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["pipeline_manifest"],
+        {
+            "artifact_type": "gcl_phase_b_pipeline_manifest",
+            "seed": 42,
+            "resource_blocked": False,
+            "paths": {},
+            "hashes": {"tensor_hashes": ["stale"]},
+            "pipeline_manifest_hash": "stale",
+        },
+    )
+
+    tensors = run_tensorization_stage_from_disk(out_dir)
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+
+    assert refreshed_manifest["hashes"]["tensor_hashes"] == [
+        tensor["tensor_hash"] for tensor in tensors
+    ]
 
 
 def test_from_disk_graph_stage_rebuilds_matching_graph_size_audits(tmp_path):

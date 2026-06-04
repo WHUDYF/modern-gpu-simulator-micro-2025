@@ -125,6 +125,34 @@ def test_training_resource_failure_writes_resource_blocked_artifact(tmp_path, mo
     assert not (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
 
 
+def test_resource_blocked_rerun_removes_stale_success_artifacts(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_rerun"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+    assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+
+    def fail_training(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    manifest = run_pipeline(manifest_path, out_dir, seed=43)
+
+    assert manifest["resource_blocked"] is True
+    stale_success_artifacts = {
+        "training_report",
+        "checkpoint_manifest",
+        "readout_manifest",
+        "embedding_table",
+        "selector_artifacts",
+    }
+    for key in stale_success_artifacts:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    assert not (out_dir / "rgcn_checkpoint.pt").exists()
+
+
 def test_cuda_oom_runtime_error_writes_resource_blocked_artifact(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 
@@ -185,6 +213,23 @@ def test_pipeline_requires_inline_selected_sm_policy_report(tmp_path):
 
     with pytest.raises(ValueError, match="selected_sm_policy_report"):
         run_pipeline(manifest_path, tmp_path / "bad_inline")
+
+
+def test_pipeline_rejects_selected_sm_policy_report_scope_mismatch(tmp_path):
+    manifest = build_representative_sm_trace_manifest()
+    mismatched_report = build_representative_sm_trace_manifest(selected_sm=0)["kernel_invocations"][0][
+        "selected_sm_policy_report"
+    ]
+    invocation = manifest["kernel_invocations"][0]
+    invocation["selected_sm_policy_report"] = mismatched_report
+    invocation["selected_sm_policy_report_hash"] = mismatched_report["selection_hash"]
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
+    manifest_path = tmp_path / "bad_scope_report_manifest.json"
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+        run_pipeline(manifest_path, tmp_path / "bad_scope_report")
 
 
 def test_from_disk_graph_stage_requires_selected_sm_policy_report(tmp_path):

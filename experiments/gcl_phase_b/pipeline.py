@@ -49,6 +49,15 @@ ARTIFACT_FILENAMES = {
 }
 
 
+SUCCESS_ARTIFACT_KEYS = {
+    "training_report",
+    "checkpoint_manifest",
+    "readout_manifest",
+    "embedding_table",
+    "selector_artifacts",
+}
+
+
 class PhaseBResourceError(RuntimeError):
     """Raised when Phase B cannot continue because of a concrete resource limit."""
 
@@ -112,6 +121,28 @@ def _write_bundle_artifacts(
             "tensors": [tensor_to_jsonable(tensor) for tensor in tensors],
         },
     )
+
+
+def _validate_selected_sm_report_matches_invocation(
+    invocation: dict[str, Any],
+    report: dict[str, Any],
+) -> None:
+    expected_fields = {
+        "kernel_invocation_id",
+        "selected_sm_policy",
+        "selected_sm",
+        "selected_sm_reason",
+        "candidate_sm_count",
+    }
+    for field in expected_fields:
+        if report.get(field) != invocation.get(field):
+            raise ValueError(f"selected_sm_policy_report {field} mismatch")
+
+
+def _remove_success_artifacts(out_dir: Path) -> None:
+    for key in SUCCESS_ARTIFACT_KEYS:
+        (out_dir / ARTIFACT_FILENAMES[key]).unlink(missing_ok=True)
+    (out_dir / "rgcn_checkpoint.pt").unlink(missing_ok=True)
 
 
 def require_pipeline_artifact(path: Path, description: str) -> Path:
@@ -226,6 +257,10 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
         validate_selected_sm_policy_report(invocation["selected_sm_policy_report"])
         if invocation["selected_sm_policy_report_hash"] != invocation["selected_sm_policy_report"]["selection_hash"]:
             raise ValueError("selected_sm_policy_report_hash mismatch")
+        _validate_selected_sm_report_matches_invocation(
+            invocation,
+            invocation["selected_sm_policy_report"],
+        )
         selected_sm_policy_reports.append(invocation["selected_sm_policy_report"])
 
     records = build_phase_b_trace_records(trace_manifest)
@@ -272,6 +307,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
+        _remove_success_artifacts(out_dir)
         blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
         write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
         manifest = {

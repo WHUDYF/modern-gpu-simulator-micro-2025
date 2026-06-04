@@ -101,6 +101,7 @@ def _base_invocation(index: int, selected_sm: int | None = None) -> dict[str, An
         report = select_representative_sm(invocation)
     invocation["selected_sm_policy_report"] = report
     invocation["selected_sm_policy_report_hash"] = report["selection_hash"]
+    invocation["selected_sm_policy"] = report["selected_sm_policy"]
     invocation["selected_sm"] = report["selected_sm"]
     invocation["selected_sm_reason"] = report["selected_sm_reason"]
     invocation["candidate_sm_count"] = report["candidate_sm_count"]

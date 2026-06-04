@@ -308,7 +308,15 @@ def _paths(out_dir: Path) -> dict[str, str]:
     }
 
 
-def run_embedding_export_stage_from_disk(out_dir: Path, seed: int = 20260602) -> dict[str, Any]:
+def _recorded_seed(out_dir: Path, fallback: int) -> int:
+    manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    if not manifest_path.exists():
+        return fallback
+    return int(read_json(manifest_path).get("seed", fallback))
+
+
+def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
+    resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
     require_pipeline_artifact(
         out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
     )
@@ -316,18 +324,19 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int = 20260602) ->
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["tensor_bundle"], "tensor bundle")
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
-    table, training_report = run_embedding_export(tensors, out_dir, seed=seed)
+    table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
     return table
 
 
-def run_selector_stage_from_disk(out_dir: Path, seed: int = 20260602) -> dict[str, Any]:
+def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
+    resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
-    artifacts = select_phase_b_representatives(table, seed=seed)
+    artifacts = select_phase_b_representatives(table, seed=resolved_seed)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
     return artifacts
 
@@ -351,9 +360,14 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
             raise ValueError("selected_sm_policy_report_hash mismatch")
     records = build_phase_b_trace_records(manifest)
     graphs = build_phase_b_graphs(records)
+    graph_size_audits = [build_graph_size_audit(graph) for graph in graphs]
     write_json(
         out_dir / ARTIFACT_FILENAMES["graph_bundle"],
         {"artifact_type": "gcl_phase_b_graph_bundle", "graphs": graphs},
+    )
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["graph_size_audits"],
+        {"artifact_type": "gcl_phase_b_graph_size_audit_bundle", "audits": graph_size_audits},
     )
     return graphs
 

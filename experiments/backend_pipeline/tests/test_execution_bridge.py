@@ -94,6 +94,47 @@ def test_custom_profile_respects_smoke_mode_override(tmp_path):
     assert profile["smoke_trace_builder"]["kernel_launches"]["R1_qkv_projection_dense"]["kernel_id"] == 99
 
 
+def test_custom_smoke_profile_without_builtin_override_uses_own_builder(tmp_path):
+    profile_path = tmp_path / "profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "workload_id": "custom_workload",
+                "execution_mode": "validation",
+                "working_directory": ".",
+                "simulator_binary": "sim.out",
+                "setup_script": "",
+                "trace_path": "dynamic_trace.pb",
+                "gpgpusim_config": "gpgpusim.config",
+                "trace_config": "trace.config",
+                "environment": {},
+                "extra_cli_args": ["--custom-smoke"],
+                "parser": {"sim_cycles_patterns": [], "simulation_time_patterns": []},
+                "scenario_overrides": {},
+                "smoke_trace_builder": {
+                    "mode": "trimmed_dummy_extra_info",
+                    "kernel_launches": {
+                        "custom_kernel": {
+                            "kernel_id": 7,
+                            "function_unique_id": 11,
+                            "kernel_name": "custom_kernel",
+                            "threadblock_file": "custom.pb",
+                        }
+                    },
+                },
+            }
+        )
+    )
+    for name in ["sim.out", "dynamic_trace.pb", "gpgpusim.config", "trace.config"]:
+        (tmp_path / name).write_text("x")
+
+    profile = load_workload_profile("custom_workload", profile_path, smoke_mode=True)
+
+    assert profile["execution_mode"] == "smoke"
+    assert profile["extra_cli_args"] == ["--custom-smoke"]
+    assert profile["smoke_trace_builder"]["kernel_launches"]["custom_kernel"]["kernel_id"] == 7
+
+
 def test_all_scenario_overrides_match_profile_configs():
     profile = load_workload_profile("mini_transformer_v4")
     target_text = {

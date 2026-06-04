@@ -166,6 +166,47 @@ def test_from_disk_embedding_export_stage_requires_tensor_bundle(tmp_path):
         run_embedding_export_stage_from_disk(out_dir)
 
 
+def test_from_disk_embedding_and_selector_stages_reuse_pipeline_seed(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_seed"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    manifest = run_pipeline(manifest_path, out_dir, seed=42)
+
+    table = run_embedding_export_stage_from_disk(out_dir)
+    artifacts = run_selector_stage_from_disk(out_dir)
+
+    training_report = json.loads((out_dir / ARTIFACT_FILENAMES["training_report"]).read_text())
+    assert training_report["checkpoint_manifest"]["seed"] == 42
+    assert table["embedding_table_hash"] == manifest["hashes"]["embedding_table_hash"]
+    assert artifacts["structural_evaluation_artifacts"]["seed"] == 42
+
+
+def test_from_disk_graph_stage_rebuilds_matching_graph_size_audits(tmp_path):
+    out_dir = tmp_path / "stage_graph_rebuild"
+    out_dir.mkdir()
+    manifest = build_representative_sm_trace_manifest()
+    write_json(out_dir / ARTIFACT_FILENAMES["trace_manifest"], manifest)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+        {
+            "artifact_type": "gcl_phase_b_selected_sm_policy_report_bundle",
+            "reports": [
+                invocation["selected_sm_policy_report"]
+                for invocation in manifest["kernel_invocations"]
+            ],
+        },
+    )
+
+    graphs = run_graph_construction_stage_from_disk(out_dir)
+    tensors = run_tensorization_stage_from_disk(out_dir)
+
+    audit_bundle = json.loads((out_dir / ARTIFACT_FILENAMES["graph_size_audits"]).read_text())
+    assert [audit["graph_hash"] for audit in audit_bundle["audits"]] == [
+        graph["graph_hash"] for graph in graphs
+    ]
+    assert tensors
+
+
 def test_from_disk_selector_stage_requires_embedding_table(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     out_dir = tmp_path / "stage_missing_embedding"

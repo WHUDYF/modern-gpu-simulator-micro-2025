@@ -480,6 +480,31 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     if pipeline_manifest["hashes"].get("tensor_hashes") != [tensor["tensor_hash"] for tensor in tensors]:
         raise ValueError("pipeline manifest tensor_hashes mismatch")
 
+    augmentation_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["augmentation_manifests"],
+            "augmentation manifest bundle",
+        )
+    )
+    augmentation_manifests = augmentation_bundle.get("manifests", [])
+    augmentation_hashes = []
+    for manifest in augmentation_manifests:
+        if manifest.get("augmentation_manifest_hash") != hash_without(
+            manifest, "augmentation_manifest_hash"
+        ):
+            raise ValueError("augmentation_manifest_hash is not reproducible")
+        augmentation_hashes.append(manifest["augmentation_manifest_hash"])
+    if pipeline_manifest["hashes"].get("augmentation_manifest_hashes") != augmentation_hashes:
+        raise ValueError("pipeline manifest augmentation_manifest_hashes mismatch")
+    if augmentation_bundle.get("augmentation_manifest_bundle_hash") != hash_without(
+        augmentation_bundle, "augmentation_manifest_bundle_hash"
+    ):
+        raise ValueError("augmentation_manifest_bundle_hash is not reproducible")
+    if pipeline_manifest["hashes"].get("augmentation_manifest_bundle_hash") != augmentation_bundle[
+        "augmentation_manifest_bundle_hash"
+    ]:
+        raise ValueError("pipeline manifest augmentation_manifest_bundle_hash mismatch")
+
     if pipeline_manifest.get("resource_blocked"):
         blocked = read_json(
             require_pipeline_artifact(

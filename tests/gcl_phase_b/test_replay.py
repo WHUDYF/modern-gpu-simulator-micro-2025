@@ -108,6 +108,21 @@ def test_phase_b_replay_rejects_stale_selected_sm_policy_report_bundle(tmp_path)
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_stale_augmentation_manifest_bundle(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "stale_augmentation"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    augmentation_path = out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]
+    augmentation_bundle = json.loads(augmentation_path.read_text())
+    augmentation_bundle["manifests"][0]["augmentation_manifest_hash"] = "stale"
+    augmentation_path.write_text(json.dumps(augmentation_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="augmentation_manifest"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_accepts_resource_blocked_artifacts(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 

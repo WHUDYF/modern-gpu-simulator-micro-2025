@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from experiments.gcl_phase_a.train import augment_tensor
+from experiments.gcl_phase_a.train import _augment_with_retry
 
 from .tensorizer import validate_phase_b_tensor_artifact
 from .utils import hash_without
@@ -53,8 +53,8 @@ def _manifest(
 
 def create_augmented_training_views(tensor: dict[str, Any], seed: int = 20260602):
     validate_phase_b_tensor_artifact(tensor)
-    view_a, retries_a = augment_tensor(tensor, seed)
-    view_b, retries_b = augment_tensor(tensor, seed + 1)
+    view_a, retries_a = _augment_with_retry(tensor, seed)
+    view_b, retries_b = _augment_with_retry(tensor, seed + 1)
     view_a = dict(view_a)
     view_b = dict(view_b)
     view_a.pop("graph_hash", None)

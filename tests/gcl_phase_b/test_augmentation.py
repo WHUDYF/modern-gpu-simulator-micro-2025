@@ -20,3 +20,26 @@ def test_augmentation_manifests_reference_canonical_graph_without_overwrite():
         assert manifest["view_hash"]
         assert manifest["view_id"] in {"A", "B"}
         assert "graph_hash" not in view
+
+
+def test_augmentation_manifests_use_retrying_phase_a_augmentation(monkeypatch):
+    import experiments.gcl_phase_b.training as training_module
+
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    graph = build_phase_b_graphs(records)[0]
+    tensor = tensorize_phase_b_graphs([graph])[0]
+    calls = []
+
+    def retrying_augment(input_tensor, seed):
+        calls.append(seed)
+        view = dict(input_tensor)
+        view["augmentation_manifest"] = {"seed": seed}
+        return view, 2
+
+    monkeypatch.setattr(training_module, "_augment_with_retry", retrying_augment)
+
+    view_a, view_b = create_augmented_training_views(tensor, seed=17)
+
+    assert calls == [17, 18]
+    assert view_a["phase_b_augmentation_manifest"]["retry_count"] == 2
+    assert view_b["phase_b_augmentation_manifest"]["retry_count"] == 2

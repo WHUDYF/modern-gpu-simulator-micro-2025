@@ -53,6 +53,25 @@ class PhaseBResourceError(RuntimeError):
     """Raised when Phase B cannot continue because of a concrete resource limit."""
 
 
+def _is_resource_limit_error(exc: BaseException) -> bool:
+    if isinstance(exc, PhaseBResourceError | MemoryError):
+        return True
+    if not isinstance(exc, RuntimeError):
+        return False
+    message = str(exc).lower()
+    resource_markers = (
+        "out of memory",
+        "cuda oom",
+        "cuda memory",
+        "cublas",
+        "cudnn",
+        "allocation failed",
+        "failed to allocate",
+        "resource exhausted",
+    )
+    return any(marker in message for marker in resource_markers)
+
+
 def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in report.items() if key not in {"encoder", "projection_head"}}
 
@@ -250,7 +269,9 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
 
     try:
         embedding_table, training_report = run_embedding_export(tensors, out_dir, seed=seed)
-    except PhaseBResourceError as exc:
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
         blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
         write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
         manifest = {

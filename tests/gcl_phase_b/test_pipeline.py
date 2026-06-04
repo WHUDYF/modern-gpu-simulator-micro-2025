@@ -125,6 +125,27 @@ def test_training_resource_failure_writes_resource_blocked_artifact(tmp_path, mo
     assert not (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
 
 
+def test_cuda_oom_runtime_error_writes_resource_blocked_artifact(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "cuda_oom_resource_blocked"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise RuntimeError("CUDA out of memory while allocating tensor")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+
+    manifest = run_pipeline(manifest_path, out_dir)
+
+    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
+    assert blocked["failed_stage"] == "training"
+    assert "CUDA out of memory" in blocked["resource_failure_reason"]
+    assert manifest["resource_blocked"] is True
+    assert not (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+
+
 def test_non_resource_runtime_error_is_not_marked_resource_blocked(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 

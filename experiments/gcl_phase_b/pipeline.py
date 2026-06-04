@@ -420,6 +420,10 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
     )
     graphs = graph_bundle.get("graphs", [])
+    if [tensor["input_graph_hash"] for tensor in tensors] != [
+        graph["graph_hash"] for graph in graphs
+    ]:
+        raise ValueError("tensor bundle input_graph_hash values do not match graph bundle")
     audit_bundle = read_json(
         require_pipeline_artifact(
             out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
@@ -434,6 +438,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         _remove_success_artifacts(out_dir)
         blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
         write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+        write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
         _refresh_pipeline_manifest_hashes(
             out_dir,
             {

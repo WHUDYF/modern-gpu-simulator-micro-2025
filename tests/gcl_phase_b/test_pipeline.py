@@ -376,6 +376,65 @@ def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_sta
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
 
 
+def test_from_disk_embedding_stage_rejects_stale_tensor_bundle_against_graphs(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_embedding_stale_tensor"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    graph_bundle_path = out_dir / ARTIFACT_FILENAMES["graph_bundle"]
+    graph_bundle = json.loads(graph_bundle_path.read_text())
+    graph_bundle["graphs"][0]["graph_hash"] = "new_graph_hash_after_rebuild"
+    graph_bundle_path.write_text(json.dumps(graph_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="tensor bundle input_graph_hash"):
+        run_embedding_export_stage_from_disk(out_dir)
+
+
+def test_from_disk_embedding_stage_failure_writes_refreshed_augmentation_bundle(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_embedding_failure_aug"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+    pipeline_manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    pipeline_manifest = json.loads(pipeline_manifest_path.read_text())
+    pipeline_manifest["seed"] = 43
+    pipeline_manifest["pipeline_manifest_hash"] = stable_hash(
+        {
+            key: value
+            for key, value in pipeline_manifest.items()
+            if key != "pipeline_manifest_hash"
+        }
+    )
+    pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
+
+    def fail_training(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    with pytest.raises(pipeline_module.PhaseBResourceError):
+        run_embedding_export_stage_from_disk(out_dir)
+
+    blocked_manifest = json.loads(pipeline_manifest_path.read_text())
+    augmentation_bundle = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]).read_text()
+    )
+
+    assert [manifest["random_seed"] for manifest in augmentation_bundle["manifests"]] == [43, 44]
+    assert blocked_manifest["hashes"]["augmentation_manifest_hashes"] == [
+        manifest["augmentation_manifest_hash"]
+        for manifest in augmentation_bundle["manifests"]
+    ]
+    assert blocked_manifest["hashes"]["augmentation_manifest_bundle_hash"] == augmentation_bundle[
+        "augmentation_manifest_bundle_hash"
+    ]
+
+
 def test_from_disk_repair_refreshes_pipeline_manifest_paths_after_copy(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     original_out = tmp_path / "stage_original_paths"

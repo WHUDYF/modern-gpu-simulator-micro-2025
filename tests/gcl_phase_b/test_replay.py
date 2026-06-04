@@ -249,6 +249,58 @@ def test_phase_b_replay_rejects_truncated_augmentation_bundle_after_hash_refresh
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_swapped_augmentation_manifests_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "swapped_augmentation"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    augmentation_path = out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]
+    augmentation_bundle = json.loads(augmentation_path.read_text())
+    augmentation_bundle["manifests"][2] = dict(augmentation_bundle["manifests"][0])
+    augmentation_bundle["manifests"][3] = dict(augmentation_bundle["manifests"][1])
+    augmentation_bundle["augmentation_manifest_bundle_hash"] = hash_without(
+        augmentation_bundle, "augmentation_manifest_bundle_hash"
+    )
+    augmentation_path.write_text(json.dumps(augmentation_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "augmentation_manifest_hashes": [
+                manifest["augmentation_manifest_hash"]
+                for manifest in augmentation_bundle["manifests"]
+            ],
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="augmentation manifest source tensor"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_scope_audit_before_count_drift_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "scope_audit_before_count_drift"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    scope_path = out_dir / ARTIFACT_FILENAMES["scope_audits"]
+    scope_bundle = json.loads(scope_path.read_text())
+    audit = scope_bundle["audits"][0]
+    audit["instruction_count_before_scope"] = audit["instruction_count_before_scope"] + 1
+    audit["trace_scope_hash"] = hash_without(audit, "trace_scope_hash")
+    scope_path.write_text(json.dumps(scope_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {"trace_scope_hashes": [audit["trace_scope_hash"]]},
+    )
+
+    with pytest.raises(ValueError, match="instruction_count_before_scope"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_missing_non_blocked_resource_status(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())

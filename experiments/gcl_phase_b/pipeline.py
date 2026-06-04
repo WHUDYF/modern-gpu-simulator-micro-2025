@@ -737,11 +737,15 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     if len(augmentation_manifests) != expected_augmentation_count:
         raise ValueError("augmentation manifest count mismatch")
     augmentation_hashes = []
-    for manifest in augmentation_manifests:
+    for index, manifest in enumerate(augmentation_manifests):
         if manifest.get("augmentation_manifest_hash") != hash_without(
             manifest, "augmentation_manifest_hash"
         ):
             raise ValueError("augmentation_manifest_hash is not reproducible")
+        tensor_index = index // 2
+        tensor = tensors[tensor_index]
+        if manifest.get("input_graph_hash") != tensor["input_graph_hash"]:
+            raise ValueError("augmentation manifest source tensor mismatch")
         augmentation_hashes.append(manifest["augmentation_manifest_hash"])
     if pipeline_manifest["hashes"].get("augmentation_manifest_hashes") != augmentation_hashes:
         raise ValueError("pipeline manifest augmentation_manifest_hashes mismatch")

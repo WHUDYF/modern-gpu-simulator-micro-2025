@@ -79,7 +79,7 @@ def test_scope_audit_rejects_fake_unavailable_before_counts():
     audit["instruction_count_before_scope"] = 0
     audit["missing_before_scope_reason"] = ""
 
-    with pytest.raises(ValueError, match="missing_before_scope_reason"):
+    with pytest.raises(ValueError, match="instruction_count_before_scope"):
         validate_scope_audit(audit, invocation)
 
 

@@ -90,6 +90,12 @@ def validate_scope_audit(audit: dict[str, Any], invocation: dict[str, Any]) -> N
         raise ValueError("scope audit selected_sm mismatch")
     if audit.get("included_cta_ids") != invocation["included_cta_ids"]:
         raise ValueError("scope audit included_cta_ids mismatch")
+    if audit.get("instruction_count_before_scope") != invocation.get("instruction_count_before_scope"):
+        raise ValueError("instruction_count_before_scope mismatch")
+    if audit.get("warp_count_before_scope") != invocation.get("warp_count_before_scope"):
+        raise ValueError("warp_count_before_scope mismatch")
+    if audit.get("missing_before_scope_reason") != invocation.get("missing_before_scope_reason"):
+        raise ValueError("missing_before_scope_reason mismatch")
     if not audit.get("before_scope_counts_available"):
         if audit.get("instruction_count_before_scope") in (0, None) and not audit.get("missing_before_scope_reason"):
             raise ValueError("missing_before_scope_reason is required when before counts are unavailable")

@@ -9,7 +9,7 @@ from experiments.gcl_phase_b.pipeline import (
     validate_phase_b_replay_from_disk,
 )
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
-from experiments.gcl_phase_b.utils import write_json
+from experiments.gcl_phase_b.utils import hash_without, write_json
 
 
 def test_phase_b_artifacts_are_replayable(tmp_path):
@@ -118,6 +118,24 @@ def test_phase_b_replay_rejects_stale_selected_sm_policy_report_bundle(tmp_path)
     report_bundle = json.loads(report_path.read_text())
     report_bundle["reports"][0]["selection_hash"] = "stale"
     report_path.write_text(json.dumps(report_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_trace_manifest_selected_sm_report_mismatch(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "trace_selection_mismatch"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    trace_path = out_dir / ARTIFACT_FILENAMES["trace_manifest"]
+    trace_manifest = json.loads(trace_path.read_text())
+    invocation = trace_manifest["kernel_invocations"][0]
+    invocation["selected_sm_reason"] = "tampered_reason"
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    trace_manifest["trace_manifest_hash"] = hash_without(trace_manifest, "trace_manifest_hash")
+    trace_path.write_text(json.dumps(trace_manifest, sort_keys=True))
 
     with pytest.raises(ValueError, match="selected_sm_policy_report"):
         validate_phase_b_replay_from_disk(out_dir)

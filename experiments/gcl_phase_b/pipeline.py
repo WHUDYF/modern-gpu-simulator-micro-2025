@@ -468,7 +468,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
         write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
         write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
-        _refresh_pipeline_manifest_hashes(
+        _refresh_pipeline_manifest_hashes_if_present(
             out_dir,
             {
                 "augmentation_manifest_hashes": [
@@ -495,7 +495,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], resource_status)
-    _refresh_pipeline_manifest_hashes(
+    _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
             "augmentation_manifest_hashes": [
@@ -664,6 +664,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             raise ValueError(f"selected_sm_policy_report validation failed: {exc}") from exc
         if invocation["selected_sm_policy_report_hash"] != report["selection_hash"]:
             raise ValueError("selected_sm_policy_report hash mismatch")
+        _validate_selected_sm_report_matches_invocation(invocation, report)
         selection_hashes.append(report["selection_hash"])
     if pipeline_manifest["hashes"].get("selection_hashes") != selection_hashes:
         raise ValueError("pipeline manifest selection_hashes mismatch")

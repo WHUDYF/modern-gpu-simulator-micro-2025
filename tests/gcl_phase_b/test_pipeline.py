@@ -265,6 +265,31 @@ def test_from_disk_embedding_export_stage_requires_tensor_bundle(tmp_path):
         run_embedding_export_stage_from_disk(out_dir)
 
 
+def test_from_disk_embedding_export_stage_runs_without_pipeline_manifest(tmp_path):
+    out_dir = tmp_path / "stage_embedding_without_manifest"
+    out_dir.mkdir()
+    manifest = build_representative_sm_trace_manifest()
+    write_json(out_dir / ARTIFACT_FILENAMES["trace_manifest"], manifest)
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["selected_sm_policy_report"],
+        {
+            "artifact_type": "gcl_phase_b_selected_sm_policy_report_bundle",
+            "reports": [
+                invocation["selected_sm_policy_report"]
+                for invocation in manifest["kernel_invocations"]
+            ],
+        },
+    )
+    run_graph_construction_stage_from_disk(out_dir)
+    run_tensorization_stage_from_disk(out_dir)
+
+    table = run_embedding_export_stage_from_disk(out_dir, seed=42)
+
+    assert table["embedding_table_hash"]
+    assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+    assert not (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).exists()
+
+
 def test_from_disk_embedding_and_selector_stages_reuse_pipeline_seed(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     out_dir = tmp_path / "stage_seed"

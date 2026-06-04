@@ -317,6 +317,24 @@ def _recorded_seed(out_dir: Path, fallback: int) -> int:
     return int(read_json(manifest_path).get("seed", fallback))
 
 
+def _refresh_pipeline_manifest_hashes(
+    out_dir: Path,
+    hash_updates: dict[str, Any],
+) -> dict[str, Any]:
+    manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], "pipeline manifest"
+        )
+    )
+    manifest = dict(manifest)
+    manifest["hashes"] = {**manifest.get("hashes", {}), **hash_updates}
+    manifest["pipeline_manifest_hash"] = stable_hash(
+        {key: value for key, value in manifest.items() if key != "pipeline_manifest_hash"}
+    )
+    write_json(out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], manifest)
+    return manifest
+
+
 def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
     resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
     require_pipeline_artifact(
@@ -327,9 +345,26 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     )
     tensors = [tensor_from_jsonable(tensor) for tensor in tensor_bundle.get("tensors", [])]
     table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
+    selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
+    readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
+    write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
+    write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "encoder_manifest_hash": training_report["checkpoint_manifest"]["encoder_manifest_hash"],
+            "readout_manifest_hashes": [
+                manifest["readout_manifest_hash"]
+                for manifest in readout_bundle["manifests"]
+            ],
+            "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+            "embedding_table_hash": table["embedding_table_hash"],
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+        },
+    )
     return table
 
 
@@ -340,6 +375,13 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     )
     artifacts = select_phase_b_representatives(table, seed=resolved_seed)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "embedding_table_hash": table["embedding_table_hash"],
+            "selector_manifest_hash": artifacts["selector_manifest_hash"],
+        },
+    )
     return artifacts
 
 

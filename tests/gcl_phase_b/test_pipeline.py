@@ -11,9 +11,10 @@ from experiments.gcl_phase_b.pipeline import (
     run_pipeline,
     run_selector_stage_from_disk,
     run_tensorization_stage_from_disk,
+    validate_phase_b_replay_from_disk,
 )
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
-from experiments.gcl_phase_b.utils import hash_without, write_json
+from experiments.gcl_phase_b.utils import hash_without, stable_hash, write_json
 
 
 def test_phase_b_pipeline_e2e_on_eligible_trace_batch(tmp_path):
@@ -210,6 +211,67 @@ def test_from_disk_embedding_and_selector_stages_reuse_pipeline_seed(tmp_path):
     assert training_report["checkpoint_manifest"]["seed"] == 42
     assert table["embedding_table_hash"] == manifest["hashes"]["embedding_table_hash"]
     assert artifacts["structural_evaluation_artifacts"]["seed"] == 42
+
+
+def test_from_disk_embedding_stage_refreshes_downstream_manifest_hashes(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_embedding_refresh"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    pipeline_manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    pipeline_manifest = json.loads(pipeline_manifest_path.read_text())
+    pipeline_manifest["seed"] = 43
+    pipeline_manifest["pipeline_manifest_hash"] = stable_hash(
+        {
+            key: value
+            for key, value in pipeline_manifest.items()
+            if key != "pipeline_manifest_hash"
+        }
+    )
+    pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
+
+    table = run_embedding_export_stage_from_disk(out_dir)
+    validation = validate_phase_b_replay_from_disk(out_dir)
+    refreshed_manifest = json.loads(pipeline_manifest_path.read_text())
+    selector_artifacts = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).read_text()
+    )
+
+    assert refreshed_manifest["seed"] == 43
+    assert refreshed_manifest["hashes"]["embedding_table_hash"] == table["embedding_table_hash"]
+    assert refreshed_manifest["hashes"]["selector_manifest_hash"] == selector_artifacts[
+        "selector_manifest_hash"
+    ]
+    assert validation["embedding_table_hash"] == table["embedding_table_hash"]
+
+
+def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_selector_refresh"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    table = json.loads(table_path.read_text())
+    table["rows"][0]["embedding"][0] = round(table["rows"][0]["embedding"][0] + 0.125, 8)
+    table["rows"][0]["embedding_hash"] = hash_without(table["rows"][0], "embedding_hash")
+    table["embedding_table_hash"] = hash_without(table, "embedding_table_hash")
+    table_path.write_text(json.dumps(table, sort_keys=True))
+
+    artifacts = run_selector_stage_from_disk(out_dir)
+    validation = validate_phase_b_replay_from_disk(out_dir)
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+
+    assert refreshed_manifest["hashes"]["embedding_table_hash"] == table[
+        "embedding_table_hash"
+    ]
+    assert refreshed_manifest["hashes"]["selector_manifest_hash"] == artifacts[
+        "selector_manifest_hash"
+    ]
+    assert validation["selector_manifest_hash"] == artifacts["selector_manifest_hash"]
 
 
 def test_from_disk_graph_stage_rebuilds_matching_graph_size_audits(tmp_path):

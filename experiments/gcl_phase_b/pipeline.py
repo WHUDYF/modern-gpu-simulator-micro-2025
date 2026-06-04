@@ -56,6 +56,12 @@ SUCCESS_ARTIFACT_KEYS = {
     "embedding_table",
     "selector_artifacts",
 }
+TENSOR_DOWNSTREAM_ARTIFACT_KEYS = {
+    "augmentation_manifests",
+    "resource_blocked_artifact",
+    *SUCCESS_ARTIFACT_KEYS,
+}
+CHECKPOINT_FILENAME = "rgcn_checkpoint.pt"
 
 
 class PhaseBResourceError(RuntimeError):
@@ -142,7 +148,7 @@ def _validate_selected_sm_report_matches_invocation(
 def _remove_success_artifacts(out_dir: Path) -> None:
     for key in SUCCESS_ARTIFACT_KEYS:
         (out_dir / ARTIFACT_FILENAMES[key]).unlink(missing_ok=True)
-    (out_dir / "rgcn_checkpoint.pt").unlink(missing_ok=True)
+    (out_dir / CHECKPOINT_FILENAME).unlink(missing_ok=True)
 
 
 def _remove_tensor_and_downstream_artifacts(out_dir: Path) -> None:
@@ -151,17 +157,9 @@ def _remove_tensor_and_downstream_artifacts(out_dir: Path) -> None:
 
 
 def _remove_tensor_downstream_artifacts(out_dir: Path) -> None:
-    for key in {
-        "augmentation_manifests",
-        "training_report",
-        "checkpoint_manifest",
-        "readout_manifest",
-        "embedding_table",
-        "selector_artifacts",
-        "resource_blocked_artifact",
-    }:
+    for key in TENSOR_DOWNSTREAM_ARTIFACT_KEYS:
         (out_dir / ARTIFACT_FILENAMES[key]).unlink(missing_ok=True)
-    (out_dir / "rgcn_checkpoint.pt").unlink(missing_ok=True)
+    (out_dir / CHECKPOINT_FILENAME).unlink(missing_ok=True)
 
 
 def require_pipeline_artifact(path: Path, description: str) -> Path:
@@ -785,7 +783,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         for key in SUCCESS_ARTIFACT_KEYS:
             if (out_dir / ARTIFACT_FILENAMES[key]).exists():
                 raise ValueError("resource-blocked replay contains stale success artifact")
-        if (out_dir / "rgcn_checkpoint.pt").exists():
+        if (out_dir / CHECKPOINT_FILENAME).exists():
             raise ValueError("resource-blocked replay contains stale success artifact")
         return {
             "artifact_type": "gcl_phase_b_replay_validation",
@@ -798,7 +796,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
         )
     )
-    checkpoint_path = require_pipeline_artifact(out_dir / "rgcn_checkpoint.pt", "RGCN checkpoint")
+    checkpoint_path = require_pipeline_artifact(out_dir / CHECKPOINT_FILENAME, "RGCN checkpoint")
     checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
     if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
         raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")

@@ -7,12 +7,20 @@ import argparse
 import json
 from pathlib import Path
 
-from frontend_anchor.exporter import (
-    build_case_note,
-    build_comparison_table,
-    export_anchor_table,
-)
-from frontend_anchor.selector import run_selector
+try:
+    from .frontend_anchor.exporter import (
+        build_case_note,
+        build_comparison_table,
+        export_anchor_table,
+    )
+    from .frontend_anchor.selector import run_selector
+except ImportError:
+    from frontend_anchor.exporter import (
+        build_case_note,
+        build_comparison_table,
+        export_anchor_table,
+    )
+    from frontend_anchor.selector import run_selector
 
 
 def parse_args() -> argparse.Namespace:
@@ -28,7 +36,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    from frontend_anchor.invocation_table import build_records_from_dual_sources
+    try:
+        from .frontend_anchor.invocation_table import build_records_from_dual_sources
+    except ImportError:
+        from frontend_anchor.invocation_table import build_records_from_dual_sources
 
     table = build_records_from_dual_sources(
         args.identity_json,

@@ -161,7 +161,7 @@ def test_phase_b_replay_rejects_stale_selected_sm_policy_report_bundle(tmp_path)
     report_bundle["reports"][0]["selection_hash"] = "stale"
     report_path.write_text(json.dumps(report_bundle, sort_keys=True))
 
-    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+    with pytest.raises(ValueError, match="selected_sm_policy_report|scope audit"):
         validate_phase_b_replay_from_disk(out_dir)
 
 
@@ -179,7 +179,28 @@ def test_phase_b_replay_rejects_trace_manifest_selected_sm_report_mismatch(tmp_p
     trace_manifest["trace_manifest_hash"] = hash_without(trace_manifest, "trace_manifest_hash")
     trace_path.write_text(json.dumps(trace_manifest, sort_keys=True))
 
-    with pytest.raises(ValueError, match="selected_sm_policy_report"):
+    with pytest.raises(ValueError, match="selected_sm_policy_report|scope audit"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_scope_audit_selection_mismatch(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "scope_audit_mismatch"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    scope_path = out_dir / ARTIFACT_FILENAMES["scope_audits"]
+    scope_bundle = json.loads(scope_path.read_text())
+    audit = scope_bundle["audits"][0]
+    audit["selected_sm"] = 99
+    audit["trace_scope_hash"] = hash_without(audit, "trace_scope_hash")
+    scope_path.write_text(json.dumps(scope_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {"trace_scope_hashes": [audit["trace_scope_hash"]]},
+    )
+
+    with pytest.raises(ValueError, match="scope audit"):
         validate_phase_b_replay_from_disk(out_dir)
 
 

@@ -52,6 +52,29 @@ def test_builder_writes_records(tmp_path):
     assert "feature_vector" in first
 
 
+def test_frontend_anchor_pipeline_runs_as_package_module(tmp_path):
+    output_dir = tmp_path / "frontend_anchor_outputs"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "experiments.baseline_diagnosis.build_frontend_anchor_outputs",
+            "--identity-json",
+            str(IDENTITY_JSON),
+            "--features-json",
+            str(FEATURES_JSON),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert (output_dir / "representative_anchor_table_v1.json").exists()
+
+
 def test_builder_can_attach_squash_context(tmp_path):
     proc, out = run_builder(tmp_path, "--squash-json", str(SQUASH_JSON))
     assert proc.returncode == 0, proc.stderr

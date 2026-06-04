@@ -84,6 +84,12 @@ def build_scope_audit(invocation: dict[str, Any]) -> dict[str, Any]:
 def validate_scope_audit(audit: dict[str, Any], invocation: dict[str, Any]) -> None:
     if audit.get("scope_policy") != COLLECTION_SCOPE:
         raise ValueError("scope_policy must be single_representative_sm_all_ctas")
+    if audit.get("scope_reason") != invocation["selected_sm_reason"]:
+        raise ValueError("scope audit scope_reason mismatch")
+    if audit.get("selected_sm") != invocation["selected_sm"]:
+        raise ValueError("scope audit selected_sm mismatch")
+    if audit.get("included_cta_ids") != invocation["included_cta_ids"]:
+        raise ValueError("scope audit included_cta_ids mismatch")
     if not audit.get("before_scope_counts_available"):
         if audit.get("instruction_count_before_scope") in (0, None) and not audit.get("missing_before_scope_reason"):
             raise ValueError("missing_before_scope_reason is required when before counts are unavailable")

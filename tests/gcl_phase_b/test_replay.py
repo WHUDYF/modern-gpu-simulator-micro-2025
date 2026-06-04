@@ -259,6 +259,30 @@ def test_phase_b_replay_accepts_resource_blocked_artifacts(tmp_path, monkeypatch
     assert validation["resource_blocked"] is True
 
 
+def test_phase_b_replay_rejects_resource_blocked_output_with_stale_success_artifacts(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_with_stale_success"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    def fail_training(*args, **kwargs):
+        raise PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    with pytest.raises(PhaseBResourceError):
+        pipeline_module.run_embedding_export_stage_from_disk(out_dir)
+
+    write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], {"stale": "success"})
+
+    with pytest.raises(ValueError, match="resource-blocked replay contains stale success artifact"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_stale_resource_blocked_pipeline_manifest(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 

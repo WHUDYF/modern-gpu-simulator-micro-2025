@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from experiments.gcl_phase_b.graph_builder import (
+    GRAPH_HASH_EXCLUDED_FIELDS,
     build_phase_b_graphs,
     validate_phase_b_graph_artifact,
 )
@@ -84,6 +85,19 @@ def test_warp_partitions_are_complete_and_replayable():
         }.issubset(partition)
         seen.extend(partition["node_ids"])
     assert sorted(seen) == sorted(node["node_id"] for node in graph["nodes"])
+
+
+def test_graph_validator_rejects_edge_missing_from_warp_partition():
+    graph = _graph()
+    mutated = copy.deepcopy(graph)
+    partition_id, partition = next(iter(mutated["warp_partitions"].items()))
+    edge_id = partition["edge_ids"].pop()
+    partition["edge_count"] -= 1
+    mutated["graph_hash"] = hash_without(mutated, *GRAPH_HASH_EXCLUDED_FIELDS)
+    assert any(edge["edge_id"] == edge_id for edge in mutated["edges"])
+
+    with pytest.raises(ValueError, match="edge.*warp partition"):
+        validate_phase_b_graph_artifact(mutated)
 
 
 def test_graph_validator_rejects_duplicate_partition_node():

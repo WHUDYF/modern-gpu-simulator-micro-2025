@@ -90,6 +90,22 @@ def test_embedding_export_stage_from_disk_rejects_checkpoint_manifest_mismatch(t
         run_embedding_export_stage_from_disk(out_dir)
 
 
+def test_embedding_export_stage_from_disk_rejects_encoder_manifest_hash_mismatch(
+    tmp_path,
+    pipeline_out_dir,
+):
+    out_dir = copytree(pipeline_out_dir, tmp_path / "mutated_encoder_manifest_hash")
+    checkpoint_manifest_path = out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]
+    checkpoint_manifest = json.loads(checkpoint_manifest_path.read_text())
+    checkpoint_manifest["encoder_manifest_hash"] = "tampered"
+    checkpoint_manifest_path.write_text(
+        json.dumps(checkpoint_manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    )
+
+    with pytest.raises(ValueError, match="encoder_manifest_hash"):
+        run_embedding_export_stage_from_disk(out_dir)
+
+
 def test_embedding_export_stage_from_disk_rejects_tensor_checkpoint_mismatch(tmp_path, pipeline_out_dir):
     out_dir = copytree(pipeline_out_dir, tmp_path / "mutated_tensor_bundle")
     graph_path = out_dir / ARTIFACT_FILENAMES["graph_bundle"]

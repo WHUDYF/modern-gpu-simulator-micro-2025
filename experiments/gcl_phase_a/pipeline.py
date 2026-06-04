@@ -155,6 +155,11 @@ def run_embedding_export_stage_from_disk(out_dir: Path) -> dict[str, Any]:
     checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
     if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
         raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
+    expected_encoder_manifest_hash = hash_without(
+        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
+    )
+    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_manifest_hash:
+        raise ValueError("encoder_manifest_hash is not reproducible")
     source_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
     if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
         raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")

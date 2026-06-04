@@ -332,6 +332,7 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
     if not graph["warp_partitions"]:
         raise ValueError("warp_partitions must not be empty")
     node_partition_hits: defaultdict[str, int] = defaultdict(int)
+    edge_partition_hits: defaultdict[str, int] = defaultdict(int)
     for partition_id, partition in graph["warp_partitions"].items():
         required_partition = {
             "warp_id",
@@ -364,8 +365,11 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
                 raise ValueError("partition references unknown edge")
             if edge_by_id[edge_id]["warp_partition_id"] != partition_id:
                 raise ValueError("partition edge metadata mismatch")
+            edge_partition_hits[edge_id] += 1
     if set(node_partition_hits) != set(node_by_id) or any(count != 1 for count in node_partition_hits.values()):
         raise ValueError("each graph node must belong to exactly one warp partition")
+    if set(edge_partition_hits) != set(edge_by_id) or any(count != 1 for count in edge_partition_hits.values()):
+        raise ValueError("each graph edge must belong to exactly one warp partition")
 
     observed_order: dict[str, list[int]] = defaultdict(list)
     for node in graph["nodes"]:

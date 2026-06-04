@@ -422,3 +422,52 @@ def test_writeback_keeps_parse_failed_main_object_pending(tmp_path):
     updates = json.loads((output_dir / "backend_writeback_updates_v1.json").read_text())
     row = next(item for item in updates if item["regime_id"] == "R1_qkv_projection_dense")
     assert row["validation_status_update"] == "pending"
+
+
+def test_writeback_never_validates_smoke_mode_success_summary(tmp_path):
+    output_dir = _prepare_environment(tmp_path)
+    result_summary = [
+        {
+            "run_id": "RUN_importance_guided_R1_qkv_projection_dense_S1_register_pressure",
+            "object_id": "R1_qkv_projection_dense",
+            "family_id": "F1_dense_tiled_backbone",
+            "regime_id": "R1_qkv_projection_dense",
+            "priority_source": "importance-guided",
+            "parameter_scenario_id": "S1_register_pressure",
+            "execution_mode": "smoke",
+            "execution_status": "success",
+            "parse_status": "parsed-smoke",
+            "observed_metric_values": {"sim_cycles": 42},
+            "baseline_delta": {"sim_cycles": -0.1},
+            "sensitivity_score": 0.9,
+            "coverage_gain": 0.4,
+            "tuning_gain": 0.6,
+            "result_status": "success",
+            "notes": "smoke run should not promote validation",
+        }
+    ]
+    (output_dir / "backend_result_summary_v1.json").write_text(json.dumps(result_summary, indent=2))
+    subprocess.run(
+        [
+            sys.executable,
+            str(WRITEBACK_SCRIPT),
+            "--run-manifest",
+            str(output_dir / "backend_run_manifest_v1.json"),
+            "--result-summary",
+            str(output_dir / "backend_result_summary_v1.json"),
+            "--writeback-map",
+            str(output_dir / "backend_writeback_map_v1.json"),
+            "--output-dir",
+            str(output_dir),
+        ],
+        check=True,
+    )
+    updates = json.loads((output_dir / "backend_writeback_updates_v1.json").read_text())
+    row = next(item for item in updates if item["regime_id"] == "R1_qkv_projection_dense")
+    assert row["validation_status_update"] == "pending"
+
+    validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
+    regime = next(item for item in validation["regime_status"] if item["regime_id"] == "R1_qkv_projection_dense")
+    family = next(item for item in validation["family_status"] if item["family_id"] == "F1_dense_tiled_backbone")
+    assert regime["current_status"] == "pending"
+    assert "R1_qkv_projection_dense" not in family["validated_regimes"]

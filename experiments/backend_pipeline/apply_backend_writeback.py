@@ -55,9 +55,16 @@ def _derive_importance_update(result_status: str, tuning_gain):
     return "no-change"
 
 
-def _derive_validation_status(result_status: str, validation_role: str) -> str:
+def _derive_validation_status(
+    result_status: str,
+    validation_role: str,
+    execution_mode: str | None = None,
+    parse_status: str | None = None,
+) -> str:
     if result_status not in {"success", "weak", "failed", "inconclusive", "parse-failed"}:
         raise ValueError(f"unsupported result_status for writeback: {result_status}")
+    if execution_mode == "smoke" or parse_status == "parsed-smoke":
+        return "pending-review" if validation_role == "review-object" else "pending"
     if result_status == "success":
         return "validated"
     if result_status == "weak":
@@ -138,7 +145,12 @@ def build_writeback_updates(run_manifest: list[dict], result_summary: list[dict]
                 "parameter_scenario_id": result["parameter_scenario_id"],
                 "decision_update": _derive_decision_update(result_status, result.get("sensitivity_score")),
                 "importance_update": _derive_importance_update(result_status, result.get("tuning_gain")),
-                "validation_status_update": _derive_validation_status(result_status, validation_role),
+                "validation_status_update": _derive_validation_status(
+                    result_status,
+                    validation_role,
+                    result.get("execution_mode"),
+                    result.get("parse_status"),
+                ),
                 "review_status_update": _derive_review_status(
                     writeback_row.get("review_status_update"),
                     result_status,

@@ -37,13 +37,13 @@ def _manifest() -> list[dict]:
     return json.loads((RESULTS_ROOT / "backend_run_manifest_v1.json").read_text())
 
 
-def test_builtin_profile_loads_existing_repo_assets():
+def test_builtin_profile_loads_existing_repo_assets_as_smoke_only_fixture():
     profile = load_workload_profile("mini_transformer_v4")
     assert Path(profile["simulator_binary"]).exists()
     assert Path(profile["trace_path"]).exists()
     assert Path(profile["gpgpusim_config"]).exists()
     assert Path(profile["trace_config"]).exists()
-    assert profile["execution_mode"] == "validation"
+    assert profile["execution_mode"] == "smoke"
     assert profile["extra_cli_args"] == ["-is_extra_traces_enabled", "0"]
     assert "smoke_trace_builder" not in profile
 

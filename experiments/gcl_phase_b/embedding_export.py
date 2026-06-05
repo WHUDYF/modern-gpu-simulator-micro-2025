@@ -1,4 +1,4 @@
-"""Gate 5 embedding export for Phase B tensors using CTA-aware readout."""
+"""Gate 5 formal embedding export for Phase B tensors using CTA-aware readout."""
 
 from __future__ import annotations
 
@@ -14,12 +14,16 @@ from .tensorizer import validate_phase_b_tensor_artifact
 
 REPRESENTATION_MODE = "gcl_resnet50_rgcn_selected_sm_kernel_embedding"
 EMBEDDING_DIM = 256
+KERNEL_EMBEDDING_TABLE_TYPE = "gcl_resnet50_kernel_embedding_table"
+KERNEL_EMBEDDING_TABLE_VERSION = "gate5_kernel_embedding_table_v1"
+READOUT_HIERARCHY = "node_to_warp_to_cta_to_selected_sm_to_kernel"
 
 
 def export_phase_b_embedding_table(
     tensors: list[dict[str, Any]],
     encoder,
     encoder_manifest: dict[str, Any],
+    source_graph_tensor_bundle_hash: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     torch = require_torch()
     if not tensors:
@@ -50,14 +54,18 @@ def export_phase_b_embedding_table(
             rows.append(row)
             readout_manifests.append(readout_manifest)
     table = {
-        "artifact_type": "gcl_kernel_embedding_table",
+        "artifact_type": KERNEL_EMBEDDING_TABLE_TYPE,
+        "artifact_version": KERNEL_EMBEDDING_TABLE_VERSION,
+        "source_graph_tensor_bundle_hash": source_graph_tensor_bundle_hash
+        or _source_graph_tensor_bundle_hash(tensors),
         "representation_mode": REPRESENTATION_MODE,
-        "embedding_dim": EMBEDDING_DIM,
-        "row_count": len(rows),
-        "rows": rows,
         "encoder_manifest_hash": encoder_manifest["encoder_manifest_hash"],
+        "checkpoint_hash": encoder_manifest["checkpoint_hash"],
+        "embedding_dim": EMBEDDING_DIM,
+        "readout_hierarchy": READOUT_HIERARCHY,
+        "embeddings": rows,
     }
-    table["embedding_table_hash"] = hash_without(table, "embedding_table_hash")
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     validate_phase_b_embedding_table(table)
     readout_bundle = {
         "artifact_type": "gcl_phase_b_readout_manifest_bundle",
@@ -79,23 +87,28 @@ def _embedding_row(
     if embedding.shape != (EMBEDDING_DIM,):
         raise ValueError("M0 selector embedding must be the 256-dimensional encoder readout")
     rounded_embedding = [round(float(value), 8) for value in embedding.tolist()]
+    metadata = tensor["graph_batch_metadata"]
     row = {
         "record_id": f"gcl_embedding:{index:04d}",
         "kernel_invocation_id": tensor["kernel_invocation_id"],
+        "graph_id": tensor["graph_id"],
+        "source_tensor_hash": tensor["tensor_hash"],
+        "source_graph_hash": tensor["input_graph_hash"],
         "representation_mode": REPRESENTATION_MODE,
         "input_representation_mode": tensor["representation_mode"],
         "pseudo_node_mode": tensor["pseudo_node_mode"],
         "paper_reproduction_mode": tensor["paper_reproduction_mode"],
+        "collection_scope": metadata["collection_scope"],
+        "selected_sm": metadata["selected_sm"],
         "embedding_dim": EMBEDDING_DIM,
-        "embedding": rounded_embedding,
-        "source_graph_hash": tensor["input_graph_hash"],
+        "kernel_embedding": rounded_embedding,
         "encoder_manifest_hash": encoder_manifest_hash,
         "readout_manifest_hash": readout_manifest_hash,
         "weight_input": {
             "graph_id": tensor["graph_id"],
             "node_count": tensor["graph_batch_metadata"]["node_count"],
             "edge_count": tensor["graph_batch_metadata"]["edge_count"],
-            "readout_hierarchy": "node_to_warp_to_cta_to_selected_sm_to_kernel",
+            "readout_hierarchy": READOUT_HIERARCHY,
         },
     }
     row["embedding_hash"] = hash_without(row, "embedding_hash")
@@ -103,24 +116,46 @@ def _embedding_row(
 
 
 def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
+    if table.get("artifact_type") != KERNEL_EMBEDDING_TABLE_TYPE:
+        raise ValueError("embedding table artifact_type mismatch")
+    if table.get("artifact_version") != KERNEL_EMBEDDING_TABLE_VERSION:
+        raise ValueError("embedding table artifact_version mismatch")
+    required_top_level = {
+        "source_graph_tensor_bundle_hash",
+        "encoder_manifest_hash",
+        "checkpoint_hash",
+        "embedding_dim",
+        "readout_hierarchy",
+        "embeddings",
+        "kernel_embedding_table_hash",
+    }
+    missing_top_level = required_top_level.difference(table)
+    if missing_top_level:
+        raise ValueError(f"embedding table missing required fields: {sorted(missing_top_level)}")
     if table.get("representation_mode") != REPRESENTATION_MODE:
         raise ValueError("unexpected representation_mode")
     if table.get("embedding_dim") != EMBEDDING_DIM:
         raise ValueError("embedding table must use 256-dimensional kernel embeddings")
-    rows = table.get("rows")
+    if table.get("readout_hierarchy") != READOUT_HIERARCHY:
+        raise ValueError("embedding table readout_hierarchy mismatch")
+    rows = table.get("embeddings")
     if not rows:
-        raise ValueError("embedding table must contain rows")
+        raise ValueError("embedding table must contain embeddings")
     for row in rows:
         required = {
             "record_id",
             "kernel_invocation_id",
+            "graph_id",
+            "source_tensor_hash",
+            "source_graph_hash",
             "representation_mode",
             "input_representation_mode",
             "pseudo_node_mode",
             "paper_reproduction_mode",
+            "collection_scope",
+            "selected_sm",
             "embedding_dim",
-            "embedding",
-            "source_graph_hash",
+            "kernel_embedding",
             "encoder_manifest_hash",
             "readout_manifest_hash",
             "embedding_hash",
@@ -133,15 +168,22 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
             raise ValueError("embedding row representation_mode mismatch")
         if row["embedding_dim"] != EMBEDDING_DIM:
             raise ValueError("projection output is not a valid M0 selector embedding")
-        if len(row["embedding"]) != EMBEDDING_DIM:
-            raise ValueError("embedding vector length must be 256")
-        if row["weight_input"].get("readout_hierarchy") != (
-            "node_to_warp_to_cta_to_selected_sm_to_kernel"
-        ):
+        if len(row["kernel_embedding"]) != EMBEDDING_DIM:
+            raise ValueError("kernel_embedding vector length must be 256")
+        if row["weight_input"].get("readout_hierarchy") != READOUT_HIERARCHY:
             raise ValueError("embedding row must record CTA-aware readout hierarchy")
         if row["embedding_hash"] != hash_without(row, "embedding_hash"):
             raise ValueError("embedding_hash is not reproducible")
-    if table["row_count"] != len(rows):
-        raise ValueError("embedding table row_count mismatch")
-    if table["embedding_table_hash"] != hash_without(table, "embedding_table_hash"):
-        raise ValueError("embedding_table_hash is not reproducible")
+    if table["kernel_embedding_table_hash"] != hash_without(
+        table, "kernel_embedding_table_hash"
+    ):
+        raise ValueError("kernel_embedding_table_hash is not reproducible")
+
+
+def _source_graph_tensor_bundle_hash(tensors: list[dict[str, Any]]) -> str:
+    return stable_hash(
+        {
+            "artifact_type": "gcl_resnet50_graph_tensor_bundle_reference",
+            "tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+        }
+    )

@@ -11,13 +11,22 @@ from experiments.gcl_phase_a.utils import hash_without
 from .embedding_export import EMBEDDING_DIM, REPRESENTATION_MODE, validate_phase_b_embedding_table
 
 
+def _embedding_rows(table: dict[str, Any]) -> list[dict[str, Any]]:
+    return table["embeddings"]
+
+
+def _embedding_table_hash(table: dict[str, Any]) -> str:
+    return table["kernel_embedding_table_hash"]
+
+
 def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) -> dict[str, Any]:
-    for row in table.get("rows", []):
+    for row in table.get("embeddings", []):
         if row.get("resource_blocked"):
             raise ValueError("resource-blocked embedding rows cannot enter M0 selector")
     validate_phase_b_embedding_table(table)
-    if table["row_count"] == 1:
-        row = table["rows"][0]
+    rows = _embedding_rows(table)
+    if len(rows) == 1:
+        row = rows[0]
         artifact = {
             "artifact_type": "gcl_m0_selector_artifacts",
             "representation_mode": REPRESENTATION_MODE,
@@ -48,12 +57,12 @@ def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) 
                 }
             ],
             "structural_evaluation_artifacts": {
-                "row_count": table["row_count"],
+                "row_count": len(rows),
                 "cluster_count": 1,
                 "anchor_count": 1,
                 "seed": seed,
             },
-            "source_embedding_table_hash": table["embedding_table_hash"],
+            "source_embedding_table_hash": _embedding_table_hash(table),
         }
         artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
         return artifact
@@ -61,7 +70,8 @@ def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) 
 
 
 def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
-    matrix = np.asarray([row["embedding"] for row in table["rows"]], dtype=np.float64)
+    rows = _embedding_rows(table)
+    matrix = np.asarray([row["kernel_embedding"] for row in rows], dtype=np.float64)
     if matrix.ndim != 2 or matrix.shape[1] != EMBEDDING_DIM:
         raise ValueError("embedding_dim mismatch")
     normalized = zscore_normalize(matrix)
@@ -70,7 +80,7 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
     centroids = silhouette["centroids"]
     assignments = []
     anchors = []
-    for row, cluster_id in zip(table["rows"], labels):
+    for row, cluster_id in zip(rows, labels):
         assignments.append(
             {
                 "record_id": row["record_id"],
@@ -82,7 +92,7 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
         member_indices = np.flatnonzero(labels == cluster_id)
         distances = np.linalg.norm(normalized[member_indices] - centroids[cluster_id], axis=1)
         selected_index = int(member_indices[int(np.argmin(distances))])
-        selected_row = table["rows"][selected_index]
+        selected_row = rows[selected_index]
         anchors.append(
             {
                 "cluster_id": int(cluster_id),
@@ -110,12 +120,12 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
         "cluster_assignments": assignments,
         "representative_anchor_table": anchors,
         "structural_evaluation_artifacts": {
-            "row_count": table["row_count"],
+            "row_count": len(rows),
             "cluster_count": int(silhouette["selected_k"]),
             "anchor_count": len(anchors),
             "seed": seed,
         },
-        "source_embedding_table_hash": table["embedding_table_hash"],
+        "source_embedding_table_hash": _embedding_table_hash(table),
     }
     artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
     return artifact

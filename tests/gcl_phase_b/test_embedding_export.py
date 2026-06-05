@@ -1,10 +1,13 @@
 import numpy as np
+import pytest
 from pathlib import Path
 
 from experiments.gcl_phase_b.embedding_export import (
+    READOUT_HIERARCHY,
     export_phase_b_embedding_table,
     validate_phase_b_embedding_table,
 )
+from experiments.gcl_phase_b.utils import hash_without
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_trace_adapter_bundle
@@ -21,14 +24,25 @@ def test_phase_b_exports_m0_compatible_256_dim_embeddings(tmp_path):
 
     table, _training_report = run_embedding_export(tensors, tmp_path)
 
-    assert table["artifact_type"] == "gcl_kernel_embedding_table"
+    assert table["artifact_type"] == "gcl_resnet50_kernel_embedding_table"
+    assert table["artifact_version"] == "gate5_kernel_embedding_table_v1"
+    assert table["source_graph_tensor_bundle_hash"]
+    assert table["checkpoint_hash"] == _training_report["checkpoint_manifest"]["checkpoint_hash"]
+    assert table["kernel_embedding_table_hash"] == hash_without(
+        table, "kernel_embedding_table_hash"
+    )
+    assert table["readout_hierarchy"] == READOUT_HIERARCHY
     assert table["embedding_dim"] == 256
-    assert table["row_count"] == 1
-    row = table["rows"][0]
+    assert len(table["embeddings"]) == 1
+    row = table["embeddings"][0]
     assert row["representation_mode"] == table["representation_mode"]
-    assert len(row["embedding"]) == 256
+    assert row["graph_id"] == tensors[0]["graph_id"]
+    assert row["source_tensor_hash"] == tensors[0]["tensor_hash"]
+    assert row["collection_scope"] == "single_representative_sm_all_ctas"
+    assert row["selected_sm"] == tensors[0]["graph_batch_metadata"]["selected_sm"]
+    assert len(row["kernel_embedding"]) == 256
     assert row["source_graph_hash"] == graphs[0]["graph_hash"]
-    assert row["weight_input"]["readout_hierarchy"] == "node_to_warp_to_cta_to_selected_sm_to_kernel"
+    assert row["weight_input"]["readout_hierarchy"] == READOUT_HIERARCHY
     assert "readout_manifest_hash" in row
 
 
@@ -55,8 +69,8 @@ def test_phase_b_embedding_export_uses_cta_aware_readout(tmp_path):
         training_report["checkpoint_manifest"],
     )
 
-    exported = np.asarray(table["rows"][0]["embedding"], dtype=np.float32)
-    regrouped = np.asarray(regrouped_table["rows"][0]["embedding"], dtype=np.float32)
+    exported = np.asarray(table["embeddings"][0]["kernel_embedding"], dtype=np.float32)
+    regrouped = np.asarray(regrouped_table["embeddings"][0]["kernel_embedding"], dtype=np.float32)
     assert not np.allclose(exported, regrouped)
 
 
@@ -74,6 +88,16 @@ def test_phase_b_export_function_returns_readout_manifest_bundle(tmp_path):
 
     validate_phase_b_embedding_table(table)
     assert readout_bundle["artifact_type"] == "gcl_phase_b_readout_manifest_bundle"
-    assert readout_bundle["manifests"][0]["readout_hierarchy"] == (
-        "node_to_warp_to_cta_to_selected_sm_to_kernel"
-    )
+    assert readout_bundle["manifests"][0]["readout_hierarchy"] == READOUT_HIERARCHY
+
+
+def test_phase_b_embedding_table_validator_rejects_missing_formal_top_level_field(tmp_path):
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    table, _training_report = run_embedding_export(tensors, tmp_path)
+
+    del table["source_graph_tensor_bundle_hash"]
+
+    with pytest.raises(ValueError, match="source_graph_tensor_bundle_hash"):
+        validate_phase_b_embedding_table(table)

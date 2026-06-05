@@ -106,6 +106,8 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
         "graph_batch_metadata": {
             "graph_id": graph["graph_id"],
             "kernel_invocation_id": graph["kernel_invocation_id"],
+            "collection_scope": graph["collection_scope"],
+            "selected_sm": graph["selected_sm"],
             "node_count": len(nodes),
             "edge_count": len(graph["edges"]),
             "warp_count": len(graph["warp_partitions"]),

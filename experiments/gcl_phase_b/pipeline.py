@@ -91,6 +91,10 @@ def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in report.items() if key not in {"encoder", "projection_head"}}
 
 
+def _embedding_table_hash(table: dict[str, Any]) -> str:
+    return table["kernel_embedding_table_hash"]
+
+
 def _write_bundle_artifacts(
     out_dir: Path,
     manifest: dict[str, Any],
@@ -395,7 +399,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
                 for manifest in readout_bundle["manifests"]
             ],
             "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
-            "embedding_table_hash": embedding_table["embedding_table_hash"],
+            "embedding_table_hash": _embedding_table_hash(embedding_table),
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
             "resource_blocked_hash": resource_status["resource_blocked_hash"],
         },
@@ -528,7 +532,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
                 for manifest in readout_bundle["manifests"]
             ],
             "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
-            "embedding_table_hash": table["embedding_table_hash"],
+            "embedding_table_hash": _embedding_table_hash(table),
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
             "resource_blocked_hash": resource_status["resource_blocked_hash"],
         },
@@ -547,7 +551,7 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
-            "embedding_table_hash": table["embedding_table_hash"],
+            "embedding_table_hash": _embedding_table_hash(table),
             "selector_manifest_hash": artifacts["selector_manifest_hash"],
         },
     )
@@ -817,19 +821,22 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     )
     validate_phase_b_embedding_table(embedding_table)
     expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
+    expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
     expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]
-    embedding_rows = embedding_table.get("rows", [])
+    embedding_rows = embedding_table.get("embeddings", [])
     if len(embedding_rows) != len(tensors):
         raise ValueError("embedding table row count does not match tensor batch")
     if [row["source_graph_hash"] for row in embedding_rows] != expected_graph_hashes:
         raise ValueError("embedding table source_graph_hash coverage mismatch")
+    if [row["source_tensor_hash"] for row in embedding_rows] != expected_tensor_hashes:
+        raise ValueError("embedding table source_tensor_hash coverage mismatch")
     if [row["kernel_invocation_id"] for row in embedding_rows] != expected_invocation_ids:
         raise ValueError("embedding table kernel_invocation_id coverage mismatch")
     if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
         raise ValueError("embedding table encoder_manifest_hash mismatch")
     if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
         raise ValueError("pipeline manifest encoder_manifest_hash mismatch")
-    if pipeline_manifest["hashes"].get("embedding_table_hash") != embedding_table["embedding_table_hash"]:
+    if pipeline_manifest["hashes"].get("embedding_table_hash") != _embedding_table_hash(embedding_table):
         raise ValueError("pipeline manifest embedding_table_hash mismatch")
 
     selector_artifacts = read_json(
@@ -837,7 +844,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             out_dir / ARTIFACT_FILENAMES["selector_artifacts"], "selector artifacts"
         )
     )
-    if selector_artifacts.get("source_embedding_table_hash") != embedding_table["embedding_table_hash"]:
+    if selector_artifacts.get("source_embedding_table_hash") != _embedding_table_hash(embedding_table):
         raise ValueError("selector source_embedding_table_hash mismatch")
     if selector_artifacts.get("selector_manifest_hash") != hash_without(
         selector_artifacts, "selector_manifest_hash"
@@ -868,7 +875,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         "artifact_type": "gcl_phase_b_replay_validation",
         "checkpoint_hash": checkpoint_hash,
         "encoder_manifest_hash": checkpoint_manifest["encoder_manifest_hash"],
-        "embedding_table_hash": embedding_table["embedding_table_hash"],
+        "embedding_table_hash": _embedding_table_hash(embedding_table),
         "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
     }
 

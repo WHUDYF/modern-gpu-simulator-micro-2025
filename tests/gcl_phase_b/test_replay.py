@@ -103,9 +103,8 @@ def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refres
 
     table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
     table = json.loads(table_path.read_text())
-    table["rows"] = table["rows"][:-1]
-    table["row_count"] = len(table["rows"])
-    table["embedding_table_hash"] = hash_without(table, "embedding_table_hash")
+    table["embeddings"] = table["embeddings"][:-1]
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     table_path.write_text(json.dumps(table, sort_keys=True))
 
     selector_artifacts = select_phase_b_representatives(table, seed=42)
@@ -113,7 +112,7 @@ def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refres
     _refresh_pipeline_manifest_hashes(
         out_dir,
         {
-            "embedding_table_hash": table["embedding_table_hash"],
+            "embedding_table_hash": table["kernel_embedding_table_hash"],
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
         },
     )

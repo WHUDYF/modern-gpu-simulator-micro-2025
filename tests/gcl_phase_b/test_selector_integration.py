@@ -29,7 +29,7 @@ def test_m0_selector_consumes_phase_b_embedding_table(tmp_path):
 
 def test_selector_rejects_resource_blocked_rows(tmp_path):
     table = _embedding_table(tmp_path)
-    table["rows"][0]["resource_blocked"] = True
+    table["embeddings"][0]["resource_blocked"] = True
 
     with pytest.raises(ValueError, match="resource-blocked"):
         select_phase_b_representatives(table)

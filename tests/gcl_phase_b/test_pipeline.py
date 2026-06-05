@@ -286,7 +286,7 @@ def test_from_disk_embedding_export_stage_runs_without_pipeline_manifest(tmp_pat
     table = run_embedding_export_stage_from_disk(out_dir, seed=42)
     artifacts = run_selector_stage_from_disk(out_dir, seed=42)
 
-    assert table["embedding_table_hash"]
+    assert table["kernel_embedding_table_hash"]
     assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
     assert artifacts["selector_manifest_hash"]
     assert (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
@@ -304,7 +304,7 @@ def test_from_disk_embedding_and_selector_stages_reuse_pipeline_seed(tmp_path):
 
     training_report = json.loads((out_dir / ARTIFACT_FILENAMES["training_report"]).read_text())
     assert training_report["checkpoint_manifest"]["seed"] == 42
-    assert table["embedding_table_hash"] == manifest["hashes"]["embedding_table_hash"]
+    assert table["kernel_embedding_table_hash"] == manifest["hashes"]["embedding_table_hash"]
     assert artifacts["structural_evaluation_artifacts"]["seed"] == 42
 
 
@@ -345,11 +345,13 @@ def test_from_disk_embedding_stage_refreshes_downstream_manifest_hashes(tmp_path
         "augmentation_manifest_bundle_hash"
     ]
     assert [manifest["random_seed"] for manifest in augmentation_bundle["manifests"]] == [43, 44]
-    assert refreshed_manifest["hashes"]["embedding_table_hash"] == table["embedding_table_hash"]
+    assert refreshed_manifest["hashes"]["embedding_table_hash"] == table[
+        "kernel_embedding_table_hash"
+    ]
     assert refreshed_manifest["hashes"]["selector_manifest_hash"] == selector_artifacts[
         "selector_manifest_hash"
     ]
-    assert validation["embedding_table_hash"] == table["embedding_table_hash"]
+    assert validation["embedding_table_hash"] == table["kernel_embedding_table_hash"]
 
 
 def test_from_disk_embedding_stage_clears_resource_blocked_after_success(tmp_path, monkeypatch):
@@ -375,7 +377,7 @@ def test_from_disk_embedding_stage_clears_resource_blocked_after_success(tmp_pat
 
     assert refreshed_manifest["resource_blocked"] is False
     assert refreshed_manifest["hashes"]["resource_blocked_hash"] is not None
-    assert validation["embedding_table_hash"] == table["embedding_table_hash"]
+    assert validation["embedding_table_hash"] == table["kernel_embedding_table_hash"]
 
 
 def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_stale_outputs(
@@ -490,9 +492,13 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
 
     table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
     table = json.loads(table_path.read_text())
-    table["rows"][0]["embedding"][0] = round(table["rows"][0]["embedding"][0] + 0.125, 8)
-    table["rows"][0]["embedding_hash"] = hash_without(table["rows"][0], "embedding_hash")
-    table["embedding_table_hash"] = hash_without(table, "embedding_table_hash")
+    table["embeddings"][0]["kernel_embedding"][0] = round(
+        table["embeddings"][0]["kernel_embedding"][0] + 0.125, 8
+    )
+    table["embeddings"][0]["embedding_hash"] = hash_without(
+        table["embeddings"][0], "embedding_hash"
+    )
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     table_path.write_text(json.dumps(table, sort_keys=True))
 
     artifacts = run_selector_stage_from_disk(out_dir)
@@ -502,7 +508,7 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     )
 
     assert refreshed_manifest["hashes"]["embedding_table_hash"] == table[
-        "embedding_table_hash"
+        "kernel_embedding_table_hash"
     ]
     assert refreshed_manifest["hashes"]["selector_manifest_hash"] == artifacts[
         "selector_manifest_hash"

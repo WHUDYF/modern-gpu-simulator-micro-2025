@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     load_resnet50_trace_sources,
     validate_resnet50_trace_adapter_bundle,
 )
+from experiments.gcl_phase_b.utils import hash_without
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -63,6 +64,43 @@ def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
+def test_gate1_rejects_scheduler_trace_count_mismatch_with_trace_records():
+    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+    bundle["cta_scheduler_records"][0]["trace_entry_count"] += 5
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    with pytest.raises(ValueError, match="trace_entry_count"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
+def test_gate1_rejects_invalid_scheduler_order():
+    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+    record = bundle["cta_scheduler_records"][0]
+    record["first_seen_order"] = record["last_seen_order"] + 1
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    with pytest.raises(ValueError, match="first_seen_order"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
+def test_gate1_rejects_scheduler_warp_id_mismatch():
+    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+    bundle["cta_scheduler_records"][0]["warp_ids"] = [99]
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    with pytest.raises(ValueError, match="warp_ids"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
+def test_gate1_rejects_stray_warp_trace_cta():
+    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+    bundle["per_warp_trace_records"][0]["cta_id"] = "stray,0,0"
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    with pytest.raises(ValueError, match="CTA set"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
 def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(tmp_path):
     root = tmp_path / "repeated_kernel_id"
     shutil.copytree(FIXTURE_ROOT, root)
@@ -106,4 +144,16 @@ def test_gate1_rejects_ambiguous_repeated_kernel_id_without_launch_order(tmp_pat
     dynamic_path.write_text(json.dumps(dynamic), encoding="utf-8")
 
     with pytest.raises(ValueError, match="requires kernel_invocation_id or launch_order"):
+        build_resnet50_trace_adapter_bundle(root)
+
+
+def test_gate1_rejects_raw_record_with_contradictory_kernel_id_and_launch_order(tmp_path):
+    root = tmp_path / "contradictory_kernel_launch_order"
+    shutil.copytree(FIXTURE_ROOT, root)
+    threadblocks_path = root / "threadblocks.json"
+    threadblocks = json.loads(threadblocks_path.read_text())
+    threadblocks["threadblocks"][0]["launch_order"] = 1
+    threadblocks_path.write_text(json.dumps(threadblocks), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="kernel_id does not match"):
         build_resnet50_trace_adapter_bundle(root)

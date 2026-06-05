@@ -114,12 +114,15 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
     if explicit is not None:
         if explicit not in lookup["by_id"]:
             raise ValueError("raw record references unknown kernel_invocation_id")
+        _validate_record_identity_consistency(record, lookup["by_id"][explicit])
         return explicit
     if "launch_order" in record:
         launch_order = int(record["launch_order"])
         if launch_order not in lookup["by_launch_order"]:
             raise ValueError("raw record references unknown launch_order")
-        return lookup["by_launch_order"][launch_order]["kernel_invocation_id"]
+        row = lookup["by_launch_order"][launch_order]
+        _validate_record_identity_consistency(record, row)
+        return row["kernel_invocation_id"]
     kernel_id = int(record["kernel_id"])
     candidates = lookup["by_kernel_id"].get(kernel_id, [])
     if len(candidates) == 1:
@@ -127,6 +130,13 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
     raise ValueError(
         "raw record for repeated kernel_id requires kernel_invocation_id or launch_order"
     )
+
+
+def _validate_record_identity_consistency(record: dict[str, Any], row: dict[str, Any]) -> None:
+    if "kernel_id" in record and int(record["kernel_id"]) != int(row["kernel_id"]):
+        raise ValueError("raw record kernel_id does not match resolved kernel invocation")
+    if "launch_order" in record and int(record["launch_order"]) != int(row["launch_order"]):
+        raise ValueError("raw record launch_order does not match resolved kernel invocation")
 
 
 def _cta_scheduler_records(
@@ -200,6 +210,7 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
     scheduled_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
     trace_records_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
     seen_ctas: set[tuple[str, str]] = set()
+    scheduler_by_cta: dict[tuple[str, str], dict[str, Any]] = {}
     for record in bundle["cta_scheduler_records"]:
         invocation_id = record.get("kernel_invocation_id")
         if invocation_id not in invocation_ids:
@@ -208,16 +219,34 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
         if cta_key in seen_ctas:
             raise ValueError("duplicate cta scheduler record for kernel_invocation_id and cta_id")
         seen_ctas.add(cta_key)
+        if int(record["first_seen_order"]) > int(record["last_seen_order"]):
+            raise ValueError("cta scheduler first_seen_order must be <= last_seen_order")
         if record.get("trace_entry_count", 0) <= 0:
             raise ValueError("cta scheduler trace_entry_count must be positive")
         if not record.get("warp_ids"):
             raise ValueError("cta scheduler warp_ids must be non-empty")
         scheduled_by_invocation[invocation_id] += int(record["trace_entry_count"])
+        scheduler_by_cta[cta_key] = record
+    trace_by_cta: dict[tuple[str, str], dict[str, Any]] = {}
     for record in bundle["per_warp_trace_records"]:
         invocation_id = record.get("kernel_invocation_id")
         if invocation_id not in invocation_ids:
             raise ValueError("warp trace record references unknown kernel_invocation_id")
+        cta_key = (invocation_id, record["cta_id"])
+        aggregate = trace_by_cta.setdefault(cta_key, {"warp_ids": set(), "entry_count": 0})
+        if record["warp_id"] in aggregate["warp_ids"]:
+            raise ValueError("duplicate warp trace record for kernel_invocation_id, cta_id and warp_id")
+        aggregate["warp_ids"].add(record["warp_id"])
+        aggregate["entry_count"] += len(record.get("entries", []))
         trace_records_by_invocation[invocation_id] += len(record.get("entries", []))
+    if set(scheduler_by_cta) != set(trace_by_cta):
+        raise ValueError("scheduler CTA set must match warp trace CTA set")
+    for cta_key, scheduler_record in scheduler_by_cta.items():
+        trace_record = trace_by_cta[cta_key]
+        if set(scheduler_record["warp_ids"]) != trace_record["warp_ids"]:
+            raise ValueError("scheduler warp_ids must match traced warp IDs")
+        if int(scheduler_record["trace_entry_count"]) != trace_record["entry_count"]:
+            raise ValueError("scheduler trace_entry_count must match traced entry count")
     for invocation_id in invocation_ids:
         if scheduled_by_invocation[invocation_id] <= 0:
             raise ValueError("each kernel_invocation_id must retain scheduler records")

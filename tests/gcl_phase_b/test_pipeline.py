@@ -152,6 +152,14 @@ def test_resource_blocked_rerun_removes_stale_success_artifacts(tmp_path, monkey
     for key in stale_success_artifacts:
         assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
+    for stale_hash in {
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+    }:
+        assert manifest["hashes"][stale_hash] is None
 
 
 def test_cuda_oom_runtime_error_writes_resource_blocked_artifact(tmp_path, monkeypatch):
@@ -407,6 +415,14 @@ def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_sta
     for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
         assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
+    for stale_hash in {
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+    }:
+        assert blocked["hashes"][stale_hash] is None
 
 
 def test_from_disk_embedding_stage_rejects_stale_tensor_bundle_against_graphs(tmp_path):
@@ -610,6 +626,21 @@ def test_from_disk_graph_stage_invalidates_stale_tensor_and_downstream_artifacts
     for key in invalidated_keys:
         assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+    for stale_hash in {
+        "tensor_hashes",
+        "augmentation_manifest_hashes",
+        "augmentation_manifest_bundle_hash",
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+        "resource_blocked_hash",
+    }:
+        assert refreshed_manifest["hashes"][stale_hash] is None
 
 
 def test_from_disk_graph_stage_rejects_selected_sm_policy_report_scope_mismatch(tmp_path):
@@ -695,6 +726,21 @@ def test_from_disk_tensorization_stage_invalidates_stale_embedding_and_selector_
     for key in invalidated_keys:
         assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+    assert refreshed_manifest["hashes"]["tensor_hashes"]
+    for stale_hash in {
+        "augmentation_manifest_hashes",
+        "augmentation_manifest_bundle_hash",
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+        "resource_blocked_hash",
+    }:
+        assert refreshed_manifest["hashes"][stale_hash] is None
 
 
 def test_from_disk_graph_stage_rebuilds_matching_graph_size_audits(tmp_path):

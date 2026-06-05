@@ -62,6 +62,23 @@ TENSOR_DOWNSTREAM_ARTIFACT_KEYS = {
     *SUCCESS_ARTIFACT_KEYS,
 }
 CHECKPOINT_FILENAME = "rgcn_checkpoint.pt"
+EMBEDDING_DOWNSTREAM_HASH_NULLS = {
+    "encoder_manifest_hash": None,
+    "readout_manifest_hashes": None,
+    "readout_manifest_bundle_hash": None,
+    "embedding_table_hash": None,
+    "selector_manifest_hash": None,
+}
+TENSOR_DOWNSTREAM_HASH_NULLS = {
+    "augmentation_manifest_hashes": None,
+    "augmentation_manifest_bundle_hash": None,
+    "resource_blocked_hash": None,
+    **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+}
+GRAPH_DOWNSTREAM_HASH_NULLS = {
+    "tensor_hashes": None,
+    **TENSOR_DOWNSTREAM_HASH_NULLS,
+}
 
 
 class PhaseBResourceError(RuntimeError):
@@ -416,8 +433,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
             "hashes": {
                 **base_hashes,
                 "resource_blocked_hash": blocked["resource_blocked_hash"],
-                "embedding_table_hash": None,
-                "selector_manifest_hash": None,
+                **EMBEDDING_DOWNSTREAM_HASH_NULLS,
             },
         }
         manifest["pipeline_manifest_hash"] = stable_hash(manifest)
@@ -552,8 +568,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
                     "augmentation_manifest_bundle_hash"
                 ],
                 "resource_blocked_hash": blocked["resource_blocked_hash"],
-                "embedding_table_hash": None,
-                "selector_manifest_hash": None,
+                **EMBEDDING_DOWNSTREAM_HASH_NULLS,
             },
             top_level_updates={"resource_blocked": True},
         )
@@ -663,7 +678,9 @@ def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]
                 audit["graph_size_audit_hash"]
                 for audit in graph_size_audits
             ],
+            **GRAPH_DOWNSTREAM_HASH_NULLS,
         },
+        top_level_updates={"resource_blocked": False},
     )
     return graphs
 
@@ -694,7 +711,11 @@ def run_tensorization_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:
     )
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
-        {"tensor_hashes": [tensor["tensor_hash"] for tensor in tensors]},
+        {
+            "tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+            **TENSOR_DOWNSTREAM_HASH_NULLS,
+        },
+        top_level_updates={"resource_blocked": False},
     )
     return tensors
 

@@ -296,6 +296,54 @@ def _validate_resource_status_artifact(
             raise ValueError("non-blocked resource_failure_reason must be null")
 
 
+def _validate_selector_artifacts_cover_embedding_table(
+    selector_artifacts: dict[str, Any],
+    embedding_table: dict[str, Any],
+) -> None:
+    rows = embedding_table["embeddings"]
+    expected_by_record = {
+        row["record_id"]: row["kernel_invocation_id"]
+        for row in rows
+    }
+    assignments = selector_artifacts.get("cluster_assignments", [])
+    if len(assignments) != len(expected_by_record):
+        raise ValueError("selector cluster_assignments do not cover embedding table")
+    assignment_by_record = {}
+    for assignment in assignments:
+        record_id = assignment.get("record_id")
+        if record_id in assignment_by_record:
+            raise ValueError("selector cluster_assignments contain duplicate record_id")
+        assignment_by_record[record_id] = assignment
+    if set(assignment_by_record) != set(expected_by_record):
+        raise ValueError("selector cluster_assignments do not match embedding table records")
+    for record_id, expected_invocation_id in expected_by_record.items():
+        if assignment_by_record[record_id].get("kernel_invocation_id") != expected_invocation_id:
+            raise ValueError("selector cluster_assignments kernel_invocation_id mismatch")
+
+    assignment_cluster_ids = {
+        int(assignment["cluster_id"])
+        for assignment in assignments
+    }
+    anchors = selector_artifacts.get("representative_anchor_table", [])
+    if not anchors:
+        raise ValueError("selector representative_anchor_table must not be empty")
+    anchor_cluster_ids = set()
+    for anchor in anchors:
+        record_id = anchor.get("representative_record_id")
+        if record_id not in expected_by_record:
+            raise ValueError("selector representative_anchor_table references unknown record")
+        cluster_id = int(anchor["cluster_id"])
+        if cluster_id not in assignment_cluster_ids:
+            raise ValueError("selector representative_anchor_table references unknown cluster")
+        if assignment_by_record[record_id]["cluster_id"] != cluster_id:
+            raise ValueError("selector anchor cluster_id does not match assignment")
+        if anchor.get("kernel_invocation_id") != expected_by_record[record_id]:
+            raise ValueError("selector anchor kernel_invocation_id mismatch")
+        anchor_cluster_ids.add(cluster_id)
+    if anchor_cluster_ids != assignment_cluster_ids:
+        raise ValueError("selector representative_anchor_table does not cover clusters")
+
+
 def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     trace_manifest = read_json(input_manifest_path)
@@ -852,6 +900,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         raise ValueError("selector_manifest_hash is not reproducible")
     if pipeline_manifest["hashes"].get("selector_manifest_hash") != selector_artifacts["selector_manifest_hash"]:
         raise ValueError("pipeline manifest selector_manifest_hash mismatch")
+    _validate_selector_artifacts_cover_embedding_table(selector_artifacts, embedding_table)
 
     readout_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["readout_manifest"], "readout manifest")

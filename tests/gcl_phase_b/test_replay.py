@@ -95,6 +95,28 @@ def test_phase_b_replay_rejects_tampered_selector_artifacts(tmp_path):
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_selector_semantic_tamper_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "selector_semantic_tamper"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    selector_path = out_dir / ARTIFACT_FILENAMES["selector_artifacts"]
+    selector_artifacts = json.loads(selector_path.read_text())
+    selector_artifacts["cluster_assignments"] = selector_artifacts["cluster_assignments"][:-1]
+    selector_artifacts["selector_manifest_hash"] = hash_without(
+        selector_artifacts, "selector_manifest_hash"
+    )
+    selector_path.write_text(json.dumps(selector_artifacts, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {"selector_manifest_hash": selector_artifacts["selector_manifest_hash"]},
+    )
+
+    with pytest.raises(ValueError, match="selector cluster_assignments"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refresh(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))

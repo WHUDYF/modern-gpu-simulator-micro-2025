@@ -15,7 +15,7 @@ def _tensor():
     return tensorize_phase_b_graphs([graph])[0]
 
 
-def test_hierarchical_readout_pools_nodes_to_warps_to_kernel():
+def test_hierarchical_readout_pools_nodes_to_warps_to_ctas_to_selected_sm_to_kernel():
     torch = require_torch()
     tensor = _tensor()
     encoder = MinimalRGCNEncoder()
@@ -27,8 +27,12 @@ def test_hierarchical_readout_pools_nodes_to_warps_to_kernel():
     manifest, kernel_embedding = build_readout_manifest(tensor, node_embeddings)
 
     validate_readout_manifest(manifest, tensor)
-    assert manifest["kernel"]["pooling_method"] == "average"
+    assert manifest["readout_hierarchy"] == "node_to_warp_to_cta_to_selected_sm_to_kernel"
+    assert manifest["kernel"]["kernel_embedding_source"] == "selected_sm_embedding"
+    assert manifest["kernel"]["pooling_method"] == "identity"
     assert manifest["kernel"]["kernel_embedding_dim"] == 256
+    assert manifest["ctas"]
+    assert manifest["selected_sm"]["pooling_method"] == "average"
     assert kernel_embedding.shape[0] == 256
     assert all(row["pooling_method"] == "mean" for row in manifest["warps"])
 
@@ -85,7 +89,25 @@ def test_readout_rejects_mismatched_warp_node_count_with_recomputed_hash():
 
 def test_readout_rejects_mismatched_kernel_warp_count_with_recomputed_hash():
     manifest, tensor = _readout_manifest_and_tensor()
-    manifest["kernel"]["warp_count_used"] += 1
+    manifest["selected_sm"]["cta_count_used"] += 1
+    manifest["readout_manifest_hash"] = hash_without(manifest, "readout_manifest_hash")
+
+    with pytest.raises(ValueError, match="cta_count_used"):
+        validate_readout_manifest(manifest, tensor)
+
+
+def test_readout_rejects_kernel_source_not_selected_sm_with_recomputed_hash():
+    manifest, tensor = _readout_manifest_and_tensor()
+    manifest["kernel"]["kernel_embedding_source"] = "projection_output"
+    manifest["readout_manifest_hash"] = hash_without(manifest, "readout_manifest_hash")
+
+    with pytest.raises(ValueError, match="kernel_embedding_source"):
+        validate_readout_manifest(manifest, tensor)
+
+
+def test_readout_rejects_mismatched_cta_warp_count_with_recomputed_hash():
+    manifest, tensor = _readout_manifest_and_tensor()
+    manifest["ctas"][0]["warp_count_used"] += 1
     manifest["readout_manifest_hash"] = hash_without(manifest, "readout_manifest_hash")
 
     with pytest.raises(ValueError, match="warp_count_used"):

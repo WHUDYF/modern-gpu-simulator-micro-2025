@@ -209,6 +209,14 @@
       margin-top: 14px;
     }
 
+    .wide-mapping {
+      display: grid;
+      grid-template-columns: 1fr 34px 1fr 34px 1fr;
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 14px;
+    }
+
     .box {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -292,6 +300,10 @@
       .two-col,
       .three-col,
       .mapping {
+        grid-template-columns: 1fr;
+      }
+
+      .wide-mapping {
         grid-template-columns: 1fr;
       }
 
@@ -398,6 +410,7 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
 
     <section class="section">
       <h2>3. Node 与 Edge</h2>
+      <p>Graph 中的 node 和 edge 不是占位符，而是 selected-SM trace 中的执行实体和关系。</p>
       <div class="three-col">
         <div class="mini-panel">
           <span class="tag blue">Instruction Node</span>
@@ -410,6 +423,20 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
         <div class="mini-panel">
           <span class="tag purple">Pseudo Node</span>
           <p>第一版只生成 <code>mem_ref</code> pseudo node，用于表示 memory reference 中间语义。</p>
+        </div>
+      </div>
+      <div class="three-col" style="margin-top:14px">
+        <div class="mini-panel">
+          <span class="tag green">control_flow</span>
+          <p>同一 warp 内动态 instruction 的前后顺序，例如 <code>MOV -> LDG -> FADD</code>。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag amber">data_source</span>
+          <p>变量或 memory reference 被 instruction 消费，例如 <code>R8.v1.w0 -> FADD</code>。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag purple">data_destination</span>
+          <p>instruction 产生变量新版本，例如 <code>LDG -> R8.v1.w0</code>。</p>
         </div>
       </div>
       <div class="mapping">
@@ -426,7 +453,44 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
     </section>
 
     <section class="section">
-      <h2>4. Warp Partition 约束</h2>
+      <h2>4. Trace 到 Graph 示例</h2>
+      <p>下面是一个 warp partition 内的简化 trace 如何变成图。实际 ResNet trace 会更长，但转换规则相同。</p>
+      <pre><code>t0: MOV           dst=[R4]   src=[input:base]
+t1: LDG.E.64.SYS dst=[R8]   src=[R4]
+t2: FADD          dst=[R9]   src=[R8, input:bias]
+t3: STG.E.64.SYS dst=[]     src=[R4, R9]</code></pre>
+
+      <div class="wide-mapping">
+        <div class="box">
+          <h3>Instruction Chain</h3>
+          <p><code>i:t0(MOV)</code></p>
+          <p><code>i:t1(LDG)</code></p>
+          <p><code>i:t2(FADD)</code></p>
+          <p><code>i:t3(STG)</code></p>
+        </div>
+        <div class="arrow">+</div>
+        <div class="box">
+          <h3>Control Flow</h3>
+          <p><code>i:t0 -> i:t1</code></p>
+          <p><code>i:t1 -> i:t2</code></p>
+          <p><code>i:t2 -> i:t3</code></p>
+        </div>
+        <div class="arrow">+</div>
+        <div class="box">
+          <h3>Data Flow</h3>
+          <p><code>input:base -> i:t0 -> R4.v1.w0</code></p>
+          <p><code>R4.v1.w0 -> mem_ref:t1 -> i:t1 -> R8.v1.w0</code></p>
+          <p><code>R8.v1.w0 -> i:t2 -> R9.v1.w0</code></p>
+          <p><code>R4.v1.w0 -> mem_ref:t3 -> i:t3</code></p>
+        </div>
+      </div>
+      <div class="ok">
+        这个例子展示了三件事：指令序列由 control-flow 保留，寄存器依赖由 variable node 和 data-flow 保留，memory reference 由 <code>mem_ref</code> pseudo node 显式化。
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5. Warp Partition 约束</h2>
       <div class="two-col">
         <div class="mini-panel">
           <span class="tag green">Allowed</span>
@@ -448,7 +512,7 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
     </section>
 
     <section class="section">
-      <h2>5. Canonical Graph Bundle</h2>
+      <h2>6. Canonical Graph Bundle</h2>
       <p>Gate 3 的正式输出是 canonical graph bundle，每个 kernel invocation 对应一个 graph。</p>
       <pre><code>{
   "artifact_type": "gcl_resnet50_canonical_graph_bundle",
@@ -461,7 +525,7 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
     </section>
 
     <section class="section">
-      <h2>6. Graph Size Audit</h2>
+      <h2>7. Graph Size Audit</h2>
       <p>Audit 记录规模，但不改变 graph，也不因为 size class 自动阻断 Gate 4。</p>
       <div class="three-col">
         <div class="mini-panel">
@@ -483,7 +547,7 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
     </section>
 
     <section class="section">
-      <h2>7. 通过标准</h2>
+      <h2>8. 通过标准</h2>
       <ul>
         <li>输入 manifest 通过现有 Phase B manifest validator。</li>
         <li>每个 selected SM invocation 都能生成 selected-SM trace records。</li>

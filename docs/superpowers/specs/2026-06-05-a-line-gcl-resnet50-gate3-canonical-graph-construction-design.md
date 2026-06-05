@@ -145,7 +145,114 @@ Gate 3 必须保证：
 - 每个 node 属于且只属于一个 warp partition；
 - 每个 edge 属于且只属于一个 warp partition。
 
-## 6. Instruction Nodes
+## 6. Node 与 Edge 的含义
+
+Gate 3 中的 graph 不是抽象的数学图占位符，而是把 selected-SM trace 中的执行关系显式化。
+
+Node 表示 trace 中需要被 GNN 学习的实体：
+
+```text
+instruction node
+  表示一条动态 SASS instruction。
+
+variable node
+  表示寄存器版本、输入变量或未知 operand。
+
+pseudo node
+  表示不是单条 instruction、但对图学习有意义的中间语义。
+  Gate 3 第一版只允许 mem_ref。
+```
+
+Edge 表示这些实体之间的关系：
+
+```text
+control_flow edge
+  表示同一 warp 内动态 instruction 的前后顺序。
+
+data_source edge
+  表示某个变量或 memory reference 被 instruction 消费。
+
+data_destination edge
+  表示 instruction 产生了某个变量的新版本。
+```
+
+这些 edge relation 会进入后续 RGCN 的 `edge_type`，因此 relation type 不能随意扩展。Gate 3 strict path 只允许：
+
+```json
+{
+  "control_flow": 0,
+  "data_source": 1,
+  "data_destination": 2
+}
+```
+
+## 7. Trace 到 Graph 的示意例子
+
+假设 selected SM 中某个 warp partition 的 trace entries 是：
+
+```text
+t0: MOV          dst=[R4]      src=[input:base]
+t1: LDG.E.64.SYS dst=[R8]      src=[R4]
+t2: FADD         dst=[R9]      src=[R8, input:bias]
+t3: STG.E.64.SYS dst=[]        src=[R4, R9]
+```
+
+Gate 3 首先生成 instruction nodes：
+
+```text
+i:t0(MOV)
+i:t1(LDG.E.64.SYS)
+i:t2(FADD)
+i:t3(STG.E.64.SYS)
+```
+
+然后在同一 warp 内生成 control-flow chain：
+
+```text
+i:t0 --control_flow--> i:t1
+i:t1 --control_flow--> i:t2
+i:t2 --control_flow--> i:t3
+```
+
+同时根据 operands 生成 variable nodes 和 data-flow edges：
+
+```text
+input:base.wp1_0 --data_source--> i:t0
+i:t0 --data_destination--> R4.v1.w0
+```
+
+`LDG.E.64.SYS` 是 memory opcode，`R4.v1.w0` 被识别为地址 source，因此插入 `mem_ref` pseudo node：
+
+```text
+R4.v1.w0 --data_source--> mem_ref:t1
+mem_ref:t1 --data_source--> i:t1
+i:t1 --data_destination--> R8.v1.w0
+```
+
+`FADD` 消费 load 产生的 `R8.v1.w0` 和 warp-scoped input：
+
+```text
+R8.v1.w0 --data_source--> i:t2
+input:bias.wp1_0 --data_source--> i:t2
+i:t2 --data_destination--> R9.v1.w0
+```
+
+`STG.E.64.SYS` 是 store memory opcode，它消费 address register 和 value register：
+
+```text
+R4.v1.w0 --data_source--> mem_ref:t3
+mem_ref:t3 --data_source--> i:t3
+R9.v1.w0 --data_source--> i:t3
+```
+
+这个例子说明：
+
+- instruction node 保留动态指令序列；
+- variable node 保留数据流对象和寄存器版本；
+- pseudo `mem_ref` node 把 memory reference 显式化；
+- control-flow 与 data-flow 是不同 relation type，后续 RGCN 会用不同参数处理它们。
+
+## 8. Instruction Nodes
 
 每条 selected-SM trace entry 生成一个 instruction node：
 
@@ -166,7 +273,7 @@ Gate 3 必须保证：
 
 Instruction nodes 表示 warp 内动态指令流。Gate 3 不在此阶段生成 dense embedding；embedding 由 Gate 4 / Gate 5 后续阶段处理。
 
-## 7. Variable Nodes
+## 9. Variable Nodes
 
 Gate 3 必须为 source / destination operands 生成 variable nodes。
 
@@ -195,7 +302,7 @@ input:base.wp1_0
 unknown:x.wp1_0
 ```
 
-## 8. Pseudo Nodes
+## 10. Pseudo Nodes
 
 Gate 3 第一版只生成 GCL-compatible 的 `mem_ref` pseudo node。
 
@@ -218,7 +325,7 @@ Pseudo node 的作用是把 memory reference 作为图中的显式中间语义�
 
 Gate 3 不新增额外 pseudo node 类型。任何新增 pseudo node 必须作为后续 spec，不得混入 Gate 3 strict path。
 
-## 9. Kernel Canonical Graph Bundle
+## 11. Kernel Canonical Graph Bundle
 
 `canonical_graph_bundle.json` 至少包含：
 
@@ -262,7 +369,7 @@ graph_hash
 }
 ```
 
-## 10. Warp Partitions
+## 12. Warp Partitions
 
 每个 graph 必须包含 `warp_partitions`。
 
@@ -284,7 +391,7 @@ last_trace_index
 
 `warp_partitions` 是后续 node -> warp -> kernel readout 的必要结构。Gate 3 不得使用 all-node global graph 替代 warp partitions。
 
-## 11. Graph Summary
+## 13. Graph Summary
 
 每个 graph 必须输出：
 
@@ -301,7 +408,7 @@ edge_type_counts
 
 这些 summary count 必须与 `nodes`、`edges` 和 `warp_partitions` 实际内容一致。
 
-## 12. Graph Size Audit
+## 14. Graph Size Audit
 
 Gate 3 必须输出 audit-only `graph_size_audit.json`：
 
@@ -339,7 +446,7 @@ graph_size_audit_hash
 
 `graph_size_class` 只用于 audit，不得自动截断 trace scope，不得阻止 Gate 4。只有实际 tensorization / batching / training 资源失败时，后续 gate 才能输出 resource-blocked artifact。
 
-## 13. Graph Construction Report
+## 15. Graph Construction Report
 
 Gate 3 必须输出 `graph_construction_report.json`：
 
@@ -367,7 +474,7 @@ source_trace_hash
 
 失败 graph 不进入 formal `canonical_graph_bundle.json`。
 
-## 14. Gate 3 通过标准
+## 16. Gate 3 通过标准
 
 Gate 3 通过时必须满足：
 
@@ -384,7 +491,7 @@ Gate 3 通过时必须满足：
 11. graph size audit 不修改 canonical graph。
 12. Gate 4 可以只读取 `canonical_graph_bundle.json`，不需要读取 Gate 2 manifest 或原始 trace。
 
-## 15. Failure Handling
+## 17. Failure Handling
 
 Gate 3 必须拒绝：
 
@@ -403,7 +510,7 @@ audit count 与 graph 实际 count 不一致
 
 如果所有 invocation 都失败，不得生成可供 Gate 4 formal path 消费的 `canonical_graph_bundle.json`。
 
-## 16. 非目标
+## 18. 非目标
 
 Gate 3 不做：
 
@@ -420,6 +527,6 @@ Gate 3 不做：
 - graph compression；
 - resource-blocked decision。
 
-## 17. 结论
+## 19. 结论
 
 Gate 3 是真实 ResNet selected-SM trace 到 GCL graph representation 的转换层。它把 Gate 2 的 representative-SM manifest 转换为可 replay、可 audit、带 warp partitions 的 canonical graph bundle，为 Gate 4 tensorization 和后续 RGCN embedding 提供正式输入。

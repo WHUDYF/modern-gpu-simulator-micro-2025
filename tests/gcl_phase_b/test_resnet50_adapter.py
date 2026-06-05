@@ -1,4 +1,6 @@
 import copy
+import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -59,3 +61,49 @@ def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation():
 
     with pytest.raises(ValueError, match="duplicate cta scheduler record"):
         validate_resnet50_trace_adapter_bundle(bundle)
+
+
+def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(tmp_path):
+    root = tmp_path / "repeated_kernel_id"
+    shutil.copytree(FIXTURE_ROOT, root)
+    dynamic_path = root / "dynamic_trace.json"
+    scheduler_path = root / "scheduler_metadata.json"
+    threadblocks_path = root / "threadblocks.json"
+    dynamic = json.loads(dynamic_path.read_text())
+    scheduler = json.loads(scheduler_path.read_text())
+    threadblocks = json.loads(threadblocks_path.read_text())
+    repeated_kernel_id = dynamic["kernel_invocations"][0]["kernel_id"]
+    dynamic["kernel_invocations"][1]["kernel_id"] = repeated_kernel_id
+    for launch_order, invocation in enumerate(scheduler["kernel_invocations"]):
+        invocation["kernel_id"] = repeated_kernel_id
+        invocation["launch_order"] = launch_order
+    for record in threadblocks["threadblocks"]:
+        if record["kernel_id"] == 18:
+            record["kernel_id"] = repeated_kernel_id
+            record["launch_order"] = 1
+        else:
+            record["launch_order"] = 0
+    dynamic_path.write_text(json.dumps(dynamic), encoding="utf-8")
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    threadblocks_path.write_text(json.dumps(threadblocks), encoding="utf-8")
+
+    bundle = build_resnet50_trace_adapter_bundle(root)
+
+    invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
+    scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
+    trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
+    assert invocation_ids == {"resnet50_k00000", "resnet50_k00001"}
+    assert scheduler_ids == invocation_ids
+    assert trace_ids == invocation_ids
+
+
+def test_gate1_rejects_ambiguous_repeated_kernel_id_without_launch_order(tmp_path):
+    root = tmp_path / "ambiguous_repeated_kernel_id"
+    shutil.copytree(FIXTURE_ROOT, root)
+    dynamic_path = root / "dynamic_trace.json"
+    dynamic = json.loads(dynamic_path.read_text())
+    dynamic["kernel_invocations"][1]["kernel_id"] = dynamic["kernel_invocations"][0]["kernel_id"]
+    dynamic_path.write_text(json.dumps(dynamic), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="requires kernel_invocation_id or launch_order"):
+        build_resnet50_trace_adapter_bundle(root)

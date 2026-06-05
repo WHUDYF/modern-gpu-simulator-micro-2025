@@ -41,14 +41,12 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     kernel_invocation_table = _kernel_invocation_table(sources.dynamic_trace)
     static_instruction_table = list(sources.enhanced_execution_info.get("instructions", []))
-    invocation_id_by_kernel_id = {
-        row["kernel_id"]: row["kernel_invocation_id"] for row in kernel_invocation_table
-    }
+    invocation_lookup = _invocation_lookup(kernel_invocation_table)
     cta_scheduler_records = _cta_scheduler_records(
-        sources.scheduler_metadata, invocation_id_by_kernel_id
+        sources.scheduler_metadata, invocation_lookup
     )
     per_warp_trace_records = _per_warp_trace_records(
-        sources.threadblocks, invocation_id_by_kernel_id
+        sources.threadblocks, invocation_lookup
     )
     bundle = {
         "artifact_type": ADAPTER_ARTIFACT_TYPE,
@@ -98,16 +96,47 @@ def _kernel_invocation_table(dynamic_trace: dict[str, Any]) -> list[dict[str, An
     return rows
 
 
+def _invocation_lookup(kernel_invocation_table: list[dict[str, Any]]) -> dict[str, Any]:
+    by_id = {row["kernel_invocation_id"]: row for row in kernel_invocation_table}
+    by_launch_order = {int(row["launch_order"]): row for row in kernel_invocation_table}
+    by_kernel_id: dict[int, list[dict[str, Any]]] = {}
+    for row in kernel_invocation_table:
+        by_kernel_id.setdefault(int(row["kernel_id"]), []).append(row)
+    return {
+        "by_id": by_id,
+        "by_launch_order": by_launch_order,
+        "by_kernel_id": by_kernel_id,
+    }
+
+
+def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]) -> str:
+    explicit = record.get("kernel_invocation_id")
+    if explicit is not None:
+        if explicit not in lookup["by_id"]:
+            raise ValueError("raw record references unknown kernel_invocation_id")
+        return explicit
+    if "launch_order" in record:
+        launch_order = int(record["launch_order"])
+        if launch_order not in lookup["by_launch_order"]:
+            raise ValueError("raw record references unknown launch_order")
+        return lookup["by_launch_order"][launch_order]["kernel_invocation_id"]
+    kernel_id = int(record["kernel_id"])
+    candidates = lookup["by_kernel_id"].get(kernel_id, [])
+    if len(candidates) == 1:
+        return candidates[0]["kernel_invocation_id"]
+    raise ValueError(
+        "raw record for repeated kernel_id requires kernel_invocation_id or launch_order"
+    )
+
+
 def _cta_scheduler_records(
     scheduler_metadata: dict[str, Any],
-    invocation_id_by_kernel_id: dict[int, str],
+    invocation_lookup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     records = []
     for invocation in scheduler_metadata.get("kernel_invocations", []):
         kernel_id = invocation["kernel_id"]
-        kernel_invocation_id = invocation.get(
-            "kernel_invocation_id", invocation_id_by_kernel_id[kernel_id]
-        )
+        kernel_invocation_id = _resolve_kernel_invocation_id(invocation, invocation_lookup)
         for cta in invocation.get("cta_records", []):
             records.append(
                 {
@@ -121,16 +150,14 @@ def _cta_scheduler_records(
 
 def _per_warp_trace_records(
     threadblocks: dict[str, Any],
-    invocation_id_by_kernel_id: dict[int, str],
+    invocation_lookup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     records = []
     for record in threadblocks.get("threadblocks", []):
-        kernel_id = record["kernel_id"]
+        kernel_invocation_id = _resolve_kernel_invocation_id(record, invocation_lookup)
         records.append(
             {
-                "kernel_invocation_id": record.get(
-                    "kernel_invocation_id", invocation_id_by_kernel_id[kernel_id]
-                ),
+                "kernel_invocation_id": kernel_invocation_id,
                 **record,
             }
         )
@@ -170,6 +197,8 @@ def validate_resnet50_trace_adapter_bundle(bundle: dict[str, Any]) -> None:
 
 def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
     invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
+    scheduled_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
+    trace_records_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
     seen_ctas: set[tuple[str, str]] = set()
     for record in bundle["cta_scheduler_records"]:
         invocation_id = record.get("kernel_invocation_id")
@@ -183,9 +212,17 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
             raise ValueError("cta scheduler trace_entry_count must be positive")
         if not record.get("warp_ids"):
             raise ValueError("cta scheduler warp_ids must be non-empty")
+        scheduled_by_invocation[invocation_id] += int(record["trace_entry_count"])
     for record in bundle["per_warp_trace_records"]:
-        if record.get("kernel_invocation_id") not in invocation_ids:
+        invocation_id = record.get("kernel_invocation_id")
+        if invocation_id not in invocation_ids:
             raise ValueError("warp trace record references unknown kernel_invocation_id")
+        trace_records_by_invocation[invocation_id] += len(record.get("entries", []))
+    for invocation_id in invocation_ids:
+        if scheduled_by_invocation[invocation_id] <= 0:
+            raise ValueError("each kernel_invocation_id must retain scheduler records")
+        if trace_records_by_invocation[invocation_id] <= 0:
+            raise ValueError("each kernel_invocation_id must retain warp trace records")
 
 
 def write_resnet50_trace_adapter_bundle(root: Path, out_path: Path) -> dict[str, Any]:

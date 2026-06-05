@@ -31,11 +31,13 @@ def test_trace_manifest_rejects_non_phase_b_scope_and_missing_report():
     manifest = build_representative_sm_trace_manifest()
     bad_scope = copy.deepcopy(manifest)
     bad_scope["kernel_invocations"][0]["collection_scope"] = "selected_warps_fixture"
+    bad_scope["trace_manifest_hash"] = hash_without(bad_scope, "trace_manifest_hash")
     with pytest.raises(ValueError, match="collection_scope"):
         validate_phase_b_trace_manifest(bad_scope)
 
     missing_report = copy.deepcopy(manifest)
     del missing_report["kernel_invocations"][0]["selected_sm_policy_report_hash"]
+    missing_report["trace_manifest_hash"] = hash_without(missing_report, "trace_manifest_hash")
     with pytest.raises(ValueError, match="selected_sm_policy_report_hash"):
         validate_phase_b_trace_manifest(missing_report)
 
@@ -47,14 +49,27 @@ def test_trace_manifest_rejects_inconsistent_scoped_counts_and_hash():
     bad_count["kernel_invocations"][0]["trace_hash"] = hash_without(
         bad_count["kernel_invocations"][0], "trace_hash"
     )
+    bad_count["trace_manifest_hash"] = hash_without(bad_count, "trace_manifest_hash")
 
     with pytest.raises(ValueError, match="instruction_count"):
         validate_phase_b_trace_manifest(bad_count)
 
     bad_hash = copy.deepcopy(manifest)
     bad_hash["kernel_invocations"][0]["trace_hash"] = "stale"
+    bad_hash["trace_manifest_hash"] = hash_without(bad_hash, "trace_manifest_hash")
     with pytest.raises(ValueError, match="trace_hash"):
         validate_phase_b_trace_manifest(bad_hash)
+
+
+def test_trace_manifest_rejects_stale_top_level_hash_after_invocation_rehash():
+    manifest = build_representative_sm_trace_manifest()
+    manifest["kernel_invocations"][0]["selected_sm_reason"] = "tampered_reason"
+    manifest["kernel_invocations"][0]["trace_hash"] = hash_without(
+        manifest["kernel_invocations"][0], "trace_hash"
+    )
+
+    with pytest.raises(ValueError, match="trace_manifest_hash"):
+        validate_phase_b_trace_manifest(manifest)
 
 
 def test_scope_audit_records_before_and_after_counts():

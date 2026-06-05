@@ -131,6 +131,8 @@ def select_representatives(table: dict[str, Any], seed: int = 20260602) -> dict[
     if table.get("embedding_dim") != EMBEDDING_DIM:
         raise ValueError("embedding_dim mismatch")
     matrix = _embedding_matrix(table)
+    if matrix.shape[0] == 1:
+        return _single_embedding_selector_artifact(table, seed)
     normalized = zscore_normalize(matrix)
     silhouette = choose_silhouette_k(normalized)
     labels = silhouette["labels"]
@@ -180,6 +182,49 @@ def select_representatives(table: dict[str, Any], seed: int = 20260602) -> dict[
             "row_count": table["row_count"],
             "cluster_count": int(silhouette["selected_k"]),
             "anchor_count": len(anchors),
+            "seed": seed,
+        },
+        "source_embedding_table_hash": table["embedding_table_hash"],
+    }
+    artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
+    return artifact
+
+
+def _single_embedding_selector_artifact(table: dict[str, Any], seed: int) -> dict[str, Any]:
+    row = table["rows"][0]
+    artifact = {
+        "artifact_type": "gcl_m0_selector_artifacts",
+        "representation_mode": REPRESENTATION_MODE,
+        "normalization": {
+            "mode": "z_score",
+            "embedding_dim": EMBEDDING_DIM,
+        },
+        "silhouette_report": {
+            "mode": "silhouette_k",
+            "selected_k": 1,
+            "selected_score": 0.0,
+            "candidates": [{"k": 1, "score": 0.0}],
+            "fallback_reason": "single_embedding_batch",
+        },
+        "cluster_assignments": [
+            {
+                "record_id": row["record_id"],
+                "kernel_invocation_id": row["kernel_invocation_id"],
+                "cluster_id": 0,
+            }
+        ],
+        "representative_anchor_table": [
+            {
+                "cluster_id": 0,
+                "representative_record_id": row["record_id"],
+                "kernel_invocation_id": row["kernel_invocation_id"],
+                "distance_to_centroid": 0.0,
+            }
+        ],
+        "structural_evaluation_artifacts": {
+            "row_count": table["row_count"],
+            "cluster_count": 1,
+            "anchor_count": 1,
             "seed": seed,
         },
         "source_embedding_table_hash": table["embedding_table_hash"],

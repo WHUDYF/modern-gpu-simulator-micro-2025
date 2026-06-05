@@ -195,6 +195,7 @@ def test_non_resource_runtime_error_is_not_marked_resource_blocked(tmp_path, mon
 def test_pipeline_requires_selected_sm_policy_report(tmp_path):
     manifest = build_representative_sm_trace_manifest()
     del manifest["kernel_invocations"][0]["selected_sm_policy_report_hash"]
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
     manifest_path = tmp_path / "bad_manifest.json"
     write_json(manifest_path, manifest)
 
@@ -208,6 +209,7 @@ def test_pipeline_requires_inline_selected_sm_policy_report(tmp_path):
     manifest["kernel_invocations"][0]["trace_hash"] = hash_without(
         manifest["kernel_invocations"][0], "trace_hash"
     )
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
     manifest_path = tmp_path / "bad_inline_manifest.json"
     write_json(manifest_path, manifest)
 
@@ -418,6 +420,21 @@ def test_from_disk_embedding_stage_rejects_stale_tensor_bundle_against_graphs(tm
     graph_bundle_path.write_text(json.dumps(graph_bundle, sort_keys=True))
 
     with pytest.raises(ValueError, match="tensor bundle input_graph_hash"):
+        run_embedding_export_stage_from_disk(out_dir)
+
+
+def test_from_disk_embedding_stage_rejects_stale_graph_size_audit(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_embedding_stale_audit"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    audit_path = out_dir / ARTIFACT_FILENAMES["graph_size_audits"]
+    audit_bundle = json.loads(audit_path.read_text())
+    audit_bundle["audits"][0]["node_count"] += 1
+    audit_path.write_text(json.dumps(audit_bundle, sort_keys=True))
+
+    with pytest.raises(ValueError, match="node_count mismatch"):
         run_embedding_export_stage_from_disk(out_dir)
 
 

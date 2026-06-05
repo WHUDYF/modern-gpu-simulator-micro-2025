@@ -66,6 +66,27 @@ def test_selector_reduces_k_when_embeddings_collapse_to_one_unique_point():
     assert len(artifacts["representative_anchor_table"]) == 1
 
 
+def test_selector_handles_single_embedding_table_as_single_cluster():
+    artifacts = select_representatives(_synthetic_table(row_count=1), seed=7)
+
+    assert artifacts["silhouette_report"]["selected_k"] == 1
+    assert artifacts["silhouette_report"]["fallback_reason"] == "single_embedding_batch"
+    assert artifacts["cluster_assignments"] == [
+        {
+            "record_id": "gcl_embedding:0000",
+            "kernel_invocation_id": "kernel_00",
+            "cluster_id": 0,
+        }
+    ]
+    assert artifacts["representative_anchor_table"][0]["representative_record_id"] == (
+        "gcl_embedding:0000"
+    )
+    assert artifacts["structural_evaluation_artifacts"]["row_count"] == 1
+    assert artifacts["structural_evaluation_artifacts"]["cluster_count"] == 1
+    assert artifacts["structural_evaluation_artifacts"]["anchor_count"] == 1
+    assert artifacts["structural_evaluation_artifacts"]["seed"] == 7
+
+
 def test_selector_rejects_empty_embedding_table():
     table = _synthetic_table(row_count=2)
     table["rows"] = []

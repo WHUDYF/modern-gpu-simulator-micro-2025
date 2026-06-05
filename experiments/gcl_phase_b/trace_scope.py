@@ -12,6 +12,8 @@ from .utils import hash_without
 def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
     if manifest.get("collection_scope") != COLLECTION_SCOPE:
         raise ValueError("manifest collection_scope must be single_representative_sm_all_ctas")
+    if manifest.get("trace_manifest_hash") != hash_without(manifest, "trace_manifest_hash"):
+        raise ValueError("trace_manifest_hash is not reproducible")
     for invocation in manifest.get("kernel_invocations", []):
         required = {
             "collection_scope",

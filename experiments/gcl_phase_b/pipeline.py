@@ -528,6 +528,10 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         )
     )
     graph_size_audits = audit_bundle.get("audits", [])
+    if len(graph_size_audits) != len(graphs):
+        raise ValueError("graph size audit count mismatch")
+    for audit, graph in zip(graph_size_audits, graphs):
+        validate_graph_size_audit(audit, graph)
     try:
         table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:

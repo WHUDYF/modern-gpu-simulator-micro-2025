@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 5 RGCN Contrastive Training</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --cyan: #087ea4;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    main {
+      padding: 28px 0 44px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .pipe-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 160px;
+      position: relative;
+    }
+
+    .pipe-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .pipe-card:last-child::after {
+      display: none;
+    }
+
+    .input { border-top-color: var(--green); }
+    .augment { border-top-color: var(--amber); }
+    .train { border-top-color: var(--blue); }
+    .export { border-top-color: var(--purple); }
+    .next { border-top-color: var(--cyan); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green { background: var(--green); }
+    .tag.amber { background: var(--amber); }
+    .tag.blue { background: var(--blue); }
+    .tag.purple { background: var(--purple); }
+    .tag.red { background: var(--red); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 42px 1fr 42px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 108px;
+    }
+
+    .arrow {
+      text-align: center;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .contrastive {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    svg text {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px 16px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .checklist div {
+      border-left: 3px solid var(--green);
+      padding-left: 10px;
+      min-height: 32px;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid,
+      .pipeline,
+      .two-col,
+      .three-col,
+      .flow,
+      .checklist {
+        grid-template-columns: 1fr;
+      }
+
+      .pipe-card::after {
+        display: none;
+      }
+
+      .arrow {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GCL ResNet-50 Gate 5：RGCN Contrastive Training</h1>
+      <p class="subtitle">Gate 5 消费 Gate 4 的 graph tensor bundle，训练 RGCN encoder，并只用 canonical non-augmented graph 导出 256 维 kernel embedding。它不做 clustering，也不做 family classification。</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="summary-grid">
+        <div class="metric">
+          <strong>输入</strong>
+          <span><code>graph_tensor_bundle.json</code>，来自 Gate 4。</span>
+        </div>
+        <div class="metric">
+          <strong>训练</strong>
+          <span>augmentation + 三层 RGCN + projection head + InfoNCE。</span>
+        </div>
+        <div class="metric">
+          <strong>导出</strong>
+          <span>canonical graph inference，输出 256 维 kernel embedding。</span>
+        </div>
+        <div class="metric">
+          <strong>下一步</strong>
+          <span>Gate 6 使用 embedding table 做 cluster / family classification。</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Gate 5 Pipeline</h2>
+        <p>Gate 5 的核心边界是：augmentation 只服务训练，正式 embedding 必须来自未增强的 canonical tensor。</p>
+        <div class="pipeline">
+          <div class="pipe-card input">
+            <h3>1. Tensor Bundle</h3>
+            <p><code>node_features</code>、<code>edge_index</code>、<code>edge_type</code>、<code>warp_partition_tensors</code>。</p>
+          </div>
+          <div class="pipe-card augment">
+            <h3>2. Training Views</h3>
+            <p>同一个 graph 生成两个 augmented views，形成 positive pair。</p>
+          </div>
+          <div class="pipe-card train">
+            <h3>3. RGCN Training</h3>
+            <p>Relation-specific message passing，输出 node embeddings。</p>
+          </div>
+          <div class="pipe-card export">
+            <h3>4. Canonical Export</h3>
+            <p>关闭 augmentation / dropout，导出 256 维 kernel embedding。</p>
+          </div>
+          <div class="pipe-card next">
+            <h3>5. Gate 6</h3>
+            <p>只读取 <code>kernel_embedding_table.json</code>。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Contrastive Training 图示</h2>
+        <p>同一个 canonical graph 的两个增强视图互为正样本；batch 中其他 kernel 的视图是负样本。</p>
+        <div class="contrastive">
+          <svg viewBox="0 0 1100 390" width="100%" height="390" role="img" aria-label="GCL contrastive training diagram">
+            <defs>
+              <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L8,3 z" fill="#667085"></path>
+              </marker>
+              <marker id="greenArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L8,3 z" fill="#0f8a5f"></path>
+              </marker>
+              <marker id="redArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L8,3 z" fill="#b42318"></path>
+              </marker>
+            </defs>
+
+            <rect x="32" y="132" width="150" height="76" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="107" y="160" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Canonical G</text>
+            <text x="107" y="184" text-anchor="middle" font-size="12" fill="#667085">non-aug tensor</text>
+
+            <line x1="182" y1="150" x2="272" y2="92" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="182" y1="190" x2="272" y2="248" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="272" y="54" width="164" height="84" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="354" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">View A</text>
+            <text x="354" y="109" text-anchor="middle" font-size="12" fill="#667085">drop / edge / noise</text>
+
+            <rect x="272" y="214" width="164" height="84" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="354" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">View B</text>
+            <text x="354" y="269" text-anchor="middle" font-size="12" fill="#667085">same kernel</text>
+
+            <line x1="436" y1="96" x2="512" y2="96" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="436" y1="256" x2="512" y2="256" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="512" y="54" width="152" height="84" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="588" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">RGCN</text>
+            <text x="588" y="109" text-anchor="middle" font-size="12" fill="#667085">shared encoder</text>
+
+            <rect x="512" y="214" width="152" height="84" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="588" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">RGCN</text>
+            <text x="588" y="269" text-anchor="middle" font-size="12" fill="#667085">same weights</text>
+
+            <line x1="664" y1="96" x2="738" y2="96" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="664" y1="256" x2="738" y2="256" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="738" y="54" width="144" height="84" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="810" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Projection</text>
+            <text x="810" y="109" text-anchor="middle" font-size="12" fill="#667085">256 -> 64</text>
+
+            <rect x="738" y="214" width="144" height="84" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="810" y="244" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Projection</text>
+            <text x="810" y="269" text-anchor="middle" font-size="12" fill="#667085">InfoNCE space</text>
+
+            <line x1="810" y1="138" x2="810" y2="214" stroke="#0f8a5f" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#greenArrow)"></line>
+            <text x="830" y="181" font-size="13" font-weight="700" fill="#0f8a5f">positive pair close</text>
+
+            <rect x="930" y="132" width="150" height="76" rx="8" fill="#fff1f2" stroke="#b42318"></rect>
+            <text x="1005" y="160" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Other Kernel</text>
+            <text x="1005" y="184" text-anchor="middle" font-size="12" fill="#667085">negative views</text>
+
+            <line x1="882" y1="96" x2="942" y2="146" stroke="#b42318" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#redArrow)"></line>
+            <line x1="882" y1="256" x2="942" y2="194" stroke="#b42318" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#redArrow)"></line>
+            <text x="914" y="116" font-size="13" font-weight="700" fill="#b42318">push away</text>
+
+            <rect x="506" y="332" width="268" height="42" rx="8" fill="#ecfeff" stroke="#087ea4"></rect>
+            <text x="640" y="358" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Export uses canonical G, not View A/B</text>
+          </svg>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background: var(--amber);"></i>training-only augmentation</span>
+          <span><i class="dot" style="background: var(--blue);"></i>shared RGCN encoder</span>
+          <span><i class="dot" style="background: var(--purple);"></i>projection head only for loss</span>
+          <span><i class="dot" style="background: var(--cyan);"></i>canonical export path</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Readout 层级</h2>
+        <p>ResNet-50 Phase B 使用 representative SM 作为 kernel trace scope，因此 Gate 5 的 pooling 需要保留 GPU 执行层级。</p>
+        <div class="flow">
+          <div class="box">
+            <span class="tag blue">Node</span>
+            <h3>RGCN node embeddings</h3>
+            <p><code>[node_count, 256]</code></p>
+          </div>
+          <div class="arrow">-></div>
+          <div class="box">
+            <span class="tag green">Warp / CTA</span>
+            <h3>分层 mean pooling</h3>
+            <p><code>node -> warp -> CTA</code></p>
+          </div>
+          <div class="arrow">-></div>
+          <div class="box">
+            <span class="tag purple">Kernel</span>
+            <h3>selected SM proxy</h3>
+            <p><code>selected_sm_embedding = kernel_embedding</code></p>
+          </div>
+        </div>
+        <pre>node embeddings
+  -> mean within warp_partition
+  -> mean across warps in the same CTA
+  -> mean across CTAs on selected SM
+  -> kernel embedding [256]</pre>
+      </section>
+
+      <section class="section">
+        <h2>Projection Head 与正式 Embedding 的边界</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag amber">Training</span>
+            <h3>InfoNCE 使用 projection output</h3>
+            <pre>kernel_embedding [256]
+  -> MLP [128]
+  -> projection_output [64]</pre>
+            <p>这条路径只用于训练 loss。</p>
+          </div>
+          <div class="mini-panel">
+            <span class="tag green">Export</span>
+            <h3>Gate 6 使用 kernel embedding</h3>
+            <pre>canonical graph
+  -> RGCN encoder
+  -> readout
+  -> kernel_embedding [256]</pre>
+            <p>正式导出不使用 projection output。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Representation Mode</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag blue">mem_ref_only</span>
+            <h3>接近论文 pseudo-node 描述</h3>
+            <p>instruction node、variable node、mem_ref pseudo node 一起进入 tensor 和 RGCN。</p>
+          </div>
+          <div class="mini-panel">
+            <span class="tag red">no_pseudo_node</span>
+            <h3>Functional-first pipeline</h3>
+            <p>先只跑通 instruction / variable / control-data edges，不能标记为 strict paper reproduction。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Gate 5 验收重点</h2>
+        <div class="checklist">
+          <div>输入 tensor hash 可复现，shape 与 Gate 4 schema 一致。</div>
+          <div>Augmentation 不覆盖 canonical tensor。</div>
+          <div>Positive pair 来自同一个 kernel invocation。</div>
+          <div>RGCN 输出 node embeddings 为 256 维。</div>
+          <div>Readout 使用 node -> warp -> CTA -> selected SM -> kernel。</div>
+          <div>Projection head 只用于 InfoNCE loss。</div>
+          <div>正式导出使用 canonical non-augmented tensor。</div>
+          <div><code>kernel_embedding_table.json</code> 输出 256 维 embedding。</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

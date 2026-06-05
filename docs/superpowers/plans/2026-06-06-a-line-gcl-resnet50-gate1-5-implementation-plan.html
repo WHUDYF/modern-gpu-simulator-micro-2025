@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 1-5 Plan</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --cyan: #087ea4;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 0; }
+
+    main { padding: 28px 0 44px; }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .gate-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .gate {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 178px;
+      position: relative;
+    }
+
+    .gate::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .gate:last-child::after { display: none; }
+
+    .g1 { border-top-color: var(--green); }
+    .g2 { border-top-color: var(--amber); }
+    .g3 { border-top-color: var(--blue); }
+    .g4 { border-top-color: var(--purple); }
+    .g5 { border-top-color: var(--cyan); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green { background: var(--green); }
+    .tag.amber { background: var(--amber); }
+    .tag.blue { background: var(--blue); }
+    .tag.purple { background: var(--purple); }
+    .tag.cyan { background: var(--cyan); }
+    .tag.red { background: var(--red); }
+
+    .task-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px 16px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .task-list div {
+      border-left: 3px solid var(--green);
+      padding-left: 10px;
+      min-height: 34px;
+    }
+
+    .diagram {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    svg text {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .gate-grid,
+      .two-col,
+      .task-list {
+        grid-template-columns: 1fr;
+      }
+
+      .gate::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GCL ResNet-50 Gate 1-5 总体实施计划</h1>
+      <p class="subtitle">本轮从真实 ResNet-50 trace adapter 开始，到 Gate 5 输出 canonical 256 维 kernel embedding table 为止。Gate 6 的 clustering、family classification 和调参策略留到下一轮。</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="summary-grid">
+        <div class="metric">
+          <strong>起点</strong>
+          <span>ResNet-50 NVBit trace artifacts，必须带真实 SM/CTA metadata。</span>
+        </div>
+        <div class="metric">
+          <strong>核心</strong>
+          <span>representative SM -> canonical graph -> tensor -> RGCN training。</span>
+        </div>
+        <div class="metric">
+          <strong>终点</strong>
+          <span><code>kernel_embedding_table.json</code>，256 维 canonical embedding。</span>
+        </div>
+        <div class="metric">
+          <strong>非目标</strong>
+          <span>本轮不做 cluster、family 分类、调参比例预测。</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Gate 1-5 数据流</h2>
+        <p>每个 Gate 都只消费上一个 Gate 的正式 artifact，保证后续 replay 和 debug 时边界清楚。</p>
+        <div class="gate-grid">
+          <div class="gate g1">
+            <span class="tag green">Gate 1</span>
+            <h3>Trace Adapter</h3>
+            <p>解析真实 ResNet trace，输出 <code>resnet50_trace_adapter_bundle.json</code>。</p>
+          </div>
+          <div class="gate g2">
+            <span class="tag amber">Gate 2</span>
+            <h3>Representative SM</h3>
+            <p>运行 <code>scheduler_signature_medoid_sm</code>，输出 representative-SM manifest。</p>
+          </div>
+          <div class="gate g3">
+            <span class="tag blue">Gate 3</span>
+            <h3>Canonical Graph</h3>
+            <p>按 warp 建图，再合并为 kernel canonical graph bundle。</p>
+          </div>
+          <div class="gate g4">
+            <span class="tag purple">Gate 4</span>
+            <h3>Tensorization</h3>
+            <p>生成 <code>node_features</code>、<code>edge_index</code>、<code>edge_type</code>。</p>
+          </div>
+          <div class="gate g5">
+            <span class="tag cyan">Gate 5</span>
+            <h3>RGCN Embedding</h3>
+            <p>训练 RGCN，使用 canonical graph 导出 256 维 kernel embedding。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Artifact 关系图</h2>
+        <div class="diagram">
+          <svg viewBox="0 0 1120 360" width="100%" height="360" role="img" aria-label="Gate 1 to Gate 5 artifact relationship">
+            <defs>
+              <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L8,3 z" fill="#667085"></path>
+              </marker>
+            </defs>
+
+            <rect x="34" y="50" width="174" height="78" rx="8" fill="#ecfdf3" stroke="#0f8a5f"></rect>
+            <text x="121" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Raw Trace</text>
+            <text x="121" y="106" text-anchor="middle" font-size="12" fill="#667085">NVBit + SM/CTA</text>
+
+            <rect x="258" y="50" width="186" height="78" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="351" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 1 Bundle</text>
+            <text x="351" y="105" text-anchor="middle" font-size="12" fill="#667085">adapter bundle</text>
+
+            <rect x="494" y="50" width="186" height="78" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="587" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 2 Manifest</text>
+            <text x="587" y="105" text-anchor="middle" font-size="12" fill="#667085">representative SM</text>
+
+            <rect x="730" y="50" width="186" height="78" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="823" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 3 Graph</text>
+            <text x="823" y="105" text-anchor="middle" font-size="12" fill="#667085">canonical graph</text>
+
+            <rect x="494" y="210" width="186" height="78" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="587" y="240" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 4 Tensor</text>
+            <text x="587" y="265" text-anchor="middle" font-size="12" fill="#667085">64-wide features</text>
+
+            <rect x="730" y="210" width="186" height="78" rx="8" fill="#ecfeff" stroke="#087ea4"></rect>
+            <text x="823" y="240" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 5 Embedding</text>
+            <text x="823" y="265" text-anchor="middle" font-size="12" fill="#667085">kernel_embedding_table</text>
+
+            <rect x="962" y="210" width="126" height="78" rx="8" fill="#fff1f2" stroke="#b42318"></rect>
+            <text x="1025" y="240" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 6</text>
+            <text x="1025" y="265" text-anchor="middle" font-size="12" fill="#667085">later</text>
+
+            <line x1="208" y1="89" x2="258" y2="89" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="444" y1="89" x2="494" y2="89" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="680" y1="89" x2="730" y2="89" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <path d="M823 128 L823 166 L587 166 L587 210" fill="none" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></path>
+            <line x1="680" y1="249" x2="730" y2="249" stroke="#667085" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="916" y1="249" x2="962" y2="249" stroke="#b42318" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow)"></line>
+
+            <text x="1025" y="315" text-anchor="middle" font-size="13" font-weight="700" fill="#b42318">not in this cycle</text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>实现任务</h2>
+        <div class="task-list">
+          <div>Task 1: 构造小规模 ResNet-like Gate 1 fixture。</div>
+          <div>Task 2: 实现 Gate 1 adapter bundle。</div>
+          <div>Task 3: 从 adapter bundle 生成 Gate 2 representative-SM manifest。</div>
+          <div>Task 4: 给 Gate 3/4 artifact 补齐 representation mode。</div>
+          <div>Task 5: 把 Gate 5 readout 改为 node -> warp -> CTA -> selected SM -> kernel。</div>
+          <div>Task 6: 新增 Gate 1-5 pipeline，并停止在 embedding table。</div>
+          <div>Task 7: 增加 replay / hash deterministic 检查。</div>
+          <div>Task 8: 跑 focused tests、Phase A/B regression 和 CLI smoke。</div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>关键边界</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag cyan">本轮完成</span>
+            <h3>Gate 5 embedding table</h3>
+            <pre>kernel_embedding_table.json
+embedding_dim = 256
+source = canonical non-augmented graph</pre>
+          </div>
+          <div class="mini-panel">
+            <span class="tag red">后续接上</span>
+            <h3>Gate 6 classification</h3>
+            <pre>K-Means / silhouette
+family classifier
+tuning ratio predictor</pre>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

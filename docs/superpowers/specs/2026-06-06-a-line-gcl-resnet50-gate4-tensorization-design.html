@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 4 Tensorization</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    main {
+      padding: 28px 0 44px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .pipe-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 156px;
+      position: relative;
+    }
+
+    .pipe-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .pipe-card:last-child::after {
+      display: none;
+    }
+
+    .input {
+      border-top-color: var(--green);
+    }
+
+    .index {
+      border-top-color: var(--amber);
+    }
+
+    .feature {
+      border-top-color: var(--blue);
+    }
+
+    .edge {
+      border-top-color: var(--red);
+    }
+
+    .next {
+      border-top-color: var(--purple);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green {
+      background: var(--green);
+    }
+
+    .tag.red {
+      background: var(--red);
+    }
+
+    .tag.blue {
+      background: var(--blue);
+    }
+
+    .tag.amber {
+      background: var(--amber);
+    }
+
+    .tag.purple {
+      background: var(--purple);
+    }
+
+    .feature-bar {
+      display: grid;
+      grid-template-columns: repeat(64, 1fr);
+      gap: 1px;
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .seg {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      color: #111827;
+    }
+
+    .seg.opcode {
+      grid-column: span 63;
+      background: #dbeafe;
+    }
+
+    .seg.pc {
+      grid-column: span 1;
+      background: #bfdbfe;
+    }
+
+    .seg.var-token {
+      grid-column: span 32;
+      background: #dcfce7;
+    }
+
+    .seg.stats {
+      grid-column: span 8;
+      background: #bbf7d0;
+    }
+
+    .seg.zero-var {
+      grid-column: span 24;
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .seg.pseudo-token {
+      grid-column: span 16;
+      background: #f3e8ff;
+    }
+
+    .seg.zero-pseudo {
+      grid-column: span 48;
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .matrix {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .matrix th,
+    .matrix td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .matrix th {
+      background: #eef2f7;
+      font-weight: 700;
+    }
+
+    .warning {
+      border-left: 4px solid var(--red);
+      background: #fff5f4;
+      padding: 13px 14px;
+      border-radius: 8px;
+      margin-top: 14px;
+      color: #7a271a;
+    }
+
+    .ok {
+      border-left: 4px solid var(--green);
+      background: #f0fdf4;
+      padding: 13px 14px;
+      border-radius: 8px;
+      margin-top: 14px;
+      color: #14532d;
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 10px 0 0;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .pipeline,
+      .two-col,
+      .three-col {
+        grid-template-columns: 1fr;
+      }
+
+      .pipe-card::after {
+        display: none;
+      }
+
+      header {
+        padding: 26px 18px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Gate 4: Tensorization</h1>
+      <p class="subtitle">
+        Gate 4 把 Gate 3 的 canonical graph bundle 转换为 GNN/RGCN 可消费的 tensor bundle，并严格复用 GCL-Sampler Phase A 的 64 维 node feature schema。
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="summary-grid">
+      <div class="metric">
+        <strong>输入</strong>
+        <span><code>canonical_graph_bundle.json</code>，来自 Gate 3。</span>
+      </div>
+      <div class="metric">
+        <strong>Node Feature</strong>
+        <span><code>node_features.shape = [node_count, 64]</code>。</span>
+      </div>
+      <div class="metric">
+        <strong>Typed Edges</strong>
+        <span><code>edge_index</code> + <code>edge_type</code> 保留 relation type。</span>
+      </div>
+      <div class="metric">
+        <strong>下一步</strong>
+        <span>Gate 5 才做 augmentation、RGCN training 和 embedding export。</span>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>1. Gate 4 流程</h2>
+      <p>Gate 4 只负责把 graph artifact 变成 tensor artifact，不改变 canonical graph。</p>
+      <div class="pipeline">
+        <div class="pipe-card input">
+          <h3>Canonical Graph</h3>
+          <ul>
+            <li>nodes</li>
+            <li>edges</li>
+            <li>warp partitions</li>
+            <li>graph hash</li>
+          </ul>
+        </div>
+        <div class="pipe-card index">
+          <h3>Stable Index</h3>
+          <ul>
+            <li><code>node_id -> index</code></li>
+            <li>preserve graph node order</li>
+            <li>edge source / target index</li>
+          </ul>
+        </div>
+        <div class="pipe-card feature">
+          <h3>Node Features</h3>
+          <ul>
+            <li><code>[node_count, 64]</code></li>
+            <li>instruction / variable / pseudo layout</li>
+            <li>strict zero padding</li>
+          </ul>
+        </div>
+        <div class="pipe-card edge">
+          <h3>Edge Tensors</h3>
+          <ul>
+            <li><code>edge_index [2, E]</code></li>
+            <li><code>edge_type [E]</code></li>
+            <li>relation schema preserved</li>
+          </ul>
+        </div>
+        <div class="pipe-card next">
+          <h3>Gate 5 Input</h3>
+          <ul>
+            <li>graph tensor bundle</li>
+            <li>warp partition tensors</li>
+            <li>graph batch metadata</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>2. Tensor Bundle</h2>
+      <p>Gate 4 输出 <code>graph_tensor_bundle.json</code>，每个 graph 对应一个 tensor artifact。</p>
+      <pre><code>{
+  "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+  "artifact_version": "gate4_graph_tensor_bundle_v1",
+  "source_canonical_graph_bundle_hash": "...",
+  "tensors": [],
+  "graph_tensor_bundle_hash": "..."
+}</code></pre>
+      <div class="ok">
+        Gate 5 只读取 tensor bundle，不再读取 Gate 3 graph bundle 或原始 trace。
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3. 64 维 Node Feature Layout</h2>
+      <p>Gate 4 严格复用 <code>gcl_m2_phase_a_paper_node_feature_v1</code>。不同 node type 使用不同 block，但总宽度固定为 64。</p>
+
+      <div class="mini-panel">
+        <span class="tag blue">Instruction Node</span>
+        <div class="feature-bar">
+          <div class="seg opcode">[0:63) opcode_token_embedding</div>
+          <div class="seg pc">[63]</div>
+        </div>
+      </div>
+
+      <div class="mini-panel" style="margin-top:14px">
+        <span class="tag green">Variable Node</span>
+        <div class="feature-bar">
+          <div class="seg var-token">[0:32) variable_token_embedding</div>
+          <div class="seg stats">[32:40) dynamic stats</div>
+          <div class="seg zero-var">[40:64) zero padding</div>
+        </div>
+      </div>
+
+      <div class="mini-panel" style="margin-top:14px">
+        <span class="tag purple">Pseudo Node</span>
+        <div class="feature-bar">
+          <div class="seg pseudo-token">[0:16) pseudo_token_embedding</div>
+          <div class="seg zero-pseudo">[16:64) zero padding</div>
+        </div>
+      </div>
+
+      <div class="warning">
+        Gate 4 strict path 不把 control bits、predicate、active mask、cache hint 或其他扩展字段加入 64 维 feature。后续若要加入，必须作为单独 ablation。
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>4. Edge Tensor 示例</h2>
+      <p>Gate 3 的 typed graph edges 会转换为 <code>edge_index</code> 和 <code>edge_type</code>。</p>
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Graph Edge</th>
+            <th>node index</th>
+            <th>edge_type</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>I0 -> I1</code></td>
+            <td><code>edge_index[:,0] = [0, 1]</code></td>
+            <td><code>control_flow = 0</code></td>
+          </tr>
+          <tr>
+            <td><code>V0 -> I0</code></td>
+            <td><code>edge_index[:,1] = [4, 0]</code></td>
+            <td><code>data_source = 1</code></td>
+          </tr>
+          <tr>
+            <td><code>I0 -> V1</code></td>
+            <td><code>edge_index[:,2] = [0, 5]</code></td>
+            <td><code>data_destination = 2</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <pre><code>edge_index.shape = [2, edge_count]
+edge_type.shape  = [edge_count]</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>5. Warp Partition Tensors</h2>
+      <p>Warp partitions 从 graph node IDs 转换为 tensor node indices，供后续 node -> warp -> kernel readout 使用。</p>
+      <div class="two-col">
+        <div class="mini-panel">
+          <span class="tag amber">Graph Partition</span>
+          <pre><code>partition_id = "1:0"
+node_ids = ["I0", "I1", "V0", "V1"]
+edge_ids = ["e0", "e1"]</code></pre>
+        </div>
+        <div class="mini-panel">
+          <span class="tag blue">Tensor Partition</span>
+          <pre><code>partition_id = "1:0"
+node_indices = [0, 1, 4, 5]
+edge_indices = [0, 1]
+instruction_count = 2</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>6. 通过标准</h2>
+      <ul>
+        <li><code>node_features.shape = [node_count, 64]</code>。</li>
+        <li><code>edge_index.shape = [2, edge_count]</code>。</li>
+        <li><code>edge_type.shape = [edge_count]</code>。</li>
+        <li>feature schema 必须是 <code>gcl_m2_phase_a_paper_node_feature_v1</code>。</li>
+        <li>variable node 的 <code>[40:64)</code> 必须 zero padding。</li>
+        <li>pseudo node 的 <code>[16:64)</code> 必须 zero padding。</li>
+        <li>warp partition tensor 的 node / edge index 全部有效。</li>
+        <li><code>tensor_hash</code> 和 <code>graph_tensor_bundle_hash</code> 可复现。</li>
+        <li>tensorization 不修改 canonical graph artifact。</li>
+      </ul>
+    </section>
+
+    <footer>
+      Source spec: docs/superpowers/specs/2026-06-06-a-line-gcl-resnet50-gate4-tensorization-design.md
+    </footer>
+  </main>
+</body>
+</html>

@@ -217,6 +217,26 @@
       margin-top: 14px;
     }
 
+    .graph-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .graph-table th,
+    .graph-table td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .graph-table th {
+      background: #eef2f7;
+      font-weight: 700;
+    }
+
     .box {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -428,7 +448,7 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
       <div class="three-col" style="margin-top:14px">
         <div class="mini-panel">
           <span class="tag green">control_flow</span>
-          <p>同一 warp 内动态 instruction 的前后顺序，例如 <code>MOV -> LDG -> FADD</code>。</p>
+          <p>同一 warp 内动态 instruction 的前后控制依赖与执行顺序。control bits / predicate / active mask 作为 instruction node 属性保留。</p>
         </div>
         <div class="mini-panel">
           <span class="tag amber">data_source</span>
@@ -450,6 +470,9 @@ assign warp_partition_id = "{cta_ordinal}:{warp_id}"</code></pre>
           <p><code>address variable -> mem_ref pseudo -> memory instruction</code></p>
         </div>
       </div>
+      <div class="ok">
+        HTML 中的 control lane / data lane 只是为了视觉拆分；正式 artifact 仍然是一个 canonical graph，里面同时包含 control-flow 和 data-flow typed edges。
+      </div>
     </section>
 
     <section class="section">
@@ -462,7 +485,7 @@ t3: STG.E.64.SYS dst=[]     src=[R4, R9]</code></pre>
 
       <div class="wide-mapping">
         <div class="box">
-          <h3>Instruction Chain</h3>
+          <h3>Instruction Nodes</h3>
           <p><code>i:t0(MOV)</code></p>
           <p><code>i:t1(LDG)</code></p>
           <p><code>i:t2(FADD)</code></p>
@@ -486,6 +509,67 @@ t3: STG.E.64.SYS dst=[]     src=[R4, R9]</code></pre>
       </div>
       <div class="ok">
         这个例子展示了三件事：指令序列由 control-flow 保留，寄存器依赖由 variable node 和 data-flow 保留，memory reference 由 <code>mem_ref</code> pseudo node 显式化。
+      </div>
+
+      <h3 style="margin-top:18px">同一个 GNN 标准图表示</h3>
+      <p>上面的 lane 画法不是两个 graph。正式 GNN 输入是同一个 typed graph，可以写成一个 node 表和一个 edge 表。</p>
+      <div class="two-col">
+        <div class="mini-panel">
+          <span class="tag blue">Nodes</span>
+          <table class="graph-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>I0</td><td>instruction</td><td>MOV</td></tr>
+              <tr><td>I1</td><td>instruction</td><td>LDG.E.64.SYS</td></tr>
+              <tr><td>I2</td><td>instruction</td><td>FADD</td></tr>
+              <tr><td>I3</td><td>instruction</td><td>STG.E.64.SYS</td></tr>
+              <tr><td>V0</td><td>input_variable</td><td>input:base.wp1_0</td></tr>
+              <tr><td>V1</td><td>register_version</td><td>R4.v1.w0</td></tr>
+              <tr><td>V2</td><td>register_version</td><td>R8.v1.w0</td></tr>
+              <tr><td>V3</td><td>input_variable</td><td>input:bias.wp1_0</td></tr>
+              <tr><td>V4</td><td>register_version</td><td>R9.v1.w0</td></tr>
+              <tr><td>P0</td><td>pseudo</td><td>mem_ref:t1</td></tr>
+              <tr><td>P1</td><td>pseudo</td><td>mem_ref:t3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mini-panel">
+          <span class="tag purple">Edges</span>
+          <table class="graph-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Target</th>
+                <th>edge_type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>I0</td><td>I1</td><td>control_flow</td></tr>
+              <tr><td>I1</td><td>I2</td><td>control_flow</td></tr>
+              <tr><td>I2</td><td>I3</td><td>control_flow</td></tr>
+              <tr><td>V0</td><td>I0</td><td>data_source</td></tr>
+              <tr><td>I0</td><td>V1</td><td>data_destination</td></tr>
+              <tr><td>V1</td><td>P0</td><td>data_source</td></tr>
+              <tr><td>P0</td><td>I1</td><td>data_source</td></tr>
+              <tr><td>I1</td><td>V2</td><td>data_destination</td></tr>
+              <tr><td>V2</td><td>I2</td><td>data_source</td></tr>
+              <tr><td>V3</td><td>I2</td><td>data_source</td></tr>
+              <tr><td>I2</td><td>V4</td><td>data_destination</td></tr>
+              <tr><td>V1</td><td>P1</td><td>data_source</td></tr>
+              <tr><td>P1</td><td>I3</td><td>data_source</td></tr>
+              <tr><td>V4</td><td>I3</td><td>data_source</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="warning">
+        关键点：control-flow 和 data-flow 是同一个 graph 的不同 relation type；RGCN 后续根据 edge_type 使用不同参数做 message passing。
       </div>
     </section>
 

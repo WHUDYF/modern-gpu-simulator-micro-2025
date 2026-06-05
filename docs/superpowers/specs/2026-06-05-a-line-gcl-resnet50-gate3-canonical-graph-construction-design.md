@@ -167,7 +167,8 @@ Edge 表示这些实体之间的关系：
 
 ```text
 control_flow edge
-  表示同一 warp 内动态 instruction 的前后顺序。
+  表示同一 warp 内动态 instruction 的前后控制依赖与执行顺序。
+  instruction 的 control bits、predicate、active mask 等控制信号保留为 instruction node 属性。
 
 data_source edge
   表示某个变量或 memory reference 被 instruction 消费。
@@ -183,6 +184,19 @@ data_destination edge
   "control_flow": 0,
   "data_source": 1,
   "data_destination": 2
+}
+```
+
+Gate 3 可以在文档或 HTML 中把 control-flow 和 data-flow 分成两条 lane 来画，但这只是 visualization。正式 artifact 仍然只输出一个 canonical graph：
+
+```json
+{
+  "nodes": [],
+  "edges": [
+    {"relation": "control_flow"},
+    {"relation": "data_source"},
+    {"relation": "data_destination"}
+  ]
 }
 ```
 
@@ -206,7 +220,7 @@ i:t2(FADD)
 i:t3(STG.E.64.SYS)
 ```
 
-然后在同一 warp 内生成 control-flow chain：
+然后在同一 warp 内生成 control-flow edges。这里的 chain 只是 control-flow relation 的可视化，不是额外 edge type：
 
 ```text
 i:t0 --control_flow--> i:t1
@@ -248,9 +262,44 @@ R9.v1.w0 --data_source--> i:t3
 这个例子说明：
 
 - instruction node 保留动态指令序列；
+- control bits、predicate、active mask 等控制信号作为 instruction node 属性进入同一个 graph；
 - variable node 保留数据流对象和寄存器版本；
 - pseudo `mem_ref` node 把 memory reference 显式化；
 - control-flow 与 data-flow 是不同 relation type，后续 RGCN 会用不同参数处理它们。
+- control lane / data lane 只是图示拆分；Gate 3 输出的是一个 typed canonical graph，不是两个 graph。
+
+同一个例子对应的标准 GNN graph 表示是：
+
+```text
+nodes:
+  I0 = instruction(MOV)
+  I1 = instruction(LDG.E.64.SYS)
+  I2 = instruction(FADD)
+  I3 = instruction(STG.E.64.SYS)
+  V0 = input:base.wp1_0
+  V1 = R4.v1.w0
+  V2 = R8.v1.w0
+  V3 = input:bias.wp1_0
+  V4 = R9.v1.w0
+  P0 = mem_ref:t1
+  P1 = mem_ref:t3
+
+edges:
+  I0 -> I1  edge_type=control_flow
+  I1 -> I2  edge_type=control_flow
+  I2 -> I3  edge_type=control_flow
+  V0 -> I0  edge_type=data_source
+  I0 -> V1  edge_type=data_destination
+  V1 -> P0  edge_type=data_source
+  P0 -> I1  edge_type=data_source
+  I1 -> V2  edge_type=data_destination
+  V2 -> I2  edge_type=data_source
+  V3 -> I2  edge_type=data_source
+  I2 -> V4  edge_type=data_destination
+  V1 -> P1  edge_type=data_source
+  P1 -> I3  edge_type=data_source
+  V4 -> I3  edge_type=data_source
+```
 
 ## 8. Instruction Nodes
 

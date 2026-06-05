@@ -1,0 +1,13 @@
+{
+  "artifact_type": "resnet50_enhanced_execution_info_fixture",
+  "instructions": [
+    {"function_unique_id": 1701, "pc": 4096, "opcode": "MOV", "operands": ["R4", "input:base"], "control_bits": "0x0"},
+    {"function_unique_id": 1701, "pc": 4100, "opcode": "LDG.E.64.SYS", "operands": ["R8", "R4"], "control_bits": "0x0"},
+    {"function_unique_id": 1701, "pc": 4104, "opcode": "FADD", "operands": ["R9", "R8", "input:bias"], "control_bits": "0x0"},
+    {"function_unique_id": 1701, "pc": 4108, "opcode": "STG.E.64.SYS", "operands": ["R4", "R9"], "control_bits": "0x0"},
+    {"function_unique_id": 1801, "pc": 8192, "opcode": "MOV", "operands": ["R10", "input:bn_base"], "control_bits": "0x0"},
+    {"function_unique_id": 1801, "pc": 8196, "opcode": "LDG.E.64.SYS", "operands": ["R11", "R10"], "control_bits": "0x0"},
+    {"function_unique_id": 1801, "pc": 8200, "opcode": "FFMA", "operands": ["R12", "R11", "input:scale"], "control_bits": "0x0"},
+    {"function_unique_id": 1801, "pc": 8204, "opcode": "STG.E.64.SYS", "operands": ["R10", "R12"], "control_bits": "0x0"}
+  ]
+}

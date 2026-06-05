@@ -1,0 +1,115 @@
+{
+  "artifact_type": "resnet50_threadblocks_fixture",
+  "threadblocks": [
+    {
+      "kernel_id": 17,
+      "cta_id": "0,0,0",
+      "warp_id": 0,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [1.0], "source_entry_hash": "k17_c0_w0_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [2.0], "source_entry_hash": "k17_c0_w0_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [3.0], "source_entry_hash": "k17_c0_w0_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [4.0], "source_entry_hash": "k17_c0_w0_t3"}
+      ]
+    },
+    {
+      "kernel_id": 17,
+      "cta_id": "0,0,0",
+      "warp_id": 1,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [1.5], "source_entry_hash": "k17_c0_w1_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [2.5], "source_entry_hash": "k17_c0_w1_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [3.5], "source_entry_hash": "k17_c0_w1_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [4.5], "source_entry_hash": "k17_c0_w1_t3"}
+      ]
+    },
+    {
+      "kernel_id": 17,
+      "cta_id": "1,0,0",
+      "warp_id": 0,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [5.0], "source_entry_hash": "k17_c1_w0_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [6.0], "source_entry_hash": "k17_c1_w0_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [7.0], "source_entry_hash": "k17_c1_w0_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [8.0], "source_entry_hash": "k17_c1_w0_t3"}
+      ]
+    },
+    {
+      "kernel_id": 17,
+      "cta_id": "1,0,0",
+      "warp_id": 1,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [5.5], "source_entry_hash": "k17_c1_w1_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [6.5], "source_entry_hash": "k17_c1_w1_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [7.5], "source_entry_hash": "k17_c1_w1_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [8.5], "source_entry_hash": "k17_c1_w1_t3"}
+      ]
+    },
+    {
+      "kernel_id": 17,
+      "cta_id": "2,0,0",
+      "warp_id": 0,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [9.0], "source_entry_hash": "k17_c2_w0_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [10.0], "source_entry_hash": "k17_c2_w0_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [11.0], "source_entry_hash": "k17_c2_w0_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [12.0], "source_entry_hash": "k17_c2_w0_t3"}
+      ]
+    },
+    {
+      "kernel_id": 17,
+      "cta_id": "2,0,0",
+      "warp_id": 1,
+      "entries": [
+        {"trace_index": 0, "pc": 4096, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R4"], "source_operands": ["input:base"], "memory_address_metadata": {}, "observed_dynamic_values": [9.5], "source_entry_hash": "k17_c2_w1_t0"},
+        {"trace_index": 1, "pc": 4100, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R8"], "source_operands": ["R4"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [10.5], "source_entry_hash": "k17_c2_w1_t1"},
+        {"trace_index": 2, "pc": 4104, "opcode": "FADD", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R9"], "source_operands": ["R8", "input:bias"], "memory_address_metadata": {}, "observed_dynamic_values": [11.5], "source_entry_hash": "k17_c2_w1_t2"},
+        {"trace_index": 3, "pc": 4108, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R4", "R9"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [12.5], "source_entry_hash": "k17_c2_w1_t3"}
+      ]
+    },
+    {
+      "kernel_id": 18,
+      "cta_id": "1,0,0",
+      "warp_id": 0,
+      "entries": [
+        {"trace_index": 0, "pc": 8192, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R10"], "source_operands": ["input:bn_base"], "memory_address_metadata": {}, "observed_dynamic_values": [13.0], "source_entry_hash": "k18_c1_w0_t0"},
+        {"trace_index": 1, "pc": 8196, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R11"], "source_operands": ["R10"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [14.0], "source_entry_hash": "k18_c1_w0_t1"},
+        {"trace_index": 2, "pc": 8200, "opcode": "FFMA", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R12"], "source_operands": ["R11", "input:scale"], "memory_address_metadata": {}, "observed_dynamic_values": [15.0], "source_entry_hash": "k18_c1_w0_t2"},
+        {"trace_index": 3, "pc": 8204, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R10", "R12"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [16.0], "source_entry_hash": "k18_c1_w0_t3"}
+      ]
+    },
+    {
+      "kernel_id": 18,
+      "cta_id": "1,0,0",
+      "warp_id": 1,
+      "entries": [
+        {"trace_index": 0, "pc": 8192, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R10"], "source_operands": ["input:bn_base"], "memory_address_metadata": {}, "observed_dynamic_values": [13.5], "source_entry_hash": "k18_c1_w1_t0"},
+        {"trace_index": 1, "pc": 8196, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R11"], "source_operands": ["R10"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [14.5], "source_entry_hash": "k18_c1_w1_t1"},
+        {"trace_index": 2, "pc": 8200, "opcode": "FFMA", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R12"], "source_operands": ["R11", "input:scale"], "memory_address_metadata": {}, "observed_dynamic_values": [15.5], "source_entry_hash": "k18_c1_w1_t2"},
+        {"trace_index": 3, "pc": 8204, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R10", "R12"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [16.5], "source_entry_hash": "k18_c1_w1_t3"}
+      ]
+    },
+    {
+      "kernel_id": 18,
+      "cta_id": "2,0,0",
+      "warp_id": 0,
+      "entries": [
+        {"trace_index": 0, "pc": 8192, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R10"], "source_operands": ["input:bn_base"], "memory_address_metadata": {}, "observed_dynamic_values": [17.0], "source_entry_hash": "k18_c2_w0_t0"},
+        {"trace_index": 1, "pc": 8196, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R11"], "source_operands": ["R10"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [18.0], "source_entry_hash": "k18_c2_w0_t1"},
+        {"trace_index": 2, "pc": 8200, "opcode": "FFMA", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R12"], "source_operands": ["R11", "input:scale"], "memory_address_metadata": {}, "observed_dynamic_values": [19.0], "source_entry_hash": "k18_c2_w0_t2"},
+        {"trace_index": 3, "pc": 8204, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R10", "R12"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [20.0], "source_entry_hash": "k18_c2_w0_t3"}
+      ]
+    },
+    {
+      "kernel_id": 18,
+      "cta_id": "2,0,0",
+      "warp_id": 1,
+      "entries": [
+        {"trace_index": 0, "pc": 8192, "opcode": "MOV", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R10"], "source_operands": ["input:bn_base"], "memory_address_metadata": {}, "observed_dynamic_values": [17.5], "source_entry_hash": "k18_c2_w1_t0"},
+        {"trace_index": 1, "pc": 8196, "opcode": "LDG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R11"], "source_operands": ["R10"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [18.5], "source_entry_hash": "k18_c2_w1_t1"},
+        {"trace_index": 2, "pc": 8200, "opcode": "FFMA", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": ["R12"], "source_operands": ["R11", "input:scale"], "memory_address_metadata": {}, "observed_dynamic_values": [19.5], "source_entry_hash": "k18_c2_w1_t2"},
+        {"trace_index": 3, "pc": 8204, "opcode": "STG.E.64.SYS", "active_mask": "0xffffffff", "predicate_mask": "0xffffffff", "destination_operands": [], "source_operands": ["R10", "R12"], "memory_address_metadata": {"space": "global"}, "observed_dynamic_values": [20.5], "source_entry_hash": "k18_c2_w1_t3"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "artifact_type": "resnet50_scheduler_metadata_fixture",
+  "scheduler_metadata_source": "real_nvbit_smid",
+  "kernel_invocations": [
+    {
+      "kernel_id": 17,
+      "cta_records": [
+        {"cta_id": "0,0,0", "sm_id": 0, "first_seen_order": 1, "last_seen_order": 3, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "1,0,0", "sm_id": 1, "first_seen_order": 2, "last_seen_order": 5, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "2,0,0", "sm_id": 1, "first_seen_order": 4, "last_seen_order": 6, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "3,0,0", "sm_id": 2, "first_seen_order": 7, "last_seen_order": 8, "warp_ids": [0, 1], "trace_entry_count": 8}
+      ]
+    },
+    {
+      "kernel_id": 18,
+      "cta_records": [
+        {"cta_id": "0,0,0", "sm_id": 0, "first_seen_order": 1, "last_seen_order": 4, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "1,0,0", "sm_id": 1, "first_seen_order": 2, "last_seen_order": 5, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "2,0,0", "sm_id": 1, "first_seen_order": 6, "last_seen_order": 7, "warp_ids": [0, 1], "trace_entry_count": 8},
+        {"cta_id": "3,0,0", "sm_id": 2, "first_seen_order": 8, "last_seen_order": 9, "warp_ids": [0, 1], "trace_entry_count": 8}
+      ]
+    }
+  ]
+}

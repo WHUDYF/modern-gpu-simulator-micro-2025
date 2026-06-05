@@ -1,0 +1,3 @@
+kernel_id,kernel_name,launch_order
+17,resnet50_conv2d_fprop_tile,0
+18,resnet50_batchnorm_relu,1

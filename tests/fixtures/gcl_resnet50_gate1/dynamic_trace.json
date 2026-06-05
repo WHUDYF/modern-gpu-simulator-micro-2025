@@ -1,0 +1,27 @@
+{
+  "artifact_type": "resnet50_dynamic_trace_fixture",
+  "kernel_invocations": [
+    {
+      "kernel_id": 17,
+      "kernel_name": "resnet50_conv2d_fprop_tile",
+      "function_unique_id": 1701,
+      "device_id": 0,
+      "stream_id": 0,
+      "grid_dim": [3, 1, 1],
+      "block_dim": [64, 1, 1],
+      "shared_memory_size": 0,
+      "register_count": 64
+    },
+    {
+      "kernel_id": 18,
+      "kernel_name": "resnet50_batchnorm_relu",
+      "function_unique_id": 1801,
+      "device_id": 0,
+      "stream_id": 0,
+      "grid_dim": [3, 1, 1],
+      "block_dim": [64, 1, 1],
+      "shared_memory_size": 0,
+      "register_count": 48
+    }
+  ]
+}

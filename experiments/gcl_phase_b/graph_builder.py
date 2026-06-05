@@ -401,6 +401,9 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
         for edge in graph["edges"]
         if edge["relation"] == "data_source"
     }
+    pseudo_node_mode = graph.get("pseudo_node_mode", "mem_ref_only")
+    if pseudo_node_mode not in {"mem_ref_only", "no_pseudo_node"}:
+        raise ValueError("unsupported pseudo_node_mode")
     for memory_node in (
         node
         for node in graph["nodes"]
@@ -411,6 +414,8 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
         expected_address_source = memory_node.get("address_source_node_id")
         if not expected_address_source:
             raise ValueError("memory instructions require address_source_node_id metadata")
+        if pseudo_node_mode == "no_pseudo_node":
+            continue
         if mem_ref_id not in node_by_id:
             raise ValueError("memory instructions require mem_ref pseudo nodes")
         if node_by_id[mem_ref_id].get("pseudo_kind") != "mem_ref":

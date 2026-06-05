@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from experiments.gcl_phase_a.embedding_export import REPRESENTATION_MODE, validate_embedding_table
-from experiments.gcl_phase_a.selector import select_representatives
+import numpy as np
+
+from experiments.gcl_phase_a.selector import choose_silhouette_k, zscore_normalize
 from experiments.gcl_phase_a.utils import hash_without
+from .embedding_export import EMBEDDING_DIM, REPRESENTATION_MODE, validate_phase_b_embedding_table
 
 
 def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) -> dict[str, Any]:
     for row in table.get("rows", []):
         if row.get("resource_blocked"):
             raise ValueError("resource-blocked embedding rows cannot enter M0 selector")
-    validate_embedding_table(table)
+    validate_phase_b_embedding_table(table)
     if table["row_count"] == 1:
         row = table["rows"][0]
         artifact = {
@@ -55,4 +57,65 @@ def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) 
         }
         artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
         return artifact
-    return select_representatives(table, seed=seed)
+    return _select_representatives(table, seed=seed)
+
+
+def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
+    matrix = np.asarray([row["embedding"] for row in table["rows"]], dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[1] != EMBEDDING_DIM:
+        raise ValueError("embedding_dim mismatch")
+    normalized = zscore_normalize(matrix)
+    silhouette = choose_silhouette_k(normalized)
+    labels = silhouette["labels"]
+    centroids = silhouette["centroids"]
+    assignments = []
+    anchors = []
+    for row, cluster_id in zip(table["rows"], labels):
+        assignments.append(
+            {
+                "record_id": row["record_id"],
+                "kernel_invocation_id": row["kernel_invocation_id"],
+                "cluster_id": int(cluster_id),
+            }
+        )
+    for cluster_id in sorted(set(labels.tolist())):
+        member_indices = np.flatnonzero(labels == cluster_id)
+        distances = np.linalg.norm(normalized[member_indices] - centroids[cluster_id], axis=1)
+        selected_index = int(member_indices[int(np.argmin(distances))])
+        selected_row = table["rows"][selected_index]
+        anchors.append(
+            {
+                "cluster_id": int(cluster_id),
+                "representative_record_id": selected_row["record_id"],
+                "kernel_invocation_id": selected_row["kernel_invocation_id"],
+                "distance_to_centroid": round(float(np.min(distances)), 8),
+            }
+        )
+    artifact = {
+        "artifact_type": "gcl_m0_selector_artifacts",
+        "representation_mode": REPRESENTATION_MODE,
+        "normalization": {
+            "mode": "z_score",
+            "embedding_dim": EMBEDDING_DIM,
+        },
+        "silhouette_report": {
+            "mode": "silhouette_k",
+            "selected_k": silhouette["selected_k"],
+            "selected_score": round(float(silhouette["score"]), 8),
+            "candidates": [
+                {"k": item["k"], "score": round(float(item["score"]), 8)}
+                for item in silhouette["candidates"]
+            ],
+        },
+        "cluster_assignments": assignments,
+        "representative_anchor_table": anchors,
+        "structural_evaluation_artifacts": {
+            "row_count": table["row_count"],
+            "cluster_count": int(silhouette["selected_k"]),
+            "anchor_count": len(anchors),
+            "seed": seed,
+        },
+        "source_embedding_table_hash": table["embedding_table_hash"],
+    }
+    artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
+    return artifact

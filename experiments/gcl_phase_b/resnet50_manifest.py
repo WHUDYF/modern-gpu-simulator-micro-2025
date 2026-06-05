@@ -16,16 +16,18 @@ def build_representative_sm_manifest_from_bundle(
     bundle: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     validate_resnet50_trace_adapter_bundle(bundle)
-    kernel_by_id = {row["kernel_id"]: row for row in bundle["kernel_invocation_table"]}
-    scheduler_by_kernel = _scheduler_records_by_kernel(bundle["cta_scheduler_records"])
-    trace_records_by_kernel = _trace_records_by_kernel(bundle["per_warp_trace_records"])
+    kernel_by_invocation = {
+        row["kernel_invocation_id"]: row for row in bundle["kernel_invocation_table"]
+    }
+    scheduler_by_invocation = _scheduler_records_by_invocation(bundle["cta_scheduler_records"])
+    trace_records_by_invocation = _trace_records_by_invocation(bundle["per_warp_trace_records"])
     invocations = []
     reports = []
-    for kernel_id, kernel_row in sorted(kernel_by_id.items()):
+    for invocation_id, kernel_row in sorted(kernel_by_invocation.items()):
         selection_input = _selection_input(
             kernel_row,
-            scheduler_by_kernel[kernel_id],
-            trace_records_by_kernel[kernel_id],
+            scheduler_by_invocation[invocation_id],
+            trace_records_by_invocation[invocation_id],
         )
         report = select_representative_sm(selection_input)
         invocation = _manifest_invocation(selection_input, report)
@@ -43,6 +45,7 @@ def build_representative_sm_manifest_from_bundle(
     report_bundle = {
         "artifact_type": "gcl_resnet50_selected_sm_policy_report_bundle",
         "artifact_version": "gate2_selected_sm_policy_report_bundle_v1",
+        "source_adapter_bundle_hash": bundle["adapter_bundle_hash"],
         "reports": reports,
     }
     report_bundle["selected_sm_policy_report_bundle_hash"] = hash_without(
@@ -51,24 +54,36 @@ def build_representative_sm_manifest_from_bundle(
     preview = {
         "artifact_type": "gcl_resnet50_scope_preview_report",
         "artifact_version": "gate2_scope_preview_report_v1",
+        "source_adapter_bundle_hash": bundle["adapter_bundle_hash"],
         "kernel_invocation_count": len(invocations),
-        "selected_sms": [invocation["selected_sm"] for invocation in invocations],
+        "invocations": [
+            {
+                "kernel_invocation_id": invocation["kernel_invocation_id"],
+                "selected_sm": invocation["selected_sm"],
+                "included_cta_ids": invocation["included_cta_ids"],
+                "instruction_count_before_scope": invocation["instruction_count_before_scope"],
+                "instruction_count_after_scope": invocation["instruction_count"],
+                "warp_count_before_scope": invocation["warp_count_before_scope"],
+                "warp_count_after_scope": invocation["warp_count"],
+            }
+            for invocation in invocations
+        ],
     }
     preview["scope_preview_report_hash"] = hash_without(preview, "scope_preview_report_hash")
     return manifest, report_bundle, preview
 
 
-def _scheduler_records_by_kernel(records: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
-    grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+def _scheduler_records_by_invocation(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
-        grouped[int(record["kernel_id"])].append(record)
+        grouped[record["kernel_invocation_id"]].append(record)
     return grouped
 
 
-def _trace_records_by_kernel(records: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
-    grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+def _trace_records_by_invocation(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
-        grouped[int(record["kernel_id"])].append(record)
+        grouped[record["kernel_invocation_id"]].append(record)
     return grouped
 
 

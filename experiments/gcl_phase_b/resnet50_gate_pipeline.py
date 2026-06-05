@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
-from .pipeline import create_augmentation_manifest_bundle, run_embedding_export
+from .embedding_export import export_phase_b_embedding_table
+from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, stable_hash, write_json
+from experiments.gcl_phase_a.train import train_minimal_contrastive
 
 
 def run_resnet50_gate1_to_gate5(
@@ -65,9 +67,16 @@ def run_resnet50_gate1_to_gate5(
     augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=seed)
     write_json(out_dir / "augmentation_manifest.json", augmentation_bundle)
 
-    embedding_table, training_report = run_embedding_export(tensors, out_dir, seed=seed)
+    training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in tensors]
+    training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
+    embedding_table, readout_bundle = export_phase_b_embedding_table(
+        tensors,
+        training_report["encoder"],
+        training_report["checkpoint_manifest"],
+    )
     write_json(out_dir / "rgcn_training_run_manifest.json", _jsonable_training_report(training_report))
     write_json(out_dir / "rgcn_checkpoint_manifest.json", training_report["checkpoint_manifest"])
+    write_json(out_dir / "readout_manifest.json", readout_bundle)
     write_json(out_dir / "kernel_embedding_table.json", embedding_table)
     export_report = {
         "artifact_type": "gcl_resnet50_embedding_export_report",
@@ -100,6 +109,18 @@ def run_resnet50_gate1_to_gate5(
 
 def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in report.items() if key not in {"encoder", "projection_head"}}
+
+
+def _phase_a_compatible_tensor(tensor: dict[str, Any]) -> dict[str, Any]:
+    from experiments.gcl_phase_a.tensorizer import TENSORIZER_VERSION as PHASE_A_TENSORIZER_VERSION
+    from experiments.gcl_phase_a.tensorizer import _tensor_hash as phase_a_tensor_hash
+
+    compatible = dict(tensor)
+    compatible["artifact_type"] = "graph_tensor"
+    compatible["tensorizer_version"] = PHASE_A_TENSORIZER_VERSION
+    compatible.pop("phase_b_tensorizer_version", None)
+    compatible["tensor_hash"] = phase_a_tensor_hash(compatible)
+    return compatible
 
 
 def main() -> None:

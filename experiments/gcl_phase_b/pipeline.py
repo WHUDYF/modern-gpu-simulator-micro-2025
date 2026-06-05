@@ -6,13 +6,13 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from experiments.gcl_phase_a.embedding_export import export_embedding_table, validate_embedding_table
 from experiments.gcl_phase_a.train import train_minimal_contrastive
 from experiments.gcl_phase_a.tensorizer import TENSORIZER_VERSION as PHASE_A_TENSORIZER_VERSION
 from experiments.gcl_phase_a.tensorizer import _tensor_hash as phase_a_tensor_hash
 
 from .graph_audit import build_graph_size_audit, validate_graph_size_audit
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
+from .embedding_export import export_phase_b_embedding_table, validate_phase_b_embedding_table
 from .readout import build_readout_manifest, validate_readout_manifest
 from .selector import select_phase_b_representatives
 from .sm_selection import validate_selected_sm_policy_report
@@ -174,12 +174,12 @@ def run_embedding_export(tensors: list[dict[str, Any]], out_dir: Path, seed: int
         validate_phase_b_tensor_artifact(tensor)
     training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in tensors]
     training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
-    embedding_table = export_embedding_table(
-        training_tensors,
+    embedding_table, _readout_bundle = export_phase_b_embedding_table(
+        tensors,
         training_report["encoder"],
         training_report["checkpoint_manifest"],
     )
-    validate_embedding_table(embedding_table)
+    validate_phase_b_embedding_table(embedding_table)
     return embedding_table, training_report
 
 
@@ -815,7 +815,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     embedding_table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
-    validate_embedding_table(embedding_table)
+    validate_phase_b_embedding_table(embedding_table)
     expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
     expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]
     embedding_rows = embedding_table.get("rows", [])

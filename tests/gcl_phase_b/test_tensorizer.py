@@ -3,6 +3,7 @@ import pytest
 from experiments.gcl_phase_a.tensorizer import NODE_FEATURE_SCHEMA_NAME, PAPER_REPRODUCTION_MODE
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.tensorizer import (
+    FUNCTIONAL_FIRST_PAPER_MODE,
     _tensor_hash,
     tensorize_phase_b_graphs,
     validate_phase_b_tensor_artifact,
@@ -34,6 +35,42 @@ def test_phase_b_tensor_records_resnet50_representation_mode():
     assert tensor["representation_mode"] == "gcl_resnet50_mem_ref_only"
     assert tensor["pseudo_node_mode"] == "mem_ref_only"
     assert tensor["paper_reproduction_mode"] == PAPER_REPRODUCTION_MODE
+
+
+def test_phase_b_tensor_records_no_pseudo_mode_as_non_strict():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    graph = build_phase_b_graphs(records)[0]
+    pseudo_ids = {node["node_id"] for node in graph["nodes"] if node["node_type"] == "pseudo"}
+    graph["nodes"] = [node for node in graph["nodes"] if node["node_id"] not in pseudo_ids]
+    graph["edges"] = [
+        edge
+        for edge in graph["edges"]
+        if edge["source"] not in pseudo_ids and edge["target"] not in pseudo_ids
+    ]
+    for partition in graph["warp_partitions"].values():
+        partition["node_ids"] = [node_id for node_id in partition["node_ids"] if node_id not in pseudo_ids]
+        partition["edge_ids"] = [
+            edge["edge_id"]
+            for edge in graph["edges"]
+            if edge["warp_partition_id"] == partition["partition_id"]
+        ]
+        partition["node_count"] = len(partition["node_ids"])
+        partition["edge_count"] = len(partition["edge_ids"])
+    graph["graph_summary"]["node_count"] = len(graph["nodes"])
+    graph["graph_summary"]["edge_count"] = len(graph["edges"])
+    graph["graph_summary"]["node_type_counts"]["pseudo"] = 0
+    graph["pseudo_node_mode"] = "no_pseudo_node"
+    graph["graph_hash"] = "stale"
+    from experiments.gcl_phase_b.utils import hash_without
+
+    graph["graph_hash"] = hash_without(graph, "graph_hash")
+
+    tensor = tensorize_phase_b_graphs([graph])[0]
+
+    validate_phase_b_tensor_artifact(tensor)
+    assert tensor["representation_mode"] == "gcl_resnet50_no_pseudo_node"
+    assert tensor["pseudo_node_mode"] == "no_pseudo_node"
+    assert tensor["paper_reproduction_mode"] == FUNCTIONAL_FIRST_PAPER_MODE
 
 
 def test_tensor_bundle_contains_warp_partition_tensors():

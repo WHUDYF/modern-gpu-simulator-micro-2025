@@ -31,6 +31,8 @@ def test_gate1_builds_resnet50_trace_adapter_bundle():
     assert bundle["scheduler_metadata_source"] == "real_nvbit_smid"
     assert bundle["adapter_validation_report"]["status"] == "passed"
     assert len(bundle["kernel_invocation_table"]) == 2
+    assert all("kernel_invocation_id" in row for row in bundle["cta_scheduler_records"])
+    assert all("kernel_invocation_id" in row for row in bundle["per_warp_trace_records"])
 
 
 def test_gate1_rejects_non_real_scheduler_metadata():
@@ -47,4 +49,13 @@ def test_gate1_rejects_non_reproducible_adapter_hash():
     bundle["kernel_invocation_table"][0]["kernel_name"] = "changed"
 
     with pytest.raises(ValueError, match="adapter_bundle_hash"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
+def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation():
+    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+    bundle["cta_scheduler_records"].append(copy.deepcopy(bundle["cta_scheduler_records"][0]))
+    bundle["adapter_bundle_hash"] = "stale"
+
+    with pytest.raises(ValueError, match="duplicate cta scheduler record"):
         validate_resnet50_trace_adapter_bundle(bundle)

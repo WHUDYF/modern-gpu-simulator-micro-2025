@@ -22,6 +22,7 @@ from .graph_builder import EDGE_RELATION_SCHEMA, VARIABLE_NODE_TYPES, validate_p
 from .utils import hash_without
 
 PHASE_B_TENSORIZER_VERSION = "gcl_phase_b_tensorizer_v1"
+FUNCTIONAL_FIRST_PAPER_MODE = "functional_first_no_pseudo_node_not_strict_reproduction"
 
 
 def tensorize_phase_b_graphs(graphs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -92,7 +93,7 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
         "feature_width": FEATURE_WIDTH,
         "representation_mode": _representation_mode(graph),
         "pseudo_node_mode": _pseudo_node_mode(graph),
-        "paper_reproduction_mode": PAPER_REPRODUCTION_MODE,
+        "paper_reproduction_mode": _paper_reproduction_mode(graph),
         "padding_policy": PADDING_POLICY,
         "missing_value_policy": MISSING_VALUE_POLICY,
         "node_ids": [node["node_id"] for node in nodes],
@@ -132,6 +133,15 @@ def _representation_mode(graph: dict[str, Any]) -> str:
     if mode == "no_pseudo_node":
         return "gcl_resnet50_no_pseudo_node"
     raise ValueError("unsupported representation mode")
+
+
+def _paper_reproduction_mode(graph: dict[str, Any]) -> str:
+    mode = _pseudo_node_mode(graph)
+    if mode == "mem_ref_only":
+        return PAPER_REPRODUCTION_MODE
+    if mode == "no_pseudo_node":
+        return FUNCTIONAL_FIRST_PAPER_MODE
+    raise ValueError("unsupported paper reproduction mode")
 
 
 def _serializable_tensor(tensor: dict[str, Any]) -> dict[str, Any]:
@@ -201,8 +211,14 @@ def validate_phase_b_tensor_artifact(tensor: dict[str, Any]) -> None:
         raise ValueError("unsupported representation_mode")
     if tensor["pseudo_node_mode"] not in {"mem_ref_only", "no_pseudo_node"}:
         raise ValueError("unsupported pseudo_node_mode")
-    if tensor["paper_reproduction_mode"] != PAPER_REPRODUCTION_MODE:
+    if tensor["representation_mode"] == "gcl_resnet50_mem_ref_only" and (
+        tensor["paper_reproduction_mode"] != PAPER_REPRODUCTION_MODE
+    ):
         raise ValueError("unexpected paper_reproduction_mode")
+    if tensor["representation_mode"] == "gcl_resnet50_no_pseudo_node" and (
+        tensor["paper_reproduction_mode"] != FUNCTIONAL_FIRST_PAPER_MODE
+    ):
+        raise ValueError("no-pseudo mode must not be marked strict paper reproduction")
     if tensor["padding_policy"] != PADDING_POLICY:
         raise ValueError("padding_policy must be strict_zero_padding")
     if tensor["missing_value_policy"] != MISSING_VALUE_POLICY:

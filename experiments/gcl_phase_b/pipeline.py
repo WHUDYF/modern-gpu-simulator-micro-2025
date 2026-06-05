@@ -726,6 +726,8 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], "pipeline manifest"
         )
     )
+    if pipeline_manifest.get("paths") != _paths(out_dir):
+        raise ValueError("pipeline_manifest paths mismatch")
     trace_manifest = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["trace_manifest"], "trace manifest")
     )

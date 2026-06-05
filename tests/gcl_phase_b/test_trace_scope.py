@@ -42,6 +42,27 @@ def test_trace_manifest_rejects_non_phase_b_scope_and_missing_report():
         validate_phase_b_trace_manifest(missing_report)
 
 
+def test_trace_manifest_rejects_missing_cta_mapping_metadata():
+    manifest = build_representative_sm_trace_manifest()
+    missing_cta_map = copy.deepcopy(manifest)
+    del missing_cta_map["kernel_invocations"][0]["cta_to_sm"]
+    missing_cta_map["kernel_invocations"][0]["trace_hash"] = hash_without(
+        missing_cta_map["kernel_invocations"][0], "trace_hash"
+    )
+    missing_cta_map["trace_manifest_hash"] = hash_without(missing_cta_map, "trace_manifest_hash")
+    with pytest.raises(ValueError, match="cta_to_sm"):
+        validate_phase_b_trace_manifest(missing_cta_map)
+
+    missing_scheduler = copy.deepcopy(manifest)
+    del missing_scheduler["kernel_invocations"][0]["scheduler_metadata_by_sm"]
+    missing_scheduler["kernel_invocations"][0]["trace_hash"] = hash_without(
+        missing_scheduler["kernel_invocations"][0], "trace_hash"
+    )
+    missing_scheduler["trace_manifest_hash"] = hash_without(missing_scheduler, "trace_manifest_hash")
+    with pytest.raises(ValueError, match="scheduler_metadata_by_sm"):
+        validate_phase_b_trace_manifest(missing_scheduler)
+
+
 def test_trace_manifest_rejects_inconsistent_scoped_counts_and_hash():
     manifest = build_representative_sm_trace_manifest()
     bad_count = copy.deepcopy(manifest)

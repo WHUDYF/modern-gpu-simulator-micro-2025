@@ -26,6 +26,8 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
             "warp_count",
             "selected_sm_policy_report_hash",
             "trace_hash",
+            "cta_to_sm",
+            "scheduler_metadata_by_sm",
         }
         missing = required.difference(invocation)
         if missing:
@@ -33,10 +35,15 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
         if invocation["collection_scope"] != COLLECTION_SCOPE:
             raise ValueError("invocation collection_scope must be single_representative_sm_all_ctas")
         selected_sm = invocation["selected_sm"]
+        selected_sm_key = str(selected_sm)
+        if selected_sm_key not in invocation["scheduler_metadata_by_sm"]:
+            raise ValueError("scheduler_metadata_by_sm must include selected SM metadata")
         for cta_id in invocation["included_cta_ids"]:
+            if cta_id not in invocation["cta_to_sm"]:
+                raise ValueError("cta_to_sm must include every included CTA")
             if invocation["cta_to_sm"][cta_id] != selected_sm:
                 raise ValueError("included_cta_ids must only come from selected SM")
-        expected_ctas = set(invocation["scheduler_metadata_by_sm"][str(selected_sm)]["cta_ids"])
+        expected_ctas = set(invocation["scheduler_metadata_by_sm"][selected_sm_key]["cta_ids"])
         if set(invocation["included_cta_ids"]) != expected_ctas:
             raise ValueError("included_cta_ids must cover all selected SM CTAs")
         scoped_entries = _scoped_entries(invocation)

@@ -81,6 +81,28 @@ def test_phase_b_disk_replay_validator_accepts_clean_artifacts(tmp_path):
     assert validation["selector_manifest_hash"] == manifest["hashes"]["selector_manifest_hash"]
 
 
+def test_phase_b_replay_rejects_stale_pipeline_manifest_paths_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "stale_manifest_paths"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    pipeline_manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    pipeline_manifest = json.loads(pipeline_manifest_path.read_text())
+    pipeline_manifest["paths"]["trace_manifest"] = str(tmp_path / "wrong" / "trace_manifest.json")
+    pipeline_manifest["pipeline_manifest_hash"] = stable_hash(
+        {
+            key: value
+            for key, value in pipeline_manifest.items()
+            if key != "pipeline_manifest_hash"
+        }
+    )
+    pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
+
+    with pytest.raises(ValueError, match="pipeline_manifest paths"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_tampered_selector_artifacts(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())

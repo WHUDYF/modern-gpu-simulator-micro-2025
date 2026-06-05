@@ -8,6 +8,7 @@ from experiments.gcl_phase_b.pipeline import (
     run_pipeline,
     validate_phase_b_replay_from_disk,
 )
+from experiments.gcl_phase_b.embedding_export import _kernel_embedding_hash
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
 from experiments.gcl_phase_b.utils import hash_without, stable_hash, write_json
@@ -114,6 +115,74 @@ def test_phase_b_replay_rejects_selector_semantic_tamper_after_hash_refresh(tmp_
     )
 
     with pytest.raises(ValueError, match="selector cluster_assignments"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_embedding_payload_tamper_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "embedding_payload_tamper"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    table = json.loads(table_path.read_text())
+    table["embeddings"][0]["kernel_embedding"][0] = round(
+        table["embeddings"][0]["kernel_embedding"][0] + 0.125, 8
+    )
+    table["embeddings"][0]["kernel_embedding_hash"] = _kernel_embedding_hash(
+        table["embeddings"][0]["kernel_embedding"]
+    )
+    table["embeddings"][0]["embedding_hash"] = hash_without(
+        table["embeddings"][0], "embedding_hash"
+    )
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    table_path.write_text(json.dumps(table, sort_keys=True))
+
+    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "embedding_table_hash": table["kernel_embedding_table_hash"],
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="kernel_embedding_hash coverage"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_embedding_readout_hash_tamper_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "embedding_readout_hash_tamper"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    readout_bundle = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).read_text()
+    )
+    table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    table = json.loads(table_path.read_text())
+    table["embeddings"][0]["readout_manifest_hash"] = readout_bundle["manifests"][1][
+        "readout_manifest_hash"
+    ]
+    table["embeddings"][0]["embedding_hash"] = hash_without(
+        table["embeddings"][0], "embedding_hash"
+    )
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    table_path.write_text(json.dumps(table, sort_keys=True))
+
+    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "embedding_table_hash": table["kernel_embedding_table_hash"],
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="readout_manifest_hash coverage"):
         validate_phase_b_replay_from_disk(out_dir)
 
 

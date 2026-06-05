@@ -53,6 +53,14 @@ def build_readout_manifest(tensor: dict[str, Any], node_embeddings) -> tuple[dic
         )
     selected_sm_embedding = torch.stack(cta_embeddings, dim=0).mean(dim=0)
     kernel_embedding = selected_sm_embedding
+    kernel_embedding_hash = hash_without(
+        {
+            "kernel_embedding": [
+                round(float(value), 8)
+                for value in kernel_embedding.detach().cpu().tolist()
+            ]
+        }
+    )
     manifest = {
         "artifact_type": "gcl_phase_b_readout_manifest",
         "graph_id": tensor["graph_id"],
@@ -70,6 +78,7 @@ def build_readout_manifest(tensor: dict[str, Any], node_embeddings) -> tuple[dic
             "kernel_embedding_source": "selected_sm_embedding",
             "pooling_method": "identity",
             "kernel_embedding_dim": int(kernel_embedding.shape[0]),
+            "kernel_embedding_hash": kernel_embedding_hash,
         },
     }
     manifest["readout_manifest_hash"] = hash_without(manifest, "readout_manifest_hash")
@@ -167,5 +176,7 @@ def validate_readout_manifest(manifest: dict[str, Any], tensor: dict[str, Any]) 
         raise ValueError("kernel readout must use identity pooling from selected SM")
     if manifest["kernel"].get("kernel_embedding_dim") != 256:
         raise ValueError("kernel embedding dimension must be 256")
+    if not manifest["kernel"].get("kernel_embedding_hash"):
+        raise ValueError("kernel_embedding_hash is required")
     if manifest["readout_manifest_hash"] != hash_without(manifest, "readout_manifest_hash"):
         raise ValueError("readout_manifest_hash is not reproducible")

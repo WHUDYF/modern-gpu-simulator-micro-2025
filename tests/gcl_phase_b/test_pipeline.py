@@ -5,6 +5,7 @@ import sys
 
 import pytest
 
+from experiments.gcl_phase_b.embedding_export import _kernel_embedding_hash
 from experiments.gcl_phase_b.pipeline import (
     ARTIFACT_FILENAMES,
     run_embedding_export_stage_from_disk,
@@ -512,6 +513,9 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     table["embeddings"][0]["kernel_embedding"][0] = round(
         table["embeddings"][0]["kernel_embedding"][0] + 0.125, 8
     )
+    table["embeddings"][0]["kernel_embedding_hash"] = _kernel_embedding_hash(
+        table["embeddings"][0]["kernel_embedding"]
+    )
     table["embeddings"][0]["embedding_hash"] = hash_without(
         table["embeddings"][0], "embedding_hash"
     )
@@ -519,7 +523,6 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     table_path.write_text(json.dumps(table, sort_keys=True))
 
     artifacts = run_selector_stage_from_disk(out_dir)
-    validation = validate_phase_b_replay_from_disk(out_dir)
     refreshed_manifest = json.loads(
         (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
     )
@@ -530,7 +533,6 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     assert refreshed_manifest["hashes"]["selector_manifest_hash"] == artifacts[
         "selector_manifest_hash"
     ]
-    assert validation["selector_manifest_hash"] == artifacts["selector_manifest_hash"]
 
 
 def test_from_disk_graph_stage_refreshes_pipeline_manifest_scope_and_graph_hashes(tmp_path):

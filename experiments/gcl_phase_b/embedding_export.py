@@ -50,6 +50,7 @@ def export_phase_b_embedding_table(
                 embedding=kernel_embedding.detach().cpu().numpy(),
                 encoder_manifest_hash=encoder_manifest["encoder_manifest_hash"],
                 readout_manifest_hash=readout_manifest["readout_manifest_hash"],
+                kernel_embedding_hash=readout_manifest["kernel"]["kernel_embedding_hash"],
             )
             rows.append(row)
             readout_manifests.append(readout_manifest)
@@ -83,6 +84,7 @@ def _embedding_row(
     embedding: np.ndarray,
     encoder_manifest_hash: str,
     readout_manifest_hash: str,
+    kernel_embedding_hash: str,
 ) -> dict[str, Any]:
     if embedding.shape != (EMBEDDING_DIM,):
         raise ValueError("M0 selector embedding must be the 256-dimensional encoder readout")
@@ -102,6 +104,7 @@ def _embedding_row(
         "selected_sm": metadata["selected_sm"],
         "embedding_dim": EMBEDDING_DIM,
         "kernel_embedding": rounded_embedding,
+        "kernel_embedding_hash": kernel_embedding_hash,
         "encoder_manifest_hash": encoder_manifest_hash,
         "readout_manifest_hash": readout_manifest_hash,
         "weight_input": {
@@ -156,6 +159,7 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
             "selected_sm",
             "embedding_dim",
             "kernel_embedding",
+            "kernel_embedding_hash",
             "encoder_manifest_hash",
             "readout_manifest_hash",
             "embedding_hash",
@@ -170,6 +174,8 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
             raise ValueError("projection output is not a valid M0 selector embedding")
         if len(row["kernel_embedding"]) != EMBEDDING_DIM:
             raise ValueError("kernel_embedding vector length must be 256")
+        if row["kernel_embedding_hash"] != _kernel_embedding_hash(row["kernel_embedding"]):
+            raise ValueError("kernel_embedding_hash is not reproducible")
         if row["weight_input"].get("readout_hierarchy") != READOUT_HIERARCHY:
             raise ValueError("embedding row must record CTA-aware readout hierarchy")
         if row["embedding_hash"] != hash_without(row, "embedding_hash"):
@@ -185,5 +191,16 @@ def _source_graph_tensor_bundle_hash(tensors: list[dict[str, Any]]) -> str:
         {
             "artifact_type": "gcl_resnet50_graph_tensor_bundle_reference",
             "tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+        }
+    )
+
+
+def _kernel_embedding_hash(kernel_embedding: list[float]) -> str:
+    return hash_without(
+        {
+            "kernel_embedding": [
+                round(float(value), 8)
+                for value in kernel_embedding
+            ]
         }
     )

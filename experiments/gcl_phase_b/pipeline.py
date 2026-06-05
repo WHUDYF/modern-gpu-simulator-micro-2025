@@ -884,6 +884,9 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         raise ValueError("embedding table source_tensor_hash coverage mismatch")
     if [row["kernel_invocation_id"] for row in embedding_rows] != expected_invocation_ids:
         raise ValueError("embedding table kernel_invocation_id coverage mismatch")
+    for row in embedding_rows:
+        if row["embedding_hash"] != hash_without(row, "embedding_hash"):
+            raise ValueError("embedding row embedding_hash is not reproducible")
     if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
         raise ValueError("embedding table encoder_manifest_hash mismatch")
     if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
@@ -915,6 +918,13 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     for manifest, tensor in zip(readout_manifests, tensors):
         validate_readout_manifest(manifest, tensor)
     readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_manifests]
+    if [row["readout_manifest_hash"] for row in embedding_rows] != readout_hashes:
+        raise ValueError("embedding table readout_manifest_hash coverage mismatch")
+    if [row["kernel_embedding_hash"] for row in embedding_rows] != [
+        manifest["kernel"]["kernel_embedding_hash"]
+        for manifest in readout_manifests
+    ]:
+        raise ValueError("embedding table kernel_embedding_hash coverage mismatch")
     if pipeline_manifest["hashes"].get("readout_manifest_hashes") != readout_hashes:
         raise ValueError("pipeline manifest readout_manifest_hashes mismatch")
     if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(

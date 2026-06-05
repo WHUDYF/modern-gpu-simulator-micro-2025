@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 2 Representative-SM Manifest</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    main {
+      padding: 28px 0 44px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .pipe-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 160px;
+      position: relative;
+    }
+
+    .pipe-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .pipe-card:last-child::after {
+      display: none;
+    }
+
+    .input {
+      border-top-color: var(--green);
+    }
+
+    .group {
+      border-top-color: var(--amber);
+    }
+
+    .select {
+      border-top-color: var(--red);
+    }
+
+    .manifest {
+      border-top-color: var(--blue);
+    }
+
+    .next {
+      border-top-color: var(--purple);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .mapping {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+
+    .arrow {
+      text-align: center;
+      font-weight: 800;
+      color: var(--blue);
+      font-size: 22px;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green {
+      background: var(--green);
+    }
+
+    .tag.red {
+      background: var(--red);
+    }
+
+    .tag.blue {
+      background: var(--blue);
+    }
+
+    .tag.amber {
+      background: var(--amber);
+    }
+
+    .tag.purple {
+      background: var(--purple);
+    }
+
+    .warning {
+      border-left: 4px solid var(--red);
+      background: #fff5f4;
+      padding: 13px 14px;
+      border-radius: 8px;
+      margin-top: 14px;
+      color: #7a271a;
+    }
+
+    .ok {
+      border-left: 4px solid var(--green);
+      background: #f0fdf4;
+      padding: 13px 14px;
+      border-radius: 8px;
+      margin-top: 14px;
+      color: #14532d;
+    }
+
+    ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 10px 0 0;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .pipeline,
+      .two-col,
+      .three-col,
+      .mapping {
+        grid-template-columns: 1fr;
+      }
+
+      .pipe-card::after {
+        display: none;
+      }
+
+      header {
+        padding: 26px 18px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Gate 2: Representative-SM Manifest</h1>
+      <p class="subtitle">
+        Gate 2 消费 Gate 1 的 ResNet-50 trace adapter bundle，选择 representative SM，并生成现有 Phase B pipeline 可直接消费的 manifest。
+      </p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="summary-grid">
+      <div class="metric">
+        <strong>输入</strong>
+        <span><code>resnet50_trace_adapter_bundle.json</code>，必须是 Gate 1 formal passed bundle。</span>
+      </div>
+      <div class="metric">
+        <strong>选择算法</strong>
+        <span><code>scheduler_signature_medoid_sm</code>，使用等权 L2 距离和 deterministic tie-break。</span>
+      </div>
+      <div class="metric">
+        <strong>正式输出</strong>
+        <span><code>representative_sm_trace_manifest.json</code>，作为 Gate 3 graph construction 入口。</span>
+      </div>
+      <div class="metric">
+        <strong>禁止事项</strong>
+        <span>不读原始 trace，不构图，不训练 GNN，不做 classification。</span>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>1. Gate 2 的职责</h2>
+      <p>Gate 2 把 Gate 1 的通用 adapter bundle 转换成 Phase B 专用 representative-SM manifest。</p>
+
+      <div class="pipeline">
+        <div class="pipe-card input">
+          <h3>Gate 1 Bundle</h3>
+          <ul>
+            <li>kernel invocation table</li>
+            <li>CTA scheduler records</li>
+            <li>per-warp trace records</li>
+          </ul>
+        </div>
+        <div class="pipe-card group">
+          <h3>Group by SM</h3>
+          <ul>
+            <li><code>cta_to_sm</code></li>
+            <li><code>scheduler_metadata_by_sm</code></li>
+            <li>before-scope counts</li>
+          </ul>
+        </div>
+        <div class="pipe-card select">
+          <h3>Select SM</h3>
+          <ul>
+            <li>raw signature</li>
+            <li>min-max normalization</li>
+            <li>equal-weight L2</li>
+          </ul>
+        </div>
+        <div class="pipe-card manifest">
+          <h3>Build Manifest</h3>
+          <ul>
+            <li>selected SM</li>
+            <li>included CTAs</li>
+            <li>inline policy report</li>
+          </ul>
+        </div>
+        <div class="pipe-card next">
+          <h3>Gate 3 Input</h3>
+          <ul>
+            <li>Phase B validator passes</li>
+            <li>per-warp records available</li>
+            <li>no raw trace dependency</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>2. 输入 Gate</h2>
+      <div class="two-col">
+        <div class="mini-panel">
+          <span class="tag green">Accept</span>
+          <p>Gate 2 只接受 <code>scheduler_metadata_source = real_nvbit_smid</code> 且 <code>adapter_validation_report.status = passed</code> 的 Gate 1 bundle。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag red">Reject</span>
+          <p><code>simulator_replay</code>、<code>file_order_fallback</code>、debug bundle、缺失 hash 或 hash 不可复现的输入都必须拒绝。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>3. 字段映射</h2>
+      <p>Gate 2 的核心工作是把 CTA 调度记录转换成 Phase B selection input。</p>
+      <div class="mapping">
+        <div class="box">
+          <h3>Gate 1 cta_scheduler_records</h3>
+          <ul>
+            <li><code>kernel_invocation_id</code></li>
+            <li><code>cta_id</code></li>
+            <li><code>sm_id</code></li>
+            <li><code>warp_ids</code></li>
+            <li><code>trace_entry_count</code></li>
+            <li><code>first_seen_order</code></li>
+            <li><code>last_seen_order</code></li>
+          </ul>
+        </div>
+        <div class="arrow">-></div>
+        <div class="box">
+          <h3>Phase B scheduler_metadata_by_sm</h3>
+          <ul>
+            <li><code>cta_ids</code></li>
+            <li><code>warp_ids_by_cta</code></li>
+            <li><code>trace_entry_count_by_cta</code></li>
+            <li><code>cta_start_order</code></li>
+            <li><code>cta_end_order</code></li>
+            <li><code>cta_to_sm</code></li>
+          </ul>
+        </div>
+      </div>
+      <pre><code>included_cta_ids =
+  scheduler_metadata_by_sm[str(selected_sm)].cta_ids</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>4. Representative SM Selection</h2>
+      <p>Gate 2 使用 Phase B 已定义的 <code>scheduler_signature_medoid_sm</code>。</p>
+      <div class="three-col">
+        <div class="mini-panel">
+          <span class="tag blue">Signature</span>
+          <p><code>cta_count</code>、<code>warp_count</code>、<code>instruction_count_proxy</code>、CTA start/end order、wave coverage、tail ratio。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag amber">Normalize</span>
+          <p>同一个 kernel invocation 内对所有 candidate SM 做 per-kernel min-max normalization。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag purple">Select</span>
+          <p>计算到 global normalized scheduler signature 的等权 L2 距离，最小者成为 selected SM。</p>
+        </div>
+      </div>
+      <div class="warning">
+        禁止 random SM、first observed SM、max-instruction-only SM 或 LLM-generated selected SM 进入 formal manifest。
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>5. 输出 Artifacts</h2>
+      <div class="three-col">
+        <div class="mini-panel">
+          <span class="tag blue">Manifest</span>
+          <p><code>representative_sm_trace_manifest.json</code> 是后续 Phase B graph stage 的正式入口。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag purple">Evidence</span>
+          <p><code>selected_sm_policy_report.json</code> 保存所有 candidate SM signature、距离和 selection hash。</p>
+        </div>
+        <div class="mini-panel">
+          <span class="tag amber">Preview</span>
+          <p><code>scope_preview_report.json</code> 审计 before/after scope 规模，不改变 formal manifest。</p>
+        </div>
+      </div>
+      <pre><code>{
+  "artifact_type": "gcl_phase_b_trace_manifest",
+  "manifest_version": "gcl_phase_b_trace_manifest_v1",
+  "collection_scope": "single_representative_sm_all_ctas",
+  "kernel_invocations": [],
+  "trace_manifest_hash": "..."
+}</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>6. 通过标准</h2>
+      <ul>
+        <li>输入 bundle 是 Gate 1 formal passed bundle。</li>
+        <li>每个 formal invocation 都有 <code>scheduler_metadata_by_sm</code>。</li>
+        <li>每个 formal invocation 都有 deterministic <code>selected_sm_policy_report</code>。</li>
+        <li><code>included_cta_ids</code> 只来自 selected SM，并覆盖 selected SM 全部 CTA。</li>
+        <li>before-scope 和 after-scope 的 instruction / warp counts 与 trace entries 一致。</li>
+        <li><code>selection_hash</code>、<code>trace_hash</code>、<code>trace_manifest_hash</code> 可复现。</li>
+        <li>现有 Phase B validator 接受输出 manifest。</li>
+        <li>Gate 3 只需读取 manifest，不需要读取 Gate 1 bundle 或原始 trace。</li>
+      </ul>
+      <div class="ok">
+        Gate 2 通过后，真实 ResNet trace 已经具备进入 per-warp graph construction 的正式入口。
+      </div>
+    </section>
+
+    <footer>
+      Source spec: docs/superpowers/specs/2026-06-05-a-line-gcl-resnet50-gate2-representative-sm-manifest-design.md
+    </footer>
+  </main>
+</body>
+</html>

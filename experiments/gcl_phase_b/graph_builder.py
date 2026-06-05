@@ -384,6 +384,11 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
     for partition_id, trace_indices in observed_order.items():
         if trace_indices != sorted(trace_indices):
             raise ValueError(f"ordering violation in warp partition {partition_id}")
+        if len(trace_indices) != len(set(trace_indices)):
+            raise ValueError(f"duplicate trace_index in warp partition {partition_id}")
+        for left, right in zip(trace_indices, trace_indices[1:]):
+            if right != left + 1:
+                raise ValueError(f"non-consecutive trace_index in warp partition {partition_id}")
         instruction_ids = [
             node["node_id"]
             for node in graph["nodes"]

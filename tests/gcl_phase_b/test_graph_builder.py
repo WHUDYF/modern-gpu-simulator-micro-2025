@@ -66,6 +66,34 @@ def test_graph_validator_rejects_non_consecutive_control_flow_shortcut():
         validate_phase_b_graph_artifact(graph)
 
 
+def test_graph_validator_rejects_missing_trace_index_in_warp_partition():
+    graph = _graph()
+    mutated = copy.deepcopy(graph)
+    instruction_nodes = [
+        node
+        for node in mutated["nodes"]
+        if node["node_type"] == "instruction" and node["warp_partition_id"] == "1:0"
+    ]
+    instruction_nodes[-1]["trace_index"] += 2
+
+    with pytest.raises(ValueError, match="non-consecutive trace_index"):
+        validate_phase_b_graph_artifact(mutated)
+
+
+def test_graph_validator_rejects_duplicate_trace_index_in_warp_partition():
+    graph = _graph()
+    mutated = copy.deepcopy(graph)
+    instruction_nodes = [
+        node
+        for node in mutated["nodes"]
+        if node["node_type"] == "instruction" and node["warp_partition_id"] == "1:0"
+    ]
+    instruction_nodes[1]["trace_index"] = instruction_nodes[0]["trace_index"]
+
+    with pytest.raises(ValueError, match="duplicate trace_index"):
+        validate_phase_b_graph_artifact(mutated)
+
+
 def test_warp_partitions_are_complete_and_replayable():
     graph = _graph()
 

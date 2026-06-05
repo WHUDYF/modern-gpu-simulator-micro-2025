@@ -90,6 +90,9 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
         "node_feature_schema": node_feature_schema(),
         "edge_relation_schema": EDGE_RELATION_SCHEMA,
         "feature_width": FEATURE_WIDTH,
+        "representation_mode": _representation_mode(graph),
+        "pseudo_node_mode": _pseudo_node_mode(graph),
+        "paper_reproduction_mode": PAPER_REPRODUCTION_MODE,
         "padding_policy": PADDING_POLICY,
         "missing_value_policy": MISSING_VALUE_POLICY,
         "node_ids": [node["node_id"] for node in nodes],
@@ -111,6 +114,24 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
     tensor["tensor_hash"] = _tensor_hash(tensor)
     validate_phase_b_tensor_artifact(tensor)
     return tensor
+
+
+def _pseudo_node_mode(graph: dict[str, Any]) -> str:
+    pseudo_nodes = [node for node in graph["nodes"] if node["node_type"] == "pseudo"]
+    if not pseudo_nodes:
+        return "no_pseudo_node"
+    if all(node.get("pseudo_kind") == "mem_ref" for node in pseudo_nodes):
+        return "mem_ref_only"
+    raise ValueError("unsupported pseudo node mode")
+
+
+def _representation_mode(graph: dict[str, Any]) -> str:
+    mode = _pseudo_node_mode(graph)
+    if mode == "mem_ref_only":
+        return "gcl_resnet50_mem_ref_only"
+    if mode == "no_pseudo_node":
+        return "gcl_resnet50_no_pseudo_node"
+    raise ValueError("unsupported representation mode")
 
 
 def _serializable_tensor(tensor: dict[str, Any]) -> dict[str, Any]:
@@ -146,6 +167,9 @@ def validate_phase_b_tensor_artifact(tensor: dict[str, Any]) -> None:
         "edge_relation_schema",
         "node_feature_schema",
         "feature_width",
+        "representation_mode",
+        "pseudo_node_mode",
+        "paper_reproduction_mode",
         "padding_policy",
         "missing_value_policy",
         "node_features",
@@ -170,6 +194,15 @@ def validate_phase_b_tensor_artifact(tensor: dict[str, Any]) -> None:
         raise ValueError("unexpected paper_reproduction_mode")
     if tensor["feature_width"] != FEATURE_WIDTH:
         raise ValueError("feature_width must be 64")
+    if tensor["representation_mode"] not in {
+        "gcl_resnet50_mem_ref_only",
+        "gcl_resnet50_no_pseudo_node",
+    }:
+        raise ValueError("unsupported representation_mode")
+    if tensor["pseudo_node_mode"] not in {"mem_ref_only", "no_pseudo_node"}:
+        raise ValueError("unsupported pseudo_node_mode")
+    if tensor["paper_reproduction_mode"] != PAPER_REPRODUCTION_MODE:
+        raise ValueError("unexpected paper_reproduction_mode")
     if tensor["padding_policy"] != PADDING_POLICY:
         raise ValueError("padding_policy must be strict_zero_padding")
     if tensor["missing_value_policy"] != MISSING_VALUE_POLICY:

@@ -27,6 +27,15 @@ def test_phase_b_tensorization_reuses_phase_a_strict_schema():
     assert tensor["phase_b_tensorizer_version"] == "gcl_phase_b_tensorizer_v1"
 
 
+def test_phase_b_tensor_records_resnet50_representation_mode():
+    tensor = _tensor()
+
+    validate_phase_b_tensor_artifact(tensor)
+    assert tensor["representation_mode"] == "gcl_resnet50_mem_ref_only"
+    assert tensor["pseudo_node_mode"] == "mem_ref_only"
+    assert tensor["paper_reproduction_mode"] == PAPER_REPRODUCTION_MODE
+
+
 def test_tensor_bundle_contains_warp_partition_tensors():
     tensor = _tensor()
 

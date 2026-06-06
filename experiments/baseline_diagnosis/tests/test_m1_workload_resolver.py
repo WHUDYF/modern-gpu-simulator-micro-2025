@@ -1,12 +1,31 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import m1_workload_resolver as resolver
+
+
+def test_gate1_resolver_cli_runs_as_package_module():
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "experiments.baseline_diagnosis.m1_workload_resolver",
+            "--help",
+        ],
+        cwd=Path(__file__).resolve().parents[3],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    assert "--dry-run-smoke" in completed.stdout
 
 
 def test_format_command_preserves_args_placeholder_argv_boundaries(tmp_path):

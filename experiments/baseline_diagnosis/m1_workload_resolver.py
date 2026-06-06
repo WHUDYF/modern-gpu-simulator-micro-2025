@@ -11,7 +11,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import ARTIFACT_DIR, REPO_ROOT, artifact_ref, repo_path, sanitize_token, write_json
+try:
+    from .shared_acquisition import ARTIFACT_DIR, REPO_ROOT, artifact_ref, repo_path, sanitize_token, write_json
+except ImportError:  # pragma: no cover - keeps direct script execution compatible.
+    from shared_acquisition import ARTIFACT_DIR, REPO_ROOT, artifact_ref, repo_path, sanitize_token, write_json
 
 MANIFEST_PATH = ARTIFACT_DIR / "kernel_validation_manifest_l1.json"
 REGISTRY_PATH = REPO_ROOT / "experiments" / "baseline_diagnosis" / "workload_registry_l1.json"

@@ -34,6 +34,30 @@ def test_builds_per_warp_graphs_then_kernel_union():
     assert set(graph["warp_partitions"]) == {"1:0", "1:1", "2:0", "2:1"}
 
 
+def test_graph_builder_orders_multi_digit_warp_partitions_numerically():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    two = copy.deepcopy(record["warps"][0])
+    ten = copy.deepcopy(record["warps"][1])
+    two["warp_partition_id"] = "2:0"
+    two["cta_id"] = "cta_2"
+    two["warp_id"] = 0
+    ten["warp_partition_id"] = "10:0"
+    ten["cta_id"] = "cta_10"
+    ten["warp_id"] = 0
+    record["warps"] = [ten, two]
+
+    graph = build_phase_b_graphs([record])[0]
+    instruction_partitions = [
+        node["warp_partition_id"]
+        for node in graph["nodes"]
+        if node["node_type"] == "instruction"
+    ]
+
+    assert instruction_partitions[:4] == ["2:0"] * 4
+    assert instruction_partitions[4:8] == ["10:0"] * 4
+
+
 def test_graph_validator_rejects_cross_warp_control_flow():
     graph = _graph()
     instruction_nodes = [node for node in graph["nodes"] if node["node_type"] == "instruction"]

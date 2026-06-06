@@ -86,6 +86,17 @@ def _mem_ref_id(partition_id: str, trace_index: int) -> str:
     return f"p:wp{partition_id}:mem_ref:t{trace_index}"
 
 
+def _warp_partition_sort_key(warp: dict[str, Any]) -> tuple[int, int, str]:
+    partition_id = warp["warp_partition_id"]
+    cta_ordinal, separator, warp_id = partition_id.partition(":")
+    if separator:
+        try:
+            return (int(cta_ordinal), int(warp_id), partition_id)
+        except ValueError:
+            pass
+    return (10**9, 10**9, partition_id)
+
+
 def _address_source_positions(entry: dict[str, Any]) -> set[int]:
     if not _is_memory_opcode(entry["opcode"]):
         return set()
@@ -157,7 +168,7 @@ def build_phase_b_graph(record: dict[str, Any]) -> dict[str, Any]:
     node_by_id: dict[str, dict[str, Any]] = {}
     partitions: dict[str, dict[str, Any]] = {}
 
-    for warp in sorted(record["warps"], key=lambda item: item["warp_partition_id"]):
+    for warp in sorted(record["warps"], key=_warp_partition_sort_key):
         partition_id = warp["warp_partition_id"]
         cta_id = warp["cta_id"]
         warp_id = warp["warp_id"]

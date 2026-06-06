@@ -1,7 +1,11 @@
 from pathlib import Path
 import json
 
+import pytest
+
 from experiments.gcl_phase_b.resnet50_gate0 import (
+    ResNet50NvbitAcquisitionConfig,
+    acquire_resnet50_gate0_trace,
     record_resnet50_gate0_trace_acquisition,
     write_resnet50_gate0_blocker_report,
 )
@@ -56,3 +60,61 @@ def test_resnet50_gate_pipeline_rejects_synthetic_artifact_shape_as_formal_root(
         assert "synthetic artifact-shape" in str(exc)
     else:
         raise AssertionError("synthetic artifact-shape root must not produce formal Gate0")
+
+
+def test_resnet50_gate_pipeline_propagates_baseline_artifacts_in_debug_report_path(tmp_path):
+    root = tmp_path / "formal_shape_trace"
+
+    def runner(command, *, cwd, env):
+        assert env["GCL_RESNET50_TRACE_OUT"] == str(root)
+        write_minimal_artifact_shape_resnet50_root(
+            root,
+            evidence_scope="real_resnet50_nvbit_collection",
+        )
+        return {"returncode": 0, "stdout": "ok", "stderr": ""}
+
+    acquire_resnet50_gate0_trace(
+        ResNet50NvbitAcquisitionConfig(
+            output_root=root,
+            workload_command=["python", "run_resnet50.py"],
+            nvbit_tool_path=Path("/opt/nvbit/tools/trace_tool.so"),
+            working_directory=tmp_path,
+        ),
+        runner=runner,
+    )
+    baseline_path = tmp_path / "baseline_artifacts.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "metric_rows": [
+                    {
+                        "cluster_id": 0,
+                        "measured": 100.0,
+                        "predicted": 95.0,
+                        "weight": 2.0,
+                        "unit": "cycles",
+                    }
+                ],
+                "sampled_metrics": {"cycles": 95.0},
+                "full_baseline_metrics": {"cycles": 100.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "pipeline_out"
+
+    manifest = run_resnet50_gate1_to_gate7(
+        root,
+        out_dir,
+        seed=20260606,
+        baseline_artifacts_path=baseline_path,
+    )
+
+    assert manifest["final_gate"] == "gate9_evaluated"
+    assert (out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).exists()
+    gate7 = read_json(out_dir / "gate7_correctness_manifest.json")
+    assert gate7["metric_error_report"]["status"] == "reported"
+    assert gate7["metric_error_report"]["global_weighted_mape"] == 0.05
+    gate9 = read_json(out_dir / "gate9_sampled_vs_full_evaluation.json")
+    assert gate9["sampled_speedup_report"]["cycles_speedup"] == pytest.approx(1.05263158)
+    assert gate9["sampled_error_report"]["cycles_relative_error"] == 0.05

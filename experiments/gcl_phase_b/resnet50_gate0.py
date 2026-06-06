@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
+import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -19,6 +21,8 @@ GATE0_BLOCKER_TYPE = "gcl_resnet50_gate0_trace_acquisition_blocker_report"
 GATE0_BLOCKER_VERSION = "gate0_trace_acquisition_blocker_report_v1"
 NVBIT_COLLECTION_EVIDENCE_FILENAME = "nvbit_collection_evidence.json"
 NVBIT_COLLECTOR_ATTESTATION_FILENAME = "nvbit_collector_attestation.json"
+NVBIT_COLLECTOR_SESSION_FILENAME = ".nvbit_collector_session.json"
+COLLECTOR_PRODUCER = "acquire_resnet50_gate0_trace"
 FORMAL_SOURCE_ARTIFACTS = {
     "dynamic_trace.pb": "file",
     "threadblocks/": "directory",
@@ -58,6 +62,8 @@ def acquire_resnet50_gate0_trace(
     env.update(config.environment)
     env["LD_PRELOAD"] = str(config.nvbit_tool_path)
     env["GCL_RESNET50_TRACE_OUT"] = str(output_root)
+    session = _write_collector_session(output_root, config)
+    env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
     run = runner or _subprocess_runner
     result = run(
         list(config.workload_command),
@@ -67,6 +73,7 @@ def acquire_resnet50_gate0_trace(
     returncode = _runner_returncode(result)
     if returncode != 0:
         raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
+    _write_collector_attestation(output_root, session, result)
     return record_resnet50_gate0_trace_acquisition(output_root)
 
 
@@ -206,6 +213,23 @@ def _validate_collector_attestation(
     attestation = read_json(path)
     if attestation.get("artifact_type") != "gcl_resnet50_nvbit_collector_attestation":
         raise ValueError("collector attestation artifact_type mismatch")
+    if attestation.get("producer") != COLLECTOR_PRODUCER:
+        raise ValueError("collector-produced attestation is required for formal Gate0")
+    session_id = attestation.get("collector_session_id")
+    if not session_id:
+        raise ValueError("collector-produced attestation requires collector_session_id")
+    session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
+    if not session_path.is_file():
+        raise ValueError("collector-produced session artifact is required for formal Gate0")
+    session = read_json(session_path)
+    if session.get("producer") != COLLECTOR_PRODUCER:
+        raise ValueError("collector-produced session artifact is required for formal Gate0")
+    if session.get("collector_session_id") != session_id:
+        raise ValueError("collector attestation session does not match producer session")
+    if evidence.get("collector_session_id") != session_id:
+        raise ValueError("collector attestation session does not match evidence")
+    if evidence.get("collector_producer") != COLLECTOR_PRODUCER:
+        raise ValueError("collector-produced evidence is required for formal Gate0")
     for field in (
         "workload_id",
         "execution_mode",
@@ -223,6 +247,62 @@ def _validate_collector_attestation(
         raise ValueError("collector attestation hash is not reproducible")
     if evidence_attestation_hash != actual_hash:
         raise ValueError("collector attestation hash does not match evidence reference")
+
+
+def _write_collector_session(
+    output_root: Path,
+    config: ResNet50NvbitAcquisitionConfig,
+) -> dict[str, Any]:
+    session = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_session",
+        "artifact_version": "nvbit_collector_session_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": uuid.uuid4().hex,
+        "workload_command": list(config.workload_command),
+        "nvbit_tool_path": str(config.nvbit_tool_path),
+        "output_root": str(output_root),
+        "created_unix_ns": time.time_ns(),
+    }
+    session["collector_session_hash"] = hash_without(session, "collector_session_hash")
+    write_json(output_root / NVBIT_COLLECTOR_SESSION_FILENAME, session)
+    return session
+
+
+def _write_collector_attestation(
+    root: Path,
+    session: dict[str, Any],
+    result: RunnerResult,
+) -> dict[str, Any]:
+    evidence_path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
+    if not evidence_path.is_file():
+        raise ValueError("real NVBit collection evidence is required for formal Gate0")
+    evidence = read_json(evidence_path)
+    source_hashes = _source_artifact_hashes(root)
+    attestation = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
+        "artifact_version": "nvbit_collector_attestation_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": session["collector_session_id"],
+        "collector_session_hash": session["collector_session_hash"],
+        "runner_returncode": _runner_returncode(result),
+        "workload_id": evidence.get("workload_id"),
+        "execution_mode": evidence.get("execution_mode"),
+        "trace_source": evidence.get("trace_source"),
+        "input_scope": evidence.get("input_scope"),
+        "scheduler_metadata_source": evidence.get("scheduler_metadata_source"),
+        "collection_status": evidence.get("collection_status"),
+        "source_artifact_hashes": source_hashes,
+    }
+    attestation["collector_attestation_hash"] = hash_without(
+        attestation, "collector_attestation_hash"
+    )
+    evidence["collector_producer"] = COLLECTOR_PRODUCER
+    evidence["collector_session_id"] = session["collector_session_id"]
+    evidence["collector_session_hash"] = session["collector_session_hash"]
+    evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
+    write_json(root / NVBIT_COLLECTOR_ATTESTATION_FILENAME, attestation)
+    write_json(evidence_path, evidence)
+    return attestation
 
 
 def _reject_fixture_backed_root(root: Path) -> None:

@@ -112,34 +112,37 @@ def run_resnet50_gate1_to_gate7(
     write_json(out_dir / "rgcn_training_run_manifest.json", training_run_manifest)
     write_json(out_dir / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
     write_json(out_dir / "readout_manifest.json", readout_bundle)
+    export_report = {
+        "artifact_type": "gcl_resnet50_embedding_export_report",
+        "artifact_version": "gate5_embedding_export_report_v1",
+        "source_graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
+        "encoder_manifest_hash": embedding_table["encoder_manifest_hash"],
+        "checkpoint_hash": embedding_table["checkpoint_hash"],
+        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        "failed_graphs": [],
+    }
+    export_report["embedding_export_report_hash"] = hash_without(
+        export_report, "embedding_export_report_hash"
+    )
+    _bind_embedding_table_to_persisted_gate5_manifests(
+        embedding_table,
+        training_run_manifest=training_run_manifest,
+        checkpoint_manifest=checkpoint_manifest,
+        readout_bundle=readout_bundle,
+        export_report=export_report,
+    )
     lineage_bundle = build_gate5_lineage_bundle(
         embedding_table["gate5_lineage"],
         readout_bundle,
     )
     write_json(out_dir / "gate5_lineage_bundle.json", lineage_bundle)
     write_json(out_dir / "kernel_embedding_table.json", embedding_table)
-    export_report = {
-        "artifact_type": "gcl_resnet50_embedding_export_report",
-        "artifact_version": "gate5_embedding_export_report_v1",
-        "source_graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
-        "embedding_table_hash": _embedding_table_hash(embedding_table),
-        "failed_graphs": [],
-    }
-    export_report["embedding_export_report_hash"] = hash_without(
-        export_report, "embedding_export_report_hash"
-    )
     write_json(out_dir / "embedding_export_report.json", export_report)
 
     selector_artifacts = select_phase_b_representatives(
         embedding_table,
         seed=seed,
-        lineage_bundle=lineage_bundle,
-        gate5_manifests={
-            "training_run_manifest": training_run_manifest,
-            "checkpoint_manifest": checkpoint_manifest,
-            "readout_manifest_bundle": readout_bundle,
-            "embedding_export_report": export_report,
-        },
+        gate5_artifact_root=out_dir,
     )
     write_json(out_dir / "selector_artifacts.json", selector_artifacts)
 
@@ -337,6 +340,32 @@ def _checkpoint_manifest(
         manifest, "rgcn_checkpoint_manifest_hash"
     )
     return manifest
+
+
+def _bind_embedding_table_to_persisted_gate5_manifests(
+    embedding_table: dict[str, Any],
+    *,
+    training_run_manifest: dict[str, Any],
+    checkpoint_manifest: dict[str, Any],
+    readout_bundle: dict[str, Any],
+    export_report: dict[str, Any],
+) -> None:
+    lineage = dict(embedding_table["gate5_lineage"])
+    lineage["training_run_manifest_hash"] = training_run_manifest["training_run_manifest_hash"]
+    lineage["checkpoint_manifest_hash"] = checkpoint_manifest["rgcn_checkpoint_manifest_hash"]
+    lineage["readout_manifest_bundle_hash"] = readout_bundle["readout_manifest_bundle_hash"]
+    lineage["embedding_export_report_hash"] = export_report["embedding_export_report_hash"]
+    embedding_table["gate5_lineage"] = lineage
+    embedding_table["gate5_lineage_hash"] = hash_without(lineage)
+    lineage_bundle = build_gate5_lineage_bundle(lineage, readout_bundle)
+    embedding_table["gate5_lineage_bundle_hash"] = lineage_bundle["gate5_lineage_bundle_hash"]
+    for row in embedding_table["embeddings"]:
+        row["gate5_lineage_hash"] = embedding_table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    embedding_table["kernel_embedding_table_hash"] = hash_without(
+        embedding_table,
+        "kernel_embedding_table_hash",
+    )
 
 
 def _phase_a_compatible_tensor(tensor: dict[str, Any]) -> dict[str, Any]:

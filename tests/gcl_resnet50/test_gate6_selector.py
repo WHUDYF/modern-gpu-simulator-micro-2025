@@ -2,13 +2,14 @@ import copy
 
 import pytest
 
+from experiments.gcl_phase_b.embedding_export import build_gate5_lineage_bundle
 from experiments.gcl_phase_b.embedding_export import _kernel_embedding_hash
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import (
     select_phase_b_representatives,
     validate_gate6_selector_artifacts,
 )
-from experiments.gcl_phase_b.utils import hash_without
+from experiments.gcl_phase_b.utils import hash_without, write_json
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
 
 
@@ -98,6 +99,47 @@ def _forged_formal_embedding_table_with_self_consistent_lineage():
     return table
 
 
+def _persist_gate5_artifacts(root, table):
+    training_run_manifest = {"artifact_type": "training", "source": "formal-test"}
+    training_run_manifest["training_run_manifest_hash"] = hash_without(
+        training_run_manifest,
+        "training_run_manifest_hash",
+    )
+    checkpoint_manifest = {"artifact_type": "checkpoint", "source": "formal-test"}
+    checkpoint_manifest["rgcn_checkpoint_manifest_hash"] = hash_without(
+        checkpoint_manifest,
+        "rgcn_checkpoint_manifest_hash",
+    )
+    readout_bundle = {"artifact_type": "gcl_phase_b_readout_manifest_bundle", "manifests": []}
+    readout_bundle["readout_manifest_bundle_hash"] = hash_without(
+        readout_bundle,
+        "readout_manifest_bundle_hash",
+    )
+    export_report = {"artifact_type": "export", "source": "formal-test"}
+    export_report["embedding_export_report_hash"] = hash_without(
+        export_report,
+        "embedding_export_report_hash",
+    )
+    lineage = dict(table["gate5_lineage"])
+    lineage["training_run_manifest_hash"] = training_run_manifest["training_run_manifest_hash"]
+    lineage["checkpoint_manifest_hash"] = checkpoint_manifest["rgcn_checkpoint_manifest_hash"]
+    lineage["readout_manifest_bundle_hash"] = readout_bundle["readout_manifest_bundle_hash"]
+    lineage["embedding_export_report_hash"] = export_report["embedding_export_report_hash"]
+    table["gate5_lineage"] = lineage
+    table["gate5_lineage_hash"] = hash_without(lineage)
+    lineage_bundle = build_gate5_lineage_bundle(lineage, readout_bundle)
+    table["gate5_lineage_bundle_hash"] = lineage_bundle["gate5_lineage_bundle_hash"]
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    write_json(root / "rgcn_training_run_manifest.json", training_run_manifest)
+    write_json(root / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
+    write_json(root / "readout_manifest.json", readout_bundle)
+    write_json(root / "embedding_export_report.json", export_report)
+    write_json(root / "gate5_lineage_bundle.json", lineage_bundle)
+
+
 def test_gate6_rejects_handcrafted_formal_table_without_gate5_lineage():
     with pytest.raises(ValueError, match="Gate5 lineage"):
         select_phase_b_representatives(_formal_embedding_table(), seed=7)
@@ -106,7 +148,7 @@ def test_gate6_rejects_handcrafted_formal_table_without_gate5_lineage():
 def test_gate6_rejects_forged_self_consistent_lineage_without_persisted_bundle():
     table = _forged_formal_embedding_table_with_self_consistent_lineage()
 
-    with pytest.raises(ValueError, match="persisted Gate5 lineage bundle"):
+    with pytest.raises(ValueError, match="persisted Gate5 artifact root"):
         select_phase_b_representatives(table, seed=7)
 
 
@@ -130,8 +172,73 @@ def test_gate6_rejects_forged_self_consistent_lineage_with_forged_bundle():
     table["gate5_lineage_bundle_hash"] = forged_bundle["gate5_lineage_bundle_hash"]
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
 
-    with pytest.raises(ValueError, match="persisted Gate5 manifest objects"):
+    with pytest.raises(ValueError, match="persisted Gate5 artifact root"):
         select_phase_b_representatives(table, seed=7, lineage_bundle=forged_bundle)
+
+
+def test_gate6_rejects_forged_lineage_even_with_forged_manifest_dicts():
+    table = _forged_formal_embedding_table_with_self_consistent_lineage()
+    forged_manifests = {
+        "training_run_manifest": {"artifact_type": "fake_training"},
+        "checkpoint_manifest": {"artifact_type": "fake_checkpoint"},
+        "readout_manifest_bundle": {"artifact_type": "fake_readout"},
+        "embedding_export_report": {"artifact_type": "fake_export"},
+    }
+    lineage = table["gate5_lineage"]
+    lineage["training_run_manifest_hash"] = hash_without(forged_manifests["training_run_manifest"])
+    lineage["checkpoint_manifest_hash"] = hash_without(
+        forged_manifests["checkpoint_manifest"],
+        "rgcn_checkpoint_manifest_hash",
+    )
+    lineage["readout_manifest_bundle_hash"] = hash_without(
+        forged_manifests["readout_manifest_bundle"]
+    )
+    lineage["embedding_export_report_hash"] = hash_without(
+        forged_manifests["embedding_export_report"]
+    )
+    table["gate5_lineage_hash"] = hash_without(lineage)
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    forged_bundle = {
+        "artifact_type": "gcl_resnet50_gate5_lineage_bundle",
+        "artifact_version": "gate5_lineage_bundle_v1",
+        "lineage": lineage,
+        "readout_manifest_bundle_hash": lineage["readout_manifest_bundle_hash"],
+        "persisted_manifest_hashes": {
+            "training_run_manifest_hash": lineage["training_run_manifest_hash"],
+            "checkpoint_manifest_hash": lineage["checkpoint_manifest_hash"],
+            "readout_manifest_bundle_hash": lineage["readout_manifest_bundle_hash"],
+            "embedding_export_report_hash": lineage["embedding_export_report_hash"],
+        },
+    }
+    forged_bundle["gate5_lineage_bundle_hash"] = hash_without(
+        forged_bundle, "gate5_lineage_bundle_hash"
+    )
+    table["gate5_lineage_bundle_hash"] = forged_bundle["gate5_lineage_bundle_hash"]
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+
+    with pytest.raises(ValueError, match="persisted Gate5 artifact root"):
+        select_phase_b_representatives(
+            table,
+            seed=7,
+            lineage_bundle=forged_bundle,
+            gate5_manifests=forged_manifests,
+        )
+
+
+def test_gate6_accepts_formal_table_with_persisted_gate5_artifact_root(tmp_path):
+    table = _forged_formal_embedding_table_with_self_consistent_lineage()
+    _persist_gate5_artifacts(tmp_path, table)
+
+    artifacts = select_phase_b_representatives(
+        table,
+        seed=7,
+        gate5_artifact_root=tmp_path,
+    )
+
+    validate_gate6_selector_artifacts(artifacts)
+    assert artifacts["source_embedding_table_hash"] == table["kernel_embedding_table_hash"]
 
 
 def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(tmp_path):

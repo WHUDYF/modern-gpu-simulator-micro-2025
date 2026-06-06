@@ -153,10 +153,45 @@ def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(t
 
 
 def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
+    root = tmp_path / "formal_trace"
+
+    def runner(command, *, cwd, env):
+        write_minimal_artifact_shape_resnet50_root(
+            root,
+            evidence_scope="real_resnet50_nvbit_collection",
+        )
+        return {"returncode": 0, "stdout": "ok", "stderr": ""}
+
+    config = ResNet50NvbitAcquisitionConfig(
+        output_root=root,
+        workload_command=["python", "run_resnet50.py"],
+        nvbit_tool_path=Path("/opt/nvbit/tools/trace_tool.so"),
+    )
+    acquire_resnet50_gate0_trace(config, runner=runner)
+
+    attestation_path = root / "nvbit_collector_attestation.json"
+    attestation = read_json(attestation_path)
+    attestation["source_artifact_hashes"] = {"dynamic_trace.pb": "wrong"}
+    attestation["collector_attestation_hash"] = hash_without(
+        attestation, "collector_attestation_hash"
+    )
+    write_json(attestation_path, attestation)
+    evidence_path = root / "nvbit_collection_evidence.json"
+    evidence = read_json(evidence_path)
+    evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
+    write_json(evidence_path, evidence)
+
+    with pytest.raises(ValueError, match="source artifact hashes"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_rejects_handwritten_matching_attestation_on_synthetic_root(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(
         tmp_path / "spoofed_trace",
         evidence_scope="real_resnet50_nvbit_collection",
     )
+    from experiments.gcl_phase_b.resnet50_gate0 import _source_artifact_hashes
+
     attestation = {
         "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
         "workload_id": "resnet50",
@@ -165,7 +200,7 @@ def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
         "input_scope": "full_resnet50_inference_trace",
         "scheduler_metadata_source": "real_nvbit_smid",
         "collection_status": "completed",
-        "source_artifact_hashes": {"dynamic_trace.pb": "wrong"},
+        "source_artifact_hashes": _source_artifact_hashes(root),
     }
     attestation["collector_attestation_hash"] = hash_without(
         attestation, "collector_attestation_hash"
@@ -176,5 +211,37 @@ def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="source artifact hashes"):
+    with pytest.raises(ValueError, match="collector-produced"):
         record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_acquisition_runner_writes_collector_attestation(tmp_path):
+    root = tmp_path / "formal_trace"
+    executed = []
+
+    def runner(command, *, cwd, env):
+        executed.append({"command": command, "cwd": cwd, "env": env})
+        write_minimal_artifact_shape_resnet50_root(
+            root,
+            evidence_scope="real_resnet50_nvbit_collection",
+        )
+        return {"returncode": 0, "stdout": "ok", "stderr": ""}
+
+    config = ResNet50NvbitAcquisitionConfig(
+        output_root=root,
+        workload_command=["python", "run_resnet50.py"],
+        nvbit_tool_path=Path("/opt/nvbit/tools/trace_tool.so"),
+        working_directory=tmp_path,
+        environment={"CUDA_VISIBLE_DEVICES": "0"},
+    )
+
+    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+
+    assert executed
+    assert manifest["artifact_status"] == "formal"
+    assert (root / "nvbit_collector_attestation.json").exists()
+    evidence = read_json(root / "nvbit_collection_evidence.json")
+    attestation = read_json(root / "nvbit_collector_attestation.json")
+    assert attestation["producer"] == "acquire_resnet50_gate0_trace"
+    assert attestation["collector_session_id"] == evidence["collector_session_id"]
+    assert evidence["collector_attestation_hash"] == attestation["collector_attestation_hash"]

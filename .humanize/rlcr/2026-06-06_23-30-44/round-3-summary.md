@@ -49,6 +49,12 @@
 - `BL-20260606-formal-export-path`
   - Gate5 export now carries readout/training lineage, and Gate6/Gate7 consume formal embedding artifacts rather than helper-only stand-ins.
 
+## BitLesson Delta
+
+- Action: none
+- Lesson ID(s): NONE
+- Notes: Existing lessons were sufficient for this round; no new reusable failure mode was added to `.humanize/bitlesson.md`.
+
 ## Validation
 
 - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py tests/gcl_resnet50/test_gate1_adapter.py`

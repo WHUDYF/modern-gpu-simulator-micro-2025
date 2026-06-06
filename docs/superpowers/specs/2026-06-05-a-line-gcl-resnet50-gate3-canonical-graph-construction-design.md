@@ -42,8 +42,14 @@ scope_preview_report.json
 artifact_type = gcl_phase_b_trace_manifest
 manifest_version = gcl_phase_b_trace_manifest_v1
 collection_scope = single_representative_sm_all_ctas
+workload_id = resnet50
+execution_mode = real_trace
+trace_source = nvbit
+input_scope = full_resnet50_inference_trace
 trace_manifest_hash 可复现
 ```
+
+Gate 3 formal path 必须拒绝 synthetic / ResNet-like / hand-written fixture manifest。即使 manifest schema 合法，只要缺少真实 ResNet-50 NVBit provenance，就不能生成 formal `canonical_graph_bundle.json`。
 
 每个 invocation 必须已经包含：
 
@@ -558,6 +564,8 @@ audit count 与 graph 实际 count 不一致
 ```
 
 如果所有 invocation 都失败，不得生成可供 Gate 4 formal path 消费的 `canonical_graph_bundle.json`。
+
+如果输入 manifest 来自 debug / fixture / synthetic trace，Gate 3 可以生成 debug graph report，但不得生成可供 Gate 4 formal path 消费的 `canonical_graph_bundle.json`。
 
 ## 18. 非目标
 

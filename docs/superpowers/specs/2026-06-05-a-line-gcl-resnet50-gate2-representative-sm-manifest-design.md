@@ -32,7 +32,10 @@ resnet50_trace_adapter_bundle.json
 artifact_type = gcl_resnet50_trace_adapter_bundle
 artifact_version = gate1_trace_adapter_v1
 workload_id = resnet50
+model = torchvision.models.resnet50
 execution_mode = real_trace
+trace_source = nvbit
+input_scope = full_resnet50_inference_trace
 scheduler_metadata_source = real_nvbit_smid
 adapter_validation_report.status = passed
 adapter_validation_report.scheduler_metadata_complete = true
@@ -43,11 +46,18 @@ Gate 2 必须拒绝：
 
 ```text
 debug_not_gate1_complete
+synthetic trace bundle
+ResNet-like fixture bundle
+hand-written opcode bundle
+mini-transformer trace bundle
 simulator_replay
 file_order_fallback
+partial manually selected kernel-only trace
 missing adapter_bundle_hash
 non-reproducible adapter_bundle_hash
 ```
+
+Gate 2 不允许把测试 fixture 的 adapter bundle 升级为 formal `representative_sm_trace_manifest.json`。如果输入缺少真实 ResNet-50 NVBit provenance，Gate 2 只能输出 failure / debug artifact，不能生成可被 Gate 3 formal path 消费的 manifest。
 
 ## 3. 输出
 
@@ -369,6 +379,8 @@ Gate 2 通过时必须满足：
 6. `selected_sm_policy_report_hash`、`trace_hash`、`trace_manifest_hash` 可复现。
 7. `representative_sm_trace_manifest.json` 被现有 Phase B validator 接受。
 8. Gate 3 可以只读取该 manifest，不需要读取 Gate 1 bundle 或原始 ResNet trace。
+9. manifest 必须继承并记录真实输入 provenance：`workload_id = resnet50`、`execution_mode = real_trace`、`trace_source = nvbit`、`input_scope = full_resnet50_inference_trace`。
+10. fixture / synthetic / debug replay 输入不得生成 formal manifest。
 
 ## 14. 非目标
 

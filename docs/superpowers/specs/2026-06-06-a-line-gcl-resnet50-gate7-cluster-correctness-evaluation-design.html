@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 7 Cluster Correctness Evaluation</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --cyan: #087ea4;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 0; }
+
+    main { padding: 28px 0 44px; }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .pipe-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 188px;
+      position: relative;
+    }
+
+    .pipe-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .pipe-card:last-child::after { display: none; }
+
+    .geometry { border-top-color: var(--green); }
+    .family { border-top-color: var(--red); }
+    .anchor { border-top-color: var(--cyan); }
+    .metric-card { border-top-color: var(--purple); }
+    .stable { border-top-color: var(--amber); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green { background: var(--green); }
+    .tag.amber { background: var(--amber); }
+    .tag.blue { background: var(--blue); }
+    .tag.purple { background: var(--purple); }
+    .tag.cyan { background: var(--cyan); }
+    .tag.red { background: var(--red); }
+
+    .diagram {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .artifact {
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      background: #fbfcfe;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 96px;
+    }
+
+    .artifact strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .artifact span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .list {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .list li { margin: 5px 0; }
+
+    .note {
+      border-left: 4px solid var(--amber);
+      background: #fff8eb;
+      padding: 12px 14px;
+      border-radius: 6px;
+      color: #4b3a18;
+      margin-top: 12px;
+    }
+
+    svg text {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 0 0 32px;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .pipeline,
+      .three-col,
+      .artifact-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .two-col { grid-template-columns: 1fr; }
+
+      .pipe-card::after { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .summary-grid,
+      .pipeline,
+      .three-col,
+      .artifact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GCL ResNet-50 Gate 7 Cluster Correctness Evaluation</h1>
+      <p class="subtitle">
+        Gate 7 不重新聚类、不训练 head、不预测调参。它消费 Gate 6 selector artifacts，
+        用 embedding geometry、family alignment、representative quality、metric consistency 和 run stability
+        定量评估 GCL 分组是否可信。
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="summary-grid">
+        <div class="metric">
+          <strong>输入</strong>
+          <span>真实 ResNet-50 Gate6 formal selector artifacts。</span>
+        </div>
+        <div class="metric">
+          <strong>5 层</strong>
+          <span>几何、family、representative、metric、stability。</span>
+        </div>
+        <div class="metric">
+          <strong>report only</strong>
+          <span>第一版只量化，不伪装成已证明正确。</span>
+        </div>
+        <div class="metric">
+          <strong>Gate 8 前置</strong>
+          <span>调参策略必须先读取 Gate7 evidence。</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Gate 7 五层定量验证</h2>
+        <p>Gate7 的核心是把“cluster 已生成”拆成多层证据。每层都输出独立 report，并在 manifest 中记录 source hash。</p>
+        <div class="pipeline">
+          <div class="pipe-card geometry">
+            <span class="tag green">Layer 1</span>
+            <h3>Embedding Geometry</h3>
+            <p>silhouette、Davies-Bouldin、Calinski-Harabasz、intra/inter distance。</p>
+          </div>
+          <div class="pipe-card family">
+            <span class="tag red">Layer 2</span>
+            <h3>Family Alignment</h3>
+            <p>purity、weighted purity、ARI、NMI、homogeneity、completeness、V-measure。</p>
+          </div>
+          <div class="pipe-card anchor">
+            <span class="tag cyan">Layer 3</span>
+            <h3>Representative</h3>
+            <p>mean / p95 distance to representative、centroid rank、outlier ratio。</p>
+          </div>
+          <div class="pipe-card metric-card">
+            <span class="tag purple">Layer 4</span>
+            <h3>Metric Error</h3>
+            <p>runtime、SM cycles、memory throughput、simulator time 的 weighted MAPE 和 p95 error。</p>
+          </div>
+          <div class="pipe-card stable">
+            <span class="tag amber">Layer 5</span>
+            <h3>Stability</h3>
+            <p>多 seed / 多 split 的 assignment ARI、K stability、centroid drift、anchor stability。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Correctness Evidence 图</h2>
+        <p>图中蓝色主线表示 Gate6 artifact 进入 Gate7。红色和紫色输入只用于评估，不允许反向修改 cluster assignment。</p>
+        <div class="diagram">
+          <svg viewBox="0 0 1120 500" role="img" aria-label="Gate 7 cluster correctness evaluation diagram">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#344054"></path>
+              </marker>
+              <marker id="redArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#b42318"></path>
+              </marker>
+            </defs>
+
+            <rect x="38" y="54" width="212" height="88" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="144" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate6 Artifacts</text>
+            <text x="144" y="110" text-anchor="middle" font-size="12" fill="#475467">clusters + anchors</text>
+            <text x="144" y="128" text-anchor="middle" font-size="12" fill="#475467">real ResNet-50 formal</text>
+
+            <rect x="318" y="54" width="212" height="88" rx="8" fill="#ecfdf3" stroke="#0f8a5f"></rect>
+            <text x="424" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Embedding Quality</text>
+            <text x="424" y="110" text-anchor="middle" font-size="12" fill="#475467">silhouette / DBI / CH</text>
+            <text x="424" y="128" text-anchor="middle" font-size="12" fill="#475467">inter / intra ratio</text>
+
+            <rect x="598" y="54" width="212" height="88" rx="8" fill="#ecfeff" stroke="#087ea4"></rect>
+            <text x="704" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Representative Quality</text>
+            <text x="704" y="110" text-anchor="middle" font-size="12" fill="#475467">p95 distance</text>
+            <text x="704" y="128" text-anchor="middle" font-size="12" fill="#475467">outlier members</text>
+
+            <rect x="878" y="54" width="202" height="88" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="979" y="86" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate7 Manifest</text>
+            <text x="979" y="110" text-anchor="middle" font-size="12" fill="#475467">report hashes</text>
+            <text x="979" y="128" text-anchor="middle" font-size="12" fill="#475467">claim status</text>
+
+            <line x1="250" y1="98" x2="310" y2="98" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="530" y1="98" x2="590" y2="98" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="810" y1="98" x2="870" y2="98" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="72" y="238" width="210" height="88" rx="8" fill="#fff1f3" stroke="#b42318"></rect>
+            <text x="177" y="270" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Family Labels</text>
+            <text x="177" y="294" text-anchor="middle" font-size="12" fill="#475467">post-clustering only</text>
+            <text x="177" y="312" text-anchor="middle" font-size="12" fill="#475467">purity / ARI / NMI</text>
+
+            <rect x="352" y="238" width="210" height="88" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="457" y="270" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Measured Metrics</text>
+            <text x="457" y="294" text-anchor="middle" font-size="12" fill="#475467">runtime / cycles</text>
+            <text x="457" y="312" text-anchor="middle" font-size="12" fill="#475467">weighted MAPE</text>
+
+            <rect x="632" y="238" width="210" height="88" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="737" y="270" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Multi-run Artifacts</text>
+            <text x="737" y="294" text-anchor="middle" font-size="12" fill="#475467">seed / split runs</text>
+            <text x="737" y="312" text-anchor="middle" font-size="12" fill="#475467">stability ARI</text>
+
+            <rect x="352" y="392" width="420" height="44" rx="8" fill="#101828"></rect>
+            <text x="562" y="420" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">
+              Gate7 第一版输出 quantified evidence，不声明最终正确性阈值已经达成
+            </text>
+
+            <path d="M177 238 C220 185, 310 156, 424 142" fill="none" stroke="#b42318" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#redArrow)"></path>
+            <path d="M177 238 C350 188, 580 164, 704 142" fill="none" stroke="#b42318" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#redArrow)"></path>
+            <path d="M457 238 C525 188, 620 162, 704 142" fill="none" stroke="#6d3cc2" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"></path>
+            <path d="M737 238 C820 182, 930 162, 979 142" fill="none" stroke="#b7791f" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#arrow)"></path>
+
+            <text x="310" y="212" text-anchor="middle" font-size="12" font-weight="700" fill="#b42318">evaluation only</text>
+            <text x="548" y="212" text-anchor="middle" font-size="12" font-weight="700" fill="#6d3cc2">metric error only</text>
+            <text x="842" y="212" text-anchor="middle" font-size="12" font-weight="700" fill="#b7791f">stability only</text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>关键定量指标</h2>
+        <div class="three-col">
+          <div class="mini-panel">
+            <span class="tag green">Geometry</span>
+            <ul class="list">
+              <li><code>silhouette_score</code></li>
+              <li><code>davies_bouldin_index</code></li>
+              <li><code>calinski_harabasz_index</code></li>
+              <li><code>inter_intra_distance_ratio</code></li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag red">Family</span>
+            <ul class="list">
+              <li><code>cluster_purity</code></li>
+              <li><code>weighted_cluster_purity</code></li>
+              <li><code>adjusted_rand_index</code></li>
+              <li><code>normalized_mutual_information</code></li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag cyan">Anchor</span>
+            <ul class="list">
+              <li><code>p95_distance_to_representative</code></li>
+              <li><code>representative_rank_to_centroid</code></li>
+              <li><code>outlier_member_ratio</code></li>
+              <li><code>high_weight_outlier_count</code></li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag purple">Metric</span>
+            <ul class="list">
+              <li><code>cluster_weighted_mape</code></li>
+              <li><code>cluster_p95_relative_error</code></li>
+              <li><code>global_weighted_mape</code></li>
+              <li><code>high_weight_bad_cluster_count</code></li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag amber">Stability</span>
+            <ul class="list">
+              <li><code>assignment_stability_ari</code></li>
+              <li><code>k_stability</code></li>
+              <li><code>centroid_drift</code></li>
+              <li><code>representative_stability_rate</code></li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag blue">Policy</span>
+            <ul class="list">
+              <li><code>threshold_policy = report_only_v1</code></li>
+              <li><code>claim_status = quantified_no_correctness_claim</code></li>
+              <li><code>threshold_claim_status = not_set_until_real_resnet50_baseline</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>输出 Artifact</h2>
+        <div class="artifact-grid">
+          <div class="artifact">
+            <strong><code>cluster_embedding_quality_report.json</code></strong>
+            <span>记录 silhouette、DBI、CH、cluster radius、separation、inter/intra ratio。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>cluster_family_alignment_report.json</code></strong>
+            <span>记录 purity、weighted purity、ARI、NMI、homogeneity、completeness、mixed clusters。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>representative_quality_report.json</code></strong>
+            <span>记录 representative 到 members 的距离分布、outliers 和 coverage weight。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>cluster_metric_error_report.json</code></strong>
+            <span>记录 representative 对 members 的 measured / simulator metric relative error。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>cluster_stability_report.json</code></strong>
+            <span>记录多 run assignment ARI、K stability、centroid drift 和 representative stability。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>gate7_cluster_correctness_manifest.json</code></strong>
+            <span>汇总 source hashes、report hashes、threshold policy 和 claim status。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>第一版边界</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag green">可以声明</span>
+            <ul class="list">
+              <li>GCL cluster 已被多层指标量化。</li>
+              <li>family label 只用于 post-clustering evaluation。</li>
+              <li>representative 质量和 metric error 可审计。</li>
+              <li>缺失数据会被显式标记。</li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag red">不能声明</span>
+            <ul class="list">
+              <li>GCL 分组已经被最终证明正确。</li>
+              <li>sampled simulation speedup 已成立。</li>
+              <li>调参策略已经可靠。</li>
+              <li>single-run 结果已经稳定。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          Gate7 第一版使用 <code>threshold_policy = report_only_v1</code>。等真实 ResNet-50 baseline 数据足够后，才能升级到 enforced threshold。
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Spec: <code>2026-06-06-a-line-gcl-resnet50-gate7-cluster-correctness-evaluation-design.md</code>
+    </div>
+  </footer>
+</body>
+</html>

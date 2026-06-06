@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Full Reproduction Plan</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --cyan: #087ea4;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 0; }
+
+    main { padding: 28px 0 44px; }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 960px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .phase-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 178px;
+      position: relative;
+    }
+
+    .phase-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .phase-card:last-child::after { display: none; }
+
+    .p0 { border-top-color: var(--green); }
+    .p1 { border-top-color: var(--blue); }
+    .p2 { border-top-color: var(--purple); }
+    .p3 { border-top-color: var(--amber); }
+    .p4 { border-top-color: var(--cyan); }
+    .p5 { border-top-color: var(--red); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green { background: var(--green); }
+    .tag.amber { background: var(--amber); }
+    .tag.blue { background: var(--blue); }
+    .tag.purple { background: var(--purple); }
+    .tag.cyan { background: var(--cyan); }
+    .tag.red { background: var(--red); }
+
+    .diagram {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .artifact {
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      background: #fbfcfe;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 96px;
+    }
+
+    .artifact strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .artifact span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .list {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .list li { margin: 5px 0; }
+
+    .note {
+      border-left: 4px solid var(--amber);
+      background: #fff8eb;
+      padding: 12px 14px;
+      border-radius: 6px;
+      color: #4b3a18;
+      margin-top: 12px;
+    }
+
+    svg text {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 0 0 32px;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .phase-grid,
+      .three-col,
+      .artifact-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .two-col { grid-template-columns: 1fr; }
+
+      .phase-card::after { display: none; }
+    }
+
+    @media (max-width: 620px) {
+      .summary-grid,
+      .phase-grid,
+      .three-col,
+      .artifact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GCL ResNet-50 Full Reproduction Plan</h1>
+      <p class="subtitle">
+        从真实完整 ResNet-50 NVBit trace 开始，复现 GCL graph、RGCN embedding、silhouette-K / K-Means selector 和 representative anchors；
+        然后用 Gate7 量化分组正确性，最后再进入我们的 tuning vector 和 sampled-vs-full simulator evaluation 扩展。
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="summary-grid">
+        <div class="metric">
+          <strong>Gate 0-6</strong>
+          <span>构成 GCL-Sampler 核心复现路径。</span>
+        </div>
+        <div class="metric">
+          <strong>Gate 7</strong>
+          <span>量化 cluster correctness，不伪装成已证明正确。</span>
+        </div>
+        <div class="metric">
+          <strong>Gate 8-9</strong>
+          <span>属于我们的扩展：调参 proposal 与 simulator evaluation。</span>
+        </div>
+        <div class="metric">
+          <strong>硬约束</strong>
+          <span>formal path 必须来自真实完整 ResNet-50 NVBit trace。</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>完整 Phase 路线</h2>
+        <p>实现顺序必须先复现 GCL，再验证 GCL，再扩展调参。fixture 只能用于 debug，不能替代真实 ResNet-50 formal input。</p>
+        <div class="phase-grid">
+          <div class="phase-card p0">
+            <span class="tag green">Phase 0</span>
+            <h3>Real Trace</h3>
+            <p>采集真实 ResNet-50 NVBit trace 和 scheduler metadata，建立 formal input。</p>
+          </div>
+          <div class="phase-card p1">
+            <span class="tag blue">Phase 1</span>
+            <h3>Trace To Graph</h3>
+            <p>Gate1-4: adapter、representative SM、canonical graph、tensorization。</p>
+          </div>
+          <div class="phase-card p2">
+            <span class="tag purple">Phase 2</span>
+            <h3>Embedding</h3>
+            <p>Gate5: RGCN contrastive training，导出 canonical 256D kernel embedding。</p>
+          </div>
+          <div class="phase-card p3">
+            <span class="tag amber">Phase 3</span>
+            <h3>Selector</h3>
+            <p>Gate6: silhouette-K、deterministic K-Means、representative anchors。</p>
+          </div>
+          <div class="phase-card p4">
+            <span class="tag cyan">Phase 4</span>
+            <h3>Correctness</h3>
+            <p>Gate7: geometry、family、representative、metric、stability 五层定量验证。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>总览图</h2>
+        <div class="diagram">
+          <svg viewBox="0 0 1120 520" role="img" aria-label="GCL ResNet-50 full reproduction roadmap">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#344054"></path>
+              </marker>
+              <marker id="redArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#b42318"></path>
+              </marker>
+            </defs>
+
+            <rect x="40" y="54" width="152" height="82" rx="8" fill="#ecfdf3" stroke="#0f8a5f"></rect>
+            <text x="116" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 0</text>
+            <text x="116" y="108" text-anchor="middle" font-size="12" fill="#475467">real ResNet50</text>
+            <text x="116" y="126" text-anchor="middle" font-size="12" fill="#475467">NVBit trace</text>
+
+            <rect x="230" y="54" width="152" height="82" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="306" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 1-2</text>
+            <text x="306" y="108" text-anchor="middle" font-size="12" fill="#475467">adapter</text>
+            <text x="306" y="126" text-anchor="middle" font-size="12" fill="#475467">representative SM</text>
+
+            <rect x="420" y="54" width="152" height="82" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="496" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 3-4</text>
+            <text x="496" y="108" text-anchor="middle" font-size="12" fill="#475467">canonical graph</text>
+            <text x="496" y="126" text-anchor="middle" font-size="12" fill="#475467">tensorization</text>
+
+            <rect x="610" y="54" width="152" height="82" rx="8" fill="#ecfeff" stroke="#087ea4"></rect>
+            <text x="686" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 5</text>
+            <text x="686" y="108" text-anchor="middle" font-size="12" fill="#475467">RGCN</text>
+            <text x="686" y="126" text-anchor="middle" font-size="12" fill="#475467">256D embedding</text>
+
+            <rect x="800" y="54" width="152" height="82" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="876" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 6</text>
+            <text x="876" y="108" text-anchor="middle" font-size="12" fill="#475467">silhouette-K</text>
+            <text x="876" y="126" text-anchor="middle" font-size="12" fill="#475467">anchors</text>
+
+            <rect x="990" y="54" width="82" height="82" rx="8" fill="#fff1f3" stroke="#b42318"></rect>
+            <text x="1031" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 7</text>
+            <text x="1031" y="108" text-anchor="middle" font-size="12" fill="#475467">correct</text>
+            <text x="1031" y="126" text-anchor="middle" font-size="12" fill="#475467">eval</text>
+
+            <line x1="192" y1="95" x2="222" y2="95" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="382" y1="95" x2="412" y2="95" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="572" y1="95" x2="602" y2="95" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="762" y1="95" x2="792" y2="95" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="952" y1="95" x2="982" y2="95" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="132" y="228" width="230" height="86" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="247" y="260" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">GCL Core Reproduction</text>
+            <text x="247" y="284" text-anchor="middle" font-size="12" fill="#475467">Gate0 -> Gate6</text>
+            <text x="247" y="304" text-anchor="middle" font-size="12" fill="#475467">真实 trace 到 representative anchors</text>
+
+            <rect x="450" y="228" width="230" height="86" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="565" y="260" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Correctness Gate</text>
+            <text x="565" y="284" text-anchor="middle" font-size="12" fill="#475467">Gate7</text>
+            <text x="565" y="304" text-anchor="middle" font-size="12" fill="#475467">量化分组是否可信</text>
+
+            <rect x="768" y="228" width="230" height="86" rx="8" fill="#fff1f3" stroke="#b42318"></rect>
+            <text x="883" y="260" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Our Extension</text>
+            <text x="883" y="284" text-anchor="middle" font-size="12" fill="#475467">Gate8 -> Gate9</text>
+            <text x="883" y="304" text-anchor="middle" font-size="12" fill="#475467">调参 proposal 与 simulator evaluation</text>
+
+            <path d="M876 136 C760 180, 480 190, 247 228" fill="none" stroke="#344054" stroke-width="2"></path>
+            <path d="M1031 136 C930 188, 720 202, 565 228" fill="none" stroke="#344054" stroke-width="2"></path>
+            <path d="M1031 136 C1038 180, 980 210, 883 228" fill="none" stroke="#b42318" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#redArrow)"></path>
+
+            <rect x="170" y="398" width="780" height="42" rx="8" fill="#101828"></rect>
+            <text x="560" y="425" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">
+              当前下一步：修正 Gate1-5 formal 输入边界，然后进入 Gate0 真实 ResNet-50 NVBit trace acquisition
+            </text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>各 Gate 产物</h2>
+        <div class="artifact-grid">
+          <div class="artifact">
+            <strong>Gate 0</strong>
+            <span><code>dynamic_trace.pb</code>、<code>threadblocks/</code>、<code>scheduler_metadata.json</code>、trace acquisition manifest。</span>
+          </div>
+          <div class="artifact">
+            <strong>Gate 1-2</strong>
+            <span><code>resnet50_trace_adapter_bundle.json</code>、<code>representative_sm_trace_manifest.json</code>。</span>
+          </div>
+          <div class="artifact">
+            <strong>Gate 3-4</strong>
+            <span><code>canonical_graph_bundle.json</code>、<code>graph_tensor_bundle.json</code>。</span>
+          </div>
+          <div class="artifact">
+            <strong>Gate 5</strong>
+            <span><code>rgcn_checkpoint_manifest.json</code>、<code>kernel_embedding_table.json</code>。</span>
+          </div>
+          <div class="artifact">
+            <strong>Gate 6</strong>
+            <span><code>kmeans_cluster_assignment_table.json</code>、<code>representative_anchor_table.json</code>。</span>
+          </div>
+          <div class="artifact">
+            <strong>Gate 7</strong>
+            <span><code>cluster_embedding_quality_report.json</code>、<code>cluster_metric_error_report.json</code>、correctness manifest。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>实施顺序</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag green">先做</span>
+            <ul class="list">
+              <li>修正 Gate1-5 formal path，使 fixture 只能 debug。</li>
+              <li>实现 Gate0 真实 ResNet-50 NVBit trace acquisition。</li>
+              <li>用真实 ResNet-50 trace 跑通 Gate1-5。</li>
+              <li>实现 Gate6 selector 和 Gate7 correctness evaluation。</li>
+            </ul>
+          </div>
+          <div class="mini-panel">
+            <span class="tag red">后做</span>
+            <ul class="list">
+              <li>Gate8 cluster / family 到 tuning vector proposal。</li>
+              <li>Gate9 sampled-vs-full simulator evaluation。</li>
+              <li>只有 Gate9 通过后，才能声明 speedup / error claim。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">
+          Gate0-6 可以称为 GCL-Sampler 核心复现路径；Gate7 是可信度验证；Gate8-9 是我们的扩展，不应混入原始 GCL 复现 claim。
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Plan: <code>2026-06-06-a-line-gcl-resnet50-full-reproduction-plan.md</code>
+    </div>
+  </footer>
+</body>
+</html>

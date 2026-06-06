@@ -43,9 +43,15 @@ tensorization_report.json
 ```text
 artifact_type = gcl_resnet50_graph_tensor_bundle
 artifact_version = gate4_graph_tensor_bundle_v1
+workload_id = resnet50
+execution_mode = real_trace
+trace_source = nvbit
+input_scope = full_resnet50_inference_trace
 graph_tensor_bundle_hash 可复现
 tensors 非空
 ```
+
+Gate 5 formal training / embedding export 必须拒绝 synthetic / ResNet-like / hand-written fixture tensor bundle。fixture tensor 只能用于 unit test、smoke test 或 debug run，输出不得作为 Gate 6 clustering / family classification 的正式输入。
 
 每个 tensor 必须满足：
 
@@ -106,6 +112,8 @@ paper_reproduction_mode
 ```
 
 如果输入 artifact 缺少这些字段，Gate 5 必须拒绝 formal training。
+
+如果输入 artifact 缺少真实 ResNet-50 NVBit provenance，Gate 5 必须拒绝 formal training，即使 tensor shape、feature width 和 hash 都合法。
 
 ## 5. Training Augmentation
 

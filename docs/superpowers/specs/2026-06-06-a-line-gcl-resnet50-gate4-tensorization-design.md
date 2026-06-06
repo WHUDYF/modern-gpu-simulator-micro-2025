@@ -43,9 +43,15 @@ graph_construction_report.json
 ```text
 artifact_type = gcl_resnet50_canonical_graph_bundle
 artifact_version = gate3_canonical_graph_bundle_v1
+workload_id = resnet50
+execution_mode = real_trace
+trace_source = nvbit
+input_scope = full_resnet50_inference_trace
 graphs 非空
 canonical_graph_bundle_hash 可复现
 ```
+
+Gate 4 formal path 必须拒绝 synthetic / ResNet-like / hand-written fixture graph bundle。测试 graph 可以用于 tensorizer 单元测试，但输出必须标记为 debug / test artifact，不能进入 Gate 5 formal training。
 
 每个 graph 必须满足 Phase B canonical graph schema：
 
@@ -344,6 +350,8 @@ tensor_hash 不可复现
 ```
 
 如果所有 graph 都失败，不得生成可供 Gate 5 formal path 消费的 `graph_tensor_bundle.json`。
+
+如果输入 graph bundle 缺少真实 ResNet-50 NVBit provenance，Gate 4 不得生成可供 Gate 5 formal path 消费的 `graph_tensor_bundle.json`。
 
 ## 16. 非目标
 

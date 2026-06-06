@@ -6,6 +6,42 @@
 
 本 spec 定义如何使用 ResNet-50 作为 GCL 复现的真实输入，并把真实 NVBit trace 转换为 Phase B 所需的 representative-SM trace manifest。
 
+## 1.1 Formal Input 硬约束
+
+ResNet-50 是本轮 GCL 复现的必要输入条件，formal path 不允许替换。
+
+正式 Gate 1-5 输入必须来自一次真实 ResNet-50 inference 的 NVBit trace acquisition：
+
+```text
+workload_id = resnet50
+model = torchvision.models.resnet50
+execution_mode = real_trace
+trace_source = nvbit
+scheduler_metadata_source = real_nvbit_smid
+input_scope = full_resnet50_inference_trace
+```
+
+以下输入不得进入 formal Gate 1-5 path：
+
+```text
+synthetic trace
+ResNet-like fixture
+hand-written opcode sequence
+mini-transformer trace
+simulator replay trace
+file_order_fallback scheduler metadata
+partial manually selected kernel-only trace
+```
+
+这些输入只能用于 parser / graph builder / RGCN 的 debug 或 unit test，并且必须标记为：
+
+```text
+artifact_status = debug_not_formal
+formal_input_eligible = false
+```
+
+任何 debug / fixture artifact 都不得生成 `phase_b_complete`、不得进入 Gate 5 formal training、不得进入 Gate 6 clustering / family classification。
+
 目标闭环是：
 
 ```text
@@ -19,7 +55,7 @@ ResNet-50 inference
   -> kernel family classification
 ```
 
-本 spec 的重点不是训练 GNN，也不是证明 kernel family 分类准确率；重点是定义真实 ResNet trace 如何提供可审计的 `cta_to_sm`、`cta_start_order` 和 `cta_end_order`，使后续 GCL Phase B 不依赖 synthetic fixture。
+本 spec 的重点不是训练 GNN，也不是证明 kernel family 分类准确率；重点是定义真实 ResNet trace 如何提供可审计的 `cta_to_sm`、`cta_start_order` 和 `cta_end_order`，使后续 GCL Phase B 不依赖 synthetic fixture。formal GCL ResNet-50 复现必须拒绝任何 synthetic / ResNet-like 替代输入。
 
 ## 2. 背景边界
 
@@ -35,7 +71,7 @@ selected SM all CTAs
   -> M0 silhouette K-Means selector
 ```
 
-但当前 Phase B smoke fixture 是 synthetic trace，不是从真实 ResNet 或 mini-transformer trace 中抽取的。ResNet-50 复现必须新增真实 trace acquisition / adapter 层。
+但当前 Phase B smoke fixture 是 synthetic trace，不是从真实 ResNet 或 mini-transformer trace 中抽取的。它只能验证工程连通性，不能被称为 ResNet-50 formal input。ResNet-50 复现必须新增真实 trace acquisition / adapter 层，并以真实 ResNet-50 NVBit trace 作为 Gate 1-5 的唯一 formal 输入。
 
 ## 3. 输入 Workload
 
@@ -247,6 +283,8 @@ ResNet real trace adapter 至少需要验证：
 6. `selected_sm_policy_report.selection_hash` 可复现。
 7. 缺少真实 SM metadata 时输出 `debug_not_phase_b_complete`，不得伪装为正式 artifact。
 8. Phase B pipeline 能消费生成的 ResNet manifest，并至少完成 graph construction 和 graph audit。
+9. formal artifact 必须证明 `workload_id = resnet50`、`execution_mode = real_trace`、`trace_source = nvbit`、`scheduler_metadata_source = real_nvbit_smid`。
+10. synthetic / ResNet-like / hand-written fixture 即使 shape 合法，也必须被标记为 `formal_input_eligible = false`，不能进入 Gate 5 formal training。
 
 ## 12. 非目标
 

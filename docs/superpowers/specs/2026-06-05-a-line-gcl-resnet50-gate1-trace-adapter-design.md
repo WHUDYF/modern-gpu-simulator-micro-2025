@@ -6,6 +6,35 @@
 
 Gate 1 的目标是把 ResNet-50 的真实 NVBit trace artifacts 解析成 GCL 后续阶段可消费的 adapter bundle。
 
+### 1.1 Formal Input 硬约束
+
+Gate 1 formal path 的输入必须是真实 ResNet-50 NVBit trace。这个条件是 GCL ResNet-50 复现的必要条件，不能用其他数据替代。
+
+正式通过的 Gate 1 bundle 必须同时满足：
+
+```text
+workload_id = resnet50
+model = torchvision.models.resnet50
+execution_mode = real_trace
+trace_source = nvbit
+scheduler_metadata_source = real_nvbit_smid
+input_scope = full_resnet50_inference_trace
+```
+
+Gate 1 formal path 必须拒绝：
+
+```text
+synthetic trace
+ResNet-like fixture
+hand-written opcode sequence
+mini-transformer trace
+simulator replay trace
+file_order_fallback scheduler metadata
+partial manually selected kernel-only trace
+```
+
+这些输入可以用于单元测试、smoke test 或 debug bundle，但不得输出 `adapter_validation_report.status = passed`，不得被 Gate 2 formal path 消费。
+
 Gate 1 不选择 representative SM，不生成 Phase B formal manifest，也不训练 GNN。它只回答一个问题：
 
 ```text
@@ -65,6 +94,8 @@ phase_b_complete
 ```
 
 如果 Gate 1 发现输入缺少真实 scheduler metadata，它可以输出 validation failure，但不能使用 file order fallback 伪装成正式 adapter bundle。
+
+如果 Gate 1 发现输入来自 fixture / synthetic / debug replay，即使字段 shape 与真实 trace 相同，也必须输出 debug 或 failure report，不能伪装为 formal passed bundle。
 
 ## 3. 输入 Artifact
 
@@ -320,6 +351,10 @@ Gate 1 不跨 warp 串接 control-flow 主链；跨 warp graph 语义由后续 g
 
 ```text
 status = passed
+workload_id = resnet50
+execution_mode = real_trace
+trace_source = nvbit
+input_scope = full_resnet50_inference_trace
 scheduler_metadata_source = real_nvbit_smid
 scheduler_metadata_complete = true
 errors = []
@@ -362,6 +397,8 @@ Gate 1 完成时必须证明：
 7. bundle hash 可复现。
 8. 缺少真实 scheduler metadata 时不会伪装成正式通过。
 9. Gate 2 可以只依赖该 bundle 的 schema，而不直接读取原始 trace 文件。
+10. synthetic / ResNet-like / hand-written fixture 不能进入 formal passed bundle。
+11. formal passed bundle 必须记录并验证 `input_scope = full_resnet50_inference_trace`。
 
 ## 12. 非目标
 

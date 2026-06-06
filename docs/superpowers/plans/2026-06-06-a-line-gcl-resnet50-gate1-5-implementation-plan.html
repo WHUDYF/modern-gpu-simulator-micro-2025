@@ -236,7 +236,7 @@
   <header>
     <div class="wrap">
       <h1>GCL ResNet-50 Gate 1-5 总体实施计划</h1>
-      <p class="subtitle">本轮从真实 ResNet-50 trace adapter 开始，到 Gate 5 输出 canonical 256 维 kernel embedding table 为止。Gate 6 的 clustering、family classification 和调参策略留到下一轮。</p>
+      <p class="subtitle">本轮从真实完整 ResNet-50 NVBit trace adapter 开始，到 Gate 5 输出 canonical 256 维 kernel embedding table 为止。Gate 6 的 clustering、family classification 和调参策略留到下一轮。synthetic / ResNet-like fixture 只能用于测试，不能作为 formal 输入。</p>
     </div>
   </header>
 
@@ -245,7 +245,7 @@
       <section class="summary-grid">
         <div class="metric">
           <strong>起点</strong>
-          <span>ResNet-50 NVBit trace artifacts，必须带真实 SM/CTA metadata。</span>
+          <span>真实完整 ResNet-50 NVBit trace artifacts，必须带真实 SM/CTA metadata。</span>
         </div>
         <div class="metric">
           <strong>核心</strong>
@@ -263,12 +263,12 @@
 
       <section class="section">
         <h2>Gate 1-5 数据流</h2>
-        <p>每个 Gate 都只消费上一个 Gate 的正式 artifact，保证后续 replay 和 debug 时边界清楚。</p>
+        <p>每个 Gate 都只消费上一个 Gate 的正式 artifact。正式 artifact 必须继承真实 ResNet-50 provenance；fixture、synthetic trace 或 hand-written opcode 只能进入 debug / test path。</p>
         <div class="gate-grid">
           <div class="gate g1">
             <span class="tag green">Gate 1</span>
             <h3>Trace Adapter</h3>
-            <p>解析真实 ResNet trace，输出 <code>resnet50_trace_adapter_bundle.json</code>。</p>
+            <p>解析真实完整 ResNet-50 NVBit trace，输出 formal <code>resnet50_trace_adapter_bundle.json</code>。</p>
           </div>
           <div class="gate g2">
             <span class="tag amber">Gate 2</span>
@@ -305,7 +305,7 @@
 
             <rect x="34" y="50" width="174" height="78" rx="8" fill="#ecfdf3" stroke="#0f8a5f"></rect>
             <text x="121" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Raw Trace</text>
-            <text x="121" y="106" text-anchor="middle" font-size="12" fill="#667085">NVBit + SM/CTA</text>
+            <text x="121" y="106" text-anchor="middle" font-size="12" fill="#667085">real ResNet50 NVBit</text>
 
             <rect x="258" y="50" width="186" height="78" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
             <text x="351" y="80" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Gate 1 Bundle</text>
@@ -346,7 +346,7 @@
       <section class="section">
         <h2>实现任务</h2>
         <div class="task-list">
-          <div>Task 1: 构造小规模 ResNet-like Gate 1 fixture。</div>
+          <div>Task 1: 构造小规模 ResNet-like Gate 1 test fixture，但必须标记为 debug / test，不能 formal pass。</div>
           <div>Task 2: 实现 Gate 1 adapter bundle。</div>
           <div>Task 3: 从 adapter bundle 生成 Gate 2 representative-SM manifest。</div>
           <div>Task 4: 给 Gate 3/4 artifact 补齐 representation mode。</div>

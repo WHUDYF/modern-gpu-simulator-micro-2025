@@ -6,6 +6,8 @@
 
 **Architecture:** 本计划复用现有 `experiments/gcl_phase_b` 的 SM selection、trace scope、graph builder、tensorizer、augmentation、RGCN training 和 artifact hashing 能力，只新增 ResNet-50 real trace adapter、Gate 1 bundle、Gate 2 manifest adapter 和 Gate 5 formal export contract。执行路径固定为 `Gate 1 -> Gate 2 -> Gate 3 -> Gate 4 -> Gate 5`，本轮不进入 Gate 6 clustering / family classification。
 
+**Hard Requirement:** Gate 1-5 formal path 的输入必须是真实完整 ResNet-50 NVBit trace。synthetic trace、ResNet-like fixture、hand-written opcode sequence、mini-transformer trace、simulator replay trace 或 partial manually selected kernel-only trace 只能用于 unit / smoke / debug，不能生成 formal passed artifact，不能进入 Gate 5 formal training，也不能作为 Gate 6 的输入。
+
 **Tech Stack:** Python standard library、JSON artifacts、NumPy、PyTorch、pytest、现有 `experiments.gcl_phase_a` / `experiments.gcl_phase_b` modules。
 
 ---
@@ -33,6 +35,17 @@ kernel family classification
 GNN + fully connected family head
 调参比例预测
 simulator speedup / accuracy claim
+```
+
+Formal input 必须记录：
+
+```text
+workload_id = resnet50
+model = torchvision.models.resnet50
+execution_mode = real_trace
+trace_source = nvbit
+scheduler_metadata_source = real_nvbit_smid
+input_scope = full_resnet50_inference_trace
 ```
 
 ## 2. 参考 Spec
@@ -81,7 +94,7 @@ tests/gcl_phase_b/test_resnet50_gate_pipeline.py
   Gate 1-5 disk-backed end-to-end smoke tests。
 
 tests/fixtures/gcl_resnet50_gate1/
-  小规模 ResNet-like fixture，字段模拟真实 NVBit adapter 所需结构。
+  小规模 ResNet-like test fixture，只用于 unit / smoke / debug；不得作为 formal Gate 1-5 输入。
 ```
 
 修改：
@@ -108,18 +121,19 @@ tests/gcl_phase_b/test_embedding_export.py
 
 ## 4. 验收标准
 
-- AC-1: Gate 1 adapter bundle 可以从 ResNet-like trace fixture 稳定生成。
+- AC-1: Gate 1 formal adapter bundle 必须来自真实完整 ResNet-50 NVBit trace，并记录 `workload_id = resnet50`、`execution_mode = real_trace`、`trace_source = nvbit`、`input_scope = full_resnet50_inference_trace`。
 - AC-2: Gate 1 必须拒绝缺少 `scheduler_metadata_source = real_nvbit_smid` 的输入。
-- AC-3: Gate 2 必须从 adapter bundle 构造 `scheduler_metadata_by_sm`、`cta_to_sm` 和 `all_trace_entries`。
-- AC-4: Gate 2 必须使用 `scheduler_signature_medoid_sm` deterministic 地选择 representative SM。
-- AC-5: Gate 2 输出的 `representative_sm_trace_manifest.json` 必须能被现有 Phase B trace validator 接受。
-- AC-6: Gate 3 必须从 selected-SM all-CTA trace records 构建 canonical graph bundle。
-- AC-7: Gate 4 必须输出 feature width 64 的 graph tensor bundle，并记录 representation mode。
-- AC-8: Gate 5 augmentation manifest 必须只引用 canonical tensor，不覆盖 canonical tensor。
-- AC-9: Gate 5 readout 必须使用 `node -> warp -> CTA -> selected SM -> kernel`。
-- AC-10: Gate 5 必须导出 256 维 `kernel_embedding_table.json`，且不写 Gate 6 selector artifacts。
-- AC-11: Gate 1-5 pipeline 必须一条命令跑通小规模 fixture。
-- AC-12: 所有关键 artifact hash 必须可复现。
+- AC-3: Gate 1 必须拒绝 synthetic trace、ResNet-like fixture、hand-written opcode sequence、mini-transformer trace、simulator replay trace 和 partial manually selected kernel-only trace 进入 formal passed bundle。
+- AC-4: Gate 2 必须从 formal adapter bundle 构造 `scheduler_metadata_by_sm`、`cta_to_sm` 和 `all_trace_entries`。
+- AC-5: Gate 2 必须使用 `scheduler_signature_medoid_sm` deterministic 地选择 representative SM。
+- AC-6: Gate 2 输出的 `representative_sm_trace_manifest.json` 必须继承真实 ResNet-50 provenance，并能被现有 Phase B trace validator 接受。
+- AC-7: Gate 3 必须从 selected-SM all-CTA trace records 构建 canonical graph bundle，并拒绝 debug / fixture manifest 进入 formal output。
+- AC-8: Gate 4 必须输出 feature width 64 的 graph tensor bundle，并记录 representation mode，同时继承真实 ResNet-50 provenance。
+- AC-9: Gate 5 augmentation manifest 必须只引用 canonical tensor，不覆盖 canonical tensor。
+- AC-10: Gate 5 readout 必须使用 `node -> warp -> CTA -> selected SM -> kernel`。
+- AC-11: Gate 5 必须从 formal tensor bundle 导出 256 维 `kernel_embedding_table.json`，且不写 Gate 6 selector artifacts。
+- AC-12: Gate 1-5 pipeline 可以用小规模 fixture 做 smoke test，但该结果必须标记为 debug / test artifact，不能作为 formal pass。
+- AC-13: 所有关键 artifact hash 必须可复现。
 
 ---
 

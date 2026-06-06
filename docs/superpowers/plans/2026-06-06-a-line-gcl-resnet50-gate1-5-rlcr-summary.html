@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GCL ResNet-50 Gate 1-5 RLCR Summary</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1d2430;
+      --muted: #667085;
+      --line: #d6dbe3;
+      --blue: #2563eb;
+      --green: #0f8a5f;
+      --amber: #b7791f;
+      --red: #b42318;
+      --purple: #6d3cc2;
+      --cyan: #087ea4;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    header {
+      background: #101828;
+      color: #fff;
+      padding: 32px 24px 28px;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    main {
+      padding: 28px 0 44px;
+    }
+
+    code {
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 13px;
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      max-width: 940px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 112px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 16px;
+    }
+
+    .pipe-card {
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+      min-height: 184px;
+      position: relative;
+    }
+
+    .pipe-card::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 18px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .pipe-card:last-child::after {
+      display: none;
+    }
+
+    .g1 { border-top-color: var(--green); }
+    .g2 { border-top-color: var(--amber); }
+    .g3 { border-top-color: var(--blue); }
+    .g4 { border-top-color: var(--purple); }
+    .g5 { border-top-color: var(--cyan); }
+    .replay { border-top-color: var(--red); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .tag.green { background: var(--green); }
+    .tag.amber { background: var(--amber); }
+    .tag.blue { background: var(--blue); }
+    .tag.purple { background: var(--purple); }
+    .tag.cyan { background: var(--cyan); }
+    .tag.red { background: var(--red); }
+
+    .artifact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .artifact {
+      border-left: 4px solid var(--blue);
+      border-radius: 6px;
+      background: #fbfcfe;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 104px;
+    }
+
+    .artifact strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .artifact span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .round {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+    }
+
+    .round-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      background: #344054;
+      border-radius: 8px;
+      min-height: 88px;
+    }
+
+    .list {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .list li {
+      margin: 5px 0;
+    }
+
+    .note {
+      border-left: 4px solid var(--amber);
+      background: #fff8eb;
+      padding: 12px 14px;
+      border-radius: 6px;
+      color: #4b3a18;
+      margin-top: 12px;
+    }
+
+    .diagram {
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    svg text {
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 0 0 32px;
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .pipeline,
+      .three-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .two-col,
+      .artifact-grid,
+      .timeline {
+        grid-template-columns: 1fr;
+      }
+
+      .pipe-card::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .summary-grid,
+      .pipeline,
+      .three-col {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>GCL ResNet-50 Gate 1-5 RLCR 实现总结</h1>
+      <p class="subtitle">
+        本页说明 2026-06-06 这轮 RLCR 对
+        <code>2026-06-06-a-line-gcl-resnet50-gate1-5-implementation-plan.md</code>
+        的实现结果与后续修正：RLCR 打通了 Gate1-5 工程闭环，但 formal GCL ResNet-50 path 的必要输入必须是真实完整 ResNet-50 NVBit trace，fixture 只能用于测试。
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="summary-grid">
+        <div class="metric">
+          <strong>Gate 1-5</strong>
+          <span>本轮跑到 kernel embedding table，不进入 Gate 6 clustering / family classification。</span>
+        </div>
+        <div class="metric">
+          <strong>15 轮</strong>
+          <span>RLCR 在第 15 轮完成，finalize 阶段未再做源代码简化。</span>
+        </div>
+        <div class="metric">
+          <strong>263 passed</strong>
+          <span>组合回归验证通过，用于覆盖 Phase A/B 与新增 ResNet-50 Gate 流程。</span>
+        </div>
+        <div class="metric">
+          <strong>clean</strong>
+          <span>finalize 后 <code>git diff --check</code> 通过，工作区恢复到干净状态。</span>
+        </div>
+      </div>
+
+      <section class="section">
+        <h2>这次 RLCR 打通了什么</h2>
+        <p>
+          这轮实现的核心不是最终分类 kernel，而是把 Gate 1 到 Gate 5 的工程链路、artifact 边界、hash、validator
+          和 replay 契约固定下来。当前测试闭环使用的是 ResNet-like fixture；按照修正后的 spec，formal path
+          必须改为读取真实完整 ResNet-50 NVBit trace，才能把 Gate 5 导出的 256 维 <code>kernel_embedding_table.json</code>
+          作为后续 Gate 6 输入。
+        </p>
+
+        <div class="pipeline">
+          <div class="pipe-card g1">
+            <span class="tag green">Gate 1</span>
+            <h3>Trace Adapter</h3>
+            <p>formal path 读取真实完整 ResNet-50 NVBit trace，验证 <code>scheduler_metadata_source = real_nvbit_smid</code>，生成 adapter bundle。</p>
+          </div>
+          <div class="pipe-card g2">
+            <span class="tag amber">Gate 2</span>
+            <h3>Representative SM</h3>
+            <p>从 scheduler metadata 中构造 SM 签名，并用 <code>scheduler_signature_medoid_sm</code> 选择代表 SM。</p>
+          </div>
+          <div class="pipe-card g3">
+            <span class="tag blue">Gate 3</span>
+            <h3>Canonical Graph</h3>
+            <p>把 selected-SM all-CTA trace records 转为 canonical graph bundle，保留 warp / CTA 层级。</p>
+          </div>
+          <div class="pipe-card g4">
+            <span class="tag purple">Gate 4</span>
+            <h3>Tensorization</h3>
+            <p>把 graph 转为 feature width 64 的 tensor bundle，并记录 representation mode 与 pseudo-node mode。</p>
+          </div>
+          <div class="pipe-card g5">
+            <span class="tag cyan">Gate 5</span>
+            <h3>RGCN Export</h3>
+            <p>执行 augmentation、RGCN/readout、embedding export，停止在 <code>kernel_embedding_table.json</code>。</p>
+          </div>
+          <div class="pipe-card replay">
+            <span class="tag red">Replay</span>
+            <h3>Integrity Check</h3>
+            <p>校验 embedding table、readout hash、selector coverage、pipeline provenance 与 disk-backed replay。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>闭环结构图</h2>
+        <p>
+          图中上半部分是数据流，下半部分是 RLCR 加固后的校验边界。也就是说，artifact 不只是被生成，
+          还要能证明自己来自正确的上游，并且在失败恢复时不会留下旧成功结果。
+        </p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 1120 360" role="img" aria-label="GCL ResNet-50 Gate 1-5 RLCR pipeline diagram">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#344054"></path>
+              </marker>
+            </defs>
+
+            <rect x="28" y="34" width="170" height="82" rx="8" fill="#ecfdf3" stroke="#0f8a5f"></rect>
+            <text x="113" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Real ResNet-50</text>
+            <text x="113" y="88" text-anchor="middle" font-size="12" fill="#475467">NVBit trace</text>
+            <text x="113" y="106" text-anchor="middle" font-size="12" fill="#475467">real SM/CTA</text>
+
+            <rect x="240" y="34" width="150" height="82" rx="8" fill="#fffbeb" stroke="#b7791f"></rect>
+            <text x="315" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 1</text>
+            <text x="315" y="88" text-anchor="middle" font-size="12" fill="#475467">adapter bundle</text>
+            <text x="315" y="106" text-anchor="middle" font-size="12" fill="#475467">source validation</text>
+
+            <rect x="432" y="34" width="150" height="82" rx="8" fill="#eff6ff" stroke="#2563eb"></rect>
+            <text x="507" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 2</text>
+            <text x="507" y="88" text-anchor="middle" font-size="12" fill="#475467">representative SM</text>
+            <text x="507" y="106" text-anchor="middle" font-size="12" fill="#475467">medoid policy</text>
+
+            <rect x="624" y="34" width="150" height="82" rx="8" fill="#f5f3ff" stroke="#6d3cc2"></rect>
+            <text x="699" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 3-4</text>
+            <text x="699" y="88" text-anchor="middle" font-size="12" fill="#475467">canonical graph</text>
+            <text x="699" y="106" text-anchor="middle" font-size="12" fill="#475467">tensor bundle</text>
+
+            <rect x="816" y="34" width="150" height="82" rx="8" fill="#ecfeff" stroke="#087ea4"></rect>
+            <text x="891" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Gate 5</text>
+            <text x="891" y="88" text-anchor="middle" font-size="12" fill="#475467">RGCN readout</text>
+            <text x="891" y="106" text-anchor="middle" font-size="12" fill="#475467">embedding export</text>
+
+            <rect x="1008" y="34" width="84" height="82" rx="8" fill="#fff1f3" stroke="#b42318"></rect>
+            <text x="1050" y="64" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2430">Replay</text>
+            <text x="1050" y="88" text-anchor="middle" font-size="12" fill="#475467">hash</text>
+            <text x="1050" y="106" text-anchor="middle" font-size="12" fill="#475467">coverage</text>
+
+            <line x1="198" y1="75" x2="232" y2="75" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="390" y1="75" x2="424" y2="75" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="582" y1="75" x2="616" y2="75" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="774" y1="75" x2="808" y2="75" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="966" y1="75" x2="1000" y2="75" stroke="#344054" stroke-width="2" marker-end="url(#arrow)"></line>
+
+            <rect x="72" y="190" width="210" height="68" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="177" y="218" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Trace / Graph Validation</text>
+            <text x="177" y="240" text-anchor="middle" font-size="12" fill="#667085">字段、CTA 映射、trace_index 连续性</text>
+
+            <rect x="316" y="190" width="210" height="68" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="421" y="218" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Readout Hash Binding</text>
+            <text x="421" y="240" text-anchor="middle" font-size="12" fill="#667085">embedding 必须绑定 readout manifest</text>
+
+            <rect x="560" y="190" width="210" height="68" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="665" y="218" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Resource Blocked Recovery</text>
+            <text x="665" y="240" text-anchor="middle" font-size="12" fill="#667085">OOM 时清理旧 success artifact</text>
+
+            <rect x="804" y="190" width="210" height="68" rx="8" fill="#ffffff" stroke="#d6dbe3"></rect>
+            <text x="909" y="218" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2430">Disk-backed Replay</text>
+            <text x="909" y="240" text-anchor="middle" font-size="12" fill="#667085">从磁盘重放也必须写回契约结果</text>
+
+            <path d="M177 190 C220 154, 278 132, 315 116" fill="none" stroke="#98a2b3" stroke-width="2"></path>
+            <path d="M421 190 C500 148, 630 132, 699 116" fill="none" stroke="#98a2b3" stroke-width="2"></path>
+            <path d="M665 190 C748 148, 820 132, 891 116" fill="none" stroke="#98a2b3" stroke-width="2"></path>
+            <path d="M909 190 C972 150, 1024 130, 1050 116" fill="none" stroke="#98a2b3" stroke-width="2"></path>
+
+            <rect x="248" y="302" width="624" height="36" rx="8" fill="#101828"></rect>
+            <text x="560" y="325" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">
+              最终边界：本轮只证明 Gate1-5 embedding 闭环正确，不声明 clustering、family 分类或调参效果
+            </text>
+          </svg>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Review 具体加固了哪些问题</h2>
+        <div class="three-col">
+          <div class="mini-panel">
+            <span class="tag blue">Graph Integrity</span>
+            <h3>trace 到 graph 的输入契约更硬</h3>
+            <ul class="list">
+              <li>必须记录 selected SM、CTA 映射、trace source 和 manifest 字段。</li>
+              <li><code>trace_index</code> 必须唯一、连续，不能跳号或重复。</li>
+              <li>warp partition 排序改为 numeric 排序，避免 10 个以上 CTA 时字典序错位。</li>
+            </ul>
+          </div>
+
+          <div class="mini-panel">
+            <span class="tag cyan">Replay Integrity</span>
+            <h3>embedding 不能脱离 provenance</h3>
+            <ul class="list">
+              <li>embedding table 必须绑定 readout manifest hash。</li>
+              <li>selector replay 必须验证 coverage，不能只看文件存在。</li>
+              <li>disk-backed stage 必须写回 replay / selector artifacts。</li>
+            </ul>
+          </div>
+
+          <div class="mini-panel">
+            <span class="tag red">Recovery</span>
+            <h3>失败路径不能留下旧成功结果</h3>
+            <ul class="list">
+              <li>training / export / selector / readout OOM 会写 resource-blocked artifact。</li>
+              <li>resource-blocked 时会清理旧 success artifact 和 stale hashes。</li>
+              <li>blocked replay hash 不允许继续伪装成可用成功结果。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="two-col" style="margin-top: 16px;">
+          <div class="mini-panel">
+            <span class="tag green">Measured Loop</span>
+            <h3>M1 / baseline diagnosis 修正</h3>
+            <p>
+              RLCR 补上了 Gate 4 timing weight 需要的明确计时指标：
+              <code>gpu__time_duration.sum</code> 和 <code>sm__cycles_elapsed.sum</code>。
+              缺失或无效的 <code>selected_metrics.json</code> 现在会显式失败，避免后续使用静默错误的 timing 权重。
+            </p>
+          </div>
+
+          <div class="mini-panel">
+            <span class="tag purple">Runtime</span>
+            <h3>CLI 与顺序稳定性</h3>
+            <p>
+              Gate 1 resolver 支持 <code>python -m</code> 方式运行；Phase B ordering 被稳定下来，
+              让同一份输入在 disk-backed pipeline 中生成可复现 artifact。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>本轮固定下来的 Artifact 契约</h2>
+        <p>
+          这些 artifact 是后续 Gate 6 clustering / family classification 的上游边界。
+          后续工作应该消费这些文件，而不是绕过 Gate 1-5 直接读取中间变量。
+        </p>
+        <div class="artifact-grid">
+          <div class="artifact">
+            <strong><code>resnet50_trace_adapter_bundle.json</code></strong>
+            <span>Gate 1 输出。证明输入 trace sources 可读，并且 scheduler metadata 来自真实 NVBit SM ID 采集路径。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>representative_sm_trace_manifest.json</code></strong>
+            <span>Gate 2 输出。记录 selected SM、selection policy、CTA 覆盖范围和 trace hash。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>canonical_graph_bundle.json</code></strong>
+            <span>Gate 3 输出。保存 selected-SM all-CTA trace 生成的 canonical graph，不被 augmentation 覆盖。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>graph_tensor_bundle.json</code></strong>
+            <span>Gate 4 输出。保存 64 维 node features、edge_index、edge_type 和 warp / CTA partition metadata。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>readout_manifest.json</code></strong>
+            <span>Gate 5 中间契约。记录 <code>node -> warp -> CTA -> selected SM -> kernel</code> readout 层级。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>kernel_embedding_table.json</code></strong>
+            <span>Gate 5 最终输出。导出 256 维 canonical kernel embedding，作为后续 selector / clustering 输入。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>selector_artifacts.json</code></strong>
+            <span>本轮不会作为 Gate 5 正常输出，但 replay / repair stage 必须能验证 selector 覆盖与 provenance。</span>
+          </div>
+          <div class="artifact">
+            <strong><code>resource_blocked_artifact.json</code></strong>
+            <span>OOM 或资源失败时的显式失败结果，用来替代旧 success artifact，避免误判 pipeline 已成功。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>RLCR 轮次成果</h2>
+        <div class="timeline">
+          <div class="round-number">初始实现</div>
+          <div class="round">
+            <h3>从 plan 到 Gate1-5 pipeline</h3>
+            <p>
+              早期提交完成 ResNet-50 Gate 1 adapter、Gate 2 representative SM manifest、
+              representation mode 记录、CTA-aware Gate 5 readout，以及一条命令运行 Gate1-5 的 pipeline。
+            </p>
+          </div>
+
+          <div class="round-number">Review 修正</div>
+          <div class="round">
+            <h3>把“能跑通”升级成“能被审计”</h3>
+            <p>
+              后续修正集中在身份、顺序、hash、coverage、resource-blocked 和 disk-backed replay。
+              这些修改使 pipeline 失败时会明确失败，成功时能证明每个 artifact 来自正确上游。
+            </p>
+          </div>
+
+          <div class="round-number">Finalize</div>
+          <div class="round">
+            <h3>没有做额外简化</h3>
+            <p>
+              code-simplifier 复查后没有发现可在 finalize 约束内安全执行的等价简化。
+              因此 finalize 阶段没有修改源文件，只做验证和工作区清理。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>最终验证结果</h2>
+        <div class="two-col">
+          <div class="mini-panel">
+            <span class="tag green">Passed</span>
+            <h3>测试结果</h3>
+            <ul class="list">
+              <li>Phase A/B recent full suite：<code>191 passed</code>。</li>
+              <li>组合回归：<code>263 passed</code>。</li>
+              <li>Finalize focused suite：<code>16 passed</code>。</li>
+            </ul>
+          </div>
+
+          <div class="mini-panel">
+            <span class="tag blue">Clean</span>
+            <h3>工作区与格式</h3>
+            <ul class="list">
+              <li><code>git diff --check</code> 在 finalize 阶段通过。</li>
+              <li><code>git status --short</code> 在 finalize 阶段为 clean。</li>
+              <li>tracked pytest <code>__pycache__</code> 副作用已在 finalize 前恢复。</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="note">
+          这轮验证不能解释为“GNN 分类正确率已经确认”。它证明的是 Gate1-5 的工程闭环、artifact 契约、
+          replay integrity 和失败恢复路径已经被测试覆盖。它也不能解释为“完整真实 ResNet-50 trace 已经完成 formal ingestion”；
+          当前测试数据仍是 fixture，formal ResNet-50 输入必须在后续真实 NVBit acquisition 中补齐。kernel family classification 属于后续 Gate 6。
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>后续可以接什么</h2>
+        <div class="three-col">
+          <div class="mini-panel">
+            <span class="tag cyan">Gate 6</span>
+            <h3>Clustering / Family</h3>
+            <p>消费 <code>kernel_embedding_table.json</code>，实现 K-Means、silhouette K、family label 评估和 selector 输出。</p>
+          </div>
+          <div class="mini-panel">
+            <span class="tag green">Real Trace</span>
+            <h3>NVBit Metadata</h3>
+            <p>把真实完整 ResNet-50 NVBit trace 的 <code>sm_id</code>、<code>cta_id</code>、<code>warp_id</code> 接入 Gate 1 adapter，并作为 formal path 的唯一输入。</p>
+          </div>
+          <div class="mini-panel">
+            <span class="tag amber">Scale</span>
+            <h3>更大输入回放</h3>
+            <p>用更多 ResNet-50 kernel invocation 验证 representative SM policy、readout 稳定性和 resource-blocked 行为。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Generated for RLCR run <code>.humanize/rlcr/2026-06-06_01-14-46</code>.
+    </div>
+  </footer>
+</body>
+</html>

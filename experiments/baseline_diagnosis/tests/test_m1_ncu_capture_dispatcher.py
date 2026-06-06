@@ -58,6 +58,14 @@ def test_gate2_dedups_commands_and_never_uses_set_full(monkeypatch, tmp_path):
         assert key in env_doc
 
 
+def test_gate2_selected_metrics_include_timing_metrics_for_gate4_weights():
+    selected = selected_metric_records()
+    metrics = dispatcher.selected_ncu_metrics(selected)
+
+    assert "gpu__time_duration.sum" in metrics
+    assert "sm__cycles_elapsed.sum" in metrics
+
+
 def test_gate2_rejects_nonempty_malformed_csv(tmp_path):
     csv_path = tmp_path / "capture.csv"
     csv_path.write_text("not,ncu,csv\n")

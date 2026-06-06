@@ -105,6 +105,7 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
     attempts: list[dict[str, Any]] = []
     gaps: list[dict[str, Any]] = []
     metrics = selected_ncu_metrics(metric_records)
+    has_selected_feature_metric = any(row.get("selected_for_ncu_metrics") for row in metric_records)
     for index, rows in enumerate(grouped.values()):
         first = rows[0]
         token = sanitize_token(first.get("workload_id", "workload"))
@@ -131,7 +132,7 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
             *first["resolved_run_command"],
         ]
         timed_out = False
-        if not metrics:
+        if not has_selected_feature_metric:
             stdout = ""
             stderr = "No NCU metrics resolved from query artifact"
             exit_code = None

@@ -48,6 +48,11 @@ COUNT_FEATURES = {
 
 RATIO_FEATURES = {"divergence_efficiency"}
 
+TIMING_NCU_METRICS = [
+    "gpu__time_duration.sum",
+    "sm__cycles_elapsed.sum",
+]
+
 FEATURE_SPECS: dict[str, dict[str, Any]] = {
     "coalesced_global_loads": {
         "canonical_metric": "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum",
@@ -285,11 +290,15 @@ def selected_metric_records(query_text: str = "", query_status: str = "static_fi
 
 def selected_ncu_metrics(metric_records: list[dict[str, Any]] | None = None) -> list[str]:
     metric_records = selected_metric_records() if metric_records is None else metric_records
-    return [
+    metrics = [
         row["actual_source_metric"]
         for row in metric_records
         if row["selected_for_ncu_metrics"]
     ]
+    for metric in TIMING_NCU_METRICS:
+        if metric not in metrics:
+            metrics.append(metric)
+    return metrics
 
 
 def has_ncu_csv_header(path: Path) -> bool:

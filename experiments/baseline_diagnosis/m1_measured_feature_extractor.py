@@ -30,14 +30,22 @@ FEATURE_AUDIT_PATH = ARTIFACT_DIR / "pka_feature_audit_l1.json"
 JOIN_AUDIT_PATH = ARTIFACT_DIR / "pka_join_audit_l1.json"
 
 
-def _allowed_sources(attempt: dict[str, Any]) -> dict[str, str]:
+def _load_allowed_sources(attempt: dict[str, Any]) -> tuple[dict[str, str], str | None, str | None]:
     selected_path = repo_path(Path(attempt["capture_csv_path"]).parent / "selected_metrics.json")
-    rows = read_json(selected_path, [])
-    return {
+    if not selected_path.exists():
+        return {}, "selected_metrics_missing", "missing Gate2 selected_metrics.json"
+    try:
+        rows = read_json(selected_path, [])
+    except json.JSONDecodeError as exc:
+        return {}, "selected_metrics_invalid", str(exc)
+    if not isinstance(rows, list):
+        return {}, "selected_metrics_invalid", "selected_metrics.json must contain a list"
+    allowed = {
         row["feature_name"]: row.get("actual_source_metric")
         for row in rows
         if row.get("resolution_status") in {"available", "rollup_resolved", "launch_metadata"}
     }
+    return allowed, None, None
 
 
 def _gap_row(
@@ -184,7 +192,18 @@ def extract() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     detail=str(exc),
                 ))
             continue
-        allowed = _allowed_sources(attempt)
+        allowed, selected_metrics_gap, selected_metrics_detail = _load_allowed_sources(attempt)
+        if selected_metrics_gap:
+            for index, (entry_id, kernel_or_case) in enumerate(zip(attempt["consuming_manifest_entry_ids"], attempt["consuming_kernel_or_cases"])):
+                gaps.append(_gap_row(
+                    entry_id,
+                    attempt,
+                    kernel_or_case,
+                    selected_metrics_gap,
+                    meta=_entry_metadata(attempt, index, entry_id, kernel_or_case),
+                    detail=selected_metrics_detail,
+                ))
+            continue
         kernel_counts = {
             kernel: attempt.get("consuming_kernel_or_cases", []).count(kernel)
             for kernel in attempt.get("consuming_kernel_or_cases", [])

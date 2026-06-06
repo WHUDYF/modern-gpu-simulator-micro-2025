@@ -210,3 +210,66 @@ def test_gate3_rejects_missing_environment_manifest(monkeypatch, tmp_path):
     features, gaps = extractor.extract()
     assert not features
     assert gaps[0]["gap_reason"] == "env_manifest_missing"
+
+
+def test_gate3_reports_missing_selected_metrics_artifact(monkeypatch, tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
+    _write_fixture_csv(csv_path)
+    _write_env(env_path)
+    attempts_path = tmp_path / "attempts.json"
+    attempts_path.write_text(json.dumps([
+        {
+            "capture_job_id": "job",
+            "gate3_eligible": True,
+            "capture_status": "captured",
+            "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
+            "consuming_manifest_entry_ids": ["L1_A"],
+            "consuming_kernel_or_cases": ["my_kernel"],
+        }
+    ]))
+    monkeypatch.setattr(extractor, "ATTEMPTS_PATH", attempts_path)
+    monkeypatch.setattr(extractor, "FEATURE_TABLE_PATH", tmp_path / "features.json")
+    monkeypatch.setattr(extractor, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(extractor, "FEATURE_AUDIT_PATH", tmp_path / "audit.json")
+    monkeypatch.setattr(extractor, "JOIN_AUDIT_PATH", tmp_path / "join.json")
+
+    features, gaps = extractor.extract()
+
+    assert not features
+    assert gaps[0]["gap_reason"] == "selected_metrics_missing"
+
+
+def test_gate3_reports_invalid_selected_metrics_artifact(monkeypatch, tmp_path):
+    job_dir = tmp_path / "job"
+    job_dir.mkdir()
+    csv_path = job_dir / "capture.csv"
+    env_path = job_dir / "capture_env_manifest.json"
+    _write_fixture_csv(csv_path)
+    _write_env(env_path)
+    (job_dir / "selected_metrics.json").write_text("{bad json")
+    attempts_path = tmp_path / "attempts.json"
+    attempts_path.write_text(json.dumps([
+        {
+            "capture_job_id": "job",
+            "gate3_eligible": True,
+            "capture_status": "captured",
+            "capture_csv_path": str(csv_path),
+            "environment_manifest_path": str(env_path),
+            "consuming_manifest_entry_ids": ["L1_A"],
+            "consuming_kernel_or_cases": ["my_kernel"],
+        }
+    ]))
+    monkeypatch.setattr(extractor, "ATTEMPTS_PATH", attempts_path)
+    monkeypatch.setattr(extractor, "FEATURE_TABLE_PATH", tmp_path / "features.json")
+    monkeypatch.setattr(extractor, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(extractor, "FEATURE_AUDIT_PATH", tmp_path / "audit.json")
+    monkeypatch.setattr(extractor, "JOIN_AUDIT_PATH", tmp_path / "join.json")
+
+    features, gaps = extractor.extract()
+
+    assert not features
+    assert gaps[0]["gap_reason"] == "selected_metrics_invalid"

@@ -24,11 +24,17 @@ def select_phase_b_representatives(
     seed: int = 20260602,
     allow_debug: bool = False,
     lineage_bundle: dict[str, Any] | None = None,
+    gate5_manifests: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     for row in table.get("embeddings", []):
         if row.get("resource_blocked"):
             raise ValueError("resource-blocked embedding rows cannot enter M0 selector")
-    _validate_gate6_input_table(table, allow_debug=allow_debug, lineage_bundle=lineage_bundle)
+    _validate_gate6_input_table(
+        table,
+        allow_debug=allow_debug,
+        lineage_bundle=lineage_bundle,
+        gate5_manifests=gate5_manifests,
+    )
     validate_phase_b_embedding_table(table)
     rows = _embedding_rows(table)
     if len(rows) == 1:
@@ -179,6 +185,7 @@ def _validate_gate6_input_table(
     table: dict[str, Any],
     allow_debug: bool = False,
     lineage_bundle: dict[str, Any] | None = None,
+    gate5_manifests: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     if table.get("artifact_status") != "formal" and not allow_debug:
         raise ValueError("Gate6 selector requires formal embedding table")
@@ -212,7 +219,7 @@ def _validate_gate6_input_table(
         missing_lineage = required_lineage.difference(lineage)
         if missing_lineage:
             raise ValueError(f"Gate5 lineage missing required fields: {sorted(missing_lineage)}")
-        _validate_persisted_gate5_lineage_bundle(table, lineage_bundle)
+        _validate_persisted_gate5_lineage_bundle(table, lineage_bundle, gate5_manifests)
     if table.get("family_labels_used_for_clustering") is True:
         raise ValueError("family labels cannot guide Gate6 clustering")
     forbidden = {"kernel_name", "family_label", "runtime", "graph_size", "weight_input"}
@@ -230,6 +237,7 @@ def _validate_gate6_input_table(
 def _validate_persisted_gate5_lineage_bundle(
     table: dict[str, Any],
     lineage_bundle: dict[str, Any] | None,
+    gate5_manifests: dict[str, dict[str, Any]] | None,
 ) -> None:
     if not lineage_bundle:
         raise ValueError("persisted Gate5 lineage bundle is required for formal Gate6 selector input")
@@ -254,6 +262,50 @@ def _validate_persisted_gate5_lineage_bundle(
     }
     if persisted != expected:
         raise ValueError("persisted Gate5 manifest hashes do not match embedding table lineage")
+    _validate_gate5_manifest_objects(table, gate5_manifests)
+
+
+def _validate_gate5_manifest_objects(
+    table: dict[str, Any],
+    gate5_manifests: dict[str, dict[str, Any]] | None,
+) -> None:
+    if not gate5_manifests:
+        raise ValueError("persisted Gate5 manifest objects are required for formal Gate6 selector input")
+    required = {
+        "training_run_manifest",
+        "checkpoint_manifest",
+        "readout_manifest_bundle",
+        "embedding_export_report",
+    }
+    missing = required.difference(gate5_manifests)
+    if missing:
+        raise ValueError(f"persisted Gate5 manifest objects missing fields: {sorted(missing)}")
+    lineage = table["gate5_lineage"]
+    recomputed = {
+        "training_run_manifest_hash": hash_without(
+            gate5_manifests["training_run_manifest"],
+            "training_run_manifest_hash",
+        ),
+        "checkpoint_manifest_hash": hash_without(
+            gate5_manifests["checkpoint_manifest"],
+            "rgcn_checkpoint_manifest_hash",
+        ),
+        "readout_manifest_bundle_hash": hash_without(
+            gate5_manifests["readout_manifest_bundle"],
+            "readout_manifest_bundle_hash",
+        ),
+        "embedding_export_report_hash": hash_without(
+            gate5_manifests["embedding_export_report"],
+            "embedding_export_report_hash",
+        ),
+    }
+    if recomputed != {
+        "training_run_manifest_hash": lineage["training_run_manifest_hash"],
+        "checkpoint_manifest_hash": lineage["checkpoint_manifest_hash"],
+        "readout_manifest_bundle_hash": lineage["readout_manifest_bundle_hash"],
+        "embedding_export_report_hash": lineage["embedding_export_report_hash"],
+    }:
+        raise ValueError("persisted Gate5 manifest objects do not match embedding table lineage")
 
 
 def validate_gate6_selector_artifacts(artifact: dict[str, Any]) -> None:

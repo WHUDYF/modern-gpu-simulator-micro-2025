@@ -134,6 +134,12 @@ def run_resnet50_gate1_to_gate7(
         embedding_table,
         seed=seed,
         lineage_bundle=lineage_bundle,
+        gate5_manifests={
+            "training_run_manifest": training_run_manifest,
+            "checkpoint_manifest": checkpoint_manifest,
+            "readout_manifest_bundle": readout_bundle,
+            "embedding_export_report": export_report,
+        },
     )
     write_json(out_dir / "selector_artifacts.json", selector_artifacts)
 

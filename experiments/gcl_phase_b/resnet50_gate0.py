@@ -18,6 +18,7 @@ GATE0_ARTIFACT_VERSION = "gate0_trace_acquisition_manifest_v1"
 GATE0_BLOCKER_TYPE = "gcl_resnet50_gate0_trace_acquisition_blocker_report"
 GATE0_BLOCKER_VERSION = "gate0_trace_acquisition_blocker_report_v1"
 NVBIT_COLLECTION_EVIDENCE_FILENAME = "nvbit_collection_evidence.json"
+NVBIT_COLLECTOR_ATTESTATION_FILENAME = "nvbit_collector_attestation.json"
 FORMAL_SOURCE_ARTIFACTS = {
     "dynamic_trace.pb": "file",
     "threadblocks/": "directory",
@@ -80,7 +81,7 @@ def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
     _validate_scheduler_metadata_records(scheduler_metadata)
     _reject_fixture_backed_root(root)
     source_hashes = _source_artifact_hashes(root)
-    _validate_collector_attestation(evidence, source_hashes)
+    _validate_collector_attestation(root, evidence, source_hashes)
     manifest = {
         "artifact_type": GATE0_ARTIFACT_TYPE,
         "artifact_version": GATE0_ARTIFACT_VERSION,
@@ -191,24 +192,37 @@ def _load_nvbit_collection_evidence(root: Path) -> dict[str, Any]:
     return evidence
 
 
-def _validate_collector_attestation(evidence: dict[str, Any], source_hashes: dict[str, str]) -> None:
-    attestation_hash = evidence.get("collector_attestation_hash")
-    if not attestation_hash:
+def _validate_collector_attestation(
+    root: Path,
+    evidence: dict[str, Any],
+    source_hashes: dict[str, str],
+) -> None:
+    evidence_attestation_hash = evidence.get("collector_attestation_hash")
+    if not evidence_attestation_hash:
         raise ValueError("collector attestation is required for formal Gate0")
-    expected = hash_without(
-        {
-            "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
-            "workload_id": evidence["workload_id"],
-            "execution_mode": evidence["execution_mode"],
-            "trace_source": evidence["trace_source"],
-            "input_scope": evidence["input_scope"],
-            "scheduler_metadata_source": evidence["scheduler_metadata_source"],
-            "collection_status": evidence["collection_status"],
-            "source_artifact_hashes": source_hashes,
-        }
-    )
-    if attestation_hash != expected:
-        raise ValueError("collector attestation hash does not match Gate0 source artifacts")
+    path = root / NVBIT_COLLECTOR_ATTESTATION_FILENAME
+    if not path.is_file():
+        raise ValueError("persisted collector attestation artifact is required for formal Gate0")
+    attestation = read_json(path)
+    if attestation.get("artifact_type") != "gcl_resnet50_nvbit_collector_attestation":
+        raise ValueError("collector attestation artifact_type mismatch")
+    for field in (
+        "workload_id",
+        "execution_mode",
+        "trace_source",
+        "input_scope",
+        "scheduler_metadata_source",
+        "collection_status",
+    ):
+        if attestation.get(field) != evidence.get(field):
+            raise ValueError(f"collector attestation {field} does not match evidence")
+    if attestation.get("source_artifact_hashes") != source_hashes:
+        raise ValueError("collector attestation source artifact hashes do not match Gate0 artifacts")
+    actual_hash = hash_without(attestation, "collector_attestation_hash")
+    if attestation.get("collector_attestation_hash") != actual_hash:
+        raise ValueError("collector attestation hash is not reproducible")
+    if evidence_attestation_hash != actual_hash:
+        raise ValueError("collector attestation hash does not match evidence reference")
 
 
 def _reject_fixture_backed_root(root: Path) -> None:

@@ -117,6 +117,12 @@ def test_gate6_rejects_forged_self_consistent_lineage_with_forged_bundle():
         "artifact_version": "gate5_lineage_bundle_v1",
         "lineage": table["gate5_lineage"],
         "readout_manifest_bundle_hash": table["gate5_lineage"]["readout_manifest_bundle_hash"],
+        "persisted_manifest_hashes": {
+            "training_run_manifest_hash": table["gate5_lineage"]["training_run_manifest_hash"],
+            "checkpoint_manifest_hash": table["gate5_lineage"]["checkpoint_manifest_hash"],
+            "readout_manifest_bundle_hash": table["gate5_lineage"]["readout_manifest_bundle_hash"],
+            "embedding_export_report_hash": table["gate5_lineage"]["embedding_export_report_hash"],
+        },
     }
     forged_bundle["gate5_lineage_bundle_hash"] = hash_without(
         forged_bundle, "gate5_lineage_bundle_hash"
@@ -124,7 +130,7 @@ def test_gate6_rejects_forged_self_consistent_lineage_with_forged_bundle():
     table["gate5_lineage_bundle_hash"] = forged_bundle["gate5_lineage_bundle_hash"]
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
 
-    with pytest.raises(ValueError, match="persisted Gate5 manifest hashes"):
+    with pytest.raises(ValueError, match="persisted Gate5 manifest objects"):
         select_phase_b_representatives(table, seed=7, lineage_bundle=forged_bundle)
 
 

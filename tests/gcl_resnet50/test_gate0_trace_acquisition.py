@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
     record_resnet50_gate0_trace_acquisition,
     write_resnet50_gate0_blocker_report,
 )
+from experiments.gcl_phase_b.utils import hash_without, read_json, write_json
 from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
@@ -134,4 +135,46 @@ def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp
     )
 
     with pytest.raises(ValueError, match="collector attestation"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "spoofed_trace",
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+    evidence_path = root / "nvbit_collection_evidence.json"
+    evidence = read_json(evidence_path)
+    evidence["collector_attestation_hash"] = "self-declared"
+    write_json(evidence_path, evidence)
+
+    with pytest.raises(ValueError, match="persisted collector attestation"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "spoofed_trace",
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+    attestation = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "collection_status": "completed",
+        "source_artifact_hashes": {"dynamic_trace.pb": "wrong"},
+    }
+    attestation["collector_attestation_hash"] = hash_without(
+        attestation, "collector_attestation_hash"
+    )
+    write_json(root / "nvbit_collector_attestation.json", attestation)
+    evidence_path = root / "nvbit_collection_evidence.json"
+    evidence = read_json(evidence_path)
+    evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
+    write_json(evidence_path, evidence)
+
+    with pytest.raises(ValueError, match="source artifact hashes"):
         record_resnet50_gate0_trace_acquisition(root)

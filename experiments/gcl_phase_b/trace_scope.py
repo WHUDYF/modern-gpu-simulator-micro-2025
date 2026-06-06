@@ -158,6 +158,13 @@ def build_phase_b_trace_records(manifest: dict[str, Any]) -> list[dict[str, Any]
             {
                 "kernel_invocation_id": invocation["kernel_invocation_id"],
                 "trace_family": invocation["trace_family"],
+                "artifact_status": invocation.get("artifact_status", "formal"),
+                "formal_input_eligible": invocation.get("formal_input_eligible", True),
+                "workload_id": invocation.get("workload_id"),
+                "execution_mode": invocation.get("execution_mode"),
+                "trace_source": invocation.get("trace_source"),
+                "input_scope": invocation.get("input_scope"),
+                "scheduler_metadata_source": invocation.get("scheduler_metadata_source"),
                 "collection_scope": COLLECTION_SCOPE,
                 "selected_sm": invocation["selected_sm"],
                 "included_cta_ids": invocation["included_cta_ids"],

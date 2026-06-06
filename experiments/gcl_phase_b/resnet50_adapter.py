@@ -84,6 +84,58 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
     return bundle
 
 
+def build_resnet50_debug_trace_adapter_bundle(root: Path) -> dict[str, Any]:
+    stats_path = root / "stats.csv"
+    with stats_path.open(newline="", encoding="utf-8") as handle:
+        stats_rows = list(csv.DictReader(handle))
+    sources = ResNet50TraceSources(
+        dynamic_trace=read_json(root / "dynamic_trace.json"),
+        threadblocks=read_json(root / "threadblocks.json"),
+        enhanced_execution_info=read_json(root / "enhanced_execution_info.json"),
+        scheduler_metadata=read_json(root / "scheduler_metadata.json"),
+        stats_rows=stats_rows,
+        gate0_manifest={},
+    )
+    kernel_invocation_table = _kernel_invocation_table(sources.dynamic_trace)
+    invocation_lookup = _invocation_lookup(kernel_invocation_table)
+    bundle = {
+        "artifact_type": ADAPTER_ARTIFACT_TYPE,
+        "artifact_version": ADAPTER_VERSION,
+        "artifact_status": "debug_not_formal",
+        "formal_input_eligible": False,
+        "workload_id": "resnet50",
+        "execution_mode": "debug_fixture",
+        "trace_source": "fixture",
+        "input_scope": "debug_resnet_like_fixture",
+        "scheduler_metadata_source": sources.scheduler_metadata.get(
+            "scheduler_metadata_source", "debug_fixture"
+        ),
+        "source_gate0_manifest_hash": None,
+        "source_artifact_hashes": {
+            "dynamic_trace.json": hash_without(sources.dynamic_trace, "_hash"),
+            "threadblocks.json": hash_without(sources.threadblocks, "_hash"),
+            "enhanced_execution_info.json": hash_without(sources.enhanced_execution_info, "_hash"),
+            "scheduler_metadata.json": hash_without(sources.scheduler_metadata, "_hash"),
+        },
+        "kernel_invocation_table": kernel_invocation_table,
+        "static_instruction_table": list(sources.enhanced_execution_info.get("instructions", [])),
+        "cta_scheduler_records": _cta_scheduler_records(
+            sources.scheduler_metadata, invocation_lookup
+        ),
+        "per_warp_trace_records": _per_warp_trace_records(
+            sources.threadblocks, invocation_lookup
+        ),
+        "adapter_validation_report": {
+            "status": "debug_not_formal",
+            "scheduler_metadata_complete": True,
+            "errors": [],
+        },
+    }
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+    _validate_invocation_provenance(bundle)
+    return bundle
+
+
 def _kernel_invocation_table(dynamic_trace: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
     for launch_order, row in enumerate(dynamic_trace.get("kernel_invocations", [])):

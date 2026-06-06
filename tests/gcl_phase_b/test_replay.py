@@ -163,7 +163,7 @@ def test_phase_b_replay_rejects_embedding_payload_tamper_after_hash_refresh(tmp_
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     table_path.write_text(json.dumps(table, sort_keys=True))
 
-    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    selector_artifacts = select_phase_b_representatives(table, seed=42, allow_debug=True)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     _refresh_pipeline_manifest_hashes(
         out_dir,
@@ -197,7 +197,7 @@ def test_phase_b_replay_rejects_embedding_readout_hash_tamper_after_hash_refresh
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     table_path.write_text(json.dumps(table, sort_keys=True))
 
-    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    selector_artifacts = select_phase_b_representatives(table, seed=42, allow_debug=True)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     _refresh_pipeline_manifest_hashes(
         out_dir,
@@ -223,7 +223,7 @@ def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refres
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     table_path.write_text(json.dumps(table, sort_keys=True))
 
-    selector_artifacts = select_phase_b_representatives(table, seed=42)
+    selector_artifacts = select_phase_b_representatives(table, seed=42, allow_debug=True)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     _refresh_pipeline_manifest_hashes(
         out_dir,

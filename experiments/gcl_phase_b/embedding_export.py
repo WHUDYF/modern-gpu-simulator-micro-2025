@@ -57,6 +57,13 @@ def export_phase_b_embedding_table(
     table = {
         "artifact_type": KERNEL_EMBEDDING_TABLE_TYPE,
         "artifact_version": KERNEL_EMBEDDING_TABLE_VERSION,
+        "artifact_status": _formal_status(tensors),
+        "formal_input_eligible": _formal_status(tensors) == "formal",
+        "workload_id": "resnet50",
+        "execution_mode": _provenance_field(tensors, "execution_mode"),
+        "trace_source": _provenance_field(tensors, "trace_source"),
+        "input_scope": _provenance_field(tensors, "input_scope"),
+        "scheduler_metadata_source": _provenance_field(tensors, "scheduler_metadata_source"),
         "source_graph_tensor_bundle_hash": source_graph_tensor_bundle_hash
         or _source_graph_tensor_bundle_hash(tensors),
         "representation_mode": REPRESENTATION_MODE,
@@ -124,6 +131,13 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
     if table.get("artifact_version") != KERNEL_EMBEDDING_TABLE_VERSION:
         raise ValueError("embedding table artifact_version mismatch")
     required_top_level = {
+        "artifact_status",
+        "formal_input_eligible",
+        "workload_id",
+        "execution_mode",
+        "trace_source",
+        "input_scope",
+        "scheduler_metadata_source",
         "source_graph_tensor_bundle_hash",
         "encoder_manifest_hash",
         "checkpoint_hash",
@@ -137,6 +151,10 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
         raise ValueError(f"embedding table missing required fields: {sorted(missing_top_level)}")
     if table.get("representation_mode") != REPRESENTATION_MODE:
         raise ValueError("unexpected representation_mode")
+    if table.get("workload_id") != "resnet50":
+        raise ValueError("embedding table workload_id must be resnet50")
+    if table.get("formal_input_eligible") is True and table.get("artifact_status") != "formal":
+        raise ValueError("formal_input_eligible requires formal artifact_status")
     if table.get("embedding_dim") != EMBEDDING_DIM:
         raise ValueError("embedding table must use 256-dimensional kernel embeddings")
     if table.get("readout_hierarchy") != READOUT_HIERARCHY:
@@ -193,6 +211,24 @@ def _source_graph_tensor_bundle_hash(tensors: list[dict[str, Any]]) -> str:
             "tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
         }
     )
+
+
+def _formal_status(tensors: list[dict[str, Any]]) -> str:
+    statuses = {
+        tensor.get("graph_batch_metadata", {}).get("artifact_status", "debug_not_formal")
+        for tensor in tensors
+    }
+    return "formal" if statuses == {"formal"} else "debug_not_formal"
+
+
+def _provenance_field(tensors: list[dict[str, Any]], field: str) -> Any:
+    values = {
+        tensor.get("graph_batch_metadata", {}).get(field)
+        for tensor in tensors
+    }
+    if len(values) == 1:
+        return next(iter(values))
+    return "mixed"
 
 
 def _kernel_embedding_hash(kernel_embedding: list[float]) -> str:

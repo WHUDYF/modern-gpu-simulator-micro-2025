@@ -15,7 +15,11 @@ from .utils import hash_without
 def build_representative_sm_manifest_from_bundle(
     bundle: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    validate_resnet50_trace_adapter_bundle(bundle)
+    is_formal = bundle.get("artifact_status") == "formal"
+    if is_formal:
+        validate_resnet50_trace_adapter_bundle(bundle)
+    elif bundle.get("artifact_status") != "debug_not_formal":
+        raise ValueError("representative SM manifest requires formal or debug_not_formal adapter")
     kernel_by_invocation = {
         row["kernel_invocation_id"]: row for row in bundle["kernel_invocation_table"]
     }
@@ -28,6 +32,7 @@ def build_representative_sm_manifest_from_bundle(
             kernel_row,
             scheduler_by_invocation[invocation_id],
             trace_records_by_invocation[invocation_id],
+            bundle,
         )
         report = select_representative_sm(selection_input)
         invocation = _manifest_invocation(selection_input, report)
@@ -36,12 +41,20 @@ def build_representative_sm_manifest_from_bundle(
     manifest = {
         "artifact_type": "gcl_phase_b_trace_manifest",
         "manifest_version": "gcl_phase_b_trace_manifest_v1",
+        "artifact_status": "formal" if is_formal else "debug_not_formal",
+        "formal_input_eligible": is_formal,
+        "workload_id": bundle.get("workload_id", "resnet50"),
+        "execution_mode": bundle.get("execution_mode"),
+        "trace_source": bundle.get("trace_source"),
+        "input_scope": bundle.get("input_scope"),
+        "scheduler_metadata_source": bundle.get("scheduler_metadata_source"),
         "collection_scope": COLLECTION_SCOPE,
         "trace_family": "resnet50_real_trace",
         "kernel_invocations": invocations,
     }
     manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
-    validate_phase_b_trace_manifest(manifest)
+    if is_formal:
+        validate_phase_b_trace_manifest(manifest)
     report_bundle = {
         "artifact_type": "gcl_resnet50_selected_sm_policy_report_bundle",
         "artifact_version": "gate2_selected_sm_policy_report_bundle_v1",
@@ -91,6 +104,7 @@ def _selection_input(
     kernel_row: dict[str, Any],
     scheduler_records: list[dict[str, Any]],
     trace_records: list[dict[str, Any]],
+    bundle: dict[str, Any],
 ) -> dict[str, Any]:
     scheduler_metadata_by_sm: dict[str, dict[str, Any]] = {}
     cta_to_sm = {}
@@ -123,6 +137,13 @@ def _selection_input(
     return {
         "kernel_invocation_id": kernel_row["kernel_invocation_id"],
         "trace_family": "resnet50_real_trace",
+        "artifact_status": bundle.get("artifact_status"),
+        "formal_input_eligible": bundle.get("formal_input_eligible"),
+        "workload_id": bundle.get("workload_id"),
+        "execution_mode": bundle.get("execution_mode"),
+        "trace_source": bundle.get("trace_source"),
+        "input_scope": bundle.get("input_scope"),
+        "scheduler_metadata_source": bundle.get("scheduler_metadata_source"),
         "selected_sm_policy": "scheduler_signature_medoid_sm",
         "scheduler_metadata_by_sm": scheduler_metadata_by_sm,
         "cta_to_sm": cta_to_sm,

@@ -19,7 +19,7 @@ def _embedding_table(tmp_path):
 def test_m0_selector_consumes_phase_b_embedding_table(tmp_path):
     table = _embedding_table(tmp_path)
 
-    artifacts = select_phase_b_representatives(table, seed=9)
+    artifacts = select_phase_b_representatives(table, seed=9, allow_debug=True)
 
     assert artifacts["artifact_type"] == "gcl_resnet50_gate6_selector_artifacts"
     assert artifacts["kmeans_cluster_assignment_table"]["assignments"]

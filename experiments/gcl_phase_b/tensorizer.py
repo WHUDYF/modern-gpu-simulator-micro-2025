@@ -106,6 +106,13 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
         "graph_batch_metadata": {
             "graph_id": graph["graph_id"],
             "kernel_invocation_id": graph["kernel_invocation_id"],
+            "artifact_status": graph.get("artifact_status", "formal"),
+            "formal_input_eligible": graph.get("formal_input_eligible", True),
+            "workload_id": graph.get("workload_id"),
+            "execution_mode": graph.get("execution_mode"),
+            "trace_source": graph.get("trace_source"),
+            "input_scope": graph.get("input_scope"),
+            "scheduler_metadata_source": graph.get("scheduler_metadata_source"),
             "collection_scope": graph["collection_scope"],
             "selected_sm": graph["selected_sm"],
             "node_count": len(nodes),

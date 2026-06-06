@@ -12,6 +12,7 @@ from .correctness import evaluate_gate7_correctness
 from .embedding_export import READOUT_HIERARCHY, export_phase_b_embedding_table
 from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
+from .resnet50_gate0 import GATE0_BLOCKER_FILENAME
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .selector import select_phase_b_representatives
 from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
@@ -34,6 +35,9 @@ def run_resnet50_gate1_to_gate7(
     seed: int = 20260606,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    blocker_path = root / GATE0_BLOCKER_FILENAME
+    if blocker_path.exists():
+        return _write_gate0_blocked_pipeline_manifest(root, out_dir, seed)
 
     adapter_bundle = build_resnet50_trace_adapter_bundle(root)
     write_json(out_dir / "resnet50_trace_adapter_bundle.json", adapter_bundle)
@@ -136,6 +140,35 @@ def run_resnet50_gate1_to_gate7(
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / "gate1_5_pipeline_manifest.json", manifest)
+    return manifest
+
+
+def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int) -> dict[str, Any]:
+    from .utils import read_json
+
+    blocker_report = read_json(root / GATE0_BLOCKER_FILENAME)
+    write_json(out_dir / GATE0_BLOCKER_FILENAME, blocker_report)
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+        "final_gate": "gate0_blocked",
+        "artifact_status": "formal_blocked",
+        "formal_input_eligible": False,
+        "seed": seed,
+        "blocked_gate": "gate0",
+        "blocker_report_hash": blocker_report["gate0_blocker_report_hash"],
+        "hashes": {
+            "gate0_blocker_report_hash": blocker_report["gate0_blocker_report_hash"],
+            "adapter_bundle_hash": None,
+            "trace_manifest_hash": None,
+            "canonical_graph_bundle_hash": None,
+            "graph_tensor_bundle_hash": None,
+            "embedding_table_hash": None,
+            "selector_manifest_hash": None,
+            "gate7_correctness_manifest_hash": None,
+        },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
+    write_json(out_dir / "gate1_7_pipeline_manifest.json", manifest)
     return manifest
 
 

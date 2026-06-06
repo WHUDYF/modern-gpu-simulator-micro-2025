@@ -446,7 +446,9 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
         )
 
     try:
-        selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
+        selector_artifacts = select_phase_b_representatives(
+            embedding_table, seed=seed, allow_debug=True
+        )
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
@@ -651,7 +653,9 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         )
         raise
     try:
-        selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
+        selector_artifacts = select_phase_b_representatives(
+            table, seed=resolved_seed, allow_debug=True
+        )
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
@@ -716,7 +720,7 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
-    artifacts = select_phase_b_representatives(table, seed=resolved_seed)
+    artifacts = select_phase_b_representatives(table, seed=resolved_seed, allow_debug=True)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,

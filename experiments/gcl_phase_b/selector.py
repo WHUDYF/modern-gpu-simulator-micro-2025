@@ -19,8 +19,10 @@ def _embedding_table_hash(table: dict[str, Any]) -> str:
     return table["kernel_embedding_table_hash"]
 
 
-def select_phase_b_representatives(table: dict[str, Any], seed: int = 20260602) -> dict[str, Any]:
-    _validate_gate6_input_table(table)
+def select_phase_b_representatives(
+    table: dict[str, Any], seed: int = 20260602, allow_debug: bool = False
+) -> dict[str, Any]:
+    _validate_gate6_input_table(table, allow_debug=allow_debug)
     for row in table.get("embeddings", []):
         if row.get("resource_blocked"):
             raise ValueError("resource-blocked embedding rows cannot enter M0 selector")
@@ -170,9 +172,23 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
     return artifact
 
 
-def _validate_gate6_input_table(table: dict[str, Any]) -> None:
-    if table.get("artifact_status") == "debug_not_formal":
+def _validate_gate6_input_table(table: dict[str, Any], allow_debug: bool = False) -> None:
+    if table.get("artifact_status") != "formal" and not allow_debug:
         raise ValueError("Gate6 selector requires formal embedding table")
+    required_provenance = {
+        "artifact_status",
+        "formal_input_eligible",
+        "workload_id",
+        "execution_mode",
+        "trace_source",
+        "input_scope",
+        "scheduler_metadata_source",
+    }
+    missing = required_provenance.difference(table)
+    if missing and not allow_debug:
+        raise ValueError(f"Gate6 selector requires formal provenance fields: {sorted(missing)}")
+    if table.get("formal_input_eligible") is not True and not allow_debug:
+        raise ValueError("Gate6 selector requires formal input eligible embedding table")
     if table.get("family_labels_used_for_clustering") is True:
         raise ValueError("family labels cannot guide Gate6 clustering")
     forbidden = {"kernel_name", "family_label", "runtime", "graph_size", "weight_input"}

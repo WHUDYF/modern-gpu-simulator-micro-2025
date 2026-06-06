@@ -49,6 +49,13 @@ def _formal_embedding_table():
     table = {
         "artifact_type": "gcl_resnet50_kernel_embedding_table",
         "artifact_version": "gate5_kernel_embedding_table_v1",
+        "artifact_status": "formal",
+        "formal_input_eligible": True,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
         "source_graph_tensor_bundle_hash": "tensor-bundle",
         "representation_mode": "gcl_resnet50_rgcn_selected_sm_kernel_embedding",
         "encoder_manifest_hash": "encoder",
@@ -95,6 +102,12 @@ def test_gate6_rejects_fixture_projection_or_augmented_embeddings():
     table = _formal_embedding_table()
     table["artifact_status"] = "debug_not_formal"
     with pytest.raises(ValueError, match="formal"):
+        select_phase_b_representatives(table)
+
+    table = _formal_embedding_table()
+    del table["artifact_status"]
+    del table["formal_input_eligible"]
+    with pytest.raises(ValueError, match="formal embedding table"):
         select_phase_b_representatives(table)
 
 

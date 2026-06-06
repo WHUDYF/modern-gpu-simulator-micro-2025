@@ -9,6 +9,8 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
+from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
+from tests.gcl_resnet50.formal_fixture import write_minimal_formal_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -47,4 +49,54 @@ def test_gate1_reports_missing_static_instruction_metadata(tmp_path):
     info_path.write_text(json.dumps(info), encoding="utf-8")
 
     with pytest.raises(ValueError, match="Gate0 formal acquisition manifest"):
+        build_resnet50_trace_adapter_bundle(root)
+
+
+def test_gate1_formal_adapter_reads_dynamic_trace_pb_and_threadblock_directory(tmp_path):
+    root = write_minimal_formal_resnet50_root(tmp_path / "formal_trace")
+    record_resnet50_gate0_trace_acquisition(root)
+    (root / "dynamic_trace.json").write_text("{}", encoding="utf-8")
+    (root / "threadblocks.json").write_text("{}", encoding="utf-8")
+
+    bundle = build_resnet50_trace_adapter_bundle(root)
+
+    validate_resnet50_trace_adapter_bundle(bundle)
+    assert bundle["artifact_status"] == "formal"
+    assert set(bundle["source_artifact_hashes"]) == {
+        "dynamic_trace.pb",
+        "threadblocks/",
+        "enhanced_execution_info.json",
+        "scheduler_metadata.json",
+    }
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    assert invocation_ids == ["resnet50_k00000", "resnet50_k00001"]
+    assert [row["launch_order"] for row in bundle["kernel_invocation_table"]] == [0, 1]
+    assert {row["kernel_id"] for row in bundle["kernel_invocation_table"]} == {17}
+    assert len(bundle["per_warp_trace_records"]) == 8
+    first = bundle["per_warp_trace_records"][0]
+    assert first["kernel_invocation_id"] == "resnet50_k00000"
+    assert first["cta_id"] == "0,0,0"
+    assert first["warp_id"] == 0
+    assert [entry["opcode"] for entry in first["entries"]] == [
+        "MOV",
+        "LDG.E.64.SYS",
+        "FADD",
+        "STG.E.64.SYS",
+    ]
+
+
+def test_gate1_formal_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):
+    root = write_minimal_formal_resnet50_root(tmp_path / "formal_trace")
+    missing = (
+        root
+        / "threadblocks"
+        / "device_0"
+        / "stream_0"
+        / "kernel_0"
+        / "d_0_s_0_k_0_0,0,0.pb"
+    )
+    missing.unlink()
+    record_resnet50_gate0_trace_acquisition(root)
+
+    with pytest.raises(FileNotFoundError, match="threadblock protobuf"):
         build_resnet50_trace_adapter_bundle(root)

@@ -90,7 +90,7 @@ as a substitute for real ResNet-50 NVBit trace.
 ## MUTABLE SECTION
 <!-- Update each round with justification for changes -->
 
-### Plan Version: 2 (Updated: Round 1)
+### Plan Version: 3 (Updated: Round 2)
 
 #### Plan Evolution Log
 <!-- Document any changes to the plan with justification -->
@@ -98,18 +98,19 @@ as a substitute for real ResNet-50 NVBit trace.
 |-------|--------|--------|--------------|
 | 0 | Initialized tracker from `2026-06-06-a-line-gcl-resnet50-full-reproduction-humanize-plan.md`; compressed 20 detailed ACs into 7 top-level tracker ACs. | Round 0 goal tracker setup requires a stable immutable anchor and an active task map. | No AC scope reduction; tracker ACs map to all 20 plan ACs. |
 | 1 | Rejected Round 1 completion move requests; kept all active tasks pending and recorded new blocker issues instead. | Gate0 is still manifest-only and fixture-backed in tests, Gate1 still consumes legacy JSON fixtures rather than Gate0 formal artifacts, and Gate2-5 / Gate7-9 remain only partially verified against the original plan. | AC-1 through AC-7 remain in progress; no task reached "Completed and Verified". |
+| 2 | Accepted boundary-repair progress only: Gate0 now emits a formal blocker when real NVBit collection is unavailable, fixture-backed roots are explicitly rejected, fixture/debug adapter paths are visibly non-formal, and Round 2 added provenance propagation plus new Gate2-6 test files. Kept all tasks active. | Round 2 improved honesty at the formal/debug boundary and expanded coverage, but it still did not implement the real Gate0 acquisition runner, the Gate1 formal artifact-format transition, or the formal Gate7-9 execution path. | AC-1 and AC-2 boundary reporting improved; AC-3 through AC-7 remain incomplete and unverified end-to-end. |
 
 #### Active Tasks
 <!-- Map each task to its target Acceptance Criterion and routing tag -->
 | Task | Target AC | Status | Tag | Owner | Notes |
 |------|-----------|--------|-----|-------|-------|
-| Gate0 real ResNet-50 NVBit trace acquisition and formal acquisition manifest | AC-1 | pending | coding | claude | Requires real trace provenance and scheduler metadata. |
-| Gate1 formal adapter boundary and kernel / CTA / warp / instruction record extraction | AC-2 | pending | coding | claude | Must reject fixture / synthetic / replay inputs as formal artifacts. |
-| Gate2 deterministic representative-SM manifest with selected-SM all-CTA scope | AC-3 | pending | coding | claude | Uses `scheduler_signature_medoid_sm`; rejects random / fallback policies. |
-| Gate3 canonical graph and Gate4 graph tensorization | AC-4 | pending | coding | claude | Produces typed canonical graph and RGCN tensor bundle. |
-| Gate5 RGCN contrastive embedding export | AC-5 | pending | coding | claude | Must export canonical non-augmented 256D selector embeddings. |
-| Gate6 selector / representative anchor / post-clustering family evidence | AC-6 | pending | coding | claude | Clustering uses only 256D canonical embeddings. |
-| Gate7 correctness evaluation plus Gate8 / Gate9 extension gates | AC-7 | pending | coding | claude | Gate7 report-only metrics precede tuning and speedup claims. |
+| Gate0 real ResNet-50 NVBit trace acquisition and formal acquisition manifest | AC-1 | pending | coding | claude | Current code now emits a formal blocker when real NVBit collection is unavailable, but the actual runner / collector / scheduler capture path is still missing. |
+| Gate1 formal adapter boundary and kernel / CTA / warp / instruction record extraction | AC-2 | pending | coding | claude | Formal Gate1 now requires a Gate0 manifest and fixture paths are debug-only, but the formal adapter still parses legacy JSON inputs instead of Gate0 `dynamic_trace.pb` and `threadblocks/`. |
+| Gate2 deterministic representative-SM manifest with selected-SM all-CTA scope | AC-3 | pending | coding | claude | Round 2 propagated provenance into Gate2 artifacts and added tests, but the new tests still rely on debug fixtures rather than formal Gate0/Gate1 outputs. |
+| Gate3 canonical graph and Gate4 graph tensorization | AC-4 | pending | coding | claude | Round 2 propagated provenance and added tests, but the positive path is still exercised through debug-smoke artifacts rather than a formal trace-to-graph chain. |
+| Gate5 RGCN contrastive embedding export | AC-5 | pending | coding | claude | Provenance is richer and tests exist, but formal completion is still not tied to a real Gate0-4 chain and Gate5 proof remains debug-smoke based. |
+| Gate6 selector / representative anchor / post-clustering family evidence | AC-6 | pending | coding | claude | Formal guard tightened, but the selector still accepts handcrafted embedding tables that only mimic top-level provenance instead of requiring a genuine Gate5 lineage. |
+| Gate7 correctness evaluation plus Gate8 / Gate9 extension gates | AC-7 | pending | coding | claude | Gate0 blocker now stops the formal pipeline honestly, but Gate7 metrics are still helper-driven and Gate8/Gate9 are not wired into a verified baseline-backed workflow. |
 
 ### Completed and Verified
 <!-- Only move tasks here after Codex verification -->
@@ -125,7 +126,8 @@ as a substitute for real ResNet-50 NVBit trace.
 <!-- Issues discovered during implementation -->
 | Issue | Discovered Round | Blocking AC | Resolution Path |
 |-------|-----------------|-------------|-----------------|
-| Gate0 formal path still only records an existing root and the tests fabricate that root by copying the legacy fixture plus placeholder `dynamic_trace.pb` / `threadblocks/`; no real ResNet-50 runner or NVBit collection path exists in-workspace. | 1 | AC-1 | Implement the actual Gate0 collection path or emit a formal blocker report instead of treating fixture-backed roots as formal acquisition. |
-| Gate1 still parses `dynamic_trace.json` and `threadblocks.json` instead of consuming Gate0 `dynamic_trace.pb` and `threadblocks/` outputs, so the new formal boundary is nominal rather than a real artifact-format transition. | 1 | AC-2 | Rework Gate1 to read the Gate0 formal artifact set directly and keep provenance hashes aligned with those exact inputs. |
-| Plan-mandated `tests/gcl_resnet50` coverage for Gate2, Gate3, Gate4, and Gate5 is still missing, leaving AC-3, AC-4, and AC-5 without the positive/negative suites specified in the original plan. | 1 | AC-3, AC-4, AC-5 | Add the missing Gate2-5 AC suites and tighten the implementations until those plan-level tests pass. |
-| The Gate7 pipeline invocation emits a correctness manifest without computed geometry or measured/simulator error inputs, and Gate8/Gate9 remain standalone helpers rather than an end-to-end evaluated extension path. | 1 | AC-7 | Compute Gate7 metrics from actual selector/baseline artifacts and wire Gate8/Gate9 into a verified extension workflow. |
+| Gate0 no longer treats fixtures as formal, but it still only records an existing root or writes a blocker report; no real ResNet-50 runner, NVBit collection hook, or scheduler metadata capture path exists in-workspace. | 1 | AC-1 | Implement the actual Gate0 collection path; until then, keep the blocker path and stop any formal execution at Gate0. |
+| Gate1 now requires Gate0 manifest provenance, but the formal adapter still parses `dynamic_trace.json` and `threadblocks.json` instead of consuming Gate0 `dynamic_trace.pb` and `threadblocks/` outputs. | 1 | AC-2 | Rework Gate1 to read the Gate0 formal artifact set directly and keep provenance hashes aligned with those exact inputs. |
+| Round 2 added Gate2-Gate5 `tests/gcl_resnet50` files, but they mostly exercise debug fixture smoke paths and do not satisfy the original plan's formal positive/negative contracts. | 2 | AC-3, AC-4, AC-5 | Replace debug-smoke stand-ins with formal Gate2-Gate5 AC suites built from the real Gate0/Gate1 artifact chain. |
+| Gate6 requires top-level formal provenance fields, but it still accepts handcrafted embedding tables that are not demonstrably produced by Gate5 training/readout artifacts. | 2 | AC-6 | Require auditable Gate5 lineage on the embedding table and reject handcrafted formal-looking tables that lack source manifests and hashes from the actual Gate5 path. |
+| The Gate7 pipeline invocation still emits a correctness manifest without computed geometry or measured/simulator error inputs, and Gate8/Gate9 remain standalone helpers rather than an end-to-end evaluated extension path. | 1 | AC-7 | Compute Gate7 metrics from actual selector/baseline artifacts and wire Gate8/Gate9 into a verified extension workflow. |

@@ -3,11 +3,13 @@ import copy
 import pytest
 
 from experiments.gcl_phase_b.embedding_export import _kernel_embedding_hash
+from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import (
     select_phase_b_representatives,
     validate_gate6_selector_artifacts,
 )
 from experiments.gcl_phase_b.utils import hash_without
+from tests.gcl_resnet50.formal_chain import build_formal_tensors
 
 
 def _embedding_row(index, vector):
@@ -68,14 +70,19 @@ def _formal_embedding_table():
     return table
 
 
-def test_gate6_accepts_real_resnet50_gate5_embedding_table():
-    artifacts = select_phase_b_representatives(_formal_embedding_table(), seed=7)
+def test_gate6_rejects_handcrafted_formal_table_without_gate5_lineage():
+    with pytest.raises(ValueError, match="Gate5 lineage"):
+        select_phase_b_representatives(_formal_embedding_table(), seed=7)
+
+
+def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+
+    artifacts = select_phase_b_representatives(table, seed=7)
 
     validate_gate6_selector_artifacts(artifacts)
     assert artifacts["artifact_type"] == "gcl_resnet50_gate6_selector_artifacts"
-    assert artifacts["source_embedding_table_hash"] == _formal_embedding_table()[
-        "kernel_embedding_table_hash"
-    ]
+    assert artifacts["source_embedding_table_hash"] == table["kernel_embedding_table_hash"]
     assert artifacts["embedding_normalization_report"]["normalization_policy"] == (
         "engineering_default_z_score"
     )
@@ -86,20 +93,20 @@ def test_gate6_accepts_real_resnet50_gate5_embedding_table():
     assert artifacts["cluster_family_evidence_report"]["family_labels_used_for_clustering"] is False
 
 
-def test_gate6_rejects_fixture_projection_or_augmented_embeddings():
-    table = _formal_embedding_table()
+def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["embedding_dim"] = 64
     table["embeddings"][0]["kernel_embedding"] = [0.0] * 64
 
     with pytest.raises(ValueError, match="256"):
         select_phase_b_representatives(table)
 
-    table = _formal_embedding_table()
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["source_view"] = "augmented"
     with pytest.raises(ValueError, match="canonical non-augmented"):
         select_phase_b_representatives(table)
 
-    table = _formal_embedding_table()
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
     table["artifact_status"] = "debug_not_formal"
     with pytest.raises(ValueError, match="formal"):
         select_phase_b_representatives(table)
@@ -111,16 +118,16 @@ def test_gate6_rejects_fixture_projection_or_augmented_embeddings():
         select_phase_b_representatives(table)
 
 
-def test_gate6_rejects_forbidden_fields_in_clustering_path():
-    table = _formal_embedding_table()
+def test_gate6_rejects_forbidden_fields_in_clustering_path(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
     table["clustering_input_fields"] = ["kernel_embedding", "kernel_name"]
 
     with pytest.raises(ValueError, match="forbidden clustering field"):
         select_phase_b_representatives(table)
 
 
-def test_gate6_rejects_family_label_guided_clustering():
-    table = _formal_embedding_table()
+def test_gate6_rejects_family_label_guided_clustering(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
     table["family_labels_used_for_clustering"] = True
 
     with pytest.raises(ValueError, match="family labels"):

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from experiments.baseline_diagnosis.proto_gen import threadblock_pb2, trace_pb2
+
 from .resnet50_gate0 import load_gate0_trace_acquisition_manifest
 from .utils import hash_without, read_json, write_json
 
@@ -30,8 +32,8 @@ def load_resnet50_trace_sources(root: Path) -> ResNet50TraceSources:
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
     return ResNet50TraceSources(
-        dynamic_trace=read_json(root / "dynamic_trace.json"),
-        threadblocks=read_json(root / "threadblocks.json"),
+        dynamic_trace=_load_dynamic_trace_pb(root / "dynamic_trace.pb"),
+        threadblocks=_load_threadblocks_from_scheduler(root),
         enhanced_execution_info=read_json(root / "enhanced_execution_info.json"),
         scheduler_metadata=read_json(root / "scheduler_metadata.json"),
         stats_rows=stats_rows,
@@ -64,10 +66,14 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
         "scheduler_metadata_source": "real_nvbit_smid",
         "source_gate0_manifest_hash": sources.gate0_manifest["gate0_manifest_hash"],
         "source_artifact_hashes": {
-            "dynamic_trace": hash_without(sources.dynamic_trace, "_hash"),
-            "threadblocks": hash_without(sources.threadblocks, "_hash"),
-            "enhanced_execution_info": hash_without(sources.enhanced_execution_info, "_hash"),
-            "scheduler_metadata": hash_without(sources.scheduler_metadata, "_hash"),
+            "dynamic_trace.pb": sources.gate0_manifest["source_artifact_hashes"]["dynamic_trace.pb"],
+            "threadblocks/": sources.gate0_manifest["source_artifact_hashes"]["threadblocks/"],
+            "enhanced_execution_info.json": sources.gate0_manifest["source_artifact_hashes"][
+                "enhanced_execution_info.json"
+            ],
+            "scheduler_metadata.json": sources.gate0_manifest["source_artifact_hashes"][
+                "scheduler_metadata.json"
+            ],
         },
         "kernel_invocation_table": kernel_invocation_table,
         "static_instruction_table": static_instruction_table,
@@ -155,6 +161,182 @@ def _kernel_invocation_table(dynamic_trace: dict[str, Any]) -> list[dict[str, An
             }
         )
     return rows
+
+
+def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError("dynamic_trace.pb is required for formal Gate1")
+    trace = trace_pb2.Trace()
+    trace.ParseFromString(path.read_bytes())
+    invocations = []
+    launch_order = 0
+    for device_id, device in sorted(trace.gpu_device.items()):
+        for stream_id, stream in sorted(device.streams.items()):
+            for kernel in stream.kernels:
+                invocations.append(
+                    {
+                        "kernel_id": int(kernel.id),
+                        "kernel_name": kernel.name,
+                        "function_unique_id": int(kernel.function_unique_id),
+                        "device_id": int(device_id),
+                        "stream_id": int(stream_id),
+                        "launch_order": launch_order,
+                        "grid_dim": [
+                            int(kernel.grid_dim.x),
+                            int(kernel.grid_dim.y),
+                            int(kernel.grid_dim.z),
+                        ],
+                        "block_dim": [
+                            int(kernel.block_dim.x),
+                            int(kernel.block_dim.y),
+                            int(kernel.block_dim.z),
+                        ],
+                        "shared_memory_size": int(kernel.size_shared_memory),
+                        "register_count": int(kernel.number_of_registers),
+                    }
+                )
+                launch_order += 1
+    if not invocations:
+        raise ValueError("dynamic_trace.pb contains no kernel invocations")
+    return {
+        "artifact_type": "resnet50_dynamic_trace_pb",
+        "kernel_invocations": invocations,
+    }
+
+
+def _load_threadblocks_from_scheduler(root: Path) -> dict[str, Any]:
+    scheduler_metadata = read_json(root / "scheduler_metadata.json")
+    static_instruction_index = _static_instruction_index(
+        read_json(root / "enhanced_execution_info.json")
+    )
+    records = []
+    for invocation in scheduler_metadata.get("kernel_invocations", []):
+        launch_order = invocation.get("launch_order")
+        if launch_order is None:
+            raise ValueError("scheduler metadata requires launch_order for formal Gate1")
+        for cta in invocation.get("cta_records", []):
+            relative = cta.get("threadblock_pb")
+            if not relative:
+                raise ValueError("scheduler cta record requires threadblock_pb")
+            pb_path = root / "threadblocks" / relative
+            if not pb_path.is_file():
+                raise FileNotFoundError(f"missing threadblock protobuf: {relative}")
+            records.extend(
+                _threadblock_records_from_pb(
+                    pb_path=pb_path,
+                    kernel_id=int(invocation["kernel_id"]),
+                    launch_order=int(launch_order),
+                    cta_id=str(cta["cta_id"]),
+                    static_instruction_index=static_instruction_index,
+                )
+            )
+    if not records:
+        raise ValueError("threadblocks/ contains no scheduler-referenced records")
+    return {
+        "artifact_type": "resnet50_threadblocks_pb",
+        "threadblocks": records,
+    }
+
+
+def _static_instruction_index(enhanced_execution_info: dict[str, Any]) -> dict[tuple[int, int], dict[str, Any]]:
+    index = {}
+    for row in enhanced_execution_info.get("instructions", []):
+        index[(int(row["function_unique_id"]), int(row["pc"]))] = row
+    if not index:
+        raise ValueError("static instruction metadata must be non-empty")
+    return index
+
+
+def _threadblock_records_from_pb(
+    *,
+    pb_path: Path,
+    kernel_id: int,
+    launch_order: int,
+    cta_id: str,
+    static_instruction_index: dict[tuple[int, int], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    block = threadblock_pb2.threadblock()
+    block.ParseFromString(pb_path.read_bytes())
+    block_cta_id = f"{int(block.block_id.x)},{int(block.block_id.y)},{int(block.block_id.z)}"
+    if block_cta_id != cta_id:
+        raise ValueError("threadblock protobuf CTA id does not match scheduler metadata")
+    records = []
+    for warp_id, warp in sorted(block.warps.items()):
+        entries = []
+        for trace_index, instruction in enumerate(warp.instructions):
+            static = static_instruction_index.get(
+                (int(instruction.function_unique_id), int(instruction.pc))
+            )
+            if static is None:
+                raise ValueError("threadblock instruction missing static metadata")
+            entries.append(
+                _trace_entry_from_pb_instruction(
+                    instruction=instruction,
+                    static=static,
+                    trace_index=trace_index,
+                    source_entry_hash=hash_without(
+                        {
+                            "threadblock_pb": str(pb_path),
+                            "warp_id": int(warp_id),
+                            "trace_index": trace_index,
+                            "pc": int(instruction.pc),
+                            "function_unique_id": int(instruction.function_unique_id),
+                        }
+                    ),
+                )
+            )
+        records.append(
+            {
+                "kernel_id": kernel_id,
+                "launch_order": launch_order,
+                "cta_id": cta_id,
+                "warp_id": int(warp_id),
+                "entries": entries,
+            }
+        )
+    return records
+
+
+def _trace_entry_from_pb_instruction(
+    *,
+    instruction: Any,
+    static: dict[str, Any],
+    trace_index: int,
+    source_entry_hash: str,
+) -> dict[str, Any]:
+    opcode = static["opcode"]
+    operands = list(static.get("operands", []))
+    destination_operands, source_operands = _split_operands(opcode, operands)
+    memory_metadata = {}
+    if instruction.addresses:
+        memory_metadata = {
+            "address_count": len(instruction.addresses),
+            "space": "global" if opcode.startswith(("LDG", "STG")) else "unknown",
+        }
+    return {
+        "trace_index": trace_index,
+        "pc": int(instruction.pc),
+        "opcode": opcode,
+        "active_mask": _mask_string(instruction.active_mask),
+        "predicate_mask": _mask_string(instruction.predicate_mask),
+        "destination_operands": destination_operands,
+        "source_operands": source_operands,
+        "memory_address_metadata": memory_metadata,
+        "observed_dynamic_values": [],
+        "source_entry_hash": source_entry_hash,
+    }
+
+
+def _split_operands(opcode: str, operands: list[str]) -> tuple[list[str], list[str]]:
+    if not operands:
+        return [], []
+    if opcode.startswith("STG"):
+        return [], operands
+    return [operands[0]], operands[1:]
+
+
+def _mask_string(value: int) -> str:
+    return f"0x{int(value):08x}"
 
 
 def _invocation_lookup(kernel_invocation_table: list[dict[str, Any]]) -> dict[str, Any]:

@@ -7,6 +7,7 @@ from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_debug_trace_
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs, validate_phase_b_tensor_artifact
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
+from tests.gcl_resnet50.formal_chain import build_formal_tensors
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -36,3 +37,17 @@ def test_gate4_rejects_invalid_feature_width_or_partition_metadata():
 
     with pytest.raises(ValueError, match="feature_width"):
         validate_phase_b_tensor_artifact(tensor)
+
+
+def test_gate4_tensorizes_formal_graphs_with_resnet50_provenance(tmp_path):
+    tensors = build_formal_tensors(tmp_path)
+
+    assert tensors
+    for tensor in tensors:
+        validate_phase_b_tensor_artifact(tensor)
+        assert tensor["feature_width"] == 64
+        assert tensor["graph_batch_metadata"]["artifact_status"] == "formal"
+        assert tensor["graph_batch_metadata"]["formal_input_eligible"] is True
+        assert tensor["graph_batch_metadata"]["trace_source"] == "nvbit"
+        assert tensor["node_features"].shape[1] == 64
+        assert tensor["edge_index"].shape[0] == 2

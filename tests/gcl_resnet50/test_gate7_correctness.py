@@ -2,7 +2,13 @@ import copy
 
 import pytest
 
-from experiments.gcl_phase_b.correctness import evaluate_gate7_correctness
+from experiments.gcl_phase_b.correctness import (
+    evaluate_gate7_correctness,
+    evaluate_gate7_correctness_from_artifacts,
+)
+from experiments.gcl_phase_b.pipeline import run_embedding_export
+from experiments.gcl_phase_b.selector import select_phase_b_representatives
+from tests.gcl_resnet50.formal_chain import build_formal_tensors
 
 
 def _gate6_artifacts():
@@ -118,3 +124,19 @@ def test_gate7_reports_metric_unit_conflict():
 def test_gate7_rejects_stability_claim_from_single_run():
     with pytest.raises(ValueError, match="single-run"):
         evaluate_gate7_correctness(_gate6_artifacts(), stability_claim="stable")
+
+
+def test_gate7_computes_geometry_from_gate5_embedding_and_gate6_assignments(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    selector_artifacts = select_phase_b_representatives(table, seed=11)
+
+    report = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=selector_artifacts,
+        embedding_table=table,
+    )
+
+    assert report["source_gate5_embedding_table_hash"] == table["kernel_embedding_table_hash"]
+    geometry = report["embedding_geometry_metrics"]
+    assert geometry["silhouette"] is not None
+    assert geometry["intra_distance_mean"] is not None
+    assert geometry["inter_distance_mean"] is not None

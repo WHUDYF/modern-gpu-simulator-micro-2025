@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .utils import hash_without, read_json, write_json
 
@@ -22,6 +25,48 @@ FORMAL_SOURCE_ARTIFACTS = {
     "scheduler_metadata.json": "file",
     "stats.csv": "file",
 }
+
+
+@dataclass(frozen=True)
+class ResNet50NvbitAcquisitionConfig:
+    output_root: Path
+    workload_command: list[str]
+    nvbit_tool_path: Path
+    working_directory: Path | None = None
+    environment: dict[str, str] = field(default_factory=dict)
+
+
+RunnerResult = subprocess.CompletedProcess[str] | dict[str, Any]
+Runner = Callable[..., RunnerResult]
+
+
+def acquire_resnet50_gate0_trace(
+    config: ResNet50NvbitAcquisitionConfig,
+    *,
+    runner: Runner | None = None,
+) -> dict[str, Any]:
+    """Run the configured ResNet-50 NVBit collection and record Gate 0."""
+
+    if not config.workload_command:
+        raise ValueError("ResNet-50 workload_command is required")
+    if not str(config.nvbit_tool_path):
+        raise ValueError("NVBit tool path is required")
+    output_root = Path(config.output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ)
+    env.update(config.environment)
+    env["LD_PRELOAD"] = str(config.nvbit_tool_path)
+    env["GCL_RESNET50_TRACE_OUT"] = str(output_root)
+    run = runner or _subprocess_runner
+    result = run(
+        list(config.workload_command),
+        cwd=Path(config.working_directory) if config.working_directory else None,
+        env=env,
+    )
+    returncode = _runner_returncode(result)
+    if returncode != 0:
+        raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
+    return record_resnet50_gate0_trace_acquisition(output_root)
 
 
 def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
@@ -221,3 +266,20 @@ def _directory_hash(path: Path) -> str:
             }
         )
     return hash_without({"entries": entries})
+
+
+def _subprocess_runner(command: list[str], *, cwd: Path | None, env: dict[str, str]) -> RunnerResult:
+    return subprocess.run(
+        command,
+        cwd=str(cwd) if cwd else None,
+        env=env,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+
+
+def _runner_returncode(result: RunnerResult) -> int:
+    if isinstance(result, dict):
+        return int(result.get("returncode", 0))
+    return int(result.returncode)

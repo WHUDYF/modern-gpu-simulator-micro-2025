@@ -8,14 +8,16 @@ from pathlib import Path
 from typing import Any
 
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
-from .correctness import evaluate_gate7_correctness
+from .correctness import evaluate_gate7_correctness_from_artifacts
 from .embedding_export import READOUT_HIERARCHY, export_phase_b_embedding_table
 from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
 from .resnet50_gate0 import GATE0_BLOCKER_FILENAME
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .selector import select_phase_b_representatives
+from .simulator_eval import gate9_baseline_missing_report
 from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
+from .tuning import generate_gate8_tuning_vectors
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
@@ -119,12 +121,26 @@ def run_resnet50_gate1_to_gate7(
     selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
     write_json(out_dir / "selector_artifacts.json", selector_artifacts)
 
-    correctness_manifest = evaluate_gate7_correctness(selector_artifacts)
+    correctness_manifest = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=selector_artifacts,
+        embedding_table=embedding_table,
+    )
     write_json(out_dir / "gate7_correctness_manifest.json", correctness_manifest)
+    gate8_proposal = generate_gate8_tuning_vectors(
+        correctness_manifest,
+        representative_anchors=selector_artifacts["representative_anchor_table"]["anchors"],
+        tunable_component_schema={
+            "schema_version": "report_only_default_v1",
+            "components": ["memory_latency_scale", "compute_latency_scale"],
+        },
+    )
+    write_json(out_dir / "gate8_tuning_vector_proposal.json", gate8_proposal)
+    gate9_report = gate9_baseline_missing_report()
+    write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
 
     manifest = {
         "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
-        "final_gate": "gate7",
+        "final_gate": "gate9_report_only",
         "seed": seed,
         "hashes": {
             "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
@@ -135,6 +151,12 @@ def run_resnet50_gate1_to_gate7(
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
             "gate7_correctness_manifest_hash": correctness_manifest[
                 "gate7_correctness_manifest_hash"
+            ],
+            "gate8_tuning_vector_proposal_hash": gate8_proposal[
+                "gate8_tuning_vector_proposal_hash"
+            ],
+            "gate9_sampled_vs_full_evaluation_hash": gate9_report[
+                "gate9_sampled_vs_full_evaluation_hash"
             ],
         },
     }
@@ -165,6 +187,8 @@ def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int)
             "embedding_table_hash": None,
             "selector_manifest_hash": None,
             "gate7_correctness_manifest_hash": None,
+            "gate8_tuning_vector_proposal_hash": None,
+            "gate9_sampled_vs_full_evaluation_hash": None,
         },
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)

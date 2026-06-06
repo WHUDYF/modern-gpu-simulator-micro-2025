@@ -9,6 +9,7 @@ from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_ma
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
+from tests.gcl_resnet50.formal_chain import build_formal_tensors
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -50,3 +51,17 @@ def test_gate5_rejects_projection_head_output_for_selector(tmp_path):
 
     with pytest.raises(ValueError, match="256"):
         select_phase_b_representatives(table, allow_debug=True)
+
+
+def test_gate5_formal_embedding_table_carries_auditable_training_lineage(tmp_path):
+    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+
+    assert table["artifact_status"] == "formal"
+    lineage = table["gate5_lineage"]
+    assert lineage["source_graph_tensor_bundle_hash"]
+    assert lineage["training_run_manifest_hash"]
+    assert lineage["checkpoint_manifest_hash"]
+    assert lineage["readout_manifest_bundle_hash"]
+    assert lineage["embedding_export_report_hash"]
+    for row in table["embeddings"]:
+        assert row["gate5_lineage_hash"] == table["gate5_lineage_hash"]

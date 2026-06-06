@@ -50,3 +50,18 @@ def evaluate_gate9_sampled_vs_full(
     }
     artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
     return artifact
+
+
+def gate9_baseline_missing_report() -> dict[str, Any]:
+    artifact = {
+        "artifact_type": "gcl_resnet50_gate9_sampled_vs_full_evaluation",
+        "artifact_version": "gate9_sampled_vs_full_evaluation_v1",
+        "extension_label": EXTENSION_LABEL,
+        "claim_status": "baseline_missing_no_speedup_or_accuracy_claim",
+        "full_vs_sampled_simulation_report": {},
+        "sampled_speedup_report": {},
+        "sampled_error_report": {},
+        "tuning_effect_report": {"status": "not_evaluated_without_baseline"},
+    }
+    artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
+    return artifact

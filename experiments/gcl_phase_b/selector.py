@@ -189,6 +189,22 @@ def _validate_gate6_input_table(table: dict[str, Any], allow_debug: bool = False
         raise ValueError(f"Gate6 selector requires formal provenance fields: {sorted(missing)}")
     if table.get("formal_input_eligible") is not True and not allow_debug:
         raise ValueError("Gate6 selector requires formal input eligible embedding table")
+    if not allow_debug and not table.get("gate5_lineage_hash"):
+        raise ValueError("Gate5 lineage is required for formal Gate6 selector input")
+    if not allow_debug:
+        lineage = table.get("gate5_lineage")
+        if not isinstance(lineage, dict):
+            raise ValueError("Gate5 lineage is required for formal Gate6 selector input")
+        required_lineage = {
+            "source_graph_tensor_bundle_hash",
+            "training_run_manifest_hash",
+            "checkpoint_manifest_hash",
+            "readout_manifest_bundle_hash",
+            "embedding_export_report_hash",
+        }
+        missing_lineage = required_lineage.difference(lineage)
+        if missing_lineage:
+            raise ValueError(f"Gate5 lineage missing required fields: {sorted(missing_lineage)}")
     if table.get("family_labels_used_for_clustering") is True:
         raise ValueError("family labels cannot guide Gate6 clustering")
     forbidden = {"kernel_name", "family_label", "runtime", "graph_size", "weight_input"}

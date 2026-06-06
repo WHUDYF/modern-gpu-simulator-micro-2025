@@ -73,8 +73,6 @@ def export_phase_b_embedding_table(
         "readout_hierarchy": READOUT_HIERARCHY,
         "embeddings": rows,
     }
-    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
-    validate_phase_b_embedding_table(table)
     readout_bundle = {
         "artifact_type": "gcl_phase_b_readout_manifest_bundle",
         "manifests": readout_manifests,
@@ -82,6 +80,18 @@ def export_phase_b_embedding_table(
     readout_bundle["readout_manifest_bundle_hash"] = hash_without(
         readout_bundle, "readout_manifest_bundle_hash"
     )
+    lineage = _gate5_lineage(
+        table=table,
+        encoder_manifest=encoder_manifest,
+        readout_bundle=readout_bundle,
+    )
+    table["gate5_lineage"] = lineage
+    table["gate5_lineage_hash"] = hash_without(lineage)
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    validate_phase_b_embedding_table(table)
     return table, readout_bundle
 
 
@@ -145,6 +155,8 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
         "readout_hierarchy",
         "embeddings",
         "kernel_embedding_table_hash",
+        "gate5_lineage",
+        "gate5_lineage_hash",
     }
     missing_top_level = required_top_level.difference(table)
     if missing_top_level:
@@ -159,6 +171,7 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
         raise ValueError("embedding table must use 256-dimensional kernel embeddings")
     if table.get("readout_hierarchy") != READOUT_HIERARCHY:
         raise ValueError("embedding table readout_hierarchy mismatch")
+    _validate_gate5_lineage(table)
     rows = table.get("embeddings")
     if not rows:
         raise ValueError("embedding table must contain embeddings")
@@ -182,6 +195,7 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
             "readout_manifest_hash",
             "embedding_hash",
             "weight_input",
+            "gate5_lineage_hash",
         }
         missing = required.difference(row)
         if missing:
@@ -196,6 +210,8 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
             raise ValueError("kernel_embedding_hash is not reproducible")
         if row["weight_input"].get("readout_hierarchy") != READOUT_HIERARCHY:
             raise ValueError("embedding row must record CTA-aware readout hierarchy")
+        if row["gate5_lineage_hash"] != table["gate5_lineage_hash"]:
+            raise ValueError("embedding row Gate5 lineage hash mismatch")
         if row["embedding_hash"] != hash_without(row, "embedding_hash"):
             raise ValueError("embedding_hash is not reproducible")
     if table["kernel_embedding_table_hash"] != hash_without(
@@ -240,3 +256,80 @@ def _kernel_embedding_hash(kernel_embedding: list[float]) -> str:
             ]
         }
     )
+
+
+def _gate5_lineage(
+    *,
+    table: dict[str, Any],
+    encoder_manifest: dict[str, Any],
+    readout_bundle: dict[str, Any],
+) -> dict[str, Any]:
+    training_run_manifest_hash = encoder_manifest.get(
+        "training_run_manifest_hash",
+        hash_without(
+            {
+                "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+                "encoder_manifest_hash": table["encoder_manifest_hash"],
+                "checkpoint_hash": table["checkpoint_hash"],
+            }
+        ),
+    )
+    checkpoint_manifest_hash = encoder_manifest.get(
+        "rgcn_checkpoint_manifest_hash",
+        hash_without(
+            {
+                "checkpoint_hash": table["checkpoint_hash"],
+                "encoder_manifest_hash": table["encoder_manifest_hash"],
+                "training_run_manifest_hash": training_run_manifest_hash,
+            }
+        ),
+    )
+    embedding_export_report_hash = hash_without(
+        {
+            "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+            "encoder_manifest_hash": table["encoder_manifest_hash"],
+            "checkpoint_hash": table["checkpoint_hash"],
+            "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        }
+    )
+    return {
+        "artifact_type": "gcl_resnet50_gate5_lineage",
+        "lineage_version": "gate5_lineage_v1",
+        "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+        "training_run_manifest_hash": training_run_manifest_hash,
+        "checkpoint_manifest_hash": checkpoint_manifest_hash,
+        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        "embedding_export_report_hash": embedding_export_report_hash,
+        "encoder_manifest_hash": table["encoder_manifest_hash"],
+        "checkpoint_hash": table["checkpoint_hash"],
+    }
+
+
+def _validate_gate5_lineage(table: dict[str, Any]) -> None:
+    lineage = table.get("gate5_lineage")
+    if not isinstance(lineage, dict):
+        raise ValueError("Gate5 lineage is required")
+    required = {
+        "artifact_type",
+        "lineage_version",
+        "source_graph_tensor_bundle_hash",
+        "training_run_manifest_hash",
+        "checkpoint_manifest_hash",
+        "readout_manifest_bundle_hash",
+        "embedding_export_report_hash",
+        "encoder_manifest_hash",
+        "checkpoint_hash",
+    }
+    missing = required.difference(lineage)
+    if missing:
+        raise ValueError(f"Gate5 lineage missing required fields: {sorted(missing)}")
+    if lineage["artifact_type"] != "gcl_resnet50_gate5_lineage":
+        raise ValueError("Gate5 lineage artifact_type mismatch")
+    if lineage["source_graph_tensor_bundle_hash"] != table["source_graph_tensor_bundle_hash"]:
+        raise ValueError("Gate5 lineage source tensor bundle mismatch")
+    if lineage["encoder_manifest_hash"] != table["encoder_manifest_hash"]:
+        raise ValueError("Gate5 lineage encoder manifest mismatch")
+    if lineage["checkpoint_hash"] != table["checkpoint_hash"]:
+        raise ValueError("Gate5 lineage checkpoint mismatch")
+    if table.get("gate5_lineage_hash") != hash_without(lineage):
+        raise ValueError("Gate5 lineage hash is not reproducible")

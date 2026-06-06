@@ -5,6 +5,9 @@ from __future__ import annotations
 from statistics import median
 from typing import Any
 
+import numpy as np
+
+from .embedding_export import validate_phase_b_embedding_table
 from .utils import stable_hash
 
 
@@ -29,6 +32,7 @@ def evaluate_gate7_correctness(
         "artifact_version": "gate7_correctness_manifest_v1",
         "threshold_policy": "report_only_v1",
         "source_gate6_selector_manifest_hash": selector_artifacts.get("selector_manifest_hash"),
+        "source_gate5_embedding_table_hash": None,
         "source_assignment_hash": stable_hash(assignments),
         "embedding_geometry_metrics": _embedding_geometry_metrics(embedding_geometry or {}),
         "family_alignment_metrics": _family_alignment_metrics(family_report),
@@ -43,6 +47,28 @@ def evaluate_gate7_correctness(
         },
         "assignment_count": len(assignments),
     }
+    report["gate7_correctness_manifest_hash"] = stable_hash(report)
+    return report
+
+
+def evaluate_gate7_correctness_from_artifacts(
+    *,
+    selector_artifacts: dict[str, Any],
+    embedding_table: dict[str, Any],
+    metric_rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    validate_phase_b_embedding_table(embedding_table)
+    if selector_artifacts.get("source_embedding_table_hash") != embedding_table.get(
+        "kernel_embedding_table_hash"
+    ):
+        raise ValueError("Gate7 selector artifacts must match Gate5 embedding table")
+    geometry = _compute_embedding_geometry(selector_artifacts, embedding_table)
+    report = evaluate_gate7_correctness(
+        selector_artifacts,
+        embedding_geometry=geometry,
+        metric_rows=metric_rows,
+    )
+    report["source_gate5_embedding_table_hash"] = embedding_table["kernel_embedding_table_hash"]
     report["gate7_correctness_manifest_hash"] = stable_hash(report)
     return report
 
@@ -156,3 +182,99 @@ def _float_or_none(value: Any) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _compute_embedding_geometry(
+    selector_artifacts: dict[str, Any],
+    embedding_table: dict[str, Any],
+) -> dict[str, float]:
+    rows_by_id = {row["record_id"]: row for row in embedding_table["embeddings"]}
+    assignments = selector_artifacts["kmeans_cluster_assignment_table"]["assignments"]
+    vectors = []
+    labels = []
+    for assignment in assignments:
+        row = rows_by_id.get(assignment["record_id"])
+        if row is None:
+            raise ValueError("Gate7 assignment references missing embedding row")
+        vectors.append(row["kernel_embedding"])
+        labels.append(int(assignment["cluster_id"]))
+    matrix = np.asarray(vectors, dtype=np.float64)
+    label_array = np.asarray(labels, dtype=np.int64)
+    distances = _pairwise_distances(matrix)
+    intra_distances = []
+    inter_distances = []
+    for i in range(len(label_array)):
+        for j in range(i + 1, len(label_array)):
+            if label_array[i] == label_array[j]:
+                intra_distances.append(float(distances[i, j]))
+            else:
+                inter_distances.append(float(distances[i, j]))
+    return {
+        "silhouette": _mean_silhouette(distances, label_array),
+        "davies_bouldin": _davies_bouldin(matrix, label_array),
+        "calinski_harabasz": _calinski_harabasz(matrix, label_array),
+        "intra_distance_mean": float(np.mean(intra_distances)) if intra_distances else 0.0,
+        "inter_distance_mean": float(np.mean(inter_distances)) if inter_distances else 0.0,
+    }
+
+
+def _pairwise_distances(matrix: np.ndarray) -> np.ndarray:
+    diffs = matrix[:, None, :] - matrix[None, :, :]
+    return np.sqrt(np.sum(diffs * diffs, axis=2))
+
+
+def _mean_silhouette(distances: np.ndarray, labels: np.ndarray) -> float:
+    if len(set(labels.tolist())) < 2 or len(labels) < 2:
+        return 0.0
+    scores = []
+    for index, label in enumerate(labels):
+        same = [j for j, other in enumerate(labels) if other == label and j != index]
+        other_labels = sorted(set(labels.tolist()) - {int(label)})
+        a = float(np.mean([distances[index, j] for j in same])) if same else 0.0
+        b = min(
+            float(np.mean([distances[index, j] for j, other in enumerate(labels) if other == other_label]))
+            for other_label in other_labels
+        )
+        denom = max(a, b)
+        scores.append(0.0 if denom == 0.0 else (b - a) / denom)
+    return round(float(np.mean(scores)), 8)
+
+
+def _davies_bouldin(matrix: np.ndarray, labels: np.ndarray) -> float:
+    unique = sorted(set(labels.tolist()))
+    if len(unique) < 2:
+        return 0.0
+    centroids = {label: matrix[labels == label].mean(axis=0) for label in unique}
+    scatters = {
+        label: float(np.mean(np.linalg.norm(matrix[labels == label] - centroids[label], axis=1)))
+        for label in unique
+    }
+    values = []
+    for label in unique:
+        ratios = []
+        for other in unique:
+            if other == label:
+                continue
+            distance = float(np.linalg.norm(centroids[label] - centroids[other]))
+            ratios.append(0.0 if distance == 0.0 else (scatters[label] + scatters[other]) / distance)
+        values.append(max(ratios))
+    return round(float(np.mean(values)), 8)
+
+
+def _calinski_harabasz(matrix: np.ndarray, labels: np.ndarray) -> float:
+    unique = sorted(set(labels.tolist()))
+    n_samples = len(labels)
+    k = len(unique)
+    if k < 2 or n_samples <= k:
+        return 0.0
+    global_mean = matrix.mean(axis=0)
+    between = 0.0
+    within = 0.0
+    for label in unique:
+        cluster = matrix[labels == label]
+        centroid = cluster.mean(axis=0)
+        between += len(cluster) * float(np.sum((centroid - global_mean) ** 2))
+        within += float(np.sum((cluster - centroid) ** 2))
+    if within == 0.0:
+        return 0.0
+    return round(float((between / (k - 1)) / (within / (n_samples - k))), 8)

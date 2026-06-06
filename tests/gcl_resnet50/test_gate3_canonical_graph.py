@@ -4,6 +4,7 @@ from experiments.gcl_phase_b.graph_builder import VARIABLE_NODE_TYPES, build_pha
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_debug_trace_adapter_bundle
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
+from tests.gcl_resnet50.formal_chain import build_formal_graphs
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -28,5 +29,20 @@ def test_gate3_uses_allowed_node_and_edge_types_for_debug_smoke_graph():
     allowed_nodes = {"instruction", "pseudo", *VARIABLE_NODE_TYPES}
     allowed_edges = {"control_flow", "data_source", "data_destination"}
     for graph in graphs:
+        assert {node["node_type"] for node in graph["nodes"]}.issubset(allowed_nodes)
+        assert {edge["relation"] for edge in graph["edges"]}.issubset(allowed_edges)
+
+
+def test_gate3_builds_formal_canonical_graphs_from_gate2_manifest(tmp_path):
+    manifest, graphs = build_formal_graphs(tmp_path)
+
+    assert manifest["artifact_status"] == "formal"
+    assert graphs
+    allowed_nodes = {"instruction", "pseudo", *VARIABLE_NODE_TYPES}
+    allowed_edges = {"control_flow", "data_source", "data_destination"}
+    for graph in graphs:
+        assert graph["artifact_status"] == "formal"
+        assert graph["formal_input_eligible"] is True
+        assert graph["trace_source"] == "nvbit"
         assert {node["node_type"] for node in graph["nodes"]}.issubset(allowed_nodes)
         assert {edge["relation"] for edge in graph["edges"]}.issubset(allowed_edges)

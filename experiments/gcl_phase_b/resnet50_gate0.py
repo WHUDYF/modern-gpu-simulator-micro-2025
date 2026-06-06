@@ -177,6 +177,11 @@ def _load_nvbit_collection_evidence(root: Path) -> dict[str, Any]:
     if not path.exists():
         raise ValueError("real NVBit collection evidence is required for formal Gate0")
     evidence = read_json(path)
+    _validate_nvbit_collection_evidence(evidence)
+    return evidence
+
+
+def _validate_nvbit_collection_evidence(evidence: dict[str, Any]) -> None:
     required = {
         "workload_id": "resnet50",
         "execution_mode": "real_trace",
@@ -192,12 +197,13 @@ def _load_nvbit_collection_evidence(root: Path) -> dict[str, Any]:
         raise ValueError("NVBit collection evidence must be formal_collection_evidence")
     if evidence.get("fixture_backed") is not False:
         raise ValueError("fixture-backed roots cannot produce formal Gate0 manifests")
+    if evidence.get("collector_artifact_origin") != "real_nvbit_runtime":
+        raise ValueError("real NVBit runtime artifact origin is required for formal Gate0")
     evidence_scope = evidence.get("evidence_scope")
     if evidence_scope and evidence_scope != "real_resnet50_nvbit_collection":
         raise ValueError("synthetic artifact-shape roots cannot produce formal Gate0 manifests")
     if evidence.get("nvbit_loaded") is not True:
         raise ValueError("NVBit collection evidence must confirm nvbit_loaded")
-    return evidence
 
 
 def _validate_collector_attestation(
@@ -278,6 +284,7 @@ def _write_collector_attestation(
     if not evidence_path.is_file():
         raise ValueError("real NVBit collection evidence is required for formal Gate0")
     evidence = read_json(evidence_path)
+    _validate_nvbit_collection_evidence(evidence)
     source_hashes = _source_artifact_hashes(root)
     attestation = {
         "artifact_type": "gcl_resnet50_nvbit_collector_attestation",

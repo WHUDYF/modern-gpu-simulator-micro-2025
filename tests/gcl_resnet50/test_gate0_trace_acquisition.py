@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from experiments.baseline_diagnosis.proto_gen import trace_pb2
 from experiments.gcl_phase_b.resnet50_gate0 import (
     COLLECTOR_PRODUCER,
     ResNet50NvbitAcquisitionConfig,
@@ -25,27 +24,6 @@ def _fixture_backed_root(tmp_path):
     threadblocks_dir = root / "threadblocks"
     threadblocks_dir.mkdir()
     shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
-    return root
-
-
-def _contract_style_root(root):
-    write_minimal_artifact_shape_resnet50_root(
-        root,
-        evidence_scope="real_resnet50_nvbit_collection",
-    )
-    trace = trace_pb2.Trace()
-    trace.ParseFromString((root / "dynamic_trace.pb").read_bytes())
-    trace.name = "resnet50_contract_trace"
-    (root / "dynamic_trace.pb").write_bytes(trace.SerializeToString())
-    scheduler = read_json(root / "scheduler_metadata.json")
-    scheduler["artifact_type"] = "resnet50_scheduler_metadata_real_nvbit_contract"
-    write_json(root / "scheduler_metadata.json", scheduler)
-    enhanced = read_json(root / "enhanced_execution_info.json")
-    enhanced["artifact_type"] = "resnet50_enhanced_execution_info_real_nvbit_contract"
-    write_json(root / "enhanced_execution_info.json", enhanced)
-    evidence = read_json(root / "nvbit_collection_evidence.json")
-    evidence["runner_invocation"] = ["python", "collect_real_resnet50_trace.py"]
-    write_json(root / "nvbit_collection_evidence.json", evidence)
     return root
 
 
@@ -120,7 +98,7 @@ def test_gate0_rejects_missing_real_smid_metadata(tmp_path):
     scheduler["scheduler_metadata_source"] = "file_order_fallback"
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="real_nvbit_smid"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -141,7 +119,7 @@ def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_pa
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed
@@ -157,7 +135,7 @@ def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp
         evidence_scope="real_resnet50_nvbit_collection",
     )
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -171,39 +149,7 @@ def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(t
     evidence["collector_attestation_hash"] = "self-declared"
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
-        record_resnet50_gate0_trace_acquisition(root)
-
-
-def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
-    root = tmp_path / "formal_trace"
-
-    def runner(command, *, cwd, env):
-        _contract_style_root(
-            root,
-        )
-        return {"returncode": 0, "stdout": "ok", "stderr": ""}
-
-    config = ResNet50NvbitAcquisitionConfig(
-        output_root=root,
-        workload_command=["python", "run_resnet50.py"],
-        nvbit_tool_path=Path("/opt/nvbit/tools/trace_tool.so"),
-    )
-    acquire_resnet50_gate0_trace(config, runner=runner)
-
-    attestation_path = root / "nvbit_collector_attestation.json"
-    attestation = read_json(attestation_path)
-    attestation["source_artifact_hashes"] = {"dynamic_trace.pb": "wrong"}
-    attestation["collector_attestation_hash"] = hash_without(
-        attestation, "collector_attestation_hash"
-    )
-    write_json(attestation_path, attestation)
-    evidence_path = root / "nvbit_collection_evidence.json"
-    evidence = read_json(evidence_path)
-    evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
-    write_json(evidence_path, evidence)
-
-    with pytest.raises(ValueError, match="source artifact hashes"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -233,7 +179,7 @@ def test_gate0_rejects_handwritten_matching_attestation_on_synthetic_root(tmp_pa
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -284,11 +230,31 @@ def test_gate0_rejects_handwritten_session_attestation_triplet_on_synthetic_root
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
-def test_gate0_acquisition_runner_writes_attestation_but_rejects_synthetic_trace(tmp_path):
+def test_gate0_rejects_marker_rewritten_synthetic_root(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "marker_rewritten",
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+    scheduler = read_json(root / "scheduler_metadata.json")
+    scheduler["artifact_type"] = "resnet50_scheduler_metadata_real_nvbit_contract"
+    write_json(root / "scheduler_metadata.json", scheduler)
+    enhanced = read_json(root / "enhanced_execution_info.json")
+    enhanced["artifact_type"] = "resnet50_enhanced_execution_info_real_nvbit_contract"
+    write_json(root / "enhanced_execution_info.json", enhanced)
+    evidence_path = root / "nvbit_collection_evidence.json"
+    evidence = read_json(evidence_path)
+    evidence["runner_invocation"] = ["python", "collect_real_resnet50_trace.py"]
+    write_json(evidence_path, evidence)
+
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_acquisition_runner_rejects_synthetic_trace_before_attestation(tmp_path):
     root = tmp_path / "formal_trace"
     executed = []
 
@@ -308,14 +274,9 @@ def test_gate0_acquisition_runner_writes_attestation_but_rejects_synthetic_trace
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
         acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed
-    assert (root / "nvbit_collector_attestation.json").exists()
+    assert not (root / "nvbit_collector_attestation.json").exists()
     assert not (root / "gate0_trace_acquisition_manifest.json").exists()
-    evidence = read_json(root / "nvbit_collection_evidence.json")
-    attestation = read_json(root / "nvbit_collector_attestation.json")
-    assert attestation["producer"] == "acquire_resnet50_gate0_trace"
-    assert attestation["collector_session_id"] == evidence["collector_session_id"]
-    assert evidence["collector_attestation_hash"] == attestation["collector_attestation_hash"]

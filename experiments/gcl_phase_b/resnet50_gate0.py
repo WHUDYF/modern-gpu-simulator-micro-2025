@@ -87,6 +87,7 @@ def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     _validate_scheduler_metadata_records(scheduler_metadata)
     _reject_fixture_backed_root(root)
+    _reject_synthetic_artifact_shape_root(root, evidence, scheduler_metadata)
     source_hashes = _source_artifact_hashes(root)
     _validate_collector_attestation(root, evidence, source_hashes)
     manifest = {
@@ -319,6 +320,34 @@ def _reject_fixture_backed_root(root: Path) -> None:
         artifact_type = read_json(path).get("artifact_type", "")
         if "fixture" in artifact_type:
             raise ValueError("fixture-backed roots cannot produce formal Gate0 manifests")
+
+
+def _reject_synthetic_artifact_shape_root(
+    root: Path,
+    evidence: dict[str, Any],
+    scheduler_metadata: dict[str, Any],
+) -> None:
+    markers = []
+    evidence_scope = evidence.get("evidence_scope")
+    if evidence_scope == "synthetic_artifact_shape_unit_test_only":
+        markers.append("synthetic evidence_scope")
+    if evidence.get("runner_invocation") == ["python", "run_resnet50.py"]:
+        markers.append("unit-test runner_invocation")
+    if scheduler_metadata.get("artifact_type") == "resnet50_scheduler_metadata_nvbit":
+        markers.append("artifact-shape scheduler_metadata")
+    enhanced_path = root / "enhanced_execution_info.json"
+    if enhanced_path.is_file():
+        enhanced = read_json(enhanced_path)
+        if enhanced.get("artifact_type") == "resnet50_enhanced_execution_info_nvbit":
+            markers.append("artifact-shape enhanced_execution_info")
+    dynamic_path = root / "dynamic_trace.pb"
+    if dynamic_path.is_file() and b"resnet50_formal_unit_trace" in dynamic_path.read_bytes():
+        markers.append("artifact-shape dynamic_trace")
+    if markers:
+        raise ValueError(
+            "synthetic artifact-shape roots cannot produce formal Gate0 manifests: "
+            + ", ".join(sorted(markers))
+        )
 
 
 def _validate_scheduler_metadata_records(scheduler_metadata: dict[str, Any]) -> None:

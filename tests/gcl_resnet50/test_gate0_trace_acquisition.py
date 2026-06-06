@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from experiments.baseline_diagnosis.proto_gen import trace_pb2
 from experiments.gcl_phase_b.resnet50_gate0 import (
+    COLLECTOR_PRODUCER,
     ResNet50NvbitAcquisitionConfig,
     acquire_resnet50_gate0_trace,
     record_resnet50_gate0_trace_acquisition,
@@ -23,6 +25,27 @@ def _fixture_backed_root(tmp_path):
     threadblocks_dir = root / "threadblocks"
     threadblocks_dir.mkdir()
     shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
+    return root
+
+
+def _contract_style_root(root):
+    write_minimal_artifact_shape_resnet50_root(
+        root,
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+    trace = trace_pb2.Trace()
+    trace.ParseFromString((root / "dynamic_trace.pb").read_bytes())
+    trace.name = "resnet50_contract_trace"
+    (root / "dynamic_trace.pb").write_bytes(trace.SerializeToString())
+    scheduler = read_json(root / "scheduler_metadata.json")
+    scheduler["artifact_type"] = "resnet50_scheduler_metadata_real_nvbit_contract"
+    write_json(root / "scheduler_metadata.json", scheduler)
+    enhanced = read_json(root / "enhanced_execution_info.json")
+    enhanced["artifact_type"] = "resnet50_enhanced_execution_info_real_nvbit_contract"
+    write_json(root / "enhanced_execution_info.json", enhanced)
+    evidence = read_json(root / "nvbit_collection_evidence.json")
+    evidence["runner_invocation"] = ["python", "collect_real_resnet50_trace.py"]
+    write_json(root / "nvbit_collection_evidence.json", evidence)
     return root
 
 
@@ -134,7 +157,7 @@ def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp
         evidence_scope="real_resnet50_nvbit_collection",
     )
 
-    with pytest.raises(ValueError, match="collector attestation"):
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -148,7 +171,7 @@ def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(t
     evidence["collector_attestation_hash"] = "self-declared"
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="persisted collector attestation"):
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
@@ -156,9 +179,8 @@ def test_gate0_rejects_mismatched_persisted_collector_attestation(tmp_path):
     root = tmp_path / "formal_trace"
 
     def runner(command, *, cwd, env):
-        write_minimal_artifact_shape_resnet50_root(
+        _contract_style_root(
             root,
-            evidence_scope="real_resnet50_nvbit_collection",
         )
         return {"returncode": 0, "stdout": "ok", "stderr": ""}
 
@@ -211,11 +233,62 @@ def test_gate0_rejects_handwritten_matching_attestation_on_synthetic_root(tmp_pa
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(evidence_path, evidence)
 
-    with pytest.raises(ValueError, match="collector-produced"):
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
         record_resnet50_gate0_trace_acquisition(root)
 
 
-def test_gate0_acquisition_runner_writes_collector_attestation(tmp_path):
+def test_gate0_rejects_handwritten_session_attestation_triplet_on_synthetic_root(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "spoofed_trace",
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+    from experiments.gcl_phase_b.resnet50_gate0 import _source_artifact_hashes
+
+    session = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_session",
+        "artifact_version": "nvbit_collector_session_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": "handwritten-session",
+        "workload_command": ["python", "run_resnet50.py"],
+        "nvbit_tool_path": "/opt/nvbit/tools/trace_tool.so",
+        "output_root": str(root),
+        "created_unix_ns": 1,
+    }
+    session["collector_session_hash"] = hash_without(session, "collector_session_hash")
+    write_json(root / ".nvbit_collector_session.json", session)
+    attestation = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
+        "artifact_version": "nvbit_collector_attestation_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": session["collector_session_id"],
+        "collector_session_hash": session["collector_session_hash"],
+        "runner_returncode": 0,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "collection_status": "completed",
+        "source_artifact_hashes": _source_artifact_hashes(root),
+    }
+    attestation["collector_attestation_hash"] = hash_without(
+        attestation,
+        "collector_attestation_hash",
+    )
+    write_json(root / "nvbit_collector_attestation.json", attestation)
+    evidence_path = root / "nvbit_collection_evidence.json"
+    evidence = read_json(evidence_path)
+    evidence["collector_producer"] = COLLECTOR_PRODUCER
+    evidence["collector_session_id"] = session["collector_session_id"]
+    evidence["collector_session_hash"] = session["collector_session_hash"]
+    evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
+    write_json(evidence_path, evidence)
+
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
+def test_gate0_acquisition_runner_writes_attestation_but_rejects_synthetic_trace(tmp_path):
     root = tmp_path / "formal_trace"
     executed = []
 
@@ -235,11 +308,12 @@ def test_gate0_acquisition_runner_writes_collector_attestation(tmp_path):
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+        acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed
-    assert manifest["artifact_status"] == "formal"
     assert (root / "nvbit_collector_attestation.json").exists()
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
     evidence = read_json(root / "nvbit_collection_evidence.json")
     attestation = read_json(root / "nvbit_collector_attestation.json")
     assert attestation["producer"] == "acquire_resnet50_gate0_trace"

@@ -8,25 +8,46 @@ import pytest
 from experiments.gcl_phase_b.resnet50_adapter import (
     build_resnet50_trace_adapter_bundle,
     load_resnet50_trace_sources,
+    mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
+from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
 from experiments.gcl_phase_b.utils import hash_without
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
 
-def test_resnet50_gate1_fixture_sources_are_loadable():
-    sources = load_resnet50_trace_sources(FIXTURE_ROOT)
+def _formal_gate0_root(tmp_path):
+    root = tmp_path / "formal_gate0"
+    shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
+    record_resnet50_gate0_trace_acquisition(root)
+    return root
+
+
+def test_resnet50_gate1_fixture_sources_are_debug_not_formal():
+    report = mark_resnet50_fixture_debug_not_formal(FIXTURE_ROOT)
+
+    assert report["artifact_status"] == "debug_not_formal"
+    assert report["formal_input_eligible"] is False
+
+
+def test_resnet50_gate1_formal_sources_are_loadable(tmp_path):
+    sources = load_resnet50_trace_sources(_formal_gate0_root(tmp_path))
 
     assert sources.scheduler_metadata["scheduler_metadata_source"] == "real_nvbit_smid"
+    assert sources.gate0_manifest["artifact_status"] == "formal"
     assert sources.dynamic_trace["kernel_invocations"]
     assert sources.threadblocks["threadblocks"]
     assert sources.enhanced_execution_info["instructions"]
     assert sources.stats_rows
 
 
-def test_gate1_builds_resnet50_trace_adapter_bundle():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_builds_resnet50_trace_adapter_bundle(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
 
     validate_resnet50_trace_adapter_bundle(bundle)
     assert bundle["artifact_type"] == "gcl_resnet50_trace_adapter_bundle"
@@ -38,8 +59,8 @@ def test_gate1_builds_resnet50_trace_adapter_bundle():
     assert all("kernel_invocation_id" in row for row in bundle["per_warp_trace_records"])
 
 
-def test_gate1_rejects_non_real_scheduler_metadata():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_non_real_scheduler_metadata(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     corrupted = copy.deepcopy(bundle)
     corrupted["scheduler_metadata_source"] = "file_order_fallback"
 
@@ -47,16 +68,16 @@ def test_gate1_rejects_non_real_scheduler_metadata():
         validate_resnet50_trace_adapter_bundle(corrupted)
 
 
-def test_gate1_rejects_non_reproducible_adapter_hash():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_non_reproducible_adapter_hash(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     bundle["kernel_invocation_table"][0]["kernel_name"] = "changed"
 
     with pytest.raises(ValueError, match="adapter_bundle_hash"):
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
-def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     bundle["cta_scheduler_records"].append(copy.deepcopy(bundle["cta_scheduler_records"][0]))
     bundle["adapter_bundle_hash"] = "stale"
 
@@ -64,8 +85,8 @@ def test_gate1_rejects_duplicate_cta_scheduler_records_for_same_invocation():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
-def test_gate1_rejects_scheduler_trace_count_mismatch_with_trace_records():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_scheduler_trace_count_mismatch_with_trace_records(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     bundle["cta_scheduler_records"][0]["trace_entry_count"] += 5
     bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
 
@@ -73,8 +94,8 @@ def test_gate1_rejects_scheduler_trace_count_mismatch_with_trace_records():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
-def test_gate1_rejects_invalid_scheduler_order():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_invalid_scheduler_order(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     record = bundle["cta_scheduler_records"][0]
     record["first_seen_order"] = record["last_seen_order"] + 1
     bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
@@ -83,8 +104,8 @@ def test_gate1_rejects_invalid_scheduler_order():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
-def test_gate1_rejects_scheduler_warp_id_mismatch():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_scheduler_warp_id_mismatch(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     bundle["cta_scheduler_records"][0]["warp_ids"] = [99]
     bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
 
@@ -92,8 +113,8 @@ def test_gate1_rejects_scheduler_warp_id_mismatch():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
-def test_gate1_rejects_stray_warp_trace_cta():
-    bundle = build_resnet50_trace_adapter_bundle(FIXTURE_ROOT)
+def test_gate1_rejects_stray_warp_trace_cta(tmp_path):
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     bundle["per_warp_trace_records"][0]["cta_id"] = "stray,0,0"
     bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
 
@@ -104,6 +125,10 @@ def test_gate1_rejects_stray_warp_trace_cta():
 def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(tmp_path):
     root = tmp_path / "repeated_kernel_id"
     shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
     dynamic_path = root / "dynamic_trace.json"
     scheduler_path = root / "scheduler_metadata.json"
     threadblocks_path = root / "threadblocks.json"
@@ -124,6 +149,8 @@ def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(t
     dynamic_path.write_text(json.dumps(dynamic), encoding="utf-8")
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
     threadblocks_path.write_text(json.dumps(threadblocks), encoding="utf-8")
+    shutil.copy(threadblocks_path, threadblocks_dir / "threadblocks.json")
+    record_resnet50_gate0_trace_acquisition(root)
 
     bundle = build_resnet50_trace_adapter_bundle(root)
 
@@ -138,10 +165,15 @@ def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(t
 def test_gate1_rejects_ambiguous_repeated_kernel_id_without_launch_order(tmp_path):
     root = tmp_path / "ambiguous_repeated_kernel_id"
     shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
     dynamic_path = root / "dynamic_trace.json"
     dynamic = json.loads(dynamic_path.read_text())
     dynamic["kernel_invocations"][1]["kernel_id"] = dynamic["kernel_invocations"][0]["kernel_id"]
     dynamic_path.write_text(json.dumps(dynamic), encoding="utf-8")
+    record_resnet50_gate0_trace_acquisition(root)
 
     with pytest.raises(ValueError, match="requires kernel_invocation_id or launch_order"):
         build_resnet50_trace_adapter_bundle(root)
@@ -150,10 +182,16 @@ def test_gate1_rejects_ambiguous_repeated_kernel_id_without_launch_order(tmp_pat
 def test_gate1_rejects_raw_record_with_contradictory_kernel_id_and_launch_order(tmp_path):
     root = tmp_path / "contradictory_kernel_launch_order"
     shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
     threadblocks_path = root / "threadblocks.json"
     threadblocks = json.loads(threadblocks_path.read_text())
     threadblocks["threadblocks"][0]["launch_order"] = 1
     threadblocks_path.write_text(json.dumps(threadblocks), encoding="utf-8")
+    shutil.copy(threadblocks_path, threadblocks_dir / "threadblocks.json")
+    record_resnet50_gate0_trace_acquisition(root)
 
     with pytest.raises(ValueError, match="kernel_id does not match"):
         build_resnet50_trace_adapter_bundle(root)

@@ -111,7 +111,9 @@ def test_phase_b_replay_rejects_tampered_selector_artifacts(tmp_path):
 
     selector_path = out_dir / ARTIFACT_FILENAMES["selector_artifacts"]
     selector_artifacts = json.loads(selector_path.read_text())
-    selector_artifacts["representative_anchor_table"][0]["representative_record_id"] = "tampered"
+    selector_artifacts["representative_anchor_table"]["anchors"][0][
+        "representative_record_id"
+    ] = "tampered"
     selector_path.write_text(json.dumps(selector_artifacts, sort_keys=True))
 
     with pytest.raises(ValueError, match="selector_manifest_hash"):
@@ -126,7 +128,8 @@ def test_phase_b_replay_rejects_selector_semantic_tamper_after_hash_refresh(tmp_
 
     selector_path = out_dir / ARTIFACT_FILENAMES["selector_artifacts"]
     selector_artifacts = json.loads(selector_path.read_text())
-    selector_artifacts["cluster_assignments"] = selector_artifacts["cluster_assignments"][:-1]
+    assignments = selector_artifacts["kmeans_cluster_assignment_table"]["assignments"]
+    selector_artifacts["kmeans_cluster_assignment_table"]["assignments"] = assignments[:-1]
     selector_artifacts["selector_manifest_hash"] = hash_without(
         selector_artifacts, "selector_manifest_hash"
     )

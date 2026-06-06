@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import shutil
 from pathlib import Path
 
 from experiments.gcl_phase_b.embedding_export import (
@@ -11,10 +12,25 @@ from experiments.gcl_phase_b.utils import hash_without
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_trace_adapter_bundle
+from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
 from experiments.gcl_phase_b.tensorizer import _tensor_hash, tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
+
+
+FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
+
+
+def _formal_gate0_root(tmp_path):
+    root = tmp_path / "formal_gate0"
+    shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
+    record_resnet50_gate0_trace_acquisition(root)
+    return root
 
 
 def test_phase_b_exports_m0_compatible_256_dim_embeddings(tmp_path):
@@ -47,7 +63,7 @@ def test_phase_b_exports_m0_compatible_256_dim_embeddings(tmp_path):
 
 
 def test_phase_b_embedding_export_uses_cta_aware_readout(tmp_path):
-    bundle = build_resnet50_trace_adapter_bundle(Path("tests/fixtures/gcl_resnet50_gate1"))
+    bundle = build_resnet50_trace_adapter_bundle(_formal_gate0_root(tmp_path))
     manifest, _reports, _preview = build_representative_sm_manifest_from_bundle(bundle)
     assert all(len(invocation["included_cta_ids"]) >= 2 for invocation in manifest["kernel_invocations"])
     records = build_phase_b_trace_records(manifest)

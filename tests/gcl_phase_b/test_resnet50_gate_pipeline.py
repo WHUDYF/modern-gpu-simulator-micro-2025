@@ -1,18 +1,31 @@
 from pathlib import Path
 import json
+import shutil
 
 from experiments.gcl_phase_b.embedding_export import READOUT_HIERARCHY
-from experiments.gcl_phase_b.resnet50_gate_pipeline import run_resnet50_gate1_to_gate5
+from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
+from experiments.gcl_phase_b.resnet50_gate_pipeline import run_resnet50_gate1_to_gate7
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
 
-def test_resnet50_gate_pipeline_stops_at_gate5_embedding_table(tmp_path):
-    out_dir = tmp_path / "gate1_5"
+def _formal_gate0_root(tmp_path):
+    root = tmp_path / "formal_gate0"
+    shutil.copytree(FIXTURE_ROOT, root)
+    (root / "dynamic_trace.pb").write_bytes(b"formal-protobuf-placeholder")
+    threadblocks_dir = root / "threadblocks"
+    threadblocks_dir.mkdir()
+    shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
+    record_resnet50_gate0_trace_acquisition(root)
+    return root
 
-    manifest = run_resnet50_gate1_to_gate5(FIXTURE_ROOT, out_dir, seed=20260606)
 
-    assert manifest["final_gate"] == "gate5"
+def test_resnet50_gate_pipeline_reaches_gate7_correctness(tmp_path):
+    out_dir = tmp_path / "gate1_7"
+
+    manifest = run_resnet50_gate1_to_gate7(_formal_gate0_root(tmp_path), out_dir, seed=20260606)
+
+    assert manifest["final_gate"] == "gate7"
     assert (out_dir / "resnet50_trace_adapter_bundle.json").exists()
     assert (out_dir / "representative_sm_trace_manifest.json").exists()
     assert (out_dir / "canonical_graph_bundle.json").exists()
@@ -20,14 +33,15 @@ def test_resnet50_gate_pipeline_stops_at_gate5_embedding_table(tmp_path):
     assert (out_dir / "rgcn_training_run_manifest.json").exists()
     assert (out_dir / "rgcn_checkpoint_manifest.json").exists()
     assert (out_dir / "kernel_embedding_table.json").exists()
-    assert not (out_dir / "selector_artifacts.json").exists()
+    assert (out_dir / "selector_artifacts.json").exists()
+    assert (out_dir / "gate7_correctness_manifest.json").exists()
     assert (out_dir / "readout_manifest.json").exists()
 
 
 def test_resnet50_gate_pipeline_outputs_embedding_rows_for_each_kernel(tmp_path):
     out_dir = tmp_path / "gate1_5_rows"
 
-    manifest = run_resnet50_gate1_to_gate5(FIXTURE_ROOT, out_dir, seed=20260606)
+    manifest = run_resnet50_gate1_to_gate7(_formal_gate0_root(tmp_path), out_dir, seed=20260606)
 
     table = json.loads((out_dir / "kernel_embedding_table.json").read_text())
     graph_tensor_bundle = json.loads((out_dir / "graph_tensor_bundle.json").read_text())
@@ -53,7 +67,7 @@ def test_resnet50_gate_pipeline_outputs_embedding_rows_for_each_kernel(tmp_path)
 def test_resnet50_gate_pipeline_outputs_formal_training_manifests(tmp_path):
     out_dir = tmp_path / "gate1_5_training_manifest"
 
-    run_resnet50_gate1_to_gate5(FIXTURE_ROOT, out_dir, seed=20260606)
+    run_resnet50_gate1_to_gate7(_formal_gate0_root(tmp_path), out_dir, seed=20260606)
 
     graph_tensor_bundle = json.loads((out_dir / "graph_tensor_bundle.json").read_text())
     table = json.loads((out_dir / "kernel_embedding_table.json").read_text())

@@ -21,10 +21,10 @@ def test_m0_selector_consumes_phase_b_embedding_table(tmp_path):
 
     artifacts = select_phase_b_representatives(table, seed=9)
 
-    assert artifacts["artifact_type"] == "gcl_m0_selector_artifacts"
-    assert artifacts["cluster_assignments"]
-    assert artifacts["representative_anchor_table"]
-    assert artifacts["silhouette_report"]["mode"] == "silhouette_k"
+    assert artifacts["artifact_type"] == "gcl_resnet50_gate6_selector_artifacts"
+    assert artifacts["kmeans_cluster_assignment_table"]["assignments"]
+    assert artifacts["representative_anchor_table"]["anchors"]
+    assert artifacts["k_selection_report"]["mode"] == "silhouette_k"
 
 
 def test_selector_rejects_resource_blocked_rows(tmp_path):

@@ -322,7 +322,7 @@ def _validate_selector_artifacts_cover_embedding_table(
         row["record_id"]: row["kernel_invocation_id"]
         for row in rows
     }
-    assignments = selector_artifacts.get("cluster_assignments", [])
+    assignments = _selector_assignments(selector_artifacts)
     if len(assignments) != len(expected_by_record):
         raise ValueError("selector cluster_assignments do not cover embedding table")
     assignment_by_record = {}
@@ -341,7 +341,7 @@ def _validate_selector_artifacts_cover_embedding_table(
         int(assignment["cluster_id"])
         for assignment in assignments
     }
-    anchors = selector_artifacts.get("representative_anchor_table", [])
+    anchors = _selector_anchors(selector_artifacts)
     if not anchors:
         raise ValueError("selector representative_anchor_table must not be empty")
     anchor_cluster_ids = set()
@@ -359,6 +359,19 @@ def _validate_selector_artifacts_cover_embedding_table(
         anchor_cluster_ids.add(cluster_id)
     if anchor_cluster_ids != assignment_cluster_ids:
         raise ValueError("selector representative_anchor_table does not cover clusters")
+
+
+def _selector_assignments(selector_artifacts: dict[str, Any]) -> list[dict[str, Any]]:
+    if "kmeans_cluster_assignment_table" in selector_artifacts:
+        return selector_artifacts["kmeans_cluster_assignment_table"].get("assignments", [])
+    return selector_artifacts.get("cluster_assignments", [])
+
+
+def _selector_anchors(selector_artifacts: dict[str, Any]) -> list[dict[str, Any]]:
+    table = selector_artifacts.get("representative_anchor_table", [])
+    if isinstance(table, dict):
+        return table.get("anchors", [])
+    return table
 
 
 def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602) -> dict[str, Any]:

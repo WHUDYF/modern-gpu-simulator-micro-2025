@@ -1,4 +1,4 @@
-"""ResNet-50 Gate 1-5 pipeline. Stops before Gate 6 clustering/classification."""
+"""ResNet-50 Gate 1-7 formal GCL reproduction pipeline."""
 
 from __future__ import annotations
 
@@ -8,10 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
+from .correctness import evaluate_gate7_correctness
 from .embedding_export import READOUT_HIERARCHY, export_phase_b_embedding_table
 from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
+from .selector import select_phase_b_representatives
 from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, stable_hash, write_json
@@ -19,6 +21,14 @@ from experiments.gcl_phase_a.train import train_minimal_contrastive
 
 
 def run_resnet50_gate1_to_gate5(
+    root: Path,
+    out_dir: Path,
+    seed: int = 20260606,
+) -> dict[str, Any]:
+    return run_resnet50_gate1_to_gate7(root, out_dir, seed=seed)
+
+
+def run_resnet50_gate1_to_gate7(
     root: Path,
     out_dir: Path,
     seed: int = 20260606,
@@ -102,9 +112,15 @@ def run_resnet50_gate1_to_gate5(
     )
     write_json(out_dir / "embedding_export_report.json", export_report)
 
+    selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
+    write_json(out_dir / "selector_artifacts.json", selector_artifacts)
+
+    correctness_manifest = evaluate_gate7_correctness(selector_artifacts)
+    write_json(out_dir / "gate7_correctness_manifest.json", correctness_manifest)
+
     manifest = {
-        "artifact_type": "gcl_resnet50_gate1_5_pipeline_manifest",
-        "final_gate": "gate5",
+        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+        "final_gate": "gate7",
         "seed": seed,
         "hashes": {
             "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
@@ -112,6 +128,10 @@ def run_resnet50_gate1_to_gate5(
             "canonical_graph_bundle_hash": canonical_graph_bundle["canonical_graph_bundle_hash"],
             "graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
             "embedding_table_hash": _embedding_table_hash(embedding_table),
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+            "gate7_correctness_manifest_hash": correctness_manifest[
+                "gate7_correctness_manifest_hash"
+            ],
         },
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
@@ -234,7 +254,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=20260606)
     args = parser.parse_args()
-    manifest = run_resnet50_gate1_to_gate5(args.input_root, args.out, seed=args.seed)
+    manifest = run_resnet50_gate1_to_gate7(args.input_root, args.out, seed=args.seed)
     print(json.dumps(manifest, indent=2, sort_keys=True))
 
 

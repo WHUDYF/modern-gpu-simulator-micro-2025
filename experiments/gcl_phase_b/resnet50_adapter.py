@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .resnet50_gate0 import load_gate0_trace_acquisition_manifest
 from .utils import hash_without, read_json, write_json
 
 ADAPTER_ARTIFACT_TYPE = "gcl_resnet50_trace_adapter_bundle"
@@ -20,9 +21,11 @@ class ResNet50TraceSources:
     enhanced_execution_info: dict[str, Any]
     scheduler_metadata: dict[str, Any]
     stats_rows: list[dict[str, str]]
+    gate0_manifest: dict[str, Any]
 
 
 def load_resnet50_trace_sources(root: Path) -> ResNet50TraceSources:
+    gate0_manifest = load_gate0_trace_acquisition_manifest(root)
     stats_path = root / "stats.csv"
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
@@ -32,6 +35,7 @@ def load_resnet50_trace_sources(root: Path) -> ResNet50TraceSources:
         enhanced_execution_info=read_json(root / "enhanced_execution_info.json"),
         scheduler_metadata=read_json(root / "scheduler_metadata.json"),
         stats_rows=stats_rows,
+        gate0_manifest=gate0_manifest,
     )
 
 
@@ -51,9 +55,14 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
     bundle = {
         "artifact_type": ADAPTER_ARTIFACT_TYPE,
         "artifact_version": ADAPTER_VERSION,
+        "artifact_status": "formal",
+        "formal_input_eligible": True,
         "workload_id": "resnet50",
         "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
         "scheduler_metadata_source": "real_nvbit_smid",
+        "source_gate0_manifest_hash": sources.gate0_manifest["gate0_manifest_hash"],
         "source_artifact_hashes": {
             "dynamic_trace": hash_without(sources.dynamic_trace, "_hash"),
             "threadblocks": hash_without(sources.threadblocks, "_hash"),
@@ -179,12 +188,22 @@ def validate_resnet50_trace_adapter_bundle(bundle: dict[str, Any]) -> None:
         raise ValueError("unexpected adapter artifact_type")
     if bundle.get("artifact_version") != ADAPTER_VERSION:
         raise ValueError("unexpected adapter artifact_version")
+    if bundle.get("artifact_status") != "formal":
+        raise ValueError("adapter artifact_status must be formal")
+    if bundle.get("formal_input_eligible") is not True:
+        raise ValueError("adapter must be formal input eligible")
     if bundle.get("workload_id") != "resnet50":
         raise ValueError("workload_id must be resnet50")
     if bundle.get("execution_mode") != "real_trace":
         raise ValueError("execution_mode must be real_trace")
+    if bundle.get("trace_source") != "nvbit":
+        raise ValueError("trace_source must be nvbit")
+    if bundle.get("input_scope") != "full_resnet50_inference_trace":
+        raise ValueError("input_scope must be full_resnet50_inference_trace")
     if bundle.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
+    if not bundle.get("source_gate0_manifest_hash"):
+        raise ValueError("source_gate0_manifest_hash is required")
     report = bundle.get("adapter_validation_report", {})
     if report.get("status") != "passed":
         raise ValueError("adapter validation report must be passed")
@@ -195,7 +214,7 @@ def validate_resnet50_trace_adapter_bundle(bundle: dict[str, Any]) -> None:
     if not bundle.get("kernel_invocation_table"):
         raise ValueError("kernel_invocation_table must be non-empty")
     if not bundle.get("static_instruction_table"):
-        raise ValueError("static_instruction_table must be non-empty")
+        raise ValueError("static instruction metadata must be non-empty")
     if not bundle.get("cta_scheduler_records"):
         raise ValueError("cta_scheduler_records must be non-empty")
     if not bundle.get("per_warp_trace_records"):
@@ -258,3 +277,32 @@ def write_resnet50_trace_adapter_bundle(root: Path, out_path: Path) -> dict[str,
     bundle = build_resnet50_trace_adapter_bundle(root)
     write_json(out_path, bundle)
     return bundle
+
+
+def mark_resnet50_fixture_debug_not_formal(root: Path) -> dict[str, Any]:
+    sources = {
+        "dynamic_trace.json": root / "dynamic_trace.json",
+        "threadblocks.json": root / "threadblocks.json",
+        "enhanced_execution_info.json": root / "enhanced_execution_info.json",
+        "scheduler_metadata.json": root / "scheduler_metadata.json",
+        "stats.csv": root / "stats.csv",
+    }
+    report = {
+        "artifact_type": "gcl_resnet50_debug_fixture_report",
+        "artifact_version": "debug_fixture_report_v1",
+        "artifact_status": "debug_not_formal",
+        "formal_input_eligible": False,
+        "workload_id": "resnet50",
+        "reason": "fixture path is allowed for unit, smoke, and debug only",
+        "source_artifact_hashes": {
+            name: _debug_source_hash(path) for name, path in sources.items() if path.exists()
+        },
+    }
+    report["debug_fixture_report_hash"] = hash_without(report, "debug_fixture_report_hash")
+    return report
+
+
+def _debug_source_hash(path: Path) -> str:
+    if path.suffix == ".json":
+        return hash_without(read_json(path), "_hash")
+    return hash_without({"content": path.read_text(encoding="utf-8")})

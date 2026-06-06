@@ -243,6 +243,17 @@ def _validate_persisted_gate5_lineage_bundle(
         lineage_bundle, "gate5_lineage_bundle_hash"
     ):
         raise ValueError("persisted Gate5 lineage bundle hash is not reproducible")
+    persisted = lineage_bundle.get("persisted_manifest_hashes")
+    if not isinstance(persisted, dict):
+        raise ValueError("persisted Gate5 manifest hashes are required for formal Gate6 selector input")
+    expected = {
+        "training_run_manifest_hash": table["gate5_lineage"]["training_run_manifest_hash"],
+        "checkpoint_manifest_hash": table["gate5_lineage"]["checkpoint_manifest_hash"],
+        "readout_manifest_bundle_hash": table["gate5_lineage"]["readout_manifest_bundle_hash"],
+        "embedding_export_report_hash": table["gate5_lineage"]["embedding_export_report_hash"],
+    }
+    if persisted != expected:
+        raise ValueError("persisted Gate5 manifest hashes do not match embedding table lineage")
 
 
 def validate_gate6_selector_artifacts(artifact: dict[str, Any]) -> None:

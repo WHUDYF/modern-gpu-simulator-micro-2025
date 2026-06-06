@@ -110,6 +110,24 @@ def test_gate6_rejects_forged_self_consistent_lineage_without_persisted_bundle()
         select_phase_b_representatives(table, seed=7)
 
 
+def test_gate6_rejects_forged_self_consistent_lineage_with_forged_bundle():
+    table = _forged_formal_embedding_table_with_self_consistent_lineage()
+    forged_bundle = {
+        "artifact_type": "gcl_resnet50_gate5_lineage_bundle",
+        "artifact_version": "gate5_lineage_bundle_v1",
+        "lineage": table["gate5_lineage"],
+        "readout_manifest_bundle_hash": table["gate5_lineage"]["readout_manifest_bundle_hash"],
+    }
+    forged_bundle["gate5_lineage_bundle_hash"] = hash_without(
+        forged_bundle, "gate5_lineage_bundle_hash"
+    )
+    table["gate5_lineage_bundle_hash"] = forged_bundle["gate5_lineage_bundle_hash"]
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+
+    with pytest.raises(ValueError, match="persisted Gate5 manifest hashes"):
+        select_phase_b_representatives(table, seed=7, lineage_bundle=forged_bundle)
+
+
 def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(tmp_path):
     table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
 

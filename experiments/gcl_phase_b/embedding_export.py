@@ -317,6 +317,12 @@ def build_gate5_lineage_bundle(
         "artifact_version": "gate5_lineage_bundle_v1",
         "lineage": lineage,
         "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        "persisted_manifest_hashes": {
+            "training_run_manifest_hash": lineage["training_run_manifest_hash"],
+            "checkpoint_manifest_hash": lineage["checkpoint_manifest_hash"],
+            "readout_manifest_bundle_hash": lineage["readout_manifest_bundle_hash"],
+            "embedding_export_report_hash": lineage["embedding_export_report_hash"],
+        },
     }
     bundle["gate5_lineage_bundle_hash"] = hash_without(
         bundle, "gate5_lineage_bundle_hash"

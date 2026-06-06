@@ -125,3 +125,13 @@ def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_pa
     assert executed[0]["env"]["LD_PRELOAD"] == "/opt/nvbit/tools/trace_tool.so"
     assert executed[0]["env"]["GCL_RESNET50_TRACE_OUT"] == str(root)
     assert not (root / "gate0_trace_acquisition_manifest.json").exists()
+
+
+def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "spoofed_trace",
+        evidence_scope="real_resnet50_nvbit_collection",
+    )
+
+    with pytest.raises(ValueError, match="collector attestation"):
+        record_resnet50_gate0_trace_acquisition(root)

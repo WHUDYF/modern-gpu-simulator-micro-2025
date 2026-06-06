@@ -26,6 +26,8 @@ from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, read_json, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
 
+GATE1_7_PIPELINE_MANIFEST_FILENAME = "gate1_7_pipeline_manifest.json"
+
 
 def run_resnet50_gate1_to_gate5(
     root: Path,
@@ -186,7 +188,7 @@ def run_resnet50_gate1_to_gate7(
         },
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
-    write_json(out_dir / "gate1_5_pipeline_manifest.json", manifest)
+    write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
     return manifest
 
 
@@ -217,7 +219,7 @@ def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int)
         },
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
-    write_json(out_dir / "gate1_7_pipeline_manifest.json", manifest)
+    write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
     return manifest
 
 

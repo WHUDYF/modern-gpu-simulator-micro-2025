@@ -80,6 +80,7 @@ def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
     _validate_scheduler_metadata_records(scheduler_metadata)
     _reject_fixture_backed_root(root)
     source_hashes = _source_artifact_hashes(root)
+    _validate_collector_attestation(evidence, source_hashes)
     manifest = {
         "artifact_type": GATE0_ARTIFACT_TYPE,
         "artifact_version": GATE0_ARTIFACT_VERSION,
@@ -188,6 +189,26 @@ def _load_nvbit_collection_evidence(root: Path) -> dict[str, Any]:
     if evidence.get("nvbit_loaded") is not True:
         raise ValueError("NVBit collection evidence must confirm nvbit_loaded")
     return evidence
+
+
+def _validate_collector_attestation(evidence: dict[str, Any], source_hashes: dict[str, str]) -> None:
+    attestation_hash = evidence.get("collector_attestation_hash")
+    if not attestation_hash:
+        raise ValueError("collector attestation is required for formal Gate0")
+    expected = hash_without(
+        {
+            "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
+            "workload_id": evidence["workload_id"],
+            "execution_mode": evidence["execution_mode"],
+            "trace_source": evidence["trace_source"],
+            "input_scope": evidence["input_scope"],
+            "scheduler_metadata_source": evidence["scheduler_metadata_source"],
+            "collection_status": evidence["collection_status"],
+            "source_artifact_hashes": source_hashes,
+        }
+    )
+    if attestation_hash != expected:
+        raise ValueError("collector attestation hash does not match Gate0 source artifacts")
 
 
 def _reject_fixture_backed_root(root: Path) -> None:

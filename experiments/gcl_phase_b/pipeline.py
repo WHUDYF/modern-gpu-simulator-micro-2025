@@ -859,6 +859,9 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         raise ValueError("resource_blocked_hash mismatch")
 
     if pipeline_manifest.get("resource_blocked"):
+        for key in EMBEDDING_DOWNSTREAM_HASH_NULLS:
+            if pipeline_manifest["hashes"].get(key) is not None:
+                raise ValueError("resource-blocked replay contains stale success hash")
         for key in SUCCESS_ARTIFACT_KEYS:
             if (out_dir / ARTIFACT_FILENAMES[key]).exists():
                 raise ValueError("resource-blocked replay contains stale success artifact")

@@ -490,6 +490,38 @@ def test_phase_b_replay_rejects_stale_resource_blocked_pipeline_manifest(tmp_pat
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_resource_blocked_manifest_with_stale_success_hashes(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "blocked_stale_success_hashes"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_training(*args, **kwargs):
+        raise PhaseBResourceError("simulated CUDA memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_training)
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    pipeline_manifest_path = out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]
+    pipeline_manifest = json.loads(pipeline_manifest_path.read_text())
+    pipeline_manifest["hashes"]["embedding_table_hash"] = "stale-success-hash"
+    pipeline_manifest["pipeline_manifest_hash"] = stable_hash(
+        {
+            key: value
+            for key, value in pipeline_manifest.items()
+            if key != "pipeline_manifest_hash"
+        }
+    )
+    pipeline_manifest_path.write_text(json.dumps(pipeline_manifest, sort_keys=True))
+
+    with pytest.raises(ValueError, match="resource-blocked replay contains stale success hash"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_tampered_resource_blocked_artifact(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 

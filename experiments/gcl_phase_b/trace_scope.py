@@ -17,6 +17,8 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
     for invocation in manifest.get("kernel_invocations", []):
         required = {
             "collection_scope",
+            "kernel_invocation_id",
+            "trace_family",
             "selected_sm",
             "selected_sm_policy",
             "selected_sm_reason",

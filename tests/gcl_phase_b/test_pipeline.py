@@ -183,6 +183,28 @@ def test_cuda_oom_runtime_error_writes_resource_blocked_artifact(tmp_path, monke
     assert not (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
 
 
+def test_selector_resource_failure_writes_resource_blocked_artifact(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "selector_resource_blocked"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+
+    def fail_selector(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated selector memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "select_phase_b_representatives", fail_selector)
+
+    manifest = run_pipeline(manifest_path, out_dir, seed=42)
+
+    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
+    assert blocked["failed_stage"] == "selector"
+    assert "simulated selector memory exhaustion" in blocked["resource_failure_reason"]
+    assert manifest["resource_blocked"] is True
+    for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+
+
 def test_non_resource_runtime_error_is_not_marked_resource_blocked(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 
@@ -423,6 +445,32 @@ def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_sta
         "selector_manifest_hash",
     }:
         assert blocked["hashes"][stale_hash] is None
+
+
+def test_from_disk_embedding_stage_readout_failure_marks_resource_blocked(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_readout_failure"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    def fail_readout(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated readout memory exhaustion")
+
+    monkeypatch.setattr(pipeline_module, "build_readout_manifest_bundle", fail_readout)
+    with pytest.raises(pipeline_module.PhaseBResourceError):
+        run_embedding_export_stage_from_disk(out_dir)
+
+    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
+    resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
+    assert blocked["resource_blocked"] is True
+    assert resource["failed_stage"] == "readout"
+    for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
+        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
 
 
 def test_from_disk_embedding_stage_rejects_stale_tensor_bundle_against_graphs(tmp_path):

@@ -422,26 +422,44 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
-        _remove_success_artifacts(out_dir)
-        blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
-        write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
-        manifest = {
-            "artifact_type": "gcl_phase_b_pipeline_manifest",
-            "seed": seed,
-            "resource_blocked": True,
-            "paths": _paths(out_dir),
-            "hashes": {
-                **base_hashes,
-                "resource_blocked_hash": blocked["resource_blocked_hash"],
-                **EMBEDDING_DOWNSTREAM_HASH_NULLS,
-            },
-        }
-        manifest["pipeline_manifest_hash"] = stable_hash(manifest)
-        write_json(out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], manifest)
-        return manifest
+        return _write_resource_blocked_pipeline_manifest(
+            out_dir,
+            seed,
+            base_hashes,
+            graphs,
+            graph_size_audits,
+            "training",
+            exc,
+        )
 
-    selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
-    readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    try:
+        selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        return _write_resource_blocked_pipeline_manifest(
+            out_dir,
+            seed,
+            base_hashes,
+            graphs,
+            graph_size_audits,
+            "selector",
+            exc,
+        )
+    try:
+        readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        return _write_resource_blocked_pipeline_manifest(
+            out_dir,
+            seed,
+            base_hashes,
+            graphs,
+            graph_size_audits,
+            "readout",
+            exc,
+        )
     resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
@@ -520,6 +538,63 @@ def _refresh_pipeline_manifest_hashes_if_present(
     return _refresh_pipeline_manifest_hashes(out_dir, hash_updates, top_level_updates)
 
 
+def _write_resource_blocked_pipeline_manifest(
+    out_dir: Path,
+    seed: int,
+    base_hashes: dict[str, Any],
+    graphs: list[dict[str, Any]],
+    graph_size_audits: list[dict[str, Any]],
+    failed_stage: str,
+    exc: Exception,
+) -> dict[str, Any]:
+    _remove_success_artifacts(out_dir)
+    blocked = _resource_blocked_artifact(graphs, graph_size_audits, failed_stage, exc)
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+    manifest = {
+        "artifact_type": "gcl_phase_b_pipeline_manifest",
+        "seed": seed,
+        "resource_blocked": True,
+        "paths": _paths(out_dir),
+        "hashes": {
+            **base_hashes,
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
+            **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+        },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
+    write_json(out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], manifest)
+    return manifest
+
+
+def _mark_embedding_stage_resource_blocked(
+    out_dir: Path,
+    augmentation_bundle: dict[str, Any],
+    graphs: list[dict[str, Any]],
+    graph_size_audits: list[dict[str, Any]],
+    failed_stage: str,
+    exc: Exception,
+) -> None:
+    _remove_success_artifacts(out_dir)
+    blocked = _resource_blocked_artifact(graphs, graph_size_audits, failed_stage, exc)
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+    write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
+    _refresh_pipeline_manifest_hashes_if_present(
+        out_dir,
+        {
+            "augmentation_manifest_hashes": [
+                manifest["augmentation_manifest_hash"]
+                for manifest in augmentation_bundle["manifests"]
+            ],
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
+            **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+        },
+        top_level_updates={"resource_blocked": True},
+    )
+
+
 def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
     resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
     require_pipeline_artifact(
@@ -553,28 +628,43 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
-        _remove_success_artifacts(out_dir)
-        blocked = _resource_blocked_artifact(graphs, graph_size_audits, "training", exc)
-        write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
-        write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
-        _refresh_pipeline_manifest_hashes_if_present(
+        _mark_embedding_stage_resource_blocked(
             out_dir,
-            {
-                "augmentation_manifest_hashes": [
-                    manifest["augmentation_manifest_hash"]
-                    for manifest in augmentation_bundle["manifests"]
-                ],
-                "augmentation_manifest_bundle_hash": augmentation_bundle[
-                    "augmentation_manifest_bundle_hash"
-                ],
-                "resource_blocked_hash": blocked["resource_blocked_hash"],
-                **EMBEDDING_DOWNSTREAM_HASH_NULLS,
-            },
-            top_level_updates={"resource_blocked": True},
+            augmentation_bundle,
+            graphs,
+            graph_size_audits,
+            "training",
+            exc,
         )
         raise
-    selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
-    readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    try:
+        selector_artifacts = select_phase_b_representatives(table, seed=resolved_seed)
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        _mark_embedding_stage_resource_blocked(
+            out_dir,
+            augmentation_bundle,
+            graphs,
+            graph_size_audits,
+            "selector",
+            exc,
+        )
+        raise
+    try:
+        readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        _mark_embedding_stage_resource_blocked(
+            out_dir,
+            augmentation_bundle,
+            graphs,
+            graph_size_audits,
+            "readout",
+            exc,
+        )
+        raise
     resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])

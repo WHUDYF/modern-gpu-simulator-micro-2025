@@ -42,6 +42,31 @@ def test_trace_manifest_rejects_non_phase_b_scope_and_missing_report():
         validate_phase_b_trace_manifest(missing_report)
 
 
+def test_trace_manifest_rejects_missing_downstream_identity_fields():
+    manifest = build_representative_sm_trace_manifest()
+    missing_invocation_id = copy.deepcopy(manifest)
+    del missing_invocation_id["kernel_invocations"][0]["kernel_invocation_id"]
+    missing_invocation_id["kernel_invocations"][0]["trace_hash"] = hash_without(
+        missing_invocation_id["kernel_invocations"][0], "trace_hash"
+    )
+    missing_invocation_id["trace_manifest_hash"] = hash_without(
+        missing_invocation_id, "trace_manifest_hash"
+    )
+    with pytest.raises(ValueError, match="kernel_invocation_id"):
+        validate_phase_b_trace_manifest(missing_invocation_id)
+
+    missing_trace_family = copy.deepcopy(manifest)
+    del missing_trace_family["kernel_invocations"][0]["trace_family"]
+    missing_trace_family["kernel_invocations"][0]["trace_hash"] = hash_without(
+        missing_trace_family["kernel_invocations"][0], "trace_hash"
+    )
+    missing_trace_family["trace_manifest_hash"] = hash_without(
+        missing_trace_family, "trace_manifest_hash"
+    )
+    with pytest.raises(ValueError, match="trace_family"):
+        validate_phase_b_trace_manifest(missing_trace_family)
+
+
 def test_trace_manifest_rejects_missing_cta_mapping_metadata():
     manifest = build_representative_sm_trace_manifest()
     missing_cta_map = copy.deepcopy(manifest)

@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from experiments.gcl_phase_b.resnet50_adapter import (
+    build_resnet50_artifact_shape_trace_adapter_bundle,
     build_resnet50_trace_adapter_bundle,
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
-from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
-from tests.gcl_resnet50.formal_fixture import write_minimal_formal_resnet50_root
+from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -42,26 +42,25 @@ def test_gate1_rejects_fixture_as_formal_input():
 
 
 def test_gate1_reports_missing_static_instruction_metadata(tmp_path):
-    root = _fixture_backed_root(tmp_path)
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
     info_path = root / "enhanced_execution_info.json"
     info = json.loads(info_path.read_text())
     info["instructions"] = []
     info_path.write_text(json.dumps(info), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Gate0 formal acquisition manifest"):
-        build_resnet50_trace_adapter_bundle(root)
+    with pytest.raises(ValueError, match="static instruction metadata"):
+        build_resnet50_artifact_shape_trace_adapter_bundle(root)
 
 
-def test_gate1_formal_adapter_reads_dynamic_trace_pb_and_threadblock_directory(tmp_path):
-    root = write_minimal_formal_resnet50_root(tmp_path / "formal_trace")
-    record_resnet50_gate0_trace_acquisition(root)
+def test_gate1_artifact_shape_adapter_reads_dynamic_trace_pb_and_threadblock_directory(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
     (root / "dynamic_trace.json").write_text("{}", encoding="utf-8")
     (root / "threadblocks.json").write_text("{}", encoding="utf-8")
 
-    bundle = build_resnet50_trace_adapter_bundle(root)
+    bundle = build_resnet50_artifact_shape_trace_adapter_bundle(root)
 
-    validate_resnet50_trace_adapter_bundle(bundle)
-    assert bundle["artifact_status"] == "formal"
+    assert bundle["artifact_status"] == "debug_not_formal"
+    assert bundle["formal_input_eligible"] is False
     assert set(bundle["source_artifact_hashes"]) == {
         "dynamic_trace.pb",
         "threadblocks/",
@@ -85,8 +84,8 @@ def test_gate1_formal_adapter_reads_dynamic_trace_pb_and_threadblock_directory(t
     ]
 
 
-def test_gate1_formal_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):
-    root = write_minimal_formal_resnet50_root(tmp_path / "formal_trace")
+def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
     missing = (
         root
         / "threadblocks"
@@ -96,7 +95,5 @@ def test_gate1_formal_adapter_rejects_missing_threadblock_pb_from_scheduler_meta
         / "d_0_s_0_k_0_0,0,0.pb"
     )
     missing.unlink()
-    record_resnet50_gate0_trace_acquisition(root)
-
     with pytest.raises(FileNotFoundError, match="threadblock protobuf"):
-        build_resnet50_trace_adapter_bundle(root)
+        build_resnet50_artifact_shape_trace_adapter_bundle(root)

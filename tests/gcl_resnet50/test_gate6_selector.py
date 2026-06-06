@@ -9,7 +9,7 @@ from experiments.gcl_phase_b.selector import (
     validate_gate6_selector_artifacts,
 )
 from experiments.gcl_phase_b.utils import hash_without
-from tests.gcl_resnet50.formal_chain import build_formal_tensors
+from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
 
 
 def _embedding_row(index, vector):
@@ -70,15 +70,53 @@ def _formal_embedding_table():
     return table
 
 
+def _forged_formal_embedding_table_with_self_consistent_lineage():
+    table = _formal_embedding_table()
+    lineage = {
+        "artifact_type": "gcl_resnet50_gate5_lineage",
+        "lineage_version": "gate5_lineage_v1",
+        "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+        "training_run_manifest_hash": "fake-training",
+        "checkpoint_manifest_hash": "fake-checkpoint",
+        "readout_manifest_bundle_hash": "fake-readout",
+        "embedding_export_report_hash": "fake-export",
+        "encoder_manifest_hash": table["encoder_manifest_hash"],
+        "checkpoint_hash": table["checkpoint_hash"],
+    }
+    table["gate5_lineage"] = lineage
+    table["gate5_lineage_hash"] = hash_without(lineage)
+    table["gate5_lineage_bundle_hash"] = hash_without(
+        {
+            "artifact_type": "gcl_resnet50_gate5_lineage_bundle",
+            "lineage": lineage,
+        }
+    )
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    return table
+
+
 def test_gate6_rejects_handcrafted_formal_table_without_gate5_lineage():
     with pytest.raises(ValueError, match="Gate5 lineage"):
         select_phase_b_representatives(_formal_embedding_table(), seed=7)
 
 
-def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+def test_gate6_rejects_forged_self_consistent_lineage_without_persisted_bundle():
+    table = _forged_formal_embedding_table_with_self_consistent_lineage()
 
-    artifacts = select_phase_b_representatives(table, seed=7)
+    with pytest.raises(ValueError, match="persisted Gate5 lineage bundle"):
+        select_phase_b_representatives(table, seed=7)
+
+
+def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(tmp_path):
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+
+    with pytest.raises(ValueError, match="formal embedding table"):
+        select_phase_b_representatives(table, seed=7)
+
+    artifacts = select_phase_b_representatives(table, seed=7, allow_debug=True)
 
     validate_gate6_selector_artifacts(artifacts)
     assert artifacts["artifact_type"] == "gcl_resnet50_gate6_selector_artifacts"
@@ -94,19 +132,19 @@ def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
 
 
 def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["embedding_dim"] = 64
     table["embeddings"][0]["kernel_embedding"] = [0.0] * 64
 
     with pytest.raises(ValueError, match="256"):
-        select_phase_b_representatives(table)
+        select_phase_b_representatives(table, allow_debug=True)
 
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["source_view"] = "augmented"
     with pytest.raises(ValueError, match="canonical non-augmented"):
-        select_phase_b_representatives(table)
+        select_phase_b_representatives(table, allow_debug=True)
 
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["artifact_status"] = "debug_not_formal"
     with pytest.raises(ValueError, match="formal"):
         select_phase_b_representatives(table)
@@ -119,16 +157,16 @@ def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
 
 
 def test_gate6_rejects_forbidden_fields_in_clustering_path(tmp_path):
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["clustering_input_fields"] = ["kernel_embedding", "kernel_name"]
 
     with pytest.raises(ValueError, match="forbidden clustering field"):
-        select_phase_b_representatives(table)
+        select_phase_b_representatives(table, allow_debug=True)
 
 
 def test_gate6_rejects_family_label_guided_clustering(tmp_path):
-    table, _training = run_embedding_export(build_formal_tensors(tmp_path), tmp_path)
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["family_labels_used_for_clustering"] = True
 
     with pytest.raises(ValueError, match="family labels"):
-        select_phase_b_representatives(table)
+        select_phase_b_representatives(table, allow_debug=True)

@@ -87,6 +87,8 @@ def export_phase_b_embedding_table(
     )
     table["gate5_lineage"] = lineage
     table["gate5_lineage_hash"] = hash_without(lineage)
+    lineage_bundle = build_gate5_lineage_bundle(lineage, readout_bundle)
+    table["gate5_lineage_bundle_hash"] = lineage_bundle["gate5_lineage_bundle_hash"]
     for row in table["embeddings"]:
         row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
         row["embedding_hash"] = hash_without(row, "embedding_hash")
@@ -157,6 +159,7 @@ def validate_phase_b_embedding_table(table: dict[str, Any]) -> None:
         "kernel_embedding_table_hash",
         "gate5_lineage",
         "gate5_lineage_hash",
+        "gate5_lineage_bundle_hash",
     }
     missing_top_level = required_top_level.difference(table)
     if missing_top_level:
@@ -303,6 +306,22 @@ def _gate5_lineage(
         "encoder_manifest_hash": table["encoder_manifest_hash"],
         "checkpoint_hash": table["checkpoint_hash"],
     }
+
+
+def build_gate5_lineage_bundle(
+    lineage: dict[str, Any],
+    readout_bundle: dict[str, Any],
+) -> dict[str, Any]:
+    bundle = {
+        "artifact_type": "gcl_resnet50_gate5_lineage_bundle",
+        "artifact_version": "gate5_lineage_bundle_v1",
+        "lineage": lineage,
+        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+    }
+    bundle["gate5_lineage_bundle_hash"] = hash_without(
+        bundle, "gate5_lineage_bundle_hash"
+    )
+    return bundle
 
 
 def _validate_gate5_lineage(table: dict[str, Any]) -> None:

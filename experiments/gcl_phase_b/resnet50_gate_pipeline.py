@@ -9,17 +9,21 @@ from typing import Any
 
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
 from .correctness import evaluate_gate7_correctness_from_artifacts
-from .embedding_export import READOUT_HIERARCHY, export_phase_b_embedding_table
+from .embedding_export import (
+    READOUT_HIERARCHY,
+    build_gate5_lineage_bundle,
+    export_phase_b_embedding_table,
+)
 from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
 from .resnet50_gate0 import GATE0_BLOCKER_FILENAME
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .selector import select_phase_b_representatives
-from .simulator_eval import gate9_baseline_missing_report
+from .simulator_eval import evaluate_gate9_sampled_vs_full, gate9_baseline_missing_report
 from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
 from .tuning import generate_gate8_tuning_vectors
 from .trace_scope import build_phase_b_trace_records
-from .utils import hash_without, stable_hash, write_json
+from .utils import hash_without, read_json, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
 
 
@@ -35,6 +39,7 @@ def run_resnet50_gate1_to_gate7(
     root: Path,
     out_dir: Path,
     seed: int = 20260606,
+    baseline_artifacts_path: Path | None = None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     blocker_path = root / GATE0_BLOCKER_FILENAME
@@ -105,6 +110,11 @@ def run_resnet50_gate1_to_gate7(
     write_json(out_dir / "rgcn_training_run_manifest.json", training_run_manifest)
     write_json(out_dir / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
     write_json(out_dir / "readout_manifest.json", readout_bundle)
+    lineage_bundle = build_gate5_lineage_bundle(
+        embedding_table["gate5_lineage"],
+        readout_bundle,
+    )
+    write_json(out_dir / "gate5_lineage_bundle.json", lineage_bundle)
     write_json(out_dir / "kernel_embedding_table.json", embedding_table)
     export_report = {
         "artifact_type": "gcl_resnet50_embedding_export_report",
@@ -118,12 +128,18 @@ def run_resnet50_gate1_to_gate7(
     )
     write_json(out_dir / "embedding_export_report.json", export_report)
 
-    selector_artifacts = select_phase_b_representatives(embedding_table, seed=seed)
+    selector_artifacts = select_phase_b_representatives(
+        embedding_table,
+        seed=seed,
+        lineage_bundle=lineage_bundle,
+    )
     write_json(out_dir / "selector_artifacts.json", selector_artifacts)
 
+    baseline_artifacts = _load_baseline_artifacts(baseline_artifacts_path)
     correctness_manifest = evaluate_gate7_correctness_from_artifacts(
         selector_artifacts=selector_artifacts,
         embedding_table=embedding_table,
+        metric_rows=baseline_artifacts.get("metric_rows") if baseline_artifacts else None,
     )
     write_json(out_dir / "gate7_correctness_manifest.json", correctness_manifest)
     gate8_proposal = generate_gate8_tuning_vectors(
@@ -135,12 +151,21 @@ def run_resnet50_gate1_to_gate7(
         },
     )
     write_json(out_dir / "gate8_tuning_vector_proposal.json", gate8_proposal)
-    gate9_report = gate9_baseline_missing_report()
+    if baseline_artifacts:
+        gate9_report = evaluate_gate9_sampled_vs_full(
+            sampled_metrics=baseline_artifacts["sampled_metrics"],
+            full_baseline_metrics=baseline_artifacts.get("full_baseline_metrics"),
+            measured_baseline_metrics=baseline_artifacts.get("measured_baseline_metrics"),
+        )
+        final_gate = "gate9_evaluated"
+    else:
+        gate9_report = gate9_baseline_missing_report()
+        final_gate = "gate9_report_only"
     write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
 
     manifest = {
         "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
-        "final_gate": "gate9_report_only",
+        "final_gate": final_gate,
         "seed": seed,
         "hashes": {
             "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
@@ -194,6 +219,19 @@ def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int)
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / "gate1_7_pipeline_manifest.json", manifest)
     return manifest
+
+
+def _load_baseline_artifacts(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    baseline = read_json(path)
+    required = {"sampled_metrics"}
+    missing = required.difference(baseline)
+    if missing:
+        raise ValueError(f"baseline artifacts missing required fields: {sorted(missing)}")
+    if not baseline.get("full_baseline_metrics") and not baseline.get("measured_baseline_metrics"):
+        raise ValueError("baseline artifacts require full or measured baseline metrics")
+    return baseline
 
 
 def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
@@ -310,8 +348,14 @@ def main() -> None:
     parser.add_argument("--input-root", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=20260606)
+    parser.add_argument("--baseline-artifacts", type=Path)
     args = parser.parse_args()
-    manifest = run_resnet50_gate1_to_gate7(args.input_root, args.out, seed=args.seed)
+    manifest = run_resnet50_gate1_to_gate7(
+        args.input_root,
+        args.out,
+        seed=args.seed,
+        baseline_artifacts_path=args.baseline_artifacts,
+    )
     print(json.dumps(manifest, indent=2, sort_keys=True))
 
 

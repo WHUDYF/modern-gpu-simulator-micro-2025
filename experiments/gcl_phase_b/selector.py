@@ -20,12 +20,15 @@ def _embedding_table_hash(table: dict[str, Any]) -> str:
 
 
 def select_phase_b_representatives(
-    table: dict[str, Any], seed: int = 20260602, allow_debug: bool = False
+    table: dict[str, Any],
+    seed: int = 20260602,
+    allow_debug: bool = False,
+    lineage_bundle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    _validate_gate6_input_table(table, allow_debug=allow_debug)
     for row in table.get("embeddings", []):
         if row.get("resource_blocked"):
             raise ValueError("resource-blocked embedding rows cannot enter M0 selector")
+    _validate_gate6_input_table(table, allow_debug=allow_debug, lineage_bundle=lineage_bundle)
     validate_phase_b_embedding_table(table)
     rows = _embedding_rows(table)
     if len(rows) == 1:
@@ -172,7 +175,11 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
     return artifact
 
 
-def _validate_gate6_input_table(table: dict[str, Any], allow_debug: bool = False) -> None:
+def _validate_gate6_input_table(
+    table: dict[str, Any],
+    allow_debug: bool = False,
+    lineage_bundle: dict[str, Any] | None = None,
+) -> None:
     if table.get("artifact_status") != "formal" and not allow_debug:
         raise ValueError("Gate6 selector requires formal embedding table")
     required_provenance = {
@@ -205,6 +212,7 @@ def _validate_gate6_input_table(table: dict[str, Any], allow_debug: bool = False
         missing_lineage = required_lineage.difference(lineage)
         if missing_lineage:
             raise ValueError(f"Gate5 lineage missing required fields: {sorted(missing_lineage)}")
+        _validate_persisted_gate5_lineage_bundle(table, lineage_bundle)
     if table.get("family_labels_used_for_clustering") is True:
         raise ValueError("family labels cannot guide Gate6 clustering")
     forbidden = {"kernel_name", "family_label", "runtime", "graph_size", "weight_input"}
@@ -217,6 +225,24 @@ def _validate_gate6_input_table(table: dict[str, Any], allow_debug: bool = False
             raise ValueError("selector embedding must come from canonical non-augmented graph")
         if row.get("embedding_dim") != EMBEDDING_DIM or len(row.get("kernel_embedding", [])) != EMBEDDING_DIM:
             raise ValueError("Gate6 selector requires 256-dimensional canonical embeddings")
+
+
+def _validate_persisted_gate5_lineage_bundle(
+    table: dict[str, Any],
+    lineage_bundle: dict[str, Any] | None,
+) -> None:
+    if not lineage_bundle:
+        raise ValueError("persisted Gate5 lineage bundle is required for formal Gate6 selector input")
+    if lineage_bundle.get("artifact_type") != "gcl_resnet50_gate5_lineage_bundle":
+        raise ValueError("persisted Gate5 lineage bundle artifact_type mismatch")
+    if lineage_bundle.get("lineage") != table.get("gate5_lineage"):
+        raise ValueError("persisted Gate5 lineage bundle does not match embedding table lineage")
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != table.get("gate5_lineage_bundle_hash"):
+        raise ValueError("persisted Gate5 lineage bundle hash does not match embedding table")
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != hash_without(
+        lineage_bundle, "gate5_lineage_bundle_hash"
+    ):
+        raise ValueError("persisted Gate5 lineage bundle hash is not reproducible")
 
 
 def validate_gate6_selector_artifacts(artifact: dict[str, Any]) -> None:

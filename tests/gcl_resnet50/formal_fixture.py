@@ -6,13 +6,20 @@ from typing import Any
 from experiments.baseline_diagnosis.proto_gen import trace_pb2, threadblock_pb2
 
 
-def write_minimal_formal_resnet50_root(root: Path) -> Path:
+def write_minimal_artifact_shape_resnet50_root(
+    root: Path,
+    *,
+    evidence_scope: str = "synthetic_artifact_shape_unit_test_only",
+) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     _write_dynamic_trace(root / "dynamic_trace.pb")
     _write_threadblocks(root / "threadblocks")
     _write_json(root / "enhanced_execution_info.json", _enhanced_execution_info())
     _write_json(root / "scheduler_metadata.json", _scheduler_metadata())
-    _write_json(root / "nvbit_collection_evidence.json", _nvbit_collection_evidence())
+    _write_json(
+        root / "nvbit_collection_evidence.json",
+        _nvbit_collection_evidence(evidence_scope=evidence_scope),
+    )
     _write_stats(root / "stats.csv")
     return root
 
@@ -129,8 +136,8 @@ def _scheduler_metadata() -> dict[str, Any]:
     }
 
 
-def _nvbit_collection_evidence() -> dict[str, Any]:
-    return {
+def _nvbit_collection_evidence(*, evidence_scope: str) -> dict[str, Any]:
+    evidence = {
         "artifact_status": "formal_collection_evidence",
         "workload_id": "resnet50",
         "execution_mode": "real_trace",
@@ -142,6 +149,9 @@ def _nvbit_collection_evidence() -> dict[str, Any]:
         "nvbit_loaded": True,
         "runner_invocation": ["python", "run_resnet50.py"],
     }
+    if evidence_scope:
+        evidence["evidence_scope"] = evidence_scope
+    return evidence
 
 
 def _write_stats(path: Path) -> None:

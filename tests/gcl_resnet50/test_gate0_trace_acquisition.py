@@ -10,7 +10,7 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
     record_resnet50_gate0_trace_acquisition,
     write_resnet50_gate0_blocker_report,
 )
-from tests.gcl_resnet50.formal_fixture import write_minimal_formal_resnet50_root
+from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -100,13 +100,13 @@ def test_gate0_rejects_missing_real_smid_metadata(tmp_path):
         record_resnet50_gate0_trace_acquisition(root)
 
 
-def test_gate0_acquisition_runner_executes_resnet50_nvbit_command_and_records_manifest(tmp_path):
+def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_path):
     root = tmp_path / "formal_trace"
     executed = []
 
     def runner(command, *, cwd, env):
         executed.append({"command": command, "cwd": cwd, "env": env})
-        write_minimal_formal_resnet50_root(root)
+        write_minimal_artifact_shape_resnet50_root(root)
         return {"returncode": 0, "stdout": "ok", "stderr": ""}
 
     config = ResNet50NvbitAcquisitionConfig(
@@ -117,12 +117,11 @@ def test_gate0_acquisition_runner_executes_resnet50_nvbit_command_and_records_ma
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
+        acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed
     assert executed[0]["command"] == ["python", "run_resnet50.py"]
     assert executed[0]["env"]["LD_PRELOAD"] == "/opt/nvbit/tools/trace_tool.so"
     assert executed[0]["env"]["GCL_RESNET50_TRACE_OUT"] == str(root)
-    assert manifest["artifact_status"] == "formal"
-    assert manifest["source_artifact_hashes"]["dynamic_trace.pb"]
-    assert (root / "gate0_trace_acquisition_manifest.json").exists()
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()

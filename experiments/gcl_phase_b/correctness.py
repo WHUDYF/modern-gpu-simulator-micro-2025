@@ -10,6 +10,11 @@ import numpy as np
 from .embedding_export import validate_phase_b_embedding_table
 from .utils import stable_hash
 
+GATE7_CLUSTER_CORRECTNESS_FILENAME = "gate7_cluster_correctness_manifest.json"
+GATE7_CLUSTER_CORRECTNESS_TYPE = "gcl_resnet50_gate7_cluster_correctness_manifest"
+GATE7_CLUSTER_CORRECTNESS_VERSION = "gate7_cluster_correctness_manifest_v1"
+GATE7_REPORT_ONLY_CLAIM_STATUS = "quantified_no_correctness_claim"
+
 
 def evaluate_gate7_correctness(
     selector_artifacts: dict[str, Any],
@@ -28,28 +33,58 @@ def evaluate_gate7_correctness(
     assignments = list(selector_artifacts["kmeans_cluster_assignment_table"]["assignments"])
     anchors = list(selector_artifacts["representative_anchor_table"]["anchors"])
     family_report = selector_artifacts.get("cluster_family_evidence_report", {})
+    embedding_metrics = _embedding_geometry_metrics(embedding_geometry or {})
+    family_metrics = _family_alignment_metrics(family_report)
+    representative_metrics = representative_quality or _representative_quality_metrics(anchors)
+    metric_report = _metric_error_report(metric_rows or [])
+    stability_report = {
+        "stability_status": "single_run_not_evaluated",
+        "assignment_stability_ari": None,
+        "k_stability": None,
+        "centroid_drift": None,
+        "representative_stability_rate": None,
+    }
     report = {
-        "artifact_type": "gcl_resnet50_gate7_correctness_manifest",
-        "artifact_version": "gate7_correctness_manifest_v1",
+        "artifact_type": GATE7_CLUSTER_CORRECTNESS_TYPE,
+        "artifact_version": GATE7_CLUSTER_CORRECTNESS_VERSION,
         "threshold_policy": "report_only_v1",
+        "claim_status": GATE7_REPORT_ONLY_CLAIM_STATUS,
         "source_gate6_selector_manifest_hash": selector_artifacts.get("selector_manifest_hash"),
+        "source_cluster_assignment_table_hash": stable_hash(
+            selector_artifacts["kmeans_cluster_assignment_table"]
+        ),
+        "source_representative_anchor_table_hash": stable_hash(
+            selector_artifacts["representative_anchor_table"]
+        ),
+        "source_embedding_table_hash": selector_artifacts.get("source_embedding_table_hash"),
         "source_gate5_embedding_table_hash": None,
+        "metric_source_manifest_hash": stable_hash(
+            {
+                "artifact_type": "gcl_resnet50_gate7_metric_source_manifest",
+                "metric_rows": metric_rows or [],
+            }
+        )
+        if metric_rows is not None
+        else None,
+        "family_label_source_hash": stable_hash(family_report) if family_report else None,
+        "structural_summary_source_hash": stable_hash(
+            selector_artifacts.get("structural_evaluation_artifacts", {})
+        ),
         "source_assignment_hash": stable_hash(assignments),
-        "embedding_geometry_metrics": _embedding_geometry_metrics(embedding_geometry or {}),
-        "family_alignment_metrics": _family_alignment_metrics(family_report),
-        "representative_quality_metrics": representative_quality
-        or _representative_quality_metrics(anchors),
-        "metric_error_report": _metric_error_report(metric_rows or []),
-        "stability_report": {
-            "stability_status": "single_run_not_evaluated",
-            "assignment_stability_ari": None,
-            "k_stability": None,
-            "centroid_drift": None,
-            "representative_stability_rate": None,
-        },
+        "embedding_geometry_metrics": embedding_metrics,
+        "family_alignment_metrics": family_metrics,
+        "representative_quality_metrics": representative_metrics,
+        "metric_error_report": metric_report,
+        "stability_report": stability_report,
+        "embedding_quality_report_hash": stable_hash(embedding_metrics),
+        "family_alignment_report_hash": stable_hash(family_metrics),
+        "representative_quality_report_hash": stable_hash(representative_metrics),
+        "metric_error_report_hash": stable_hash(metric_report),
+        "stability_report_hash": stable_hash(stability_report),
         "assignment_count": len(assignments),
     }
-    report["gate7_correctness_manifest_hash"] = stable_hash(report)
+    report["gate7_cluster_correctness_manifest_hash"] = stable_hash(report)
+    report["gate7_correctness_manifest_hash"] = report["gate7_cluster_correctness_manifest_hash"]
     return report
 
 
@@ -73,7 +108,11 @@ def evaluate_gate7_correctness_from_artifacts(
         metric_rows=metric_rows,
     )
     report["source_gate5_embedding_table_hash"] = embedding_table["kernel_embedding_table_hash"]
-    report["gate7_correctness_manifest_hash"] = stable_hash(report)
+    report["source_embedding_table_hash"] = embedding_table["kernel_embedding_table_hash"]
+    report["gate7_cluster_correctness_manifest_hash"] = stable_hash(
+        {key: value for key, value in report.items() if key != "gate7_correctness_manifest_hash"}
+    )
+    report["gate7_correctness_manifest_hash"] = report["gate7_cluster_correctness_manifest_hash"]
     return report
 
 
@@ -191,7 +230,7 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         return {
             "status": "not_provided",
-            "metric_claim_status": "no_metric_claim",
+            "metric_claim_status": "unavailable",
             "complete_row_count": 0,
             "missing_metric_row_count": 0,
             "missing_metric_rows": [],
@@ -212,7 +251,7 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if len(units) > 1:
         return {
             "status": "metric_unit_conflict",
-            "metric_claim_status": "no_metric_claim",
+            "metric_claim_status": "unavailable",
             "complete_row_count": 0,
             "missing_metric_row_count": 0,
             "missing_metric_rows": [],
@@ -251,8 +290,8 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
             complete_rows.append(row)
     if not complete_rows:
         return {
-            "status": "metric_missing",
-            "metric_claim_status": "no_metric_claim",
+            "status": "metric_source_missing",
+            "metric_claim_status": "unavailable",
             "complete_row_count": 0,
             "missing_metric_row_count": len(missing_metric_rows),
             "missing_metric_rows": missing_metric_rows,
@@ -329,7 +368,7 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
     return {
         "status": "partial_metric_missing" if missing_metric_rows else "reported",
-        "metric_claim_status": "partial_metric_claim" if missing_metric_rows else "reported",
+        "metric_claim_status": "unavailable" if missing_metric_rows else "reported",
         "complete_row_count": len(complete_rows),
         "missing_metric_row_count": len(missing_metric_rows),
         "missing_metric_rows": missing_metric_rows,

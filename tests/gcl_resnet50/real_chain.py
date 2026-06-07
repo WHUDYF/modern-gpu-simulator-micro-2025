@@ -62,7 +62,7 @@ def run_real_gate1_to_gate7_artifacts(out_dir, limit: int = 1, seed: int = 20260
         "pipeline_manifest": manifest,
         "embedding_table": read_json(out_dir / "kernel_embedding_table.json"),
         "selector_artifacts": read_json(out_dir / "selector_artifacts.json"),
-        "correctness_manifest": read_json(out_dir / "gate7_correctness_manifest.json"),
+        "correctness_manifest": read_json(out_dir / "gate7_cluster_correctness_manifest.json"),
     }
 
 
@@ -78,5 +78,5 @@ def run_real_nondegenerate_gate1_to_gate7_artifacts(out_dir, seed: int = 2026060
         "pipeline_manifest": manifest,
         "embedding_table": read_json(out_dir / "kernel_embedding_table.json"),
         "selector_artifacts": read_json(out_dir / "selector_artifacts.json"),
-        "correctness_manifest": read_json(out_dir / "gate7_correctness_manifest.json"),
+        "correctness_manifest": read_json(out_dir / "gate7_cluster_correctness_manifest.json"),
     }

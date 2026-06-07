@@ -121,3 +121,13 @@ Solution: Preserve missing family labels as missing, emit `family_alignment_clai
 Constraints: Missing-input states must not block embedding geometry or representative-quality reporting; they only limit the affected claim layer.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py` passed with 16 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 93 tests; `git diff --check` passed.
 Source Rounds: 6
+
+## Lesson: gate7-artifact-contract-is-acceptance
+Lesson ID: BL-20260607-gate7-artifact-contract-is-acceptance
+Scope: experiments/gcl_phase_b/correctness.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py, experiments/gcl_phase_b/tuning.py, tests/gcl_resnet50/test_gate7_correctness.py
+Problem Description: Gate7 behavior tests can pass while the persisted manifest still violates the tracked plan's artifact name, artifact type, claim status, and source/report hash contract.
+Root Cause: Earlier rounds focused on report calculations and kept the legacy `gate7_correctness_manifest` surface, so downstream pipeline and Gate8 consumers were not forced onto the plan-defined `gate7_cluster_correctness_manifest` contract.
+Solution: Treat manifest file names, artifact types, claim statuses, source hashes, and report hashes as acceptance criteria, and update both producers and consumers in the same change.
+Constraints: Compatibility aliases may exist for transitional hash fields, but the canonical contract must be the plan-defined Gate7 cluster correctness manifest.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 26 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 94 tests; `git diff --check` passed.
+Source Rounds: 7

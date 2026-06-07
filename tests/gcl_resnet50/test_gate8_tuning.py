@@ -5,7 +5,9 @@ from experiments.gcl_phase_b.tuning import generate_gate8_tuning_vectors
 
 def _gate7_report():
     return {
-        "artifact_type": "gcl_resnet50_gate7_correctness_manifest",
+        "artifact_type": "gcl_resnet50_gate7_cluster_correctness_manifest",
+        "artifact_version": "gate7_cluster_correctness_manifest_v1",
+        "claim_status": "quantified_no_correctness_claim",
         "threshold_policy": "report_only_v1",
         "family_alignment_metrics": {"weighted_purity": 0.95},
         "representative_quality_metrics": {
@@ -13,7 +15,7 @@ def _gate7_report():
             "high_weight_outlier_count": 0,
         },
         "metric_error_report": {"global_weighted_mape": 0.08, "status": "reported"},
-        "gate7_correctness_manifest_hash": "gate7-hash",
+        "gate7_cluster_correctness_manifest_hash": "gate7-hash",
     }
 
 

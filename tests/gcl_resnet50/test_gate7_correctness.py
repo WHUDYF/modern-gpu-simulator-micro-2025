@@ -69,8 +69,26 @@ def test_gate7_records_embedding_geometry_metrics():
         },
     )
 
-    assert report["artifact_type"] == "gcl_resnet50_gate7_correctness_manifest"
+    assert report["artifact_type"] == "gcl_resnet50_gate7_cluster_correctness_manifest"
+    assert report["artifact_version"] == "gate7_cluster_correctness_manifest_v1"
     assert report["threshold_policy"] == "report_only_v1"
+    assert report["claim_status"] == "quantified_no_correctness_claim"
+    for field in [
+        "source_gate6_selector_manifest_hash",
+        "source_cluster_assignment_table_hash",
+        "source_representative_anchor_table_hash",
+        "source_embedding_table_hash",
+        "metric_source_manifest_hash",
+        "family_label_source_hash",
+        "structural_summary_source_hash",
+        "embedding_quality_report_hash",
+        "family_alignment_report_hash",
+        "representative_quality_report_hash",
+        "metric_error_report_hash",
+        "stability_report_hash",
+        "gate7_cluster_correctness_manifest_hash",
+    ]:
+        assert field in report
     assert report["embedding_geometry_metrics"]["inter_intra_ratio"] == 5.0
     assert report["stability_report"]["stability_status"] == "single_run_not_evaluated"
 
@@ -208,7 +226,7 @@ def test_gate7_metric_error_skips_incomplete_rows_without_crashing():
 
     metric_report = report["metric_error_report"]
     assert metric_report["status"] == "partial_metric_missing"
-    assert metric_report["metric_claim_status"] == "partial_metric_claim"
+    assert metric_report["metric_claim_status"] == "unavailable"
     assert metric_report["complete_row_count"] == 1
     assert metric_report["missing_metric_row_count"] == 2
     assert metric_report["missing_metric_rows"] == [
@@ -216,6 +234,23 @@ def test_gate7_metric_error_skips_incomplete_rows_without_crashing():
         {"row_index": 2, "cluster_id": "1", "missing_fields": ["measured"]},
     ]
     assert metric_report["global_weighted_mape"] == 0.1
+
+
+def test_gate7_metric_error_marks_all_incomplete_rows_unavailable():
+    report = evaluate_gate7_correctness(
+        _gate6_artifacts(),
+        metric_rows=[
+            {"cluster_id": 0, "measured": 100.0},
+            {"cluster_id": 1, "predicted": 50.0},
+        ],
+    )
+
+    metric_report = report["metric_error_report"]
+    assert metric_report["status"] == "metric_source_missing"
+    assert metric_report["metric_claim_status"] == "unavailable"
+    assert metric_report["complete_row_count"] == 0
+    assert metric_report["missing_metric_row_count"] == 2
+    assert metric_report["global_weighted_mape"] is None
 
 
 def test_gate7_weighted_purity_uses_cluster_weights_not_cluster_count():
@@ -271,9 +306,15 @@ def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path)
     assert report["source_gate5_embedding_table_hash"] == (
         chain["embedding_table"]["kernel_embedding_table_hash"]
     )
+    assert report["source_embedding_table_hash"] == (
+        chain["embedding_table"]["kernel_embedding_table_hash"]
+    )
     assert report["source_gate6_selector_manifest_hash"] == (
         chain["selector_artifacts"]["selector_manifest_hash"]
     )
+    assert report["source_cluster_assignment_table_hash"]
+    assert report["source_representative_anchor_table_hash"]
+    assert report["embedding_quality_report_hash"]
     assert report["embedding_geometry_metrics"]["silhouette"] is not None
     assert report["embedding_geometry_metrics"]["davies_bouldin"] is not None
     assert report["embedding_geometry_metrics"]["calinski_harabasz"] is not None

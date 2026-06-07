@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
-from .correctness import evaluate_gate7_correctness_from_artifacts
+from .correctness import (
+    GATE7_CLUSTER_CORRECTNESS_FILENAME,
+    evaluate_gate7_correctness_from_artifacts,
+)
 from .embedding_export import (
     READOUT_HIERARCHY,
     build_gate5_lineage_bundle,
@@ -158,7 +161,7 @@ def run_resnet50_gate1_to_gate7(
         embedding_table=embedding_table,
         metric_rows=baseline_artifacts.get("metric_rows") if baseline_artifacts else None,
     )
-    write_json(out_dir / "gate7_correctness_manifest.json", correctness_manifest)
+    write_json(out_dir / GATE7_CLUSTER_CORRECTNESS_FILENAME, correctness_manifest)
     gate8_proposal = generate_gate8_tuning_vectors(
         correctness_manifest,
         representative_anchors=selector_artifacts["representative_anchor_table"]["anchors"],
@@ -192,7 +195,7 @@ def run_resnet50_gate1_to_gate7(
             "embedding_table_hash": _embedding_table_hash(embedding_table),
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
             "gate7_correctness_manifest_hash": correctness_manifest[
-                "gate7_correctness_manifest_hash"
+                "gate7_cluster_correctness_manifest_hash"
             ],
             "gate8_tuning_vector_proposal_hash": gate8_proposal[
                 "gate8_tuning_vector_proposal_hash"

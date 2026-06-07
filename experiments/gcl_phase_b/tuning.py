@@ -15,8 +15,10 @@ def generate_gate8_tuning_vectors(
     representative_anchors: list[dict[str, Any]],
     tunable_component_schema: dict[str, Any],
 ) -> dict[str, Any]:
-    if gate7_report.get("artifact_type") != "gcl_resnet50_gate7_correctness_manifest":
+    if gate7_report.get("artifact_type") != "gcl_resnet50_gate7_cluster_correctness_manifest":
         raise ValueError("Gate8 requires Gate7 correctness manifest")
+    if gate7_report.get("claim_status") != "quantified_no_correctness_claim":
+        raise ValueError("Gate8 requires quantified report-only Gate7 claim status")
     weighted_purity = gate7_report.get("family_alignment_metrics", {}).get("weighted_purity")
     if weighted_purity is not None and float(weighted_purity) < 0.8:
         raise ValueError("mixed-family cluster evidence cannot enter Gate8 tuning proposal")
@@ -44,7 +46,7 @@ def generate_gate8_tuning_vectors(
         "artifact_version": "gate8_tuning_vector_proposal_v1",
         "extension_label": EXTENSION_LABEL,
         "source_gate7_correctness_manifest_hash": gate7_report[
-            "gate7_correctness_manifest_hash"
+            "gate7_cluster_correctness_manifest_hash"
         ],
         "tunable_component_schema": tunable_component_schema,
         "proposals": proposals,

@@ -9,7 +9,7 @@ from experiments.gcl_phase_b.correctness import (
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
-from tests.gcl_resnet50.real_chain import run_real_gate1_to_gate7_artifacts
+from tests.gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _gate6_artifacts():
@@ -110,6 +110,19 @@ def test_gate7_records_metric_error_reports():
     assert report["metric_error_report"]["high_weight_bad_cluster_count"] == 0
 
 
+def test_gate7_weighted_purity_uses_cluster_weights_not_cluster_count():
+    artifacts = _gate6_artifacts()
+    artifacts["cluster_family_evidence_report"]["clusters"] = [
+        {"cluster_id": 0, "majority_family": "conv", "purity": 0.5, "weight": 0.9},
+        {"cluster_id": 1, "majority_family": "bn_relu", "purity": 1.0, "weight": 0.1},
+    ]
+
+    report = evaluate_gate7_correctness(artifacts)
+
+    assert report["family_alignment_metrics"]["cluster_purity"] == 0.75
+    assert report["family_alignment_metrics"]["weighted_purity"] == 0.55
+
+
 def test_gate7_reports_metric_unit_conflict():
     report = evaluate_gate7_correctness(
         _gate6_artifacts(),
@@ -140,7 +153,7 @@ def test_gate7_rejects_artifact_shape_embedding_chain_as_formal_evidence(tmp_pat
 
 
 def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
 
     report = evaluate_gate7_correctness_from_artifacts(
         selector_artifacts=chain["selector_artifacts"],
@@ -159,7 +172,7 @@ def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path)
 
 
 def test_gate7_records_family_representative_metric_and_stability_from_real_root(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
 
     report = evaluate_gate7_correctness_from_artifacts(
         selector_artifacts=chain["selector_artifacts"],

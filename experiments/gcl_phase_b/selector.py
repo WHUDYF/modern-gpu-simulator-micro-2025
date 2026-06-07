@@ -189,26 +189,43 @@ def _post_clustering_family_evidence(
     rows: list[dict[str, Any]],
     labels: list[int],
 ) -> list[dict[str, Any]]:
-    total = len(rows) or 1
-    by_cluster: dict[int, dict[str, int]] = {}
+    row_weights = [_family_row_weight(row) for row in rows]
+    total_weight = sum(row_weights) or 1.0
+    by_cluster: dict[int, dict[str, float]] = {}
+    cluster_member_counts: dict[int, int] = {}
     for row, label in zip(rows, labels):
         family = _post_clustering_family_label(row)
-        cluster_counts = by_cluster.setdefault(int(label), {})
-        cluster_counts[family] = cluster_counts.get(family, 0) + 1
+        row_weight = _family_row_weight(row)
+        cluster_id = int(label)
+        cluster_counts = by_cluster.setdefault(cluster_id, {})
+        cluster_counts[family] = cluster_counts.get(family, 0.0) + row_weight
+        cluster_member_counts[cluster_id] = cluster_member_counts.get(cluster_id, 0) + 1
     clusters = []
-    for cluster_id, counts in sorted(by_cluster.items()):
-        majority_family, majority_count = sorted(
-            counts.items(),
+    for cluster_id, weights_by_family in sorted(by_cluster.items()):
+        majority_family, majority_weight = sorted(
+            weights_by_family.items(),
             key=lambda item: (-item[1], item[0]),
         )[0]
-        member_count = sum(counts.values())
+        cluster_weight = sum(weights_by_family.values())
+        family_member_counts: dict[str, int] = {}
+        for row, label in zip(rows, labels):
+            if int(label) == cluster_id:
+                family = _post_clustering_family_label(row)
+                family_member_counts[family] = family_member_counts.get(family, 0) + 1
+        majority_count = sorted(
+            family_member_counts.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[0][1]
         clusters.append(
             {
                 "cluster_id": cluster_id,
                 "majority_family": majority_family,
-                "purity": round(float(majority_count) / float(member_count), 8),
-                "weight": round(float(member_count) / float(total), 8),
-                "member_count": member_count,
+                "purity": round(float(majority_weight) / float(cluster_weight), 8),
+                "weight": round(float(cluster_weight) / float(total_weight), 8),
+                "member_count": cluster_member_counts[cluster_id],
+                "majority_member_count": majority_count,
+                "raw_weight": round(float(cluster_weight), 8),
+                "weight_source": "embedding_row_weight_input_node_count",
                 "evidence_source": "post_clustering_embedding_metadata",
             }
         )
@@ -220,6 +237,17 @@ def _post_clustering_family_label(row: dict[str, Any]) -> str:
         return str(row["trace_family"])
     kernel_invocation_id = str(row.get("kernel_invocation_id", "unknown"))
     return f"kernel_invocation:{kernel_invocation_id}"
+
+
+def _family_row_weight(row: dict[str, Any]) -> float:
+    weight_input = row.get("weight_input", {})
+    for key in ("runtime_weight", "measured_runtime_weight", "node_count"):
+        value = weight_input.get(key)
+        if value is not None:
+            weight = float(value)
+            if weight > 0.0:
+                return weight
+    return 1.0
 
 
 def _validate_gate6_input_table(

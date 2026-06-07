@@ -31,6 +31,7 @@ def load_resnet50_trace_sources(
     root: Path,
     *,
     invocation_limit: int | None = None,
+    invocation_ids: list[str] | None = None,
 ) -> ResNet50TraceSources:
     if invocation_limit is not None and invocation_limit <= 0:
         raise ValueError("invocation_limit must be positive")
@@ -41,8 +42,14 @@ def load_resnet50_trace_sources(
     enhanced_execution_info = read_json(_enhanced_execution_info_path(root))
     dynamic_trace = _load_dynamic_trace_pb(root / "dynamic_trace.pb")
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
+    if invocation_ids is not None:
+        dynamic_trace = _filter_dynamic_trace_by_invocation_ids(
+            dynamic_trace,
+            set(invocation_ids),
+        )
     if invocation_limit is not None:
         dynamic_trace = _limit_dynamic_trace_invocations(dynamic_trace, invocation_limit)
+    if invocation_limit is not None or invocation_ids is not None:
         kept_invocation_ids = {
             row["source_kernel_invocation_id"]
             for row in dynamic_trace["kernel_invocations"]
@@ -71,8 +78,13 @@ def build_resnet50_trace_adapter_bundle(
     root: Path,
     *,
     invocation_limit: int | None = None,
+    invocation_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    sources = load_resnet50_trace_sources(root, invocation_limit=invocation_limit)
+    sources = load_resnet50_trace_sources(
+        root,
+        invocation_limit=invocation_limit,
+        invocation_ids=invocation_ids,
+    )
     if sources.scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     kernel_invocation_table = _kernel_invocation_table(
@@ -120,6 +132,11 @@ def build_resnet50_trace_adapter_bundle(
             **(
                 {"formal_replay_invocation_limit": invocation_limit}
                 if invocation_limit is not None
+                else {}
+            ),
+            **(
+                {"formal_replay_invocation_ids": invocation_ids}
+                if invocation_ids is not None
                 else {}
             ),
             "errors": [],
@@ -366,6 +383,28 @@ def _limit_dynamic_trace_invocations(
     if not limited["kernel_invocations"]:
         raise ValueError("invocation_limit selected no kernel invocations")
     return limited
+
+
+def _filter_dynamic_trace_by_invocation_ids(
+    dynamic_trace: dict[str, Any],
+    invocation_ids: set[str],
+) -> dict[str, Any]:
+    if not invocation_ids:
+        raise ValueError("invocation_ids must be non-empty")
+    filtered = dict(dynamic_trace)
+    filtered["kernel_invocations"] = [
+        invocation
+        for invocation in dynamic_trace.get("kernel_invocations", [])
+        if invocation.get("source_kernel_invocation_id") in invocation_ids
+    ]
+    found = {
+        invocation.get("source_kernel_invocation_id")
+        for invocation in filtered["kernel_invocations"]
+    }
+    missing = sorted(invocation_ids.difference(found))
+    if missing:
+        raise ValueError(f"invocation_ids not found in dynamic trace: {missing}")
+    return filtered
 
 
 def _filter_scheduler_metadata_by_invocation_ids(

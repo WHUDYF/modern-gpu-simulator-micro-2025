@@ -43,6 +43,7 @@ def run_resnet50_gate1_to_gate7(
     seed: int = 20260606,
     baseline_artifacts_path: Path | None = None,
     invocation_limit: int | None = None,
+    invocation_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     blocker_path = root / GATE0_BLOCKER_FILENAME
@@ -52,6 +53,7 @@ def run_resnet50_gate1_to_gate7(
     adapter_bundle = build_resnet50_trace_adapter_bundle(
         root,
         invocation_limit=invocation_limit,
+        invocation_ids=invocation_ids,
     )
     write_json(out_dir / "resnet50_trace_adapter_bundle.json", adapter_bundle)
 

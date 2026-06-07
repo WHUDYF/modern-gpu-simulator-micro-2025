@@ -11,7 +11,7 @@ from experiments.gcl_phase_b.selector import (
 )
 from experiments.gcl_phase_b.utils import hash_without, write_json
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
-from tests.gcl_resnet50.real_chain import run_real_gate1_to_gate7_artifacts
+from tests.gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _embedding_row(index, vector):
@@ -305,7 +305,7 @@ def test_gate6_rejects_family_label_guided_clustering(tmp_path):
 
 
 def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
     table = chain["embedding_table"]
 
     artifacts = select_phase_b_representatives(
@@ -323,7 +323,7 @@ def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
 
 
 def test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
 
     artifacts = select_phase_b_representatives(
         chain["embedding_table"],
@@ -332,16 +332,28 @@ def test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root(tmp_path)
     )
 
     assert len(chain["embedding_table"]["embeddings"]) > 1
+    assert len({tuple(row["kernel_embedding"]) for row in chain["embedding_table"]["embeddings"]}) > 1
     assert artifacts["embedding_normalization_report"]["input_fields"] == ["kernel_embedding"]
     assert artifacts["k_selection_report"]["mode"] == "silhouette_k"
     assert "fallback_reason" not in artifacts["k_selection_report"]
+    assert artifacts["k_selection_report"]["selected_k"] >= 2
+    assert any(
+        candidate["k"] >= 2
+        for candidate in artifacts["k_selection_report"]["candidates"]
+    )
     assert artifacts["kmeans_cluster_assignment_table"]["algorithm"] == "deterministic_kmeans"
     assert artifacts["kmeans_cluster_assignment_table"]["assignments"]
+    assert len(
+        {
+            assignment["cluster_id"]
+            for assignment in artifacts["kmeans_cluster_assignment_table"]["assignments"]
+        }
+    ) > 1
     assert artifacts["representative_anchor_table"]["anchors"]
 
 
 def test_gate6_real_root_family_evidence_is_post_clustering_only(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
 
     artifacts = select_phase_b_representatives(
         chain["embedding_table"],

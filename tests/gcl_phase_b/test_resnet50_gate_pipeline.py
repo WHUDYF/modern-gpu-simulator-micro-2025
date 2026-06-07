@@ -171,3 +171,49 @@ def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_
     assert correctness["representative_quality_metrics"]["outlier_ratio"] == 0.0
     assert correctness["metric_error_report"]["status"] == "not_provided"
     assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"
+
+
+def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(tmp_path):
+    baseline_path = tmp_path / "baseline_artifacts.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "metric_rows": [
+                    {
+                        "cluster_id": 0,
+                        "measured": 100.0,
+                        "predicted": 95.0,
+                        "weight": 1.0,
+                        "unit": "cycles",
+                    }
+                ],
+                "sampled_metrics": {"cycles": 95.0, "runtime_ms": 9.5},
+                "full_baseline_metrics": {"cycles": 100.0, "runtime_ms": 10.0},
+                "measured_baseline_metrics": {"cycles": 100.0, "runtime_ms": 10.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "real_root_gate9"
+
+    manifest = run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        baseline_artifacts_path=baseline_path,
+        invocation_limit=1,
+    )
+
+    assert manifest["final_gate"] == "gate9_evaluated"
+    gate8 = json.loads((out_dir / "gate8_tuning_vector_proposal.json").read_text())
+    assert gate8["artifact_type"] == "gcl_resnet50_gate8_tuning_vector_proposal"
+    assert gate8["extension_label"] == "our_extension_not_original_gcl_sampler"
+    assert gate8["proposals"]
+    gate9 = json.loads((out_dir / "gate9_sampled_vs_full_evaluation.json").read_text())
+    assert gate9["artifact_type"] == "gcl_resnet50_gate9_sampled_vs_full_evaluation"
+    assert gate9["extension_label"] == "our_extension_not_original_gcl_sampler"
+    assert gate9["full_vs_sampled_simulation_report"]["cycles"]["relative_error"] == 0.05
+    assert gate9["sampled_speedup_report"]["runtime_ms_speedup"] > 1.0
+    assert gate9["sampled_error_report"]["cycles_relative_error"] == 0.05
+    correctness = json.loads((out_dir / "gate7_correctness_manifest.json").read_text())
+    assert correctness["metric_error_report"]["status"] == "reported"

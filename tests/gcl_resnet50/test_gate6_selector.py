@@ -11,6 +11,7 @@ from experiments.gcl_phase_b.selector import (
 )
 from experiments.gcl_phase_b.utils import hash_without, write_json
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from tests.gcl_resnet50.real_chain import run_real_gate1_to_gate7_artifacts
 
 
 def _embedding_row(index, vector):
@@ -301,3 +302,50 @@ def test_gate6_rejects_family_label_guided_clustering(tmp_path):
 
     with pytest.raises(ValueError, match="family labels"):
         select_phase_b_representatives(table, allow_debug=True)
+
+
+def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    table = chain["embedding_table"]
+
+    artifacts = select_phase_b_representatives(
+        table,
+        seed=20260607,
+        gate5_artifact_root=chain["artifact_root"],
+    )
+
+    validate_gate6_selector_artifacts(artifacts)
+    assert table["artifact_status"] == "formal"
+    assert table["trace_source"] == "nvbit"
+    assert table["embedding_dim"] == 256
+    assert artifacts["source_embedding_table_hash"] == table["kernel_embedding_table_hash"]
+
+
+def test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root(tmp_path):
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+
+    artifacts = select_phase_b_representatives(
+        chain["embedding_table"],
+        seed=20260607,
+        gate5_artifact_root=chain["artifact_root"],
+    )
+
+    assert artifacts["embedding_normalization_report"]["input_fields"] == ["kernel_embedding"]
+    assert artifacts["k_selection_report"]["mode"] == "silhouette_k"
+    assert artifacts["kmeans_cluster_assignment_table"]["algorithm"] == "deterministic_kmeans"
+    assert artifacts["kmeans_cluster_assignment_table"]["assignments"]
+    assert artifacts["representative_anchor_table"]["anchors"]
+
+
+def test_gate6_real_root_family_evidence_is_post_clustering_only(tmp_path):
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+
+    artifacts = select_phase_b_representatives(
+        chain["embedding_table"],
+        seed=20260607,
+        gate5_artifact_root=chain["artifact_root"],
+    )
+
+    evidence = artifacts["cluster_family_evidence_report"]
+    assert evidence["family_labels_used_for_clustering"] is False
+    assert evidence["evidence_mode"] == "post_clustering_only"

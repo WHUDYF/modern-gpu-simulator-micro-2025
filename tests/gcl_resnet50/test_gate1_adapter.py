@@ -123,3 +123,17 @@ def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
         for record in bundle["per_warp_trace_records"]
     )
     assert all("entries" in record for record in bundle["per_warp_trace_records"])
+
+
+def test_gate1_invocation_limit_bounds_real_root_materialization_before_threadblock_reads():
+    bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_limit=1)
+
+    validate_resnet50_trace_adapter_bundle(bundle)
+    assert len(bundle["kernel_invocation_table"]) == 1
+    kept_id = bundle["kernel_invocation_table"][0]["kernel_invocation_id"]
+    assert {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]} == {kept_id}
+    assert {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]} == {kept_id}
+    assert bundle["adapter_validation_report"]["formal_replay_invocation_limit"] == 1
+    assert bundle["adapter_validation_report"]["trace_materialization_scope"] == (
+        "representative_sm_all_ctas"
+    )

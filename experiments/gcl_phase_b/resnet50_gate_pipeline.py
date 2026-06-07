@@ -49,9 +49,10 @@ def run_resnet50_gate1_to_gate7(
     if blocker_path.exists():
         return _write_gate0_blocked_pipeline_manifest(root, out_dir, seed)
 
-    adapter_bundle = build_resnet50_trace_adapter_bundle(root)
-    if invocation_limit is not None:
-        adapter_bundle = _limit_adapter_bundle_invocations(adapter_bundle, invocation_limit)
+    adapter_bundle = build_resnet50_trace_adapter_bundle(
+        root,
+        invocation_limit=invocation_limit,
+    )
     write_json(out_dir / "resnet50_trace_adapter_bundle.json", adapter_bundle)
 
     trace_manifest, report_bundle, preview = build_representative_sm_manifest_from_bundle(
@@ -202,34 +203,6 @@ def run_resnet50_gate1_to_gate7(
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
     return manifest
-
-
-def _limit_adapter_bundle_invocations(
-    bundle: dict[str, Any],
-    invocation_limit: int,
-) -> dict[str, Any]:
-    if invocation_limit <= 0:
-        raise ValueError("invocation_limit must be positive")
-    limited = dict(bundle)
-    kept_invocations = list(bundle["kernel_invocation_table"][:invocation_limit])
-    kept_ids = {row["kernel_invocation_id"] for row in kept_invocations}
-    limited["kernel_invocation_table"] = kept_invocations
-    limited["cta_scheduler_records"] = [
-        record
-        for record in bundle["cta_scheduler_records"]
-        if record["kernel_invocation_id"] in kept_ids
-    ]
-    limited["per_warp_trace_records"] = [
-        record
-        for record in bundle["per_warp_trace_records"]
-        if record["kernel_invocation_id"] in kept_ids
-    ]
-    limited["adapter_validation_report"] = {
-        **bundle["adapter_validation_report"],
-        "formal_replay_invocation_limit": invocation_limit,
-    }
-    limited["adapter_bundle_hash"] = hash_without(limited, "adapter_bundle_hash")
-    return limited
 
 
 def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int) -> dict[str, Any]:

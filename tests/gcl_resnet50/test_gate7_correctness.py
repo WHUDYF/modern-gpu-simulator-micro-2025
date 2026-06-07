@@ -9,6 +9,7 @@ from experiments.gcl_phase_b.correctness import (
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from tests.gcl_resnet50.real_chain import run_real_gate1_to_gate7_artifacts
 
 
 def _gate6_artifacts():
@@ -136,3 +137,51 @@ def test_gate7_rejects_artifact_shape_embedding_chain_as_formal_evidence(tmp_pat
             selector_artifacts=selector_artifacts,
             embedding_table=table,
         )
+
+
+def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path):
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+
+    report = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=chain["selector_artifacts"],
+        embedding_table=chain["embedding_table"],
+    )
+
+    assert report["source_gate5_embedding_table_hash"] == (
+        chain["embedding_table"]["kernel_embedding_table_hash"]
+    )
+    assert report["source_gate6_selector_manifest_hash"] == (
+        chain["selector_artifacts"]["selector_manifest_hash"]
+    )
+    assert report["embedding_geometry_metrics"]["silhouette"] is not None
+    assert report["embedding_geometry_metrics"]["davies_bouldin"] is not None
+    assert report["embedding_geometry_metrics"]["calinski_harabasz"] is not None
+
+
+def test_gate7_records_family_representative_metric_and_stability_from_real_root(tmp_path):
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+
+    report = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=chain["selector_artifacts"],
+        embedding_table=chain["embedding_table"],
+        metric_rows=[
+            {
+                "cluster_id": 0,
+                "measured": 100.0,
+                "predicted": 95.0,
+                "weight": 1.0,
+                "unit": "cycles",
+            }
+        ],
+    )
+
+    assert set(report["family_alignment_metrics"]) == {
+        "ari",
+        "cluster_purity",
+        "nmi",
+        "weighted_purity",
+    }
+    assert report["representative_quality_metrics"]["representative_p95_distance"] is not None
+    assert report["metric_error_report"]["status"] == "reported"
+    assert report["metric_error_report"]["global_weighted_mape"] == 0.05
+    assert report["stability_report"]["stability_status"] == "single_run_not_evaluated"

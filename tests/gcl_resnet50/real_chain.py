@@ -2,10 +2,11 @@ from pathlib import Path
 
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_trace_adapter_bundle
+from experiments.gcl_phase_b.resnet50_gate_pipeline import run_resnet50_gate1_to_gate7
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
-from experiments.gcl_phase_b.utils import hash_without
+from experiments.gcl_phase_b.utils import read_json
 
 
 FORMAL_ROOT = Path("artifacts/gcl_resnet50_gate0_formal_trace/traces")
@@ -17,23 +18,7 @@ def build_real_adapter_bundle():
 
 def build_real_adapter_bundle_subset(limit: int = 1):
     """Build a small formal replay slice from the real Gate0 root for regression tests."""
-    bundle = build_real_adapter_bundle()
-    kept_invocations = bundle["kernel_invocation_table"][:limit]
-    kept_ids = {row["kernel_invocation_id"] for row in kept_invocations}
-    subset = dict(bundle)
-    subset["kernel_invocation_table"] = kept_invocations
-    subset["cta_scheduler_records"] = [
-        record
-        for record in bundle["cta_scheduler_records"]
-        if record["kernel_invocation_id"] in kept_ids
-    ]
-    subset["per_warp_trace_records"] = [
-        record
-        for record in bundle["per_warp_trace_records"]
-        if record["kernel_invocation_id"] in kept_ids
-    ]
-    subset["adapter_bundle_hash"] = hash_without(subset, "adapter_bundle_hash")
-    return subset
+    return build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_limit=limit)
 
 
 def build_real_trace_manifest(limit: int = 1):
@@ -51,3 +36,19 @@ def build_real_graphs(limit: int = 1):
 def build_real_tensors(limit: int = 1):
     manifest, reports, preview, graphs = build_real_graphs(limit=limit)
     return manifest, reports, preview, graphs, tensorize_phase_b_graphs(graphs)
+
+
+def run_real_gate1_to_gate7_artifacts(out_dir, limit: int = 1, seed: int = 20260607):
+    manifest = run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=seed,
+        invocation_limit=limit,
+    )
+    return {
+        "artifact_root": out_dir,
+        "pipeline_manifest": manifest,
+        "embedding_table": read_json(out_dir / "kernel_embedding_table.json"),
+        "selector_artifacts": read_json(out_dir / "selector_artifacts.json"),
+        "correctness_manifest": read_json(out_dir / "gate7_correctness_manifest.json"),
+    }

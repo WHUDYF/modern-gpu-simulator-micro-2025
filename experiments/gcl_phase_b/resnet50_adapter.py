@@ -27,28 +27,52 @@ class ResNet50TraceSources:
     gate0_manifest: dict[str, Any]
 
 
-def load_resnet50_trace_sources(root: Path) -> ResNet50TraceSources:
+def load_resnet50_trace_sources(
+    root: Path,
+    *,
+    invocation_limit: int | None = None,
+) -> ResNet50TraceSources:
+    if invocation_limit is not None and invocation_limit <= 0:
+        raise ValueError("invocation_limit must be positive")
     gate0_manifest = load_gate0_trace_acquisition_manifest(root)
     stats_path = root / "stats.csv"
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
     enhanced_execution_info = read_json(_enhanced_execution_info_path(root))
+    dynamic_trace = _load_dynamic_trace_pb(root / "dynamic_trace.pb")
+    scheduler_metadata = read_json(root / "scheduler_metadata.json")
+    if invocation_limit is not None:
+        dynamic_trace = _limit_dynamic_trace_invocations(dynamic_trace, invocation_limit)
+        kept_invocation_ids = {
+            row["source_kernel_invocation_id"]
+            for row in dynamic_trace["kernel_invocations"]
+            if row.get("source_kernel_invocation_id")
+        }
+        scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
+            scheduler_metadata,
+            kept_invocation_ids,
+        )
     return ResNet50TraceSources(
-        dynamic_trace=_load_dynamic_trace_pb(root / "dynamic_trace.pb"),
+        dynamic_trace=dynamic_trace,
         threadblocks=_load_threadblocks_from_scheduler(
             root,
             enhanced_execution_info,
+            scheduler_metadata=scheduler_metadata,
             representative_sm_only=True,
         ),
         enhanced_execution_info=enhanced_execution_info,
-        scheduler_metadata=read_json(root / "scheduler_metadata.json"),
+        scheduler_metadata=scheduler_metadata,
         stats_rows=stats_rows,
         gate0_manifest=gate0_manifest,
     )
 
 
-def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
-    sources = load_resnet50_trace_sources(root)
+def build_resnet50_trace_adapter_bundle(
+    root: Path,
+    *,
+    invocation_limit: int | None = None,
+) -> dict[str, Any]:
+    sources = load_resnet50_trace_sources(root, invocation_limit=invocation_limit)
     if sources.scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     kernel_invocation_table = _kernel_invocation_table(
@@ -93,6 +117,11 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
             "scheduler_metadata_complete": True,
             "trace_materialization_scope": "representative_sm_all_ctas",
             "trace_count_reconciliation_policy": "scheduler_count_is_runtime_packet_count",
+            **(
+                {"formal_replay_invocation_limit": invocation_limit}
+                if invocation_limit is not None
+                else {}
+            ),
             "errors": [],
         },
     }
@@ -166,6 +195,7 @@ def build_resnet50_artifact_shape_trace_adapter_bundle(root: Path) -> dict[str, 
         threadblocks=_load_threadblocks_from_scheduler(
             root,
             enhanced_execution_info,
+            scheduler_metadata=read_json(root / "scheduler_metadata.json"),
             representative_sm_only=False,
         ),
         enhanced_execution_info=enhanced_execution_info,
@@ -288,9 +318,11 @@ def _load_threadblocks_from_scheduler(
     root: Path,
     enhanced_execution_info: dict[str, Any],
     *,
+    scheduler_metadata: dict[str, Any] | None = None,
     representative_sm_only: bool,
 ) -> dict[str, Any]:
-    scheduler_metadata = read_json(root / "scheduler_metadata.json")
+    if scheduler_metadata is None:
+        scheduler_metadata = read_json(root / "scheduler_metadata.json")
     static_instruction_index = _static_instruction_index(enhanced_execution_info)
     selected_sm_by_invocation = (
         _selected_sm_by_invocation(scheduler_metadata) if representative_sm_only else {}
@@ -321,6 +353,36 @@ def _load_threadblocks_from_scheduler(
         "artifact_type": "resnet50_threadblocks_pb",
         "threadblocks": records,
     }
+
+
+def _limit_dynamic_trace_invocations(
+    dynamic_trace: dict[str, Any],
+    invocation_limit: int,
+) -> dict[str, Any]:
+    limited = dict(dynamic_trace)
+    limited["kernel_invocations"] = list(
+        dynamic_trace.get("kernel_invocations", [])[:invocation_limit]
+    )
+    if not limited["kernel_invocations"]:
+        raise ValueError("invocation_limit selected no kernel invocations")
+    return limited
+
+
+def _filter_scheduler_metadata_by_invocation_ids(
+    scheduler_metadata: dict[str, Any],
+    kept_invocation_ids: set[str],
+) -> dict[str, Any]:
+    if not kept_invocation_ids:
+        raise ValueError("invocation_limit selected no scheduler invocation ids")
+    filtered = dict(scheduler_metadata)
+    filtered["kernel_invocations"] = [
+        invocation
+        for invocation in scheduler_metadata.get("kernel_invocations", [])
+        if _scheduler_invocation_id(invocation) in kept_invocation_ids
+    ]
+    if not filtered["kernel_invocations"]:
+        raise ValueError("invocation_limit selected no scheduler metadata")
+    return filtered
 
 
 def _enhanced_execution_info_path(root: Path) -> Path:

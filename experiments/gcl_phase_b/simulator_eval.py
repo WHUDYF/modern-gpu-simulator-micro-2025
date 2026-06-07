@@ -28,7 +28,7 @@ def evaluate_gate9_sampled_vs_full(
         raise ValueError("Gate8 tuning manifest hash is required")
     if not anchor_hash:
         raise ValueError("representative anchor table hash is required")
-    baseline = full_baseline_metrics or measured_baseline_metrics or {}
+    baseline = measured_baseline_metrics or full_baseline_metrics or {}
     comparable_keys = sorted(set(sampled_metrics).intersection(baseline))
     if not comparable_keys:
         raise ValueError("baseline has no comparable metric keys")

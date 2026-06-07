@@ -625,6 +625,24 @@ def test_from_disk_selector_stage_refreshes_pipeline_manifest_hashes(tmp_path):
     ]
 
 
+def test_from_disk_selector_stage_preserves_formal_gate5_lineage_validation(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_selector_formal_lineage"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    checkpoint_path = out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]
+    checkpoint = json.loads(checkpoint_path.read_text())
+    checkpoint["checkpoint_hash"] = "tampered-checkpoint-hash"
+    checkpoint["encoder_manifest_hash"] = hash_without(
+        checkpoint, "encoder_manifest_hash", "checkpoint_path"
+    )
+    checkpoint_path.write_text(json.dumps(checkpoint, sort_keys=True))
+
+    with pytest.raises(ValueError, match="checkpoint_hash"):
+        run_selector_stage_from_disk(out_dir)
+
+
 def test_from_disk_graph_stage_refreshes_pipeline_manifest_scope_and_graph_hashes(tmp_path):
     out_dir = tmp_path / "stage_graph_hash_refresh"
     out_dir.mkdir()

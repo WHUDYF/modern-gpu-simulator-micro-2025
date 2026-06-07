@@ -43,6 +43,27 @@ def test_gate9_compares_sampled_against_full_baseline():
     assert report["gate9_simulator_evaluation_manifest"]["tuning_effect_report_hash"]
 
 
+def test_gate9_accuracy_uses_measured_baseline_when_full_baseline_also_exists():
+    report = evaluate_gate9_sampled_vs_full(
+        sampled_metrics={"cycles": 90.0, "runtime_ms": 9.0},
+        full_baseline_metrics={"cycles": 100.0, "runtime_ms": 10.0},
+        measured_baseline_metrics={"cycles": 120.0, "runtime_ms": 12.0},
+        gate8_tuning_manifest={
+            "artifact_type": "gcl_resnet50_gate8_tuning_manifest",
+            "gate8_tuning_manifest_hash": "gate8-hash",
+        },
+        representative_anchor_table={
+            "artifact_type": "gcl_resnet50_representative_anchor_table",
+            "representative_anchor_table_hash": "anchor-hash",
+        },
+    )
+
+    assert report["full_vs_sampled_simulation_report"]["cycles"]["baseline"] == 120.0
+    assert report["full_vs_sampled_simulation_report"]["cycles"]["relative_error"] == 0.25
+    assert report["sampled_error_report"]["cycles_relative_error"] == 0.25
+    assert report["sampled_speedup_report"]["cycles_speedup"] == round(100.0 / 90.0, 8)
+
+
 def test_gate9_rejects_speedup_claim_without_full_baseline():
     with pytest.raises(ValueError, match="baseline"):
         evaluate_gate9_sampled_vs_full(

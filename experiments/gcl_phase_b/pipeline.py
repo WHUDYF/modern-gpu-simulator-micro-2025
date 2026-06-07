@@ -721,6 +721,9 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
+    allow_debug = table.get("artifact_status") != "formal"
+    if not allow_debug:
+        _validate_formal_selector_repair_gate5_inputs(out_dir, table)
     artifacts = select_phase_b_representatives(table, seed=resolved_seed, allow_debug=True)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
     _refresh_pipeline_manifest_hashes_if_present(
@@ -731,6 +734,36 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
         },
     )
     return artifacts
+
+
+def _validate_formal_selector_repair_gate5_inputs(
+    out_dir: Path,
+    table: dict[str, Any],
+) -> None:
+    validate_phase_b_embedding_table(table)
+    checkpoint_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
+        )
+    )
+    checkpoint_path = require_pipeline_artifact(out_dir / CHECKPOINT_FILENAME, "RGCN checkpoint")
+    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
+        raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
+    expected_encoder_hash = hash_without(
+        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
+    )
+    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
+        raise ValueError("encoder_manifest_hash is not reproducible")
+    if table.get("checkpoint_hash") != checkpoint_manifest.get("checkpoint_hash"):
+        raise ValueError("Gate5 checkpoint mismatch")
+    if table.get("encoder_manifest_hash") != checkpoint_manifest.get("encoder_manifest_hash"):
+        raise ValueError("Gate5 encoder manifest mismatch")
+    lineage = table.get("gate5_lineage", {})
+    if lineage.get("checkpoint_hash") != checkpoint_manifest.get("checkpoint_hash"):
+        raise ValueError("Gate5 lineage checkpoint mismatch")
+    if lineage.get("encoder_manifest_hash") != checkpoint_manifest.get("encoder_manifest_hash"):
+        raise ValueError("Gate5 lineage encoder manifest mismatch")
 
 
 def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:

@@ -9,8 +9,8 @@ from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_ma
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
-from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
-from tests.gcl_resnet50.real_chain import build_real_tensors
+from gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from gcl_resnet50.real_chain import build_real_tensors
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 

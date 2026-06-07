@@ -10,8 +10,8 @@ from experiments.gcl_phase_b.selector import (
     validate_gate6_selector_artifacts,
 )
 from experiments.gcl_phase_b.utils import hash_without, write_json
-from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
-from tests.gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
+from gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _embedding_row(index, vector):

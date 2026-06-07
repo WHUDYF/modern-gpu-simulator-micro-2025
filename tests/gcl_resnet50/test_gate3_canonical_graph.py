@@ -4,8 +4,8 @@ from experiments.gcl_phase_b.graph_builder import VARIABLE_NODE_TYPES, build_pha
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_debug_trace_adapter_bundle
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
-from tests.gcl_resnet50.formal_chain import build_artifact_shape_graphs
-from tests.gcl_resnet50.real_chain import build_real_graphs
+from gcl_resnet50.formal_chain import build_artifact_shape_graphs
+from gcl_resnet50.real_chain import build_real_graphs
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 

@@ -10,7 +10,7 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
-from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 FORMAL_ROOT = Path("artifacts/gcl_resnet50_gate0_formal_trace/traces")

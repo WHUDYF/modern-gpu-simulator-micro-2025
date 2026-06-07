@@ -9,8 +9,8 @@ from experiments.gcl_phase_b.correctness import (
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from experiments.gcl_phase_b.utils import hash_without
-from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
-from tests.gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
+from gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _gate6_artifacts():

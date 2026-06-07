@@ -12,7 +12,7 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
     write_resnet50_gate0_blocker_report,
 )
 from experiments.gcl_phase_b.utils import hash_without, read_json, write_json
-from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 

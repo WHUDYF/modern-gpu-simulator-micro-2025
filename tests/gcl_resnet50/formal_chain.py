@@ -6,7 +6,7 @@ from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_ma
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 
-from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 
 def build_artifact_shape_adapter_bundle(tmp_path: Path):

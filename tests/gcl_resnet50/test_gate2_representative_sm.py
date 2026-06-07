@@ -3,8 +3,8 @@ from pathlib import Path
 
 from experiments.gcl_phase_b.resnet50_adapter import build_resnet50_debug_trace_adapter_bundle
 from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_manifest_from_bundle
-from tests.gcl_resnet50.formal_chain import build_artifact_shape_trace_manifest
-from tests.gcl_resnet50.real_chain import build_real_trace_manifest
+from gcl_resnet50.formal_chain import build_artifact_shape_trace_manifest
+from gcl_resnet50.real_chain import build_real_trace_manifest
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 

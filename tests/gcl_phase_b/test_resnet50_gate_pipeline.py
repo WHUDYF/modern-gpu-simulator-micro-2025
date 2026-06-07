@@ -11,8 +11,8 @@ from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     run_resnet50_gate1_to_gate5,
     run_resnet50_gate1_to_gate7,
 )
-from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
-from tests.gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
+from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _blocked_gate0_root(tmp_path):

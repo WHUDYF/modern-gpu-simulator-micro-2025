@@ -15,16 +15,42 @@ def _gate7_report():
             "high_weight_outlier_count": 0,
         },
         "metric_error_report": {"global_weighted_mape": 0.08, "status": "reported"},
+        "family_alignment_report_hash": "family-report-hash",
+        "metric_error_report_hash": "metric-report-hash",
         "gate7_cluster_correctness_manifest_hash": "gate7-hash",
+    }
+
+
+def _family_report():
+    return {
+        "artifact_type": "gcl_resnet50_cluster_family_alignment_report",
+        "report_hash": "family-report-hash",
+        "report_payload": {"weighted_purity": 0.95},
+    }
+
+
+def _metric_report():
+    return {
+        "artifact_type": "gcl_resnet50_cluster_metric_error_report",
+        "report_hash": "metric-report-hash",
+        "report_payload": {"global_weighted_mape": 0.08},
+    }
+
+
+def _anchor_table():
+    return {
+        "artifact_type": "gcl_resnet50_representative_anchor_table",
+        "anchors": [{"cluster_id": 0, "representative_record_id": "a", "kernel_invocation_id": "k0"}],
+        "representative_anchor_table_hash": "anchor-table-hash",
     }
 
 
 def test_gate8_generates_tuning_vectors_from_trusted_clusters():
     report = generate_gate8_tuning_vectors(
         _gate7_report(),
-        representative_anchors=[
-            {"cluster_id": 0, "representative_record_id": "a", "kernel_invocation_id": "k0"}
-        ],
+        representative_anchor_table=_anchor_table(),
+        family_alignment_report=_family_report(),
+        metric_error_report=_metric_report(),
         tunable_component_schema={"components": ["memory_latency_scale", "compute_latency_scale"]},
     )
 
@@ -39,8 +65,14 @@ def test_gate8_generates_tuning_vectors_from_trusted_clusters():
     )
     assert report["tuning_safety_report"]["safety_status"] == "report_only_initial_vectors"
     assert report["gate8_tuning_manifest"]["artifact_type"] == "gcl_resnet50_gate8_tuning_manifest"
-    assert report["proposals"][0]["tuning_vector"]["memory_latency_scale"] == 1.0
-    assert report["proposals"][0]["tuning_vector"]["compute_latency_scale"] == 1.0
+    vector = report["proposals"][0]
+    assert vector["representative_anchor_hash"]
+    assert vector["representative_anchor_table_hash"] == "anchor-table-hash"
+    assert vector["family_alignment_evidence_hash"] == "family-report-hash"
+    assert vector["metric_error_evidence_hash"] == "metric-report-hash"
+    assert vector["gate7_correctness_manifest_hash"] == "gate7-hash"
+    assert vector["tuning_vector"]["memory_latency_scale"] == 1.0
+    assert vector["tuning_vector"]["compute_latency_scale"] == 1.0
 
 
 def test_gate8_rejects_high_weight_mixed_or_high_error_clusters():
@@ -50,7 +82,9 @@ def test_gate8_rejects_high_weight_mixed_or_high_error_clusters():
     with pytest.raises(ValueError, match="mixed-family"):
         generate_gate8_tuning_vectors(
             gate7,
-            representative_anchors=[{"cluster_id": 0}],
+            representative_anchor_table=_anchor_table(),
+            family_alignment_report=_family_report(),
+            metric_error_report=_metric_report(),
             tunable_component_schema={"components": ["x"]},
         )
 
@@ -59,6 +93,22 @@ def test_gate8_rejects_high_weight_mixed_or_high_error_clusters():
     with pytest.raises(ValueError, match="high-error"):
         generate_gate8_tuning_vectors(
             gate7,
-            representative_anchors=[{"cluster_id": 0}],
+            representative_anchor_table=_anchor_table(),
+            family_alignment_report=_family_report(),
+            metric_error_report=_metric_report(),
+            tunable_component_schema={"components": ["x"]},
+        )
+
+
+def test_gate8_rejects_mismatched_persisted_gate7_reports():
+    report = _family_report()
+    report["report_hash"] = "wrong"
+
+    with pytest.raises(ValueError, match="family alignment report"):
+        generate_gate8_tuning_vectors(
+            _gate7_report(),
+            representative_anchor_table=_anchor_table(),
+            family_alignment_report=report,
+            metric_error_report=_metric_report(),
             tunable_component_schema={"components": ["x"]},
         )

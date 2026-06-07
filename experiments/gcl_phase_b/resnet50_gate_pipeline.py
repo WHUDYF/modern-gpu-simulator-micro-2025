@@ -167,7 +167,16 @@ def run_resnet50_gate1_to_gate7(
     write_json(out_dir / GATE7_CLUSTER_CORRECTNESS_FILENAME, correctness_manifest)
     gate8_proposal = generate_gate8_tuning_vectors(
         correctness_manifest,
-        representative_anchors=selector_artifacts["representative_anchor_table"]["anchors"],
+        representative_anchor_table={
+            **selector_artifacts["representative_anchor_table"],
+            "representative_anchor_table_hash": correctness_manifest[
+                "source_representative_anchor_table_hash"
+            ],
+        },
+        family_alignment_report=correctness_manifest["gate7_report_artifacts"][
+            "family_alignment_report"
+        ],
+        metric_error_report=correctness_manifest["gate7_report_artifacts"]["metric_error_report"],
         tunable_component_schema={
             "schema_version": "report_only_default_v1",
             "components": ["memory_latency_scale", "compute_latency_scale"],
@@ -186,6 +195,13 @@ def run_resnet50_gate1_to_gate7(
             sampled_metrics=baseline_artifacts["sampled_metrics"],
             full_baseline_metrics=baseline_artifacts.get("full_baseline_metrics"),
             measured_baseline_metrics=baseline_artifacts.get("measured_baseline_metrics"),
+            gate8_tuning_manifest=gate8_proposal["gate8_tuning_manifest"],
+            representative_anchor_table={
+                **selector_artifacts["representative_anchor_table"],
+                "representative_anchor_table_hash": correctness_manifest[
+                    "source_representative_anchor_table_hash"
+                ],
+            },
         )
         final_gate = "gate9_evaluated"
     else:

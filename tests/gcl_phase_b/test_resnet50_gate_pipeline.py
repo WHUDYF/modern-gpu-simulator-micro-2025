@@ -255,6 +255,12 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert gate8["artifact_type"] == "gcl_resnet50_gate8_tuning_vector_proposal"
     assert gate8["extension_label"] == "our_extension_not_original_gcl_sampler"
     assert gate8["proposals"]
+    for vector in gate8["cluster_tuning_vector_table"]["tuning_vectors"]:
+        assert vector["representative_anchor_hash"]
+        assert vector["representative_anchor_table_hash"]
+        assert vector["family_alignment_evidence_hash"]
+        assert vector["metric_error_evidence_hash"]
+        assert vector["gate7_correctness_manifest_hash"]
     gate8_manifest = json.loads((out_dir / "gate8_tuning_manifest.json").read_text())
     assert gate8_manifest["artifact_type"] == "gcl_resnet50_gate8_tuning_manifest"
     assert gate8_manifest["cluster_tuning_vector_table_hash"]
@@ -266,8 +272,18 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert gate9["full_vs_sampled_simulation_report"]["cycles"]["relative_error"] == 0.05
     assert gate9["sampled_speedup_report"]["runtime_ms_speedup"] > 1.0
     assert gate9["sampled_error_report"]["cycles_relative_error"] == 0.05
+    assert gate9["sampled_error_report"]["p95_relative_error"] == 0.05
+    assert gate9["sampled_error_report"]["high_weight_bad_case_count"] == 0
+    assert gate9["tuning_effect_report"]["status"] == "evaluated_from_gate8_proposal"
+    assert gate9["tuning_effect_report"]["source_gate8_tuning_manifest_hash"] == (
+        gate8_manifest["gate8_tuning_manifest_hash"]
+    )
     gate9_manifest = json.loads((out_dir / "gate9_simulator_evaluation_manifest.json").read_text())
     assert gate9_manifest["artifact_type"] == "gcl_resnet50_gate9_simulator_evaluation_manifest"
+    assert gate9_manifest["source_gate8_tuning_manifest_hash"] == (
+        gate8_manifest["gate8_tuning_manifest_hash"]
+    )
+    assert gate9_manifest["representative_anchor_table_hash"]
     assert gate9_manifest["full_vs_sampled_simulation_report_hash"]
     assert gate9_manifest["sampled_speedup_report_hash"]
     assert gate9_manifest["sampled_error_report_hash"]

@@ -141,3 +141,13 @@ Solution: Add red tests for every planned artifact filename, emit standalone rep
 Constraints: Combined compatibility artifacts may remain, but they do not replace the plan-defined bundle files.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_resnet50/test_gate9_simulator_evaluation.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 28 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 94 tests; `git diff --check` passed.
 Source Rounds: 8
+
+## Lesson: extension-artifacts-need-row-provenance
+Lesson ID: BL-20260607-extension-artifacts-need-row-provenance
+Scope: experiments/gcl_phase_b/tuning.py, experiments/gcl_phase_b/simulator_eval.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py
+Problem Description: Gate8/Gate9 extension files can exist while individual tuning vectors and simulator evaluation reports are not tied back to representative anchors, Gate7 evidence, or Gate8 tuning provenance.
+Root Cause: Tests checked top-level artifact presence and coarse hashes but did not require row-level evidence hashes or Gate9 provenance inputs.
+Solution: Bind every Gate8 tuning vector to representative-anchor, family-alignment, metric-error, and Gate7 manifest hashes; require Gate9 to consume Gate8 tuning manifest plus representative-anchor provenance and report p95/high-weight bad-case/tuning-effect fields.
+Constraints: Gate8/Gate9 remain our extension, not original GCL-Sampler reproduction; provenance binding does not imply simulator accuracy claims.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_resnet50/test_gate9_simulator_evaluation.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 13 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 96 tests; `git diff --check` passed.
+Source Rounds: 9

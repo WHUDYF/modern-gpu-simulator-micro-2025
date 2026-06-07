@@ -12,13 +12,25 @@ EXTENSION_LABEL = "our_extension_not_original_gcl_sampler"
 def generate_gate8_tuning_vectors(
     gate7_report: dict[str, Any],
     *,
-    representative_anchors: list[dict[str, Any]],
+    representative_anchor_table: dict[str, Any],
+    family_alignment_report: dict[str, Any],
+    metric_error_report: dict[str, Any],
     tunable_component_schema: dict[str, Any],
 ) -> dict[str, Any]:
     if gate7_report.get("artifact_type") != "gcl_resnet50_gate7_cluster_correctness_manifest":
         raise ValueError("Gate8 requires Gate7 correctness manifest")
     if gate7_report.get("claim_status") != "quantified_no_correctness_claim":
         raise ValueError("Gate8 requires quantified report-only Gate7 claim status")
+    if family_alignment_report.get("report_hash") != gate7_report.get(
+        "family_alignment_report_hash"
+    ):
+        raise ValueError("family alignment report hash does not match Gate7 manifest")
+    if metric_error_report.get("report_hash") != gate7_report.get("metric_error_report_hash"):
+        raise ValueError("metric error report hash does not match Gate7 manifest")
+    representative_anchors = list(representative_anchor_table.get("anchors", []))
+    representative_anchor_table_hash = representative_anchor_table.get(
+        "representative_anchor_table_hash"
+    ) or gate7_report.get("source_representative_anchor_table_hash")
     weighted_purity = gate7_report.get("family_alignment_metrics", {}).get("weighted_purity")
     if weighted_purity is not None and float(weighted_purity) < 0.8:
         raise ValueError("mixed-family cluster evidence cannot enter Gate8 tuning proposal")
@@ -36,6 +48,13 @@ def generate_gate8_tuning_vectors(
             "cluster_id": anchor.get("cluster_id"),
             "representative_record_id": anchor.get("representative_record_id"),
             "kernel_invocation_id": anchor.get("kernel_invocation_id"),
+            "representative_anchor_hash": stable_hash(anchor),
+            "representative_anchor_table_hash": representative_anchor_table_hash,
+            "family_alignment_evidence_hash": family_alignment_report["report_hash"],
+            "metric_error_evidence_hash": metric_error_report["report_hash"],
+            "gate7_correctness_manifest_hash": gate7_report[
+                "gate7_cluster_correctness_manifest_hash"
+            ],
             "tuning_vector": {component: 1.0 for component in components},
             "proposal_status": "report_only_initial_vector",
         }
@@ -59,6 +78,9 @@ def generate_gate8_tuning_vectors(
             "gate7_cluster_correctness_manifest_hash"
         ],
         "source_claim_status": gate7_report["claim_status"],
+        "source_family_alignment_report_hash": family_alignment_report["report_hash"],
+        "source_metric_error_report_hash": metric_error_report["report_hash"],
+        "representative_anchor_table_hash": representative_anchor_table_hash,
         "representative_anchor_count": len(representative_anchors),
         "tunable_component_schema": tunable_component_schema,
     }
@@ -79,6 +101,9 @@ def generate_gate8_tuning_vectors(
         "source_gate7_correctness_manifest_hash": gate7_report[
             "gate7_cluster_correctness_manifest_hash"
         ],
+        "source_family_alignment_report_hash": family_alignment_report["report_hash"],
+        "source_metric_error_report_hash": metric_error_report["report_hash"],
+        "representative_anchor_table_hash": representative_anchor_table_hash,
         "cluster_tuning_vector_table_hash": cluster_tuning_vector_table[
             "cluster_tuning_vector_table_hash"
         ],

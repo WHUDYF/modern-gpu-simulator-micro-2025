@@ -1,0 +1,14 @@
+{
+  "artifact_type": "gcl_resnet50_nvbit_collector_session",
+  "artifact_version": "nvbit_collector_session_v1",
+  "collector_session_hash": "bf0ecae6837e3523e98a1ce6d5bc74dd5e6aaed4ddb643545dd99410552159d5",
+  "collector_session_id": "22962b3b7d8a48dca195c426784d6adb",
+  "created_unix_ns": 1780835069025181518,
+  "nvbit_tool_path": "/home/dyf/modern-gpu-simulator-micro-2025/simulator-remodeled/util/tracer_nvbit/tracer_tool/tracer_tool.so",
+  "output_root": "artifacts/gcl_resnet50_gate0_formal_trace/traces",
+  "producer": "acquire_resnet50_gate0_trace",
+  "workload_command": [
+    "python",
+    "scripts/run_resnet50_gate0_formal_trace.py"
+  ]
+}

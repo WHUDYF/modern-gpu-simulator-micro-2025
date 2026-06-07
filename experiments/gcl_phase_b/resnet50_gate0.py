@@ -61,6 +61,9 @@ def acquire_resnet50_gate0_trace(
     env = dict(os.environ)
     env.update(config.environment)
     env["LD_PRELOAD"] = str(config.nvbit_tool_path)
+    env["CUDA_INJECTION64_PATH"] = str(config.nvbit_tool_path)
+    env["USER_DEFINED_FOLDERS"] = "1"
+    env["TRACES_FOLDER"] = str(output_root)
     env["GCL_RESNET50_TRACE_OUT"] = str(output_root)
     session = _write_collector_session(output_root, config)
     env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
@@ -73,6 +76,7 @@ def acquire_resnet50_gate0_trace(
     returncode = _runner_returncode(result)
     if returncode != 0:
         raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
+    _write_nvbit_collection_evidence(output_root, result)
     _write_collector_attestation(output_root, session, result)
     return record_resnet50_gate0_trace_acquisition(output_root)
 
@@ -313,6 +317,34 @@ def _write_collector_attestation(
     return attestation
 
 
+def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[str, Any]:
+    evidence_path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
+    if evidence_path.exists():
+        evidence = read_json(evidence_path)
+        _validate_nvbit_collection_evidence(evidence)
+        return evidence
+    _source_artifact_hashes(root)
+    scheduler_metadata = read_json(root / "scheduler_metadata.json")
+    if scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
+        raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
+    _validate_scheduler_metadata_records(scheduler_metadata)
+    evidence = {
+        "artifact_status": "formal_collection_evidence",
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "collection_status": "completed",
+        "fixture_backed": False,
+        "collector_artifact_origin": "real_nvbit_runtime",
+        "evidence_scope": "real_resnet50_nvbit_collection",
+        "nvbit_loaded": _runner_output_contains(result, "NVBit"),
+    }
+    write_json(root / NVBIT_COLLECTION_EVIDENCE_FILENAME, evidence)
+    return evidence
+
+
 def _reject_fixture_backed_root(root: Path) -> None:
     fixture_files = {
         "dynamic_trace.json",
@@ -382,7 +414,7 @@ def _validate_scheduler_metadata_records(scheduler_metadata: dict[str, Any]) -> 
 def _source_artifact_hashes(root: Path) -> dict[str, str]:
     hashes = {}
     for name, kind in FORMAL_SOURCE_ARTIFACTS.items():
-        path = root / name.rstrip("/")
+        path = _resolve_gate0_artifact_path(root, name)
         if kind == "file":
             if not path.is_file():
                 raise FileNotFoundError(f"missing Gate0 source artifact: {name}")
@@ -400,8 +432,15 @@ def _available_gate0_artifacts(root: Path) -> list[str]:
     return [
         name
         for name in [*FORMAL_SOURCE_ARTIFACTS, NVBIT_COLLECTION_EVIDENCE_FILENAME]
-        if (root / name.rstrip("/")).exists()
+        if _resolve_gate0_artifact_path(root, name).exists()
     ]
+
+
+def _resolve_gate0_artifact_path(root: Path, name: str) -> Path:
+    path = root / name.rstrip("/")
+    if name == "enhanced_execution_info.json" and not path.exists():
+        return root / "extra_info" / "enhanced_execution_info.json"
+    return path
 
 
 def _file_hash(path: Path) -> str:
@@ -437,3 +476,11 @@ def _runner_returncode(result: RunnerResult) -> int:
     if isinstance(result, dict):
         return int(result.get("returncode", 0))
     return int(result.returncode)
+
+
+def _runner_output_contains(result: RunnerResult, needle: str) -> bool:
+    if isinstance(result, dict):
+        output = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
+    else:
+        output = f"{result.stdout or ''}\n{result.stderr or ''}"
+    return needle in output

@@ -1,0 +1,20 @@
+{
+  "artifact_status": "formal",
+  "artifact_type": "gcl_resnet50_gate0_trace_acquisition_manifest",
+  "artifact_version": "gate0_trace_acquisition_manifest_v1",
+  "execution_mode": "real_trace",
+  "formal_input_eligible": true,
+  "gate0_manifest_hash": "8d323981de84ed87104e57c032d874b0276866796924258e2ba37e63923d720e",
+  "input_scope": "full_resnet50_inference_trace",
+  "nvbit_collection_evidence_hash": "a337ba0fdffb76aedbb37dda2b6441588e5d2a019dba13dd1f744b8d007b8a82",
+  "scheduler_metadata_source": "real_nvbit_smid",
+  "source_artifact_hashes": {
+    "dynamic_trace.pb": "961f4798a294fcb67bf9dc65a607ea3fce606c76de2697924871d9aca3fc2cca",
+    "enhanced_execution_info.json": "74c7e37d648497a3d59eeab135b436ec14cceb555817c57edcade7f23f001247",
+    "scheduler_metadata.json": "b19188d95a299a7faf73c1d232251e9c7e9cda59100bfc6c2dac45db7e57d772",
+    "stats.csv": "33d1a8f03203581d65be3d2c2813576e8414e4e4a46f2af2b8b0f6888f71fc21",
+    "threadblocks/": "cb3e6e601102cd1df0e3dbf9f62eef280c4c561d3097eb66560de0e35b9cd336"
+  },
+  "trace_source": "nvbit",
+  "workload_id": "resnet50"
+}

@@ -1,0 +1,17 @@
+{
+  "artifact_status": "formal_collection_evidence",
+  "collection_status": "completed",
+  "collector_artifact_origin": "real_nvbit_runtime",
+  "collector_attestation_hash": "2d36c99cf7c57d2fa428a6c792b27acaa9b55907092a3094cbbec6ce85d345c1",
+  "collector_producer": "acquire_resnet50_gate0_trace",
+  "collector_session_hash": "bf0ecae6837e3523e98a1ce6d5bc74dd5e6aaed4ddb643545dd99410552159d5",
+  "collector_session_id": "22962b3b7d8a48dca195c426784d6adb",
+  "evidence_scope": "real_resnet50_nvbit_collection",
+  "execution_mode": "real_trace",
+  "fixture_backed": false,
+  "input_scope": "full_resnet50_inference_trace",
+  "nvbit_loaded": true,
+  "scheduler_metadata_source": "real_nvbit_smid",
+  "trace_source": "nvbit",
+  "workload_id": "resnet50"
+}

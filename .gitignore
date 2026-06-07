@@ -9,3 +9,7 @@ artifacts/a_line/l1/
 experiments/backend_pipeline/runs/
 *.pptx
 截图/
+artifacts/gcl_resnet50_gate0_formal_trace/traces/threadblocks/
+artifacts/gcl_resnet50_gate0_formal_trace/traces/scheduler_metadata.json
+artifacts/gcl_resnet50_gate0_formal_trace/traces/extra_info/enhanced_execution_info.json
+artifacts/gcl_resnet50_gate0_formal_trace/traces/stats.csv

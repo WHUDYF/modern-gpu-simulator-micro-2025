@@ -17,6 +17,7 @@ def _gate7_report():
         "metric_error_report": {"global_weighted_mape": 0.08, "status": "reported"},
         "family_alignment_report_hash": "family-report-hash",
         "metric_error_report_hash": "metric-report-hash",
+        "source_representative_anchor_table_hash": "anchor-table-hash",
         "gate7_cluster_correctness_manifest_hash": "gate7-hash",
     }
 
@@ -109,6 +110,20 @@ def test_gate8_rejects_mismatched_persisted_gate7_reports():
             _gate7_report(),
             representative_anchor_table=_anchor_table(),
             family_alignment_report=report,
+            metric_error_report=_metric_report(),
+            tunable_component_schema={"components": ["x"]},
+        )
+
+
+def test_gate8_rejects_representative_anchor_hash_mismatch_against_gate7():
+    anchors = _anchor_table()
+    anchors["representative_anchor_table_hash"] = "wrong-anchor-hash"
+
+    with pytest.raises(ValueError, match="representative anchor"):
+        generate_gate8_tuning_vectors(
+            _gate7_report(),
+            representative_anchor_table=anchors,
+            family_alignment_report=_family_report(),
             metric_error_report=_metric_report(),
             tunable_component_schema={"components": ["x"]},
         )

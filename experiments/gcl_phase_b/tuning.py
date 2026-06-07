@@ -31,6 +31,9 @@ def generate_gate8_tuning_vectors(
     representative_anchor_table_hash = representative_anchor_table.get(
         "representative_anchor_table_hash"
     ) or gate7_report.get("source_representative_anchor_table_hash")
+    expected_anchor_hash = gate7_report.get("source_representative_anchor_table_hash")
+    if expected_anchor_hash and representative_anchor_table_hash != expected_anchor_hash:
+        raise ValueError("representative anchor table hash does not match Gate7 manifest")
     weighted_purity = gate7_report.get("family_alignment_metrics", {}).get("weighted_purity")
     if weighted_purity is not None and float(weighted_purity) < 0.8:
         raise ValueError("mixed-family cluster evidence cannot enter Gate8 tuning proposal")

@@ -41,6 +41,53 @@ def generate_gate8_tuning_vectors(
         }
         for anchor in representative_anchors
     ]
+    cluster_tuning_vector_table = {
+        "artifact_type": "gcl_resnet50_cluster_tuning_vector_table",
+        "artifact_version": "gate8_cluster_tuning_vector_table_v1",
+        "source_gate7_correctness_manifest_hash": gate7_report[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "tuning_vectors": proposals,
+    }
+    cluster_tuning_vector_table["cluster_tuning_vector_table_hash"] = stable_hash(
+        cluster_tuning_vector_table
+    )
+    provenance_report = {
+        "artifact_type": "gcl_resnet50_tuning_vector_provenance_report",
+        "artifact_version": "gate8_tuning_vector_provenance_report_v1",
+        "source_gate7_correctness_manifest_hash": gate7_report[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "source_claim_status": gate7_report["claim_status"],
+        "representative_anchor_count": len(representative_anchors),
+        "tunable_component_schema": tunable_component_schema,
+    }
+    provenance_report["tuning_vector_provenance_report_hash"] = stable_hash(provenance_report)
+    safety_report = {
+        "artifact_type": "gcl_resnet50_tuning_safety_report",
+        "artifact_version": "gate8_tuning_safety_report_v1",
+        "safety_status": "report_only_initial_vectors",
+        "mixed_family_rejection_policy": "reject_weighted_purity_below_0_8",
+        "metric_error_rejection_policy": "reject_global_weighted_mape_above_0_2",
+        "accuracy_claim": "not_claimed",
+    }
+    safety_report["tuning_safety_report_hash"] = stable_hash(safety_report)
+    gate8_manifest = {
+        "artifact_type": "gcl_resnet50_gate8_tuning_manifest",
+        "artifact_version": "gate8_tuning_manifest_v1",
+        "extension_label": EXTENSION_LABEL,
+        "source_gate7_correctness_manifest_hash": gate7_report[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "cluster_tuning_vector_table_hash": cluster_tuning_vector_table[
+            "cluster_tuning_vector_table_hash"
+        ],
+        "tuning_vector_provenance_report_hash": provenance_report[
+            "tuning_vector_provenance_report_hash"
+        ],
+        "tuning_safety_report_hash": safety_report["tuning_safety_report_hash"],
+    }
+    gate8_manifest["gate8_tuning_manifest_hash"] = stable_hash(gate8_manifest)
     artifact = {
         "artifact_type": "gcl_resnet50_gate8_tuning_vector_proposal",
         "artifact_version": "gate8_tuning_vector_proposal_v1",
@@ -50,6 +97,10 @@ def generate_gate8_tuning_vectors(
         ],
         "tunable_component_schema": tunable_component_schema,
         "proposals": proposals,
+        "cluster_tuning_vector_table": cluster_tuning_vector_table,
+        "tuning_vector_provenance_report": provenance_report,
+        "tuning_safety_report": safety_report,
+        "gate8_tuning_manifest": gate8_manifest,
     }
     artifact["gate8_tuning_vector_proposal_hash"] = stable_hash(artifact)
     return artifact

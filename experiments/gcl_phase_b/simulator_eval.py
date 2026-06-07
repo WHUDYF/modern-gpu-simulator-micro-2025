@@ -48,6 +48,7 @@ def evaluate_gate9_sampled_vs_full(
         "sampled_error_report": error_report,
         "tuning_effect_report": {"status": "not_evaluated_without_tuning_run"},
     }
+    artifact["gate9_simulator_evaluation_manifest"] = _gate9_manifest(artifact)
     artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
     return artifact
 
@@ -63,5 +64,22 @@ def gate9_baseline_missing_report() -> dict[str, Any]:
         "sampled_error_report": {},
         "tuning_effect_report": {"status": "not_evaluated_without_baseline"},
     }
+    artifact["gate9_simulator_evaluation_manifest"] = _gate9_manifest(artifact)
     artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
     return artifact
+
+
+def _gate9_manifest(artifact: dict[str, Any]) -> dict[str, Any]:
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate9_simulator_evaluation_manifest",
+        "artifact_version": "gate9_simulator_evaluation_manifest_v1",
+        "extension_label": EXTENSION_LABEL,
+        "full_vs_sampled_simulation_report_hash": stable_hash(
+            artifact["full_vs_sampled_simulation_report"]
+        ),
+        "sampled_speedup_report_hash": stable_hash(artifact["sampled_speedup_report"]),
+        "sampled_error_report_hash": stable_hash(artifact["sampled_error_report"]),
+        "tuning_effect_report_hash": stable_hash(artifact["tuning_effect_report"]),
+    }
+    manifest["gate9_simulator_evaluation_manifest_hash"] = stable_hash(manifest)
+    return manifest

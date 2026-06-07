@@ -73,6 +73,11 @@ def test_gate7_records_embedding_geometry_metrics():
     assert report["artifact_version"] == "gate7_cluster_correctness_manifest_v1"
     assert report["threshold_policy"] == "report_only_v1"
     assert report["claim_status"] == "quantified_no_correctness_claim"
+    assert report["threshold_claim_status"] == "not_set_until_real_resnet50_baseline"
+    assert report["suggested_min_silhouette_score"] is None
+    assert report["suggested_min_weighted_cluster_purity"] is None
+    assert report["suggested_max_global_weighted_mape"] is None
+    assert report["suggested_min_assignment_stability_ari"] is None
     for field in [
         "source_gate6_selector_manifest_hash",
         "source_cluster_assignment_table_hash",

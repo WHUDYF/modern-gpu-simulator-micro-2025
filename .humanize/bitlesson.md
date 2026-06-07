@@ -131,3 +131,13 @@ Solution: Treat manifest file names, artifact types, claim statuses, source hash
 Constraints: Compatibility aliases may exist for transitional hash fields, but the canonical contract must be the plan-defined Gate7 cluster correctness manifest.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 26 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 94 tests; `git diff --check` passed.
 Source Rounds: 7
+
+## Lesson: planned-artifact-bundles-must-persist
+Lesson ID: BL-20260607-planned-artifact-bundles-must-persist
+Scope: experiments/gcl_phase_b/resnet50_gate_pipeline.py, experiments/gcl_phase_b/tuning.py, experiments/gcl_phase_b/simulator_eval.py, tests/gcl_phase_b/test_resnet50_gate_pipeline.py
+Problem Description: A combined in-memory artifact can pass behavior tests while the original plan's standalone report files and manifest-bound hashes are absent from disk.
+Root Cause: Pipeline tests checked the combined Gate7/Gate8/Gate9 artifacts but did not assert that each planned report/bundle file was persisted and hash-bound.
+Solution: Add red tests for every planned artifact filename, emit standalone report files in the pipeline, and bind manifests to the persisted report hashes.
+Constraints: Combined compatibility artifacts may remain, but they do not replace the plan-defined bundle files.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_resnet50/test_gate9_simulator_evaluation.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 28 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 94 tests; `git diff --check` passed.
+Source Rounds: 8

@@ -31,6 +31,14 @@ def test_gate8_generates_tuning_vectors_from_trusted_clusters():
     assert report["artifact_type"] == "gcl_resnet50_gate8_tuning_vector_proposal"
     assert report["extension_label"] == "our_extension_not_original_gcl_sampler"
     assert report["source_gate7_correctness_manifest_hash"] == "gate7-hash"
+    assert report["cluster_tuning_vector_table"]["artifact_type"] == (
+        "gcl_resnet50_cluster_tuning_vector_table"
+    )
+    assert report["tuning_vector_provenance_report"]["source_gate7_correctness_manifest_hash"] == (
+        "gate7-hash"
+    )
+    assert report["tuning_safety_report"]["safety_status"] == "report_only_initial_vectors"
+    assert report["gate8_tuning_manifest"]["artifact_type"] == "gcl_resnet50_gate8_tuning_manifest"
     assert report["proposals"][0]["tuning_vector"]["memory_latency_scale"] == 1.0
     assert report["proposals"][0]["tuning_vector"]["compute_latency_scale"] == 1.0
 

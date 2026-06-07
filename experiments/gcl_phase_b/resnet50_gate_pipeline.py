@@ -10,6 +10,7 @@ from typing import Any
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
 from .correctness import (
     GATE7_CLUSTER_CORRECTNESS_FILENAME,
+    GATE7_REPORT_FILENAMES,
     evaluate_gate7_correctness_from_artifacts,
 )
 from .embedding_export import (
@@ -161,6 +162,8 @@ def run_resnet50_gate1_to_gate7(
         embedding_table=embedding_table,
         metric_rows=baseline_artifacts.get("metric_rows") if baseline_artifacts else None,
     )
+    for report_key, filename in GATE7_REPORT_FILENAMES.items():
+        write_json(out_dir / filename, correctness_manifest["gate7_report_artifacts"][report_key])
     write_json(out_dir / GATE7_CLUSTER_CORRECTNESS_FILENAME, correctness_manifest)
     gate8_proposal = generate_gate8_tuning_vectors(
         correctness_manifest,
@@ -170,6 +173,13 @@ def run_resnet50_gate1_to_gate7(
             "components": ["memory_latency_scale", "compute_latency_scale"],
         },
     )
+    write_json(out_dir / "cluster_tuning_vector_table.json", gate8_proposal["cluster_tuning_vector_table"])
+    write_json(
+        out_dir / "tuning_vector_provenance_report.json",
+        gate8_proposal["tuning_vector_provenance_report"],
+    )
+    write_json(out_dir / "tuning_safety_report.json", gate8_proposal["tuning_safety_report"])
+    write_json(out_dir / "gate8_tuning_manifest.json", gate8_proposal["gate8_tuning_manifest"])
     write_json(out_dir / "gate8_tuning_vector_proposal.json", gate8_proposal)
     if baseline_artifacts:
         gate9_report = evaluate_gate9_sampled_vs_full(
@@ -181,6 +191,17 @@ def run_resnet50_gate1_to_gate7(
     else:
         gate9_report = gate9_baseline_missing_report()
         final_gate = "gate9_report_only"
+    write_json(
+        out_dir / "full_vs_sampled_simulation_report.json",
+        gate9_report["full_vs_sampled_simulation_report"],
+    )
+    write_json(out_dir / "sampled_speedup_report.json", gate9_report["sampled_speedup_report"])
+    write_json(out_dir / "sampled_error_report.json", gate9_report["sampled_error_report"])
+    write_json(out_dir / "tuning_effect_report.json", gate9_report["tuning_effect_report"])
+    write_json(
+        out_dir / "gate9_simulator_evaluation_manifest.json",
+        gate9_report["gate9_simulator_evaluation_manifest"],
+    )
     write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
 
     manifest = {

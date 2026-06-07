@@ -113,7 +113,21 @@ def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
         "graph_tensor_bundle.json",
         "kernel_embedding_table.json",
         "selector_artifacts.json",
+        "cluster_embedding_quality_report.json",
+        "cluster_family_alignment_report.json",
+        "representative_quality_report.json",
+        "cluster_metric_error_report.json",
+        "cluster_stability_report.json",
         "gate7_cluster_correctness_manifest.json",
+        "cluster_tuning_vector_table.json",
+        "tuning_vector_provenance_report.json",
+        "tuning_safety_report.json",
+        "gate8_tuning_manifest.json",
+        "full_vs_sampled_simulation_report.json",
+        "sampled_speedup_report.json",
+        "sampled_error_report.json",
+        "tuning_effect_report.json",
+        "gate9_simulator_evaluation_manifest.json",
         "gate8_tuning_vector_proposal.json",
         "gate9_sampled_vs_full_evaluation.json",
         GATE1_7_PIPELINE_MANIFEST_FILENAME,
@@ -163,6 +177,11 @@ def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_
     assert correctness["artifact_version"] == "gate7_cluster_correctness_manifest_v1"
     assert correctness["threshold_policy"] == "report_only_v1"
     assert correctness["claim_status"] == "quantified_no_correctness_claim"
+    assert correctness["threshold_claim_status"] == "not_set_until_real_resnet50_baseline"
+    assert correctness["suggested_min_silhouette_score"] is None
+    assert correctness["suggested_min_weighted_cluster_purity"] is None
+    assert correctness["suggested_max_global_weighted_mape"] is None
+    assert correctness["suggested_min_assignment_stability_ari"] is None
     for field in [
         "source_gate6_selector_manifest_hash",
         "source_cluster_assignment_table_hash",
@@ -188,6 +207,16 @@ def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_
     assert correctness["representative_quality_metrics"]["outlier_ratio"] == 0.0
     assert correctness["metric_error_report"]["status"] == "not_provided"
     assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"
+    report_files = {
+        "embedding_quality_report_hash": "cluster_embedding_quality_report.json",
+        "family_alignment_report_hash": "cluster_family_alignment_report.json",
+        "representative_quality_report_hash": "representative_quality_report.json",
+        "metric_error_report_hash": "cluster_metric_error_report.json",
+        "stability_report_hash": "cluster_stability_report.json",
+    }
+    for hash_field, filename in report_files.items():
+        stored_report = json.loads((out_dir / filename).read_text())
+        assert stored_report["report_hash"] == correctness[hash_field]
 
 
 def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(tmp_path):
@@ -226,11 +255,22 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert gate8["artifact_type"] == "gcl_resnet50_gate8_tuning_vector_proposal"
     assert gate8["extension_label"] == "our_extension_not_original_gcl_sampler"
     assert gate8["proposals"]
+    gate8_manifest = json.loads((out_dir / "gate8_tuning_manifest.json").read_text())
+    assert gate8_manifest["artifact_type"] == "gcl_resnet50_gate8_tuning_manifest"
+    assert gate8_manifest["cluster_tuning_vector_table_hash"]
+    assert gate8_manifest["tuning_vector_provenance_report_hash"]
+    assert gate8_manifest["tuning_safety_report_hash"]
     gate9 = json.loads((out_dir / "gate9_sampled_vs_full_evaluation.json").read_text())
     assert gate9["artifact_type"] == "gcl_resnet50_gate9_sampled_vs_full_evaluation"
     assert gate9["extension_label"] == "our_extension_not_original_gcl_sampler"
     assert gate9["full_vs_sampled_simulation_report"]["cycles"]["relative_error"] == 0.05
     assert gate9["sampled_speedup_report"]["runtime_ms_speedup"] > 1.0
     assert gate9["sampled_error_report"]["cycles_relative_error"] == 0.05
+    gate9_manifest = json.loads((out_dir / "gate9_simulator_evaluation_manifest.json").read_text())
+    assert gate9_manifest["artifact_type"] == "gcl_resnet50_gate9_simulator_evaluation_manifest"
+    assert gate9_manifest["full_vs_sampled_simulation_report_hash"]
+    assert gate9_manifest["sampled_speedup_report_hash"]
+    assert gate9_manifest["sampled_error_report_hash"]
+    assert gate9_manifest["tuning_effect_report_hash"]
     correctness = json.loads((out_dir / "gate7_cluster_correctness_manifest.json").read_text())
     assert correctness["metric_error_report"]["status"] == "reported"

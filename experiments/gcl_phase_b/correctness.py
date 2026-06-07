@@ -14,6 +14,13 @@ GATE7_CLUSTER_CORRECTNESS_FILENAME = "gate7_cluster_correctness_manifest.json"
 GATE7_CLUSTER_CORRECTNESS_TYPE = "gcl_resnet50_gate7_cluster_correctness_manifest"
 GATE7_CLUSTER_CORRECTNESS_VERSION = "gate7_cluster_correctness_manifest_v1"
 GATE7_REPORT_ONLY_CLAIM_STATUS = "quantified_no_correctness_claim"
+GATE7_REPORT_FILENAMES = {
+    "embedding_quality_report": "cluster_embedding_quality_report.json",
+    "family_alignment_report": "cluster_family_alignment_report.json",
+    "representative_quality_report": "representative_quality_report.json",
+    "metric_error_report": "cluster_metric_error_report.json",
+    "stability_report": "cluster_stability_report.json",
+}
 
 
 def evaluate_gate7_correctness(
@@ -44,10 +51,22 @@ def evaluate_gate7_correctness(
         "centroid_drift": None,
         "representative_stability_rate": None,
     }
+    report_artifacts = build_gate7_report_artifacts(
+        embedding_quality=embedding_metrics,
+        family_alignment=family_metrics,
+        representative_quality=representative_metrics,
+        metric_error=metric_report,
+        stability=stability_report,
+    )
     report = {
         "artifact_type": GATE7_CLUSTER_CORRECTNESS_TYPE,
         "artifact_version": GATE7_CLUSTER_CORRECTNESS_VERSION,
         "threshold_policy": "report_only_v1",
+        "threshold_claim_status": "not_set_until_real_resnet50_baseline",
+        "suggested_min_silhouette_score": None,
+        "suggested_min_weighted_cluster_purity": None,
+        "suggested_max_global_weighted_mape": None,
+        "suggested_min_assignment_stability_ari": None,
         "claim_status": GATE7_REPORT_ONLY_CLAIM_STATUS,
         "source_gate6_selector_manifest_hash": selector_artifacts.get("selector_manifest_hash"),
         "source_cluster_assignment_table_hash": stable_hash(
@@ -76,16 +95,65 @@ def evaluate_gate7_correctness(
         "representative_quality_metrics": representative_metrics,
         "metric_error_report": metric_report,
         "stability_report": stability_report,
-        "embedding_quality_report_hash": stable_hash(embedding_metrics),
-        "family_alignment_report_hash": stable_hash(family_metrics),
-        "representative_quality_report_hash": stable_hash(representative_metrics),
-        "metric_error_report_hash": stable_hash(metric_report),
-        "stability_report_hash": stable_hash(stability_report),
+        "embedding_quality_report_hash": report_artifacts["embedding_quality_report"][
+            "report_hash"
+        ],
+        "family_alignment_report_hash": report_artifacts["family_alignment_report"][
+            "report_hash"
+        ],
+        "representative_quality_report_hash": report_artifacts["representative_quality_report"][
+            "report_hash"
+        ],
+        "metric_error_report_hash": report_artifacts["metric_error_report"]["report_hash"],
+        "stability_report_hash": report_artifacts["stability_report"]["report_hash"],
+        "gate7_report_artifacts": report_artifacts,
         "assignment_count": len(assignments),
     }
     report["gate7_cluster_correctness_manifest_hash"] = stable_hash(report)
     report["gate7_correctness_manifest_hash"] = report["gate7_cluster_correctness_manifest_hash"]
     return report
+
+
+def build_gate7_report_artifacts(
+    *,
+    embedding_quality: dict[str, Any],
+    family_alignment: dict[str, Any],
+    representative_quality: dict[str, Any],
+    metric_error: dict[str, Any],
+    stability: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    return {
+        "embedding_quality_report": _gate7_report_artifact(
+            "gcl_resnet50_cluster_embedding_quality_report",
+            embedding_quality,
+        ),
+        "family_alignment_report": _gate7_report_artifact(
+            "gcl_resnet50_cluster_family_alignment_report",
+            family_alignment,
+        ),
+        "representative_quality_report": _gate7_report_artifact(
+            "gcl_resnet50_representative_quality_report",
+            representative_quality,
+        ),
+        "metric_error_report": _gate7_report_artifact(
+            "gcl_resnet50_cluster_metric_error_report",
+            metric_error,
+        ),
+        "stability_report": _gate7_report_artifact(
+            "gcl_resnet50_cluster_stability_report",
+            stability,
+        ),
+    }
+
+
+def _gate7_report_artifact(artifact_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    artifact = {
+        "artifact_type": artifact_type,
+        "artifact_version": "gate7_report_artifact_v1",
+        "report_payload": payload,
+    }
+    artifact["report_hash"] = stable_hash(artifact)
+    return artifact
 
 
 def evaluate_gate7_correctness_from_artifacts(

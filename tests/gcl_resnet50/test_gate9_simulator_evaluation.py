@@ -15,6 +15,13 @@ def test_gate9_compares_sampled_against_full_baseline():
     assert report["full_vs_sampled_simulation_report"]["cycles"]["relative_error"] == 0.1
     assert report["sampled_speedup_report"]["runtime_ms_speedup"] > 1.0
     assert report["sampled_error_report"]["cycles_relative_error"] == 0.1
+    assert report["gate9_simulator_evaluation_manifest"]["artifact_type"] == (
+        "gcl_resnet50_gate9_simulator_evaluation_manifest"
+    )
+    assert report["gate9_simulator_evaluation_manifest"]["full_vs_sampled_simulation_report_hash"]
+    assert report["gate9_simulator_evaluation_manifest"]["sampled_speedup_report_hash"]
+    assert report["gate9_simulator_evaluation_manifest"]["sampled_error_report_hash"]
+    assert report["gate9_simulator_evaluation_manifest"]["tuning_effect_report_hash"]
 
 
 def test_gate9_rejects_speedup_claim_without_full_baseline():

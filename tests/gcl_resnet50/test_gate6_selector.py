@@ -263,6 +263,17 @@ def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(t
     assert artifacts["cluster_family_evidence_report"]["family_labels_used_for_clustering"] is False
 
 
+def test_gate6_preserves_debug_status_for_artifact_shape_embedding_table(tmp_path):
+    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+
+    artifacts = select_phase_b_representatives(table, seed=7, allow_debug=True)
+
+    assert table["artifact_status"] == "debug_not_formal"
+    assert table["formal_input_eligible"] is False
+    assert artifacts["artifact_status"] == "debug_not_formal"
+    assert artifacts["formal_input_eligible"] is False
+
+
 def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
     table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["embedding_dim"] = 64

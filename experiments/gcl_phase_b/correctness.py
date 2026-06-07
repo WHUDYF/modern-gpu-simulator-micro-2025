@@ -178,7 +178,15 @@ def evaluate_gate7_correctness_from_artifacts(
     report["source_gate5_embedding_table_hash"] = embedding_table["kernel_embedding_table_hash"]
     report["source_embedding_table_hash"] = embedding_table["kernel_embedding_table_hash"]
     report["gate7_cluster_correctness_manifest_hash"] = stable_hash(
-        {key: value for key, value in report.items() if key != "gate7_correctness_manifest_hash"}
+        {
+            key: value
+            for key, value in report.items()
+            if key
+            not in {
+                "gate7_cluster_correctness_manifest_hash",
+                "gate7_correctness_manifest_hash",
+            }
+        }
     )
     report["gate7_correctness_manifest_hash"] = report["gate7_cluster_correctness_manifest_hash"]
     return report

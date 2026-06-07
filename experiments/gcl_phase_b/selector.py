@@ -21,6 +21,13 @@ def _embedding_table_hash(table: dict[str, Any]) -> str:
     return table["kernel_embedding_table_hash"]
 
 
+def _selector_status_fields(table: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "artifact_status": table.get("artifact_status", "debug_not_formal"),
+        "formal_input_eligible": table.get("formal_input_eligible", False),
+    }
+
+
 def select_phase_b_representatives(
     table: dict[str, Any],
     seed: int = 20260602,
@@ -46,6 +53,7 @@ def select_phase_b_representatives(
         artifact = {
             "artifact_type": "gcl_resnet50_gate6_selector_artifacts",
             "artifact_version": "gate6_selector_artifacts_v1",
+            **_selector_status_fields(table),
             "representation_mode": REPRESENTATION_MODE,
             "embedding_normalization_report": {
                 "artifact_type": "gcl_resnet50_embedding_normalization_report",
@@ -140,6 +148,7 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
     artifact = {
         "artifact_type": "gcl_resnet50_gate6_selector_artifacts",
         "artifact_version": "gate6_selector_artifacts_v1",
+        **_selector_status_fields(table),
         "representation_mode": REPRESENTATION_MODE,
         "embedding_normalization_report": {
             "artifact_type": "gcl_resnet50_embedding_normalization_report",

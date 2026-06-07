@@ -8,6 +8,7 @@ from experiments.gcl_phase_b.correctness import (
 )
 from experiments.gcl_phase_b.pipeline import run_embedding_export
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
+from experiments.gcl_phase_b.utils import hash_without
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
 from tests.gcl_resnet50.real_chain import run_real_nondegenerate_gate1_to_gate7_artifacts
 
@@ -291,7 +292,6 @@ def test_gate7_rejects_stability_claim_from_single_run():
 def test_gate7_rejects_artifact_shape_embedding_chain_as_formal_evidence(tmp_path):
     table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     selector_artifacts = select_phase_b_representatives(table, seed=11, allow_debug=True)
-    selector_artifacts["artifact_status"] = "debug_not_formal"
 
     with pytest.raises(ValueError, match="debug"):
         evaluate_gate7_correctness_from_artifacts(
@@ -323,6 +323,23 @@ def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path)
     assert report["embedding_geometry_metrics"]["silhouette"] is not None
     assert report["embedding_geometry_metrics"]["davies_bouldin"] is not None
     assert report["embedding_geometry_metrics"]["calinski_harabasz"] is not None
+
+
+def test_gate7_from_artifacts_hash_matches_final_manifest_payload(tmp_path):
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
+
+    report = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=chain["selector_artifacts"],
+        embedding_table=chain["embedding_table"],
+    )
+
+    expected_hash = hash_without(
+        report,
+        "gate7_cluster_correctness_manifest_hash",
+        "gate7_correctness_manifest_hash",
+    )
+    assert report["gate7_cluster_correctness_manifest_hash"] == expected_hash
+    assert report["gate7_correctness_manifest_hash"] == expected_hash
 
 
 def test_gate7_records_family_representative_metric_and_stability_from_real_root(tmp_path):

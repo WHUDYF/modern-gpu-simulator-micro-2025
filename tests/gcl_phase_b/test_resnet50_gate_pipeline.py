@@ -8,6 +8,7 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
 from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     GATE1_7_PIPELINE_MANIFEST_FILENAME,
     _emit_gate8_gate9_extension_artifacts,
+    run_resnet50_gate1_to_gate5,
     run_resnet50_gate1_to_gate7,
 )
 from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
@@ -150,6 +151,45 @@ def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
     correctness = json.loads((out_dir / "gate7_cluster_correctness_manifest.json").read_text())
     assert correctness["threshold_policy"] == "report_only_v1"
     assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"
+
+
+def test_resnet50_gate1_to_gate5_entrypoint_stops_before_selector_and_reports(tmp_path):
+    out_dir = tmp_path / "real_root_gate5_only"
+
+    manifest = run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+
+    assert manifest["artifact_type"] == "gcl_resnet50_gate1_7_pipeline_manifest"
+    assert manifest["final_gate"] == "gate5_embedding_exported"
+    assert manifest["hashes"]["embedding_table_hash"]
+    assert manifest["hashes"]["selector_manifest_hash"] is None
+    assert manifest["hashes"]["gate7_correctness_manifest_hash"] is None
+    assert manifest["hashes"]["gate8_tuning_vector_proposal_hash"] is None
+    assert manifest["hashes"]["gate9_sampled_vs_full_evaluation_hash"] is None
+    for filename in [
+        "resnet50_trace_adapter_bundle.json",
+        "representative_sm_trace_manifest.json",
+        "canonical_graph_bundle.json",
+        "graph_tensor_bundle.json",
+        "kernel_embedding_table.json",
+        "embedding_export_report.json",
+        GATE1_7_PIPELINE_MANIFEST_FILENAME,
+    ]:
+        assert (out_dir / filename).exists()
+    for filename in [
+        "selector_artifacts.json",
+        "gate7_cluster_correctness_manifest.json",
+        "cluster_embedding_quality_report.json",
+        "gate8_tuning_vector_proposal.json",
+        "gate8_tuning_manifest.json",
+        "gate9_sampled_vs_full_evaluation.json",
+        "gate9_simulator_evaluation_manifest.json",
+    ]:
+        assert not (out_dir / filename).exists()
 
 
 def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_path):

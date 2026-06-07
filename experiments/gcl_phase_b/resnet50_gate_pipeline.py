@@ -37,8 +37,17 @@ def run_resnet50_gate1_to_gate5(
     root: Path,
     out_dir: Path,
     seed: int = 20260606,
+    invocation_limit: int | None = None,
+    invocation_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    return run_resnet50_gate1_to_gate7(root, out_dir, seed=seed)
+    return run_resnet50_gate1_to_gate7(
+        root,
+        out_dir,
+        seed=seed,
+        invocation_limit=invocation_limit,
+        invocation_ids=invocation_ids,
+        stop_after_gate5=True,
+    )
 
 
 def run_resnet50_gate1_to_gate7(
@@ -48,6 +57,7 @@ def run_resnet50_gate1_to_gate7(
     baseline_artifacts_path: Path | None = None,
     invocation_limit: int | None = None,
     invocation_ids: list[str] | None = None,
+    stop_after_gate5: bool = False,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     blocker_path = root / GATE0_BLOCKER_FILENAME
@@ -148,6 +158,17 @@ def run_resnet50_gate1_to_gate7(
     write_json(out_dir / "gate5_lineage_bundle.json", lineage_bundle)
     write_json(out_dir / "kernel_embedding_table.json", embedding_table)
     write_json(out_dir / "embedding_export_report.json", export_report)
+    if stop_after_gate5:
+        manifest = _gate5_pipeline_manifest(
+            seed=seed,
+            adapter_bundle=adapter_bundle,
+            trace_manifest=trace_manifest,
+            canonical_graph_bundle=canonical_graph_bundle,
+            graph_tensor_bundle=graph_tensor_bundle,
+            embedding_table=embedding_table,
+        )
+        write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
+        return manifest
 
     selector_artifacts = select_phase_b_representatives(
         embedding_table,
@@ -196,6 +217,35 @@ def run_resnet50_gate1_to_gate7(
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
+    return manifest
+
+
+def _gate5_pipeline_manifest(
+    *,
+    seed: int,
+    adapter_bundle: dict[str, Any],
+    trace_manifest: dict[str, Any],
+    canonical_graph_bundle: dict[str, Any],
+    graph_tensor_bundle: dict[str, Any],
+    embedding_table: dict[str, Any],
+) -> dict[str, Any]:
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+        "final_gate": "gate5_embedding_exported",
+        "seed": seed,
+        "hashes": {
+            "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
+            "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
+            "canonical_graph_bundle_hash": canonical_graph_bundle["canonical_graph_bundle_hash"],
+            "graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
+            "embedding_table_hash": _embedding_table_hash(embedding_table),
+            "selector_manifest_hash": None,
+            "gate7_correctness_manifest_hash": None,
+            "gate8_tuning_vector_proposal_hash": None,
+            "gate9_sampled_vs_full_evaluation_hash": None,
+        },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     return manifest
 
 

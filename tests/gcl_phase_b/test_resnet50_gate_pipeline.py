@@ -162,12 +162,14 @@ def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_
     assert correctness["artifact_type"] == "gcl_resnet50_gate7_correctness_manifest"
     assert correctness["threshold_policy"] == "report_only_v1"
     assert correctness["embedding_geometry_metrics"]
-    assert set(correctness["family_alignment_metrics"]) == {
+    assert {
         "ari",
         "cluster_purity",
         "nmi",
         "weighted_purity",
-    }
+    }.issubset(correctness["family_alignment_metrics"])
+    assert correctness["family_alignment_metrics"]["ari"] is not None
+    assert correctness["family_alignment_metrics"]["nmi"] is not None
     assert correctness["representative_quality_metrics"]["outlier_ratio"] == 0.0
     assert correctness["metric_error_report"]["status"] == "not_provided"
     assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"

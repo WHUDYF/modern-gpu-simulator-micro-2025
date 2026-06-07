@@ -43,6 +43,11 @@ def _gate6_artifacts():
         },
         "cluster_family_evidence_report": {
             "family_labels_used_for_clustering": False,
+            "members": [
+                {"record_id": "a", "cluster_id": 0, "family": "conv", "weight": 0.4},
+                {"record_id": "b", "cluster_id": 0, "family": "conv", "weight": 0.3},
+                {"record_id": "c", "cluster_id": 1, "family": "bn_relu", "weight": 0.3},
+            ],
             "clusters": [
                 {"cluster_id": 0, "majority_family": "conv", "purity": 1.0, "weight": 0.7},
                 {"cluster_id": 1, "majority_family": "bn_relu", "purity": 1.0, "weight": 0.3},
@@ -83,8 +88,28 @@ def test_gate7_records_family_and_representative_quality():
 
     assert report["family_alignment_metrics"]["cluster_purity"] == 1.0
     assert report["family_alignment_metrics"]["weighted_purity"] == 1.0
+    assert report["family_alignment_metrics"]["ari"] == 1.0
+    assert report["family_alignment_metrics"]["nmi"] == 1.0
     assert report["representative_quality_metrics"]["representative_p95_distance"] == 0.1
     assert report["representative_quality_metrics"]["high_weight_outlier_count"] == 0
+
+
+def test_gate7_computes_partial_family_alignment_metrics_from_member_labels():
+    artifacts = _gate6_artifacts()
+    artifacts["cluster_family_evidence_report"]["members"] = [
+        {"record_id": "a", "cluster_id": 0, "family": "conv", "weight": 0.4},
+        {"record_id": "b", "cluster_id": 0, "family": "bn_relu", "weight": 0.3},
+        {"record_id": "c", "cluster_id": 1, "family": "conv", "weight": 0.3},
+    ]
+
+    report = evaluate_gate7_correctness(artifacts)
+
+    assert report["family_alignment_metrics"]["ari"] == -0.5
+    assert report["family_alignment_metrics"]["nmi"] > 0.0
+    assert report["family_alignment_metrics"]["homogeneity"] > 0.0
+    assert report["family_alignment_metrics"]["completeness"] > 0.0
+    assert report["family_alignment_metrics"]["v_measure"] > 0.0
+    assert report["family_alignment_metrics"]["mixed_family_cluster_count"] == 1
 
 
 def test_gate7_does_not_modify_gate6_assignments():
@@ -107,7 +132,32 @@ def test_gate7_records_metric_error_reports():
     )
 
     assert report["metric_error_report"]["global_weighted_mape"] == 0.1
+    assert report["metric_error_report"]["cluster_max_relative_error"] == {"0": 0.1, "1": 0.1}
+    assert report["metric_error_report"]["global_p95_relative_error"] == 0.1
+    assert report["metric_error_report"]["global_max_relative_error"] == 0.1
+    assert report["metric_error_report"]["cluster_metric_correlation"]["0"] is None
+    assert report["metric_error_report"]["high_error_member_count"] == 0
     assert report["metric_error_report"]["high_weight_bad_cluster_count"] == 0
+
+
+def test_gate7_metric_error_reports_correlation_and_high_error_counts():
+    report = evaluate_gate7_correctness(
+        _gate6_artifacts(),
+        metric_rows=[
+            {"cluster_id": 0, "measured": 100.0, "predicted": 100.0, "weight": 0.6},
+            {"cluster_id": 0, "measured": 200.0, "predicted": 300.0, "weight": 0.9},
+            {"cluster_id": 0, "measured": 300.0, "predicted": 450.0, "weight": 0.2},
+            {"cluster_id": 1, "measured": 50.0, "predicted": 55.0, "weight": 0.1},
+        ],
+    )
+
+    metric_report = report["metric_error_report"]
+    assert metric_report["cluster_max_relative_error"]["0"] == 0.5
+    assert metric_report["cluster_metric_correlation"]["0"] > 0.9
+    assert metric_report["cluster_metric_rank_correlation"]["0"] == 1.0
+    assert metric_report["high_error_member_count"] == 2
+    assert metric_report["high_weight_high_error_member_count"] == 1
+    assert metric_report["bad_cluster_count"] == 1
 
 
 def test_gate7_weighted_purity_uses_cluster_weights_not_cluster_count():
@@ -190,13 +240,32 @@ def test_gate7_records_family_representative_metric_and_stability_from_real_root
 
     assert set(report["family_alignment_metrics"]) == {
         "ari",
+        "completeness",
         "cluster_purity",
+        "family_evidence_status",
+        "family_to_cluster_coverage",
+        "high_weight_mixed_family_cluster_count",
+        "homogeneity",
+        "mixed_family_cluster_count",
         "nmi",
+        "unlabeled_record_count",
+        "v_measure",
         "weighted_purity",
     }
     assert report["family_alignment_metrics"]["cluster_purity"] is not None
     assert report["family_alignment_metrics"]["weighted_purity"] is not None
+    assert report["family_alignment_metrics"]["ari"] is not None
+    assert report["family_alignment_metrics"]["nmi"] is not None
     assert report["representative_quality_metrics"]["representative_p95_distance"] is not None
+    assert report["representative_quality_metrics"]["cluster_reports"]
+    for cluster_report in report["representative_quality_metrics"]["cluster_reports"]:
+        assert "coverage_weight_sum" in cluster_report
+        assert "mean_distance_to_representative" in cluster_report
+        assert "p95_distance_to_representative" in cluster_report
+        assert "max_distance_to_representative" in cluster_report
+        assert "representative_rank_to_centroid" in cluster_report
+        assert "outlier_member_ratio" in cluster_report
     assert report["metric_error_report"]["status"] == "reported"
     assert report["metric_error_report"]["global_weighted_mape"] == 0.05
+    assert report["metric_error_report"]["global_max_relative_error"] == 0.05
     assert report["stability_report"]["stability_status"] == "single_run_not_evaluated"

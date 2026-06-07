@@ -89,6 +89,7 @@ def select_phase_b_representatives(
                 "family_labels_used_for_clustering": False,
                 "evidence_mode": "post_clustering_only",
                 "clusters": _post_clustering_family_evidence([row], [0]),
+                "members": _post_clustering_family_members([row], [0]),
             },
             "structural_evaluation_artifacts": {
                 "row_count": len(rows),
@@ -171,6 +172,7 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
             "family_labels_used_for_clustering": False,
             "evidence_mode": "post_clustering_only",
             "clusters": _post_clustering_family_evidence(rows, labels.tolist()),
+            "members": _post_clustering_family_members(rows, labels.tolist()),
         },
         "structural_evaluation_artifacts": {
             "row_count": len(rows),
@@ -230,6 +232,23 @@ def _post_clustering_family_evidence(
             }
         )
     return clusters
+
+
+def _post_clustering_family_members(
+    rows: list[dict[str, Any]],
+    labels: list[int],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "record_id": row["record_id"],
+            "kernel_invocation_id": row["kernel_invocation_id"],
+            "cluster_id": int(label),
+            "family": _post_clustering_family_label(row),
+            "weight": round(float(_family_row_weight(row)), 8),
+            "evidence_source": "post_clustering_embedding_metadata",
+        }
+        for row, label in zip(rows, labels)
+    ]
 
 
 def _post_clustering_family_label(row: dict[str, Any]) -> str:

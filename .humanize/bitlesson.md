@@ -101,3 +101,13 @@ Solution: Add Gate1 filtering by explicit real `kernel_invocation_id`, choose a 
 Constraints: The slice must still come from the real Gate0 root and persisted Gate5 artifacts; do not use synthetic fixtures or family labels for clustering proof.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate6_selector.py::test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root tests/gcl_resnet50/test_gate6_selector.py::test_gate6_real_root_family_evidence_is_post_clustering_only` passed with 2 tests; `pytest -q tests/gcl_resnet50/test_gate7_correctness.py::test_gate7_weighted_purity_uses_cluster_weights_not_cluster_count tests/gcl_resnet50/test_gate7_correctness.py::test_gate7_records_family_representative_metric_and_stability_from_real_root` passed with 2 tests; `pytest -q tests/gcl_resnet50/test_gate6_selector.py tests/gcl_resnet50/test_gate7_correctness.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_resnet50/test_gate1_adapter.py` passed with 37 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 88 tests; `git diff --check` passed.
 Source Rounds: 4
+
+## Lesson: gate7-family-metrics-need-member-evidence
+Lesson ID: BL-20260607-gate7-family-metrics-need-member-evidence
+Scope: experiments/gcl_phase_b/selector.py, experiments/gcl_phase_b/correctness.py, tests/gcl_resnet50/test_gate7_correctness.py
+Problem Description: Gate7 family-alignment reports can keep `ari` and `nmi` as placeholders even when cluster-level purity is available.
+Root Cause: Cluster-level majority-family and purity aggregates do not preserve per-record family labels, so ARI/NMI/homogeneity/completeness cannot be recomputed from the Gate6 evidence.
+Solution: Persist post-clustering member-level family evidence in Gate6 selector artifacts and compute Gate7 alignment metrics from paired `(family_label, cluster_id)` samples.
+Constraints: Member family labels remain report-only and must not enter normalization, silhouette-K, K-Means, centroid selection, or embedding computation.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py` passed with 13 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 90 tests; `git diff --check` passed.
+Source Rounds: 5

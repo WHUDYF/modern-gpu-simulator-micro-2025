@@ -7,10 +7,11 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
 )
 from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     GATE1_7_PIPELINE_MANIFEST_FILENAME,
+    _emit_gate8_gate9_extension_artifacts,
     run_resnet50_gate1_to_gate7,
 )
 from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
-from tests.gcl_resnet50.real_chain import FORMAL_ROOT
+from tests.gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
 
 
 def _blocked_gate0_root(tmp_path):
@@ -290,3 +291,45 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert gate9_manifest["tuning_effect_report_hash"]
     correctness = json.loads((out_dir / "gate7_cluster_correctness_manifest.json").read_text())
     assert correctness["metric_error_report"]["status"] == "reported"
+
+
+def test_gate8_gate9_extension_stage_rejects_anchor_hash_mismatch_without_outputs(tmp_path):
+    chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
+    out_dir = tmp_path / "mismatch_extension"
+    out_dir.mkdir()
+    selector = json.loads(json.dumps(chain["selector_artifacts"]))
+    selector["representative_anchor_table"]["representative_anchor_table_hash"] = (
+        "wrong-anchor-hash"
+    )
+
+    try:
+        _emit_gate8_gate9_extension_artifacts(
+            correctness_manifest=chain["correctness_manifest"],
+            selector_artifacts=selector,
+            baseline_artifacts={
+                "metric_rows": [
+                    {
+                        "cluster_id": 0,
+                        "measured": 100.0,
+                        "predicted": 95.0,
+                        "weight": 1.0,
+                        "unit": "cycles",
+                    }
+                ],
+                "sampled_metrics": {"cycles": 95.0},
+                "full_baseline_metrics": {"cycles": 100.0},
+            },
+            out_dir=out_dir,
+        )
+    except ValueError as exc:
+        assert "representative anchor" in str(exc)
+    else:
+        raise AssertionError("mismatched representative anchor hash must fail extension stage")
+
+    for filename in [
+        "gate8_tuning_vector_proposal.json",
+        "gate8_tuning_manifest.json",
+        "gate9_sampled_vs_full_evaluation.json",
+        "gate9_simulator_evaluation_manifest.json",
+    ]:
+        assert not (out_dir / filename).exists()

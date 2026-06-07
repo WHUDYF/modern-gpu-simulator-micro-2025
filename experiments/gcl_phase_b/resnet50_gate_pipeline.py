@@ -165,14 +165,57 @@ def run_resnet50_gate1_to_gate7(
     for report_key, filename in GATE7_REPORT_FILENAMES.items():
         write_json(out_dir / filename, correctness_manifest["gate7_report_artifacts"][report_key])
     write_json(out_dir / GATE7_CLUSTER_CORRECTNESS_FILENAME, correctness_manifest)
-    gate8_proposal = generate_gate8_tuning_vectors(
-        correctness_manifest,
-        representative_anchor_table={
-            **selector_artifacts["representative_anchor_table"],
-            "representative_anchor_table_hash": correctness_manifest[
-                "source_representative_anchor_table_hash"
+    gate8_proposal, gate9_report, final_gate = _emit_gate8_gate9_extension_artifacts(
+        correctness_manifest=correctness_manifest,
+        selector_artifacts=selector_artifacts,
+        baseline_artifacts=baseline_artifacts,
+        out_dir=out_dir,
+    )
+
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+        "final_gate": final_gate,
+        "seed": seed,
+        "hashes": {
+            "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
+            "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
+            "canonical_graph_bundle_hash": canonical_graph_bundle["canonical_graph_bundle_hash"],
+            "graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
+            "embedding_table_hash": _embedding_table_hash(embedding_table),
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+            "gate7_correctness_manifest_hash": correctness_manifest[
+                "gate7_cluster_correctness_manifest_hash"
+            ],
+            "gate8_tuning_vector_proposal_hash": gate8_proposal[
+                "gate8_tuning_vector_proposal_hash"
+            ],
+            "gate9_sampled_vs_full_evaluation_hash": gate9_report[
+                "gate9_sampled_vs_full_evaluation_hash"
             ],
         },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
+    write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
+    return manifest
+
+
+def _emit_gate8_gate9_extension_artifacts(
+    *,
+    correctness_manifest: dict[str, Any],
+    selector_artifacts: dict[str, Any],
+    baseline_artifacts: dict[str, Any] | None,
+    out_dir: Path,
+) -> tuple[dict[str, Any], dict[str, Any], str]:
+    representative_anchor_table = {
+        **selector_artifacts["representative_anchor_table"],
+        "representative_anchor_table_hash": selector_artifacts["representative_anchor_table"].get(
+            "representative_anchor_table_hash",
+            correctness_manifest["source_representative_anchor_table_hash"],
+        ),
+    }
+    gate8_proposal = generate_gate8_tuning_vectors(
+        correctness_manifest,
+        representative_anchor_table=representative_anchor_table,
         family_alignment_report=correctness_manifest["gate7_report_artifacts"][
             "family_alignment_report"
         ],
@@ -219,32 +262,7 @@ def run_resnet50_gate1_to_gate7(
         gate9_report["gate9_simulator_evaluation_manifest"],
     )
     write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
-
-    manifest = {
-        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
-        "final_gate": final_gate,
-        "seed": seed,
-        "hashes": {
-            "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
-            "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
-            "canonical_graph_bundle_hash": canonical_graph_bundle["canonical_graph_bundle_hash"],
-            "graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
-            "embedding_table_hash": _embedding_table_hash(embedding_table),
-            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
-            "gate7_correctness_manifest_hash": correctness_manifest[
-                "gate7_cluster_correctness_manifest_hash"
-            ],
-            "gate8_tuning_vector_proposal_hash": gate8_proposal[
-                "gate8_tuning_vector_proposal_hash"
-            ],
-            "gate9_sampled_vs_full_evaluation_hash": gate9_report[
-                "gate9_sampled_vs_full_evaluation_hash"
-            ],
-        },
-    }
-    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
-    write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
-    return manifest
+    return gate8_proposal, gate9_report, final_gate
 
 
 def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int) -> dict[str, Any]:

@@ -133,7 +133,12 @@ def test_resource_blocked_rerun_removes_stale_success_artifacts(tmp_path, monkey
     out_dir = tmp_path / "blocked_rerun"
     write_json(manifest_path, build_representative_sm_trace_manifest())
     run_pipeline(manifest_path, out_dir, seed=42)
+    stale_pipeline_hash = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )["pipeline_manifest_hash"]
     assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
+    assert (out_dir / ARTIFACT_FILENAMES["tensor_bundle"]).exists()
+    assert (out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]).exists()
 
     def fail_training(*args, **kwargs):
         raise pipeline_module.PhaseBResourceError("simulated CUDA memory exhaustion")
@@ -142,24 +147,45 @@ def test_resource_blocked_rerun_removes_stale_success_artifacts(tmp_path, monkey
     manifest = run_pipeline(manifest_path, out_dir, seed=43)
 
     assert manifest["resource_blocked"] is True
-    stale_success_artifacts = {
+    tensor_bundle = json.loads((out_dir / ARTIFACT_FILENAMES["tensor_bundle"]).read_text())
+    tensors = tensor_bundle["tensors"]
+    augmentation_bundle = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]).read_text()
+    )
+    assert manifest["hashes"]["tensor_hashes"] == [tensor["tensor_hash"] for tensor in tensors]
+    assert manifest["hashes"]["augmentation_manifest_hashes"] == [
+        item["augmentation_manifest_hash"] for item in augmentation_bundle["manifests"]
+    ]
+    assert manifest["hashes"]["augmentation_manifest_bundle_hash"] == augmentation_bundle[
+        "augmentation_manifest_bundle_hash"
+    ]
+    assert [item["random_seed"] for item in augmentation_bundle["manifests"]] == [43, 44]
+    stale_downstream_artifacts = {
         "training_report",
         "checkpoint_manifest",
         "readout_manifest",
         "embedding_table",
         "selector_artifacts",
     }
-    for key in stale_success_artifacts:
+    for key in stale_downstream_artifacts:
         assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
     assert not (out_dir / "rgcn_checkpoint.pt").exists()
+    assert json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )["pipeline_manifest_hash"] != stale_pipeline_hash
     for stale_hash in {
         "encoder_manifest_hash",
         "readout_manifest_hashes",
         "readout_manifest_bundle_hash",
         "embedding_table_hash",
         "selector_manifest_hash",
+        "resource_blocked_hash",
     }:
-        assert manifest["hashes"][stale_hash] is None
+        if stale_hash == "resource_blocked_hash":
+            assert manifest["hashes"][stale_hash]
+        else:
+            assert manifest["hashes"][stale_hash] is None
+    assert manifest["hashes"]["tensor_hashes"]
 
 
 def test_cuda_oom_runtime_error_writes_resource_blocked_artifact(tmp_path, monkeypatch):

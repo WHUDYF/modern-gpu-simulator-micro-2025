@@ -404,6 +404,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     tensors = tensorize_phase_b_graphs(graphs)
     augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=seed)
 
+    _remove_tensor_and_downstream_artifacts(out_dir)
     _write_bundle_artifacts(
         out_dir,
         trace_manifest,
@@ -572,8 +573,8 @@ def _write_resource_blocked_pipeline_manifest(
         "paths": _paths(out_dir),
         "hashes": {
             **base_hashes,
-            "resource_blocked_hash": blocked["resource_blocked_hash"],
             **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
         },
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)

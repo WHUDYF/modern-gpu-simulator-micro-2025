@@ -254,8 +254,7 @@ def _post_clustering_family_members(
 def _post_clustering_family_label(row: dict[str, Any]) -> str:
     if row.get("trace_family"):
         return str(row["trace_family"])
-    kernel_invocation_id = str(row.get("kernel_invocation_id", "unknown"))
-    return f"kernel_invocation:{kernel_invocation_id}"
+    return ""
 
 
 def _family_row_weight(row: dict[str, Any]) -> float:

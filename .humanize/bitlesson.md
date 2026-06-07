@@ -111,3 +111,13 @@ Solution: Persist post-clustering member-level family evidence in Gate6 selector
 Constraints: Member family labels remain report-only and must not enter normalization, silhouette-K, K-Means, centroid selection, or embedding computation.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py` passed with 13 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 90 tests; `git diff --check` passed.
 Source Rounds: 5
+
+## Lesson: gate7-missing-inputs-are-report-states
+Lesson ID: BL-20260607-gate7-missing-inputs-are-report-states
+Scope: experiments/gcl_phase_b/correctness.py, experiments/gcl_phase_b/selector.py, tests/gcl_resnet50/test_gate7_correctness.py
+Problem Description: Gate7 can overclaim evidence or crash when optional report inputs are missing or partially populated.
+Root Cause: Missing family labels were treated as available family evidence, and metric rows were indexed as if `measured` and `predicted` were always present.
+Solution: Preserve missing family labels as missing, emit `family_alignment_claim_status = no_family_claim`, and treat incomplete metric rows as `metric_missing` / `partial_metric_missing` report states while continuing complete-row evaluation.
+Constraints: Missing-input states must not block embedding geometry or representative-quality reporting; they only limit the affected claim layer.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate7_correctness.py` passed with 16 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 93 tests; `git diff --check` passed.
+Source Rounds: 6

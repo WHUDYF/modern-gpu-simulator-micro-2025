@@ -112,6 +112,42 @@ def test_gate7_computes_partial_family_alignment_metrics_from_member_labels():
     assert report["family_alignment_metrics"]["mixed_family_cluster_count"] == 1
 
 
+def test_gate7_marks_family_evidence_unavailable_when_all_member_labels_missing():
+    artifacts = _gate6_artifacts()
+    artifacts["cluster_family_evidence_report"]["members"] = [
+        {"record_id": "a", "cluster_id": 0, "family": None, "weight": 0.4},
+        {"record_id": "b", "cluster_id": 0, "family": "", "weight": 0.3},
+        {"record_id": "c", "cluster_id": 1, "weight": 0.3},
+    ]
+
+    report = evaluate_gate7_correctness(artifacts)
+    metrics = report["family_alignment_metrics"]
+
+    assert metrics["family_evidence_status"] == "unavailable"
+    assert metrics["family_alignment_claim_status"] == "no_family_claim"
+    assert metrics["ari"] is None
+    assert metrics["nmi"] is None
+    assert metrics["unlabeled_record_count"] == 3
+
+
+def test_gate7_marks_family_evidence_unavailable_when_member_labels_partial():
+    artifacts = _gate6_artifacts()
+    artifacts["cluster_family_evidence_report"]["members"] = [
+        {"record_id": "a", "cluster_id": 0, "family": "conv", "weight": 0.4},
+        {"record_id": "b", "cluster_id": 0, "family": None, "weight": 0.3},
+        {"record_id": "c", "cluster_id": 1, "family": "bn_relu", "weight": 0.3},
+    ]
+
+    report = evaluate_gate7_correctness(artifacts)
+    metrics = report["family_alignment_metrics"]
+
+    assert metrics["family_evidence_status"] == "unavailable"
+    assert metrics["family_alignment_claim_status"] == "no_family_claim"
+    assert metrics["ari"] is None
+    assert metrics["nmi"] is None
+    assert metrics["unlabeled_record_count"] == 1
+
+
 def test_gate7_does_not_modify_gate6_assignments():
     artifacts = _gate6_artifacts()
     before = copy.deepcopy(artifacts["kmeans_cluster_assignment_table"]["assignments"])
@@ -158,6 +194,28 @@ def test_gate7_metric_error_reports_correlation_and_high_error_counts():
     assert metric_report["high_error_member_count"] == 2
     assert metric_report["high_weight_high_error_member_count"] == 1
     assert metric_report["bad_cluster_count"] == 1
+
+
+def test_gate7_metric_error_skips_incomplete_rows_without_crashing():
+    report = evaluate_gate7_correctness(
+        _gate6_artifacts(),
+        metric_rows=[
+            {"cluster_id": 0, "measured": 100.0, "predicted": 90.0, "weight": 1.0},
+            {"cluster_id": 0, "measured": 200.0, "weight": 2.0},
+            {"cluster_id": 1, "predicted": 50.0, "weight": 3.0},
+        ],
+    )
+
+    metric_report = report["metric_error_report"]
+    assert metric_report["status"] == "partial_metric_missing"
+    assert metric_report["metric_claim_status"] == "partial_metric_claim"
+    assert metric_report["complete_row_count"] == 1
+    assert metric_report["missing_metric_row_count"] == 2
+    assert metric_report["missing_metric_rows"] == [
+        {"row_index": 1, "cluster_id": "0", "missing_fields": ["predicted"]},
+        {"row_index": 2, "cluster_id": "1", "missing_fields": ["measured"]},
+    ]
+    assert metric_report["global_weighted_mape"] == 0.1
 
 
 def test_gate7_weighted_purity_uses_cluster_weights_not_cluster_count():
@@ -242,6 +300,7 @@ def test_gate7_records_family_representative_metric_and_stability_from_real_root
         "ari",
         "completeness",
         "cluster_purity",
+        "family_alignment_claim_status",
         "family_evidence_status",
         "family_to_cluster_coverage",
         "high_weight_mixed_family_cluster_count",
@@ -256,6 +315,7 @@ def test_gate7_records_family_representative_metric_and_stability_from_real_root
     assert report["family_alignment_metrics"]["weighted_purity"] is not None
     assert report["family_alignment_metrics"]["ari"] is not None
     assert report["family_alignment_metrics"]["nmi"] is not None
+    assert report["family_alignment_metrics"]["family_alignment_claim_status"] == "reported"
     assert report["representative_quality_metrics"]["representative_p95_distance"] is not None
     assert report["representative_quality_metrics"]["cluster_reports"]
     for cluster_report in report["representative_quality_metrics"]["cluster_reports"]:

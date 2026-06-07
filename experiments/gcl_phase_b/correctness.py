@@ -97,6 +97,7 @@ def _family_alignment_metrics(report: dict[str, Any]) -> dict[str, Any]:
     clusters = report.get("clusters", [])
     empty = {
         "family_evidence_status": "unavailable",
+        "family_alignment_claim_status": "no_family_claim",
         "cluster_purity": None,
         "weighted_purity": None,
         "ari": None,
@@ -115,14 +116,16 @@ def _family_alignment_metrics(report: dict[str, Any]) -> dict[str, Any]:
     weights = [float(cluster.get("weight", 1.0)) for cluster in clusters]
     total_weight = sum(weights) or 1.0
     members = list(report.get("members", []))
-    cluster_labels = [int(member["cluster_id"]) for member in members if member.get("family")]
-    family_labels = [str(member["family"]) for member in members if member.get("family")]
+    labeled_members = [member for member in members if member.get("family")]
+    cluster_labels = [int(member["cluster_id"]) for member in labeled_members]
+    family_labels = [str(member["family"]) for member in labeled_members]
     unlabeled = len([member for member in members if not member.get("family")])
     ari = nmi = homogeneity = completeness = v_measure = None
     coverage: dict[str, Any] = {}
     mixed_family_cluster_count = 0
     high_weight_mixed_family_cluster_count = 0
-    if family_labels and len(family_labels) == len(cluster_labels):
+    has_complete_member_labels = bool(members) and unlabeled == 0 and len(family_labels) == len(members)
+    if has_complete_member_labels:
         ari = _adjusted_rand_index(family_labels, cluster_labels)
         nmi, homogeneity, completeness, v_measure = _normalized_mutual_information(
             family_labels,
@@ -137,8 +140,13 @@ def _family_alignment_metrics(report: dict[str, Any]) -> dict[str, Any]:
         high_weight_mixed_family_cluster_count = sum(
             1 for cluster_id in mixed_clusters if cluster_weight_by_id.get(cluster_id, 0.0) >= 0.5
         )
+    family_evidence_status = "available" if has_complete_member_labels else "unavailable"
+    family_alignment_claim_status = (
+        "reported" if has_complete_member_labels else "no_family_claim"
+    )
     return {
-        "family_evidence_status": "available",
+        "family_evidence_status": family_evidence_status,
+        "family_alignment_claim_status": family_alignment_claim_status,
         "cluster_purity": round(sum(purities) / len(purities), 8),
         "weighted_purity": round(
             sum(purity * weight for purity, weight in zip(purities, weights)) / total_weight,
@@ -183,6 +191,10 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         return {
             "status": "not_provided",
+            "metric_claim_status": "no_metric_claim",
+            "complete_row_count": 0,
+            "missing_metric_row_count": 0,
+            "missing_metric_rows": [],
             "cluster_weighted_mape": {},
             "cluster_p95_relative_error": {},
             "cluster_max_relative_error": {},
@@ -200,6 +212,10 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if len(units) > 1:
         return {
             "status": "metric_unit_conflict",
+            "metric_claim_status": "no_metric_claim",
+            "complete_row_count": 0,
+            "missing_metric_row_count": 0,
+            "missing_metric_rows": [],
             "cluster_weighted_mape": {},
             "cluster_p95_relative_error": {},
             "cluster_max_relative_error": {},
@@ -218,7 +234,42 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
     cluster_rows: dict[str, list[dict[str, float]]] = {}
     all_errors = []
     all_weights = []
-    for row in rows:
+    missing_metric_rows = []
+    complete_rows = []
+    required_fields = ("cluster_id", "measured", "predicted")
+    for row_index, row in enumerate(rows):
+        missing_fields = [field for field in required_fields if row.get(field) is None]
+        if missing_fields:
+            missing_metric_rows.append(
+                {
+                    "row_index": row_index,
+                    "cluster_id": str(row.get("cluster_id", "unknown")),
+                    "missing_fields": missing_fields,
+                }
+            )
+        else:
+            complete_rows.append(row)
+    if not complete_rows:
+        return {
+            "status": "metric_missing",
+            "metric_claim_status": "no_metric_claim",
+            "complete_row_count": 0,
+            "missing_metric_row_count": len(missing_metric_rows),
+            "missing_metric_rows": missing_metric_rows,
+            "cluster_weighted_mape": {},
+            "cluster_p95_relative_error": {},
+            "cluster_max_relative_error": {},
+            "cluster_metric_correlation": {},
+            "cluster_metric_rank_correlation": {},
+            "global_weighted_mape": None,
+            "global_p95_relative_error": None,
+            "global_max_relative_error": None,
+            "bad_cluster_count": 0,
+            "high_error_member_count": 0,
+            "high_weight_high_error_member_count": 0,
+            "high_weight_bad_cluster_count": 0,
+        }
+    for row in complete_rows:
         measured = float(row["measured"])
         predicted = float(row["predicted"])
         weight = float(row.get("weight", 1.0))
@@ -277,7 +328,11 @@ def _metric_error_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
         cluster_id: sum(item["weight"] for item in items) for cluster_id, items in cluster_rows.items()
     }
     return {
-        "status": "reported",
+        "status": "partial_metric_missing" if missing_metric_rows else "reported",
+        "metric_claim_status": "partial_metric_claim" if missing_metric_rows else "reported",
+        "complete_row_count": len(complete_rows),
+        "missing_metric_row_count": len(missing_metric_rows),
+        "missing_metric_rows": missing_metric_rows,
         "cluster_weighted_mape": cluster_mape,
         "cluster_p95_relative_error": cluster_p95,
         "cluster_max_relative_error": cluster_max,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import re
 from typing import Any
 
 from .trace_fixture import COLLECTION_SCOPE
@@ -18,11 +19,11 @@ VARIABLE_NODE_TYPES = {"register_version", "input_variable", "unknown_variable"}
 
 
 def _is_raw_register_token(token: str) -> bool:
-    return token.startswith(("R", "P")) and ".v" not in token
+    return token.startswith(("R", "P", "UR")) and ".v" not in token
 
 
 def _semantic_node_type(token: str) -> str:
-    if token.startswith(("R", "P")):
+    if token.startswith(("R", "P", "UR")):
         return "register_version"
     if token.startswith("input:"):
         return "input_variable"
@@ -30,11 +31,23 @@ def _semantic_node_type(token: str) -> str:
 
 
 def _is_memory_opcode(opcode: str) -> bool:
-    return opcode.startswith("LDG") or opcode.startswith("STG")
+    return opcode == "LDG" or opcode.startswith("LDG.") or opcode.startswith("STG")
 
 
 def _is_address_token(token: str) -> bool:
-    return token.startswith("R")
+    return token.startswith(("R", "UR")) or "[R" in token or "[UR" in token
+
+
+def _address_register_token(token: str) -> str:
+    if token.startswith(("R", "UR")):
+        return token.split(".", 1)[0]
+    match = re.search(r"\[(R)(\d+)(?:\.[^\]]+)?\]", token)
+    if match:
+        return f"{match.group(1)}{match.group(2)}"
+    match = re.search(r"\[(UR)(\d+)(?:\.[^\]]+)?\]", token)
+    if match:
+        return f"{match.group(1)}{match.group(2)}"
+    return token
 
 
 def _versioned_register_token(token: str, warp_id: int, version: int) -> str:
@@ -209,7 +222,14 @@ def build_phase_b_graph(record: dict[str, Any]) -> dict[str, Any]:
             address_positions = _address_source_positions(entry)
             observed_values = entry.get("observed_dynamic_values", [])
             for source_index, token in enumerate(entry["source_operands"]):
-                resolved = _resolve_source_token(token, warp_id, partition_id, register_versions)
+                source_token = (
+                    _address_register_token(token)
+                    if source_index in address_positions
+                    else token
+                )
+                resolved = _resolve_source_token(
+                    source_token, warp_id, partition_id, register_versions
+                )
                 variable_id = _add_variable_node(
                     nodes, node_by_id, partition_id, cta_id, warp_id, resolved, observed_values
                 )

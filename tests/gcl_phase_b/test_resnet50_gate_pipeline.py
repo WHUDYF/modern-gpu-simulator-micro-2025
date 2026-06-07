@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     run_resnet50_gate1_to_gate7,
 )
 from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from tests.gcl_resnet50.real_chain import FORMAL_ROOT
 
 
 def _blocked_gate0_root(tmp_path):
@@ -91,3 +92,82 @@ def test_resnet50_gate_pipeline_keeps_baseline_artifacts_blocked_without_real_ga
     assert (out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).exists()
     assert not (out_dir / "gate7_correctness_manifest.json").exists()
     assert not (out_dir / "gate9_sampled_vs_full_evaluation.json").exists()
+
+
+def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
+    out_dir = tmp_path / "real_root_pipeline"
+
+    manifest = run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+
+    assert manifest["artifact_type"] == "gcl_resnet50_gate1_7_pipeline_manifest"
+    assert manifest["final_gate"] == "gate9_report_only"
+    for filename in [
+        "resnet50_trace_adapter_bundle.json",
+        "representative_sm_trace_manifest.json",
+        "canonical_graph_bundle.json",
+        "graph_tensor_bundle.json",
+        "kernel_embedding_table.json",
+        "selector_artifacts.json",
+        "gate7_correctness_manifest.json",
+        "gate8_tuning_vector_proposal.json",
+        "gate9_sampled_vs_full_evaluation.json",
+        GATE1_7_PIPELINE_MANIFEST_FILENAME,
+    ]:
+        assert (out_dir / filename).exists()
+    adapter = json.loads((out_dir / "resnet50_trace_adapter_bundle.json").read_text())
+    assert adapter["artifact_status"] == "formal"
+    assert adapter["trace_source"] == "nvbit"
+    trace_manifest = json.loads((out_dir / "representative_sm_trace_manifest.json").read_text())
+    assert trace_manifest["artifact_status"] == "formal"
+    assert trace_manifest["collection_scope"] == "single_representative_sm_all_ctas"
+    tensor_bundle = json.loads((out_dir / "graph_tensor_bundle.json").read_text())
+    assert tensor_bundle["tensors"][0]["feature_width"] == 64
+    embedding_table = json.loads((out_dir / "kernel_embedding_table.json").read_text())
+    assert embedding_table["artifact_status"] == "formal"
+    assert embedding_table["embedding_dim"] == 256
+    selector = json.loads((out_dir / "selector_artifacts.json").read_text())
+    assert selector["k_selection_report"]["mode"] == "silhouette_k"
+    correctness = json.loads((out_dir / "gate7_correctness_manifest.json").read_text())
+    assert correctness["threshold_policy"] == "report_only_v1"
+    assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"
+
+
+def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_path):
+    out_dir = tmp_path / "real_root_gate6_gate7"
+
+    run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+
+    selector = json.loads((out_dir / "selector_artifacts.json").read_text())
+    assert selector["artifact_type"] == "gcl_resnet50_gate6_selector_artifacts"
+    assert selector["embedding_normalization_report"]["normalization_policy"] == (
+        "engineering_default_z_score"
+    )
+    assert selector["embedding_normalization_report"]["input_fields"] == ["kernel_embedding"]
+    assert selector["k_selection_report"]["mode"] == "silhouette_k"
+    assert selector["kmeans_cluster_assignment_table"]["algorithm"] == "deterministic_kmeans"
+    assert selector["representative_anchor_table"]["anchors"]
+    assert selector["cluster_family_evidence_report"]["family_labels_used_for_clustering"] is False
+
+    correctness = json.loads((out_dir / "gate7_correctness_manifest.json").read_text())
+    assert correctness["artifact_type"] == "gcl_resnet50_gate7_correctness_manifest"
+    assert correctness["threshold_policy"] == "report_only_v1"
+    assert correctness["embedding_geometry_metrics"]
+    assert set(correctness["family_alignment_metrics"]) == {
+        "ari",
+        "cluster_purity",
+        "nmi",
+        "weighted_purity",
+    }
+    assert correctness["representative_quality_metrics"]["outlier_ratio"] == 0.0
+    assert correctness["metric_error_report"]["status"] == "not_provided"
+    assert correctness["stability_report"]["stability_status"] == "single_run_not_evaluated"

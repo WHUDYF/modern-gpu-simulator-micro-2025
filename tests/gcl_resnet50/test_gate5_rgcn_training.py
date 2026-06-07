@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from experiments.gcl_phase_b.selector import select_phase_b_representatives
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from tests.gcl_resnet50.real_chain import build_real_tensors
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -66,3 +67,17 @@ def test_gate5_artifact_shape_embedding_table_carries_auditable_training_lineage
     assert lineage["embedding_export_report_hash"]
     for row in table["embeddings"]:
         assert row["gate5_lineage_hash"] == table["gate5_lineage_hash"]
+
+
+def test_gate5_exports_256d_canonical_kernel_embeddings_from_real_resnet50_root(tmp_path):
+    _manifest, _reports, _preview, _graphs, tensors = build_real_tensors()
+
+    table, _training = run_embedding_export(tensors, tmp_path, seed=20260607)
+
+    assert table["artifact_status"] == "formal"
+    assert table["formal_input_eligible"] is True
+    assert table["trace_source"] == "nvbit"
+    assert table["scheduler_metadata_source"] == "real_nvbit_smid"
+    assert table["embedding_dim"] == 256
+    assert table["readout_hierarchy"] == "node_to_warp_to_cta_to_selected_sm_to_kernel"
+    assert all(len(row["kernel_embedding"]) == 256 for row in table["embeddings"])

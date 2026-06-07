@@ -13,6 +13,7 @@ from experiments.gcl_phase_b.resnet50_adapter import (
 from tests.gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
+FORMAL_ROOT = Path("artifacts/gcl_resnet50_gate0_formal_trace/traces")
 
 
 def _fixture_backed_root(tmp_path):
@@ -97,3 +98,28 @@ def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_schedu
     missing.unlink()
     with pytest.raises(FileNotFoundError, match="threadblock protobuf"):
         build_resnet50_artifact_shape_trace_adapter_bundle(root)
+
+
+def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
+    bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT)
+
+    validate_resnet50_trace_adapter_bundle(bundle)
+    assert bundle["artifact_status"] == "formal"
+    assert bundle["formal_input_eligible"] is True
+    assert bundle["trace_source"] == "nvbit"
+    assert bundle["scheduler_metadata_source"] == "real_nvbit_smid"
+    assert bundle["kernel_invocation_table"]
+    assert bundle["static_instruction_table"]
+    assert bundle["cta_scheduler_records"]
+    assert bundle["per_warp_trace_records"]
+    invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
+    assert "d_0_s_0_k_267" in invocation_ids
+    assert all(
+        record["kernel_invocation_id"] in invocation_ids
+        for record in bundle["cta_scheduler_records"]
+    )
+    assert all(
+        record["kernel_invocation_id"] in invocation_ids
+        for record in bundle["per_warp_trace_records"]
+    )
+    assert all("entries" in record for record in bundle["per_warp_trace_records"])

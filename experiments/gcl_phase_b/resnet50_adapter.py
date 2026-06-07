@@ -10,6 +10,7 @@ from typing import Any
 from experiments.baseline_diagnosis.proto_gen import threadblock_pb2, trace_pb2
 
 from .resnet50_gate0 import load_gate0_trace_acquisition_manifest
+from .sm_selection import select_representative_sm
 from .utils import hash_without, read_json, write_json
 
 ADAPTER_ARTIFACT_TYPE = "gcl_resnet50_trace_adapter_bundle"
@@ -31,10 +32,15 @@ def load_resnet50_trace_sources(root: Path) -> ResNet50TraceSources:
     stats_path = root / "stats.csv"
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
+    enhanced_execution_info = read_json(_enhanced_execution_info_path(root))
     return ResNet50TraceSources(
         dynamic_trace=_load_dynamic_trace_pb(root / "dynamic_trace.pb"),
-        threadblocks=_load_threadblocks_from_scheduler(root),
-        enhanced_execution_info=read_json(root / "enhanced_execution_info.json"),
+        threadblocks=_load_threadblocks_from_scheduler(
+            root,
+            enhanced_execution_info,
+            representative_sm_only=True,
+        ),
+        enhanced_execution_info=enhanced_execution_info,
         scheduler_metadata=read_json(root / "scheduler_metadata.json"),
         stats_rows=stats_rows,
         gate0_manifest=gate0_manifest,
@@ -45,8 +51,11 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
     sources = load_resnet50_trace_sources(root)
     if sources.scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
-    kernel_invocation_table = _kernel_invocation_table(sources.dynamic_trace)
-    static_instruction_table = list(sources.enhanced_execution_info.get("instructions", []))
+    kernel_invocation_table = _kernel_invocation_table(
+        sources.dynamic_trace,
+        prefer_source_invocation_id=True,
+    )
+    static_instruction_table = _static_instruction_table(sources.enhanced_execution_info)
     invocation_lookup = _invocation_lookup(kernel_invocation_table)
     cta_scheduler_records = _cta_scheduler_records(
         sources.scheduler_metadata, invocation_lookup
@@ -82,6 +91,8 @@ def build_resnet50_trace_adapter_bundle(root: Path) -> dict[str, Any]:
         "adapter_validation_report": {
             "status": "passed",
             "scheduler_metadata_complete": True,
+            "trace_materialization_scope": "representative_sm_all_ctas",
+            "trace_count_reconciliation_policy": "scheduler_count_is_runtime_packet_count",
             "errors": [],
         },
     }
@@ -149,10 +160,15 @@ def build_resnet50_artifact_shape_trace_adapter_bundle(root: Path) -> dict[str, 
     stats_path = root / "stats.csv"
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
+    enhanced_execution_info = read_json(root / "enhanced_execution_info.json")
     sources = ResNet50TraceSources(
         dynamic_trace=_load_dynamic_trace_pb(root / "dynamic_trace.pb"),
-        threadblocks=_load_threadblocks_from_scheduler(root),
-        enhanced_execution_info=read_json(root / "enhanced_execution_info.json"),
+        threadblocks=_load_threadblocks_from_scheduler(
+            root,
+            enhanced_execution_info,
+            representative_sm_only=False,
+        ),
+        enhanced_execution_info=enhanced_execution_info,
         scheduler_metadata=read_json(root / "scheduler_metadata.json"),
         stats_rows=stats_rows,
         gate0_manifest={},
@@ -197,12 +213,18 @@ def build_resnet50_artifact_shape_trace_adapter_bundle(root: Path) -> dict[str, 
     return bundle
 
 
-def _kernel_invocation_table(dynamic_trace: dict[str, Any]) -> list[dict[str, Any]]:
+def _kernel_invocation_table(
+    dynamic_trace: dict[str, Any],
+    *,
+    prefer_source_invocation_id: bool = False,
+) -> list[dict[str, Any]]:
     rows = []
     for launch_order, row in enumerate(dynamic_trace.get("kernel_invocations", [])):
         rows.append(
             {
-                "kernel_invocation_id": f"resnet50_k{launch_order:05d}",
+                "kernel_invocation_id": row.get("source_kernel_invocation_id")
+                if prefer_source_invocation_id and row.get("source_kernel_invocation_id")
+                else f"resnet50_k{launch_order:05d}",
                 "kernel_id": row["kernel_id"],
                 "kernel_name": row["kernel_name"],
                 "function_unique_id": row["function_unique_id"],
@@ -231,6 +253,9 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
                 invocations.append(
                     {
                         "kernel_id": int(kernel.id),
+                        "source_kernel_invocation_id": (
+                            f"d_{int(device_id)}_s_{int(stream_id)}_k_{int(kernel.id)}"
+                        ),
                         "kernel_name": kernel.name,
                         "function_unique_id": int(kernel.function_unique_id),
                         "device_id": int(device_id),
@@ -259,20 +284,24 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
     }
 
 
-def _load_threadblocks_from_scheduler(root: Path) -> dict[str, Any]:
+def _load_threadblocks_from_scheduler(
+    root: Path,
+    enhanced_execution_info: dict[str, Any],
+    *,
+    representative_sm_only: bool,
+) -> dict[str, Any]:
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
-    static_instruction_index = _static_instruction_index(
-        read_json(root / "enhanced_execution_info.json")
+    static_instruction_index = _static_instruction_index(enhanced_execution_info)
+    selected_sm_by_invocation = (
+        _selected_sm_by_invocation(scheduler_metadata) if representative_sm_only else {}
     )
     records = []
     for invocation in scheduler_metadata.get("kernel_invocations", []):
-        launch_order = invocation.get("launch_order")
-        if launch_order is None:
-            raise ValueError("scheduler metadata requires launch_order for formal Gate1")
+        selected_sm = selected_sm_by_invocation.get(_scheduler_invocation_id(invocation))
         for cta in invocation.get("cta_records", []):
-            relative = cta.get("threadblock_pb")
-            if not relative:
-                raise ValueError("scheduler cta record requires threadblock_pb")
+            if selected_sm is not None and int(cta["sm_id"]) != selected_sm:
+                continue
+            relative = _threadblock_relative_path(invocation, cta)
             pb_path = root / "threadblocks" / relative
             if not pb_path.is_file():
                 raise FileNotFoundError(f"missing threadblock protobuf: {relative}")
@@ -280,7 +309,8 @@ def _load_threadblocks_from_scheduler(root: Path) -> dict[str, Any]:
                 _threadblock_records_from_pb(
                     pb_path=pb_path,
                     kernel_id=int(invocation["kernel_id"]),
-                    launch_order=int(launch_order),
+                    kernel_invocation_id=_scheduler_invocation_id(invocation),
+                    launch_order=invocation.get("launch_order"),
                     cta_id=str(cta["cta_id"]),
                     static_instruction_index=static_instruction_index,
                 )
@@ -293,20 +323,118 @@ def _load_threadblocks_from_scheduler(root: Path) -> dict[str, Any]:
     }
 
 
+def _enhanced_execution_info_path(root: Path) -> Path:
+    root_level = root / "enhanced_execution_info.json"
+    if root_level.is_file():
+        return root_level
+    nested = root / "extra_info" / "enhanced_execution_info.json"
+    if nested.is_file():
+        return nested
+    raise FileNotFoundError("enhanced_execution_info.json is required for formal Gate1")
+
+
+def _static_instruction_table(enhanced_execution_info: dict[str, Any]) -> list[dict[str, Any]]:
+    if enhanced_execution_info.get("instructions"):
+        return list(enhanced_execution_info["instructions"])
+    rows = []
+    for kernel in enhanced_execution_info.get("kernels", []):
+        function_unique_id = int(kernel["unique_function_id"])
+        for instruction in kernel.get("instructions", []):
+            rows.append(_normalize_static_instruction(function_unique_id, instruction))
+    return rows
+
+
 def _static_instruction_index(enhanced_execution_info: dict[str, Any]) -> dict[tuple[int, int], dict[str, Any]]:
     index = {}
-    for row in enhanced_execution_info.get("instructions", []):
+    for row in _static_instruction_table(enhanced_execution_info):
         index[(int(row["function_unique_id"]), int(row["pc"]))] = row
     if not index:
         raise ValueError("static instruction metadata must be non-empty")
     return index
 
 
+def _normalize_static_instruction(
+    function_unique_id: int,
+    instruction: dict[str, Any],
+) -> dict[str, Any]:
+    operands = [
+        operand.get("operand_string", str(operand))
+        for operand in instruction.get("operands", [])
+    ]
+    return {
+        "function_unique_id": function_unique_id,
+        "pc": int(instruction["pc_num_dec"]),
+        "opcode": instruction["op_code"],
+        "operands": operands,
+        "control_bits": instruction.get("control_bits", {}),
+    }
+
+
+def _scheduler_invocation_id(invocation: dict[str, Any]) -> str:
+    explicit = invocation.get("kernel_invocation_id")
+    if explicit:
+        return str(explicit)
+    if "launch_order" in invocation:
+        return f"resnet50_k{int(invocation['launch_order']):05d}"
+    return (
+        f"d_{int(invocation.get('device_id', 0))}_"
+        f"s_{int(invocation.get('stream_id', 0))}_"
+        f"k_{int(invocation['kernel_id'])}"
+    )
+
+
+def _threadblock_relative_path(invocation: dict[str, Any], cta: dict[str, Any]) -> str:
+    if cta.get("threadblock_pb"):
+        return str(cta["threadblock_pb"])
+    device_id = int(invocation.get("device_id", 0))
+    stream_id = int(invocation.get("stream_id", 0))
+    kernel_id = int(invocation["kernel_id"])
+    cta_id = str(cta["cta_id"])
+    return (
+        f"device_{device_id}/stream_{stream_id}/kernel_{kernel_id}/"
+        f"d_{device_id}_s_{stream_id}_k_{kernel_id}_{cta_id}.pb"
+    )
+
+
+def _selected_sm_by_invocation(scheduler_metadata: dict[str, Any]) -> dict[str, int]:
+    selected = {}
+    for invocation in scheduler_metadata.get("kernel_invocations", []):
+        scheduler_by_sm: dict[str, dict[str, Any]] = {}
+        for cta in invocation.get("cta_records", []):
+            sm_id = str(cta["sm_id"])
+            cta_id = str(cta["cta_id"])
+            metadata = scheduler_by_sm.setdefault(
+                sm_id,
+                {
+                    "sm_id": int(cta["sm_id"]),
+                    "cta_ids": [],
+                    "warp_ids_by_cta": {},
+                    "trace_entry_count_by_cta": {},
+                    "cta_start_order": {},
+                    "cta_end_order": {},
+                },
+            )
+            metadata["cta_ids"].append(cta_id)
+            metadata["warp_ids_by_cta"][cta_id] = list(cta["warp_ids"])
+            metadata["trace_entry_count_by_cta"][cta_id] = int(cta["trace_entry_count"])
+            metadata["cta_start_order"][cta_id] = int(cta["first_seen_order"])
+            metadata["cta_end_order"][cta_id] = int(cta["last_seen_order"])
+        selection_input = {
+            "kernel_invocation_id": _scheduler_invocation_id(invocation),
+            "scheduler_metadata_by_sm": scheduler_by_sm,
+        }
+        selected[_scheduler_invocation_id(invocation)] = int(
+            select_representative_sm(selection_input)["selected_sm"]
+        )
+    return selected
+
+
 def _threadblock_records_from_pb(
     *,
     pb_path: Path,
     kernel_id: int,
-    launch_order: int,
+    kernel_invocation_id: str,
+    launch_order: int | None,
     cta_id: str,
     static_instruction_index: dict[tuple[int, int], dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -342,8 +470,9 @@ def _threadblock_records_from_pb(
             )
         records.append(
             {
+                "kernel_invocation_id": kernel_invocation_id,
                 "kernel_id": kernel_id,
-                "launch_order": launch_order,
+                **({"launch_order": int(launch_order)} if launch_order is not None else {}),
                 "cta_id": cta_id,
                 "warp_id": int(warp_id),
                 "entries": entries,
@@ -514,6 +643,12 @@ def validate_resnet50_trace_adapter_bundle(bundle: dict[str, Any]) -> None:
 
 
 def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
+    report = bundle.get("adapter_validation_report", {})
+    representative_trace_only = (
+        report.get("trace_materialization_scope") == "representative_sm_all_ctas"
+        and report.get("trace_count_reconciliation_policy")
+        == "scheduler_count_is_runtime_packet_count"
+    )
     invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
     scheduled_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
     trace_records_by_invocation: dict[str, int] = {invocation_id: 0 for invocation_id in invocation_ids}
@@ -547,13 +682,19 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
         aggregate["warp_ids"].add(record["warp_id"])
         aggregate["entry_count"] += len(record.get("entries", []))
         trace_records_by_invocation[invocation_id] += len(record.get("entries", []))
-    if set(scheduler_by_cta) != set(trace_by_cta):
+    if representative_trace_only:
+        if not set(trace_by_cta).issubset(set(scheduler_by_cta)):
+            raise ValueError("warp trace CTA set must be a subset of scheduler CTA set")
+    elif set(scheduler_by_cta) != set(trace_by_cta):
         raise ValueError("scheduler CTA set must match warp trace CTA set")
-    for cta_key, scheduler_record in scheduler_by_cta.items():
-        trace_record = trace_by_cta[cta_key]
+    for cta_key, trace_record in trace_by_cta.items():
+        scheduler_record = scheduler_by_cta[cta_key]
         if set(scheduler_record["warp_ids"]) != trace_record["warp_ids"]:
             raise ValueError("scheduler warp_ids must match traced warp IDs")
-        if int(scheduler_record["trace_entry_count"]) != trace_record["entry_count"]:
+        if representative_trace_only:
+            if trace_record["entry_count"] <= 0:
+                raise ValueError("materialized warp trace entry count must be positive")
+        elif int(scheduler_record["trace_entry_count"]) != trace_record["entry_count"]:
             raise ValueError("scheduler trace_entry_count must match traced entry count")
     for invocation_id in invocation_ids:
         if scheduled_by_invocation[invocation_id] <= 0:

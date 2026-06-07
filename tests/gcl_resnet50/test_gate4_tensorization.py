@@ -8,6 +8,7 @@ from experiments.gcl_phase_b.resnet50_manifest import build_representative_sm_ma
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs, validate_phase_b_tensor_artifact
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from tests.gcl_resnet50.formal_chain import build_artifact_shape_tensors
+from tests.gcl_resnet50.real_chain import build_real_tensors
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
@@ -51,3 +52,24 @@ def test_gate4_tensorizes_artifact_shape_graphs_without_formal_claim(tmp_path):
         assert tensor["graph_batch_metadata"]["trace_source"] == "synthetic_protobuf_artifact_shape"
         assert tensor["node_features"].shape[1] == 64
         assert tensor["edge_index"].shape[0] == 2
+
+
+def test_gate4_tensorizes_real_resnet50_graphs_with_formal_provenance():
+    manifest, reports, preview, graphs, tensors = build_real_tensors()
+
+    assert manifest["artifact_status"] == "formal"
+    assert reports["reports"]
+    assert preview["invocations"]
+    assert graphs
+    assert tensors
+    for tensor in tensors:
+        validate_phase_b_tensor_artifact(tensor)
+        assert tensor["feature_width"] == 64
+        assert tensor["node_features"].shape[1] == 64
+        assert tensor["edge_index"].shape[0] == 2
+        assert tensor["edge_index"].shape[1] == tensor["edge_type"].shape[0]
+        assert tensor["warp_partition_tensors"]
+        assert tensor["graph_batch_metadata"]["artifact_status"] == "formal"
+        assert tensor["graph_batch_metadata"]["formal_input_eligible"] is True
+        assert tensor["graph_batch_metadata"]["trace_source"] == "nvbit"
+        assert tensor["graph_batch_metadata"]["scheduler_metadata_source"] == "real_nvbit_smid"

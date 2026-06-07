@@ -27,17 +27,68 @@ Gate 9: sampled-vs-full simulator evaluation
 
 本 plan 的核心边界是：**formal GCL reproduction 不能使用人工 trace、ResNet-like fixture、mini-transformer trace 或 simulator replay 替代真实 ResNet-50 NVBit trace**。Fixture 只能用于 unit / smoke / debug。
 
+## Current Gate0 Status
+
+Gate0 formal ResNet-50 NVBit trace acquisition 已经打通，本轮 RLCR 不应再把“是否能采集真实 ResNet-50 trace”作为当前阻塞项。Gate0 现在是后续 Gate1-7 的 formal input baseline 和 regression guard。
+
+Formal trace root:
+
+```text
+artifacts/gcl_resnet50_gate0_formal_trace/traces
+```
+
+已确认的 Gate0 artifact:
+
+- `dynamic_trace.pb`
+- `threadblocks/`
+- `extra_info/enhanced_execution_info.json`
+- `scheduler_metadata.json`
+- `stats.csv`
+- `gate0_trace_acquisition_manifest.json`
+- `nvbit_collection_evidence.json`
+- `nvbit_collector_attestation.json`
+- `.nvbit_collector_session.json`
+
+Formal manifest 必须记录：
+
+- `artifact_status = formal`
+- `formal_input_eligible = true`
+- `workload_id = resnet50`
+- `execution_mode = real_trace`
+- `trace_source = nvbit`
+- `input_scope = full_resnet50_inference_trace`
+- `scheduler_metadata_source = real_nvbit_smid`
+
+当前 baseline 规模：
+
+- trace root size: `2.4G`
+- threadblock protobuf files: `124876`
+- scheduler metadata kernel invocations: `265`
+- scheduler metadata CTA records: `124876`
+
+当前已通过的 regression validation:
+
+```bash
+pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py
+```
+
+Expected: `73 passed`。
+
 ## Acceptance Criteria
 
-- AC-1: Gate 0 能采集真实 ResNet-50 NVBit trace，并输出 formal acquisition manifest
+- AC-1: Gate 0 formal ResNet-50 NVBit trace acquisition 已完成，并由 regression tests 保护
   - Positive Tests (expected to PASS):
-    - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_records_real_resnet50_nvbit_trace_provenance`
-    - 输入为真实 ResNet-50 run，manifest 包含 `workload_id = resnet50`、`execution_mode = real_trace`、`trace_source = nvbit`、`input_scope = full_resnet50_inference_trace`。
-    - `scheduler_metadata.json` 包含真实 `sm_id`、`cta_id`、`warp_id`、`first_seen_order`、`last_seen_order` 和 `trace_entry_count`。
+    - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_acquisition_runner_sets_nvbit_trace_folder_environment`
+    - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract`
+    - Formal trace root 必须是 `artifacts/gcl_resnet50_gate0_formal_trace/traces`。
+    - Manifest 必须包含 `artifact_status = formal`、`formal_input_eligible = true`、`workload_id = resnet50`、`execution_mode = real_trace`、`trace_source = nvbit`、`input_scope = full_resnet50_inference_trace`。
+    - `scheduler_metadata.json` 必须来自 `scheduler_metadata_source = real_nvbit_smid`，并包含真实 `sm_id`、`cta_id`、`warp_ids`、`first_seen_order`、`last_seen_order` 和 `trace_entry_count`。
   - Negative Tests (expected to FAIL):
     - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_rejects_missing_real_smid_metadata`
+    - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection`
+    - `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py::test_gate0_rejects_handwritten_session_attestation_triplet_on_synthetic_root`
     - 缺少真实 `%smid` 采集来源时不得生成 formal acquisition manifest。
-    - synthetic / simulator replay source 必须标记为 `debug_not_formal`。
+    - synthetic / simulator replay source 必须标记为 `debug_not_formal` 或被 formal validation 拒绝。
 
 - AC-2: Gate 1 formal adapter 只接受真实 ResNet-50 trace artifacts
   - Positive Tests (expected to PASS):
@@ -217,13 +268,13 @@ Gate 9: sampled-vs-full simulator evaluation
 最低可接受实现是完成 Gate0-7：
 
 ```text
-真实 ResNet-50 trace acquisition
+已验证 Gate0 formal ResNet-50 trace root
   -> Gate1-5 formal embedding table
   -> Gate6 selector artifacts
   -> Gate7 report-only correctness evaluation
 ```
 
-如果 Gate0 无法完成，只能输出 formal blocker report，不能用 fixture 替代 formal path。
+本轮实现必须从已验证 Gate0 formal trace root 出发。Gate0 blocker report 只保留为 regression path，用来证明缺少真实 trace 时 pipeline 会停止；它不再是当前主线的预期状态。
 
 ### Allowed Choices
 
@@ -249,25 +300,11 @@ Cannot use:
 
 ## Dependencies and Sequence
 
-### Milestone 1: Formal Input Boundary Repair
+### Milestone 1: Gate0 Closed / Formal Trace Root Baseline
 
-- Phase A: 更新 Gate1-5 实现，使 formal path 拒绝 fixture / synthetic / debug replay。
-- Phase B: 为 fixture path 增加 `artifact_status = debug_not_formal` 和 `formal_input_eligible = false`。
-- Phase C: 更新现有 ResNet-like smoke tests，确保它们不再声称 formal pass。
-
-Required before:
-
-```text
-Gate0 formal acquisition
-Gate1 formal adapter
-```
-
-### Milestone 2: Gate 0 Real ResNet-50 Trace Acquisition
-
-- Phase A: 实现 ResNet-50 workload runner。
-- Phase B: 接入 NVBit trace collection。
-- Phase C: 采集 scheduler metadata，包括 real `sm_id` / `cta_id` / `warp_id`。
-- Phase D: 输出 `gate0_trace_acquisition_manifest.json`。
+- Phase A: 以 `artifacts/gcl_resnet50_gate0_formal_trace/traces` 作为 Gate1-7 formal baseline。
+- Phase B: 固化 `gate0_trace_acquisition_manifest.json`、`nvbit_collection_evidence.json`、`nvbit_collector_attestation.json` 和 `.nvbit_collector_session.json` 的 provenance contract。
+- Phase C: 保留 blocked / synthetic / fixture tests 作为 regression guard，确保它们不能被提升为 formal。
 
 Required before:
 
@@ -275,12 +312,25 @@ Required before:
 Gate1 formal adapter
 ```
 
-### Milestone 3: Gate 1-4 Trace To Graph
+### Milestone 2: Gate 1 Formal Adapter From Real Trace Root
 
-- Phase A: Gate1 adapter 消费 Gate0 artifacts。
-- Phase B: Gate2 representative SM selection。
-- Phase C: Gate3 canonical graph construction。
-- Phase D: Gate4 tensorization。
+- Phase A: Gate1 读取已验证 Gate0 trace root 中的 `dynamic_trace.pb`、`threadblocks/`、`extra_info/enhanced_execution_info.json`、`scheduler_metadata.json` 和 `stats.csv`。
+- Phase B: Gate1 输出 formal `resnet50_trace_adapter_bundle.json`。
+- Phase C: Gate1 生成稳定 `kernel_invocation_id`，并保留真实 scheduler metadata lineage。
+- Phase D: Gate1 拒绝缺少 Gate0 formal manifest、缺少 real NVBit attestation、或来自 fixture / synthetic / debug replay 的输入。
+
+Required before:
+
+```text
+Gate2 representative SM selection
+```
+
+### Milestone 3: Gate 2-4 Trace To Graph
+
+- Phase A: Gate2 从真实 `scheduler_metadata.json` 运行 `scheduler_signature_medoid_sm`，生成 representative-SM manifest。
+- Phase B: Gate3 从 representative-SM manifest 生成 canonical graph。
+- Phase C: Gate4 将 canonical graph tensorize 为 RGCN 输入。
+- Phase D: Gate2-4 的每个 artifact 都必须继承 Gate0 / Gate1 formal provenance。
 
 Required before:
 
@@ -346,6 +396,8 @@ Gate8 tuning proposal
 - Gate6 normalization must record `normalization_policy = engineering_default_z_score` and `paper_defined = false`.
 - Gate7 first version must record `threshold_policy = report_only_v1`; quantitative metrics are required as reports, not as enforced thresholds.
 - Any claim about cluster correctness, tuning quality, speedup, or simulator accuracy must be tied to the latest gate that actually proves it.
+- Next RLCR focus should be Gate1 / Gate2 consumption of real Gate0 artifacts, representative-SM selection from real `scheduler_metadata.json`, and formal provenance propagation into Gate3+.
+- Gate0 acquisition should be reviewed as a closed baseline with regression protection, not as the primary open blocker.
 
 ## Review Checklist
 

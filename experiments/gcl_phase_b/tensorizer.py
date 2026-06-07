@@ -114,6 +114,7 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
             "input_scope": graph.get("input_scope"),
             "scheduler_metadata_source": graph.get("scheduler_metadata_source"),
             "collection_scope": graph["collection_scope"],
+            "trace_family": graph.get("trace_family"),
             "selected_sm": graph["selected_sm"],
             "node_count": len(nodes),
             "edge_count": len(graph["edges"]),

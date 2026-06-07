@@ -140,7 +140,7 @@ def test_gate7_rejects_artifact_shape_embedding_chain_as_formal_evidence(tmp_pat
 
 
 def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
 
     report = evaluate_gate7_correctness_from_artifacts(
         selector_artifacts=chain["selector_artifacts"],
@@ -159,7 +159,7 @@ def test_gate7_records_embedding_geometry_metrics_from_real_root_gate6(tmp_path)
 
 
 def test_gate7_records_family_representative_metric_and_stability_from_real_root(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
 
     report = evaluate_gate7_correctness_from_artifacts(
         selector_artifacts=chain["selector_artifacts"],
@@ -181,6 +181,8 @@ def test_gate7_records_family_representative_metric_and_stability_from_real_root
         "nmi",
         "weighted_purity",
     }
+    assert report["family_alignment_metrics"]["cluster_purity"] is not None
+    assert report["family_alignment_metrics"]["weighted_purity"] is not None
     assert report["representative_quality_metrics"]["representative_p95_distance"] is not None
     assert report["metric_error_report"]["status"] == "reported"
     assert report["metric_error_report"]["global_weighted_mape"] == 0.05

@@ -88,7 +88,7 @@ def select_phase_b_representatives(
                 "artifact_type": "gcl_resnet50_cluster_family_evidence_report",
                 "family_labels_used_for_clustering": False,
                 "evidence_mode": "post_clustering_only",
-                "clusters": [],
+                "clusters": _post_clustering_family_evidence([row], [0]),
             },
             "structural_evaluation_artifacts": {
                 "row_count": len(rows),
@@ -170,7 +170,7 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
             "artifact_type": "gcl_resnet50_cluster_family_evidence_report",
             "family_labels_used_for_clustering": False,
             "evidence_mode": "post_clustering_only",
-            "clusters": [],
+            "clusters": _post_clustering_family_evidence(rows, labels.tolist()),
         },
         "structural_evaluation_artifacts": {
             "row_count": len(rows),
@@ -183,6 +183,43 @@ def _select_representatives(table: dict[str, Any], seed: int) -> dict[str, Any]:
     artifact["selector_manifest_hash"] = hash_without(artifact, "selector_manifest_hash")
     validate_gate6_selector_artifacts(artifact)
     return artifact
+
+
+def _post_clustering_family_evidence(
+    rows: list[dict[str, Any]],
+    labels: list[int],
+) -> list[dict[str, Any]]:
+    total = len(rows) or 1
+    by_cluster: dict[int, dict[str, int]] = {}
+    for row, label in zip(rows, labels):
+        family = _post_clustering_family_label(row)
+        cluster_counts = by_cluster.setdefault(int(label), {})
+        cluster_counts[family] = cluster_counts.get(family, 0) + 1
+    clusters = []
+    for cluster_id, counts in sorted(by_cluster.items()):
+        majority_family, majority_count = sorted(
+            counts.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[0]
+        member_count = sum(counts.values())
+        clusters.append(
+            {
+                "cluster_id": cluster_id,
+                "majority_family": majority_family,
+                "purity": round(float(majority_count) / float(member_count), 8),
+                "weight": round(float(member_count) / float(total), 8),
+                "member_count": member_count,
+                "evidence_source": "post_clustering_embedding_metadata",
+            }
+        )
+    return clusters
+
+
+def _post_clustering_family_label(row: dict[str, Any]) -> str:
+    if row.get("trace_family"):
+        return str(row["trace_family"])
+    kernel_invocation_id = str(row.get("kernel_invocation_id", "unknown"))
+    return f"kernel_invocation:{kernel_invocation_id}"
 
 
 def _validate_gate6_input_table(

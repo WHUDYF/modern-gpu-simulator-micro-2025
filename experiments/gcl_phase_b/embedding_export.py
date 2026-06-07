@@ -120,6 +120,7 @@ def _embedding_row(
         "pseudo_node_mode": tensor["pseudo_node_mode"],
         "paper_reproduction_mode": tensor["paper_reproduction_mode"],
         "collection_scope": metadata["collection_scope"],
+        "trace_family": metadata.get("trace_family"),
         "selected_sm": metadata["selected_sm"],
         "embedding_dim": EMBEDDING_DIM,
         "kernel_embedding": rounded_embedding,

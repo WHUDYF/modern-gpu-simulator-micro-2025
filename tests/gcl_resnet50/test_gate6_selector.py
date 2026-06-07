@@ -305,7 +305,7 @@ def test_gate6_rejects_family_label_guided_clustering(tmp_path):
 
 
 def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
     table = chain["embedding_table"]
 
     artifacts = select_phase_b_representatives(
@@ -318,11 +318,12 @@ def test_gate6_accepts_real_resnet50_gate5_embedding_table(tmp_path):
     assert table["artifact_status"] == "formal"
     assert table["trace_source"] == "nvbit"
     assert table["embedding_dim"] == 256
+    assert len(table["embeddings"]) > 1
     assert artifacts["source_embedding_table_hash"] == table["kernel_embedding_table_hash"]
 
 
 def test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
 
     artifacts = select_phase_b_representatives(
         chain["embedding_table"],
@@ -330,15 +331,17 @@ def test_gate6_runs_silhouette_k_and_deterministic_kmeans_on_real_root(tmp_path)
         gate5_artifact_root=chain["artifact_root"],
     )
 
+    assert len(chain["embedding_table"]["embeddings"]) > 1
     assert artifacts["embedding_normalization_report"]["input_fields"] == ["kernel_embedding"]
     assert artifacts["k_selection_report"]["mode"] == "silhouette_k"
+    assert "fallback_reason" not in artifacts["k_selection_report"]
     assert artifacts["kmeans_cluster_assignment_table"]["algorithm"] == "deterministic_kmeans"
     assert artifacts["kmeans_cluster_assignment_table"]["assignments"]
     assert artifacts["representative_anchor_table"]["anchors"]
 
 
 def test_gate6_real_root_family_evidence_is_post_clustering_only(tmp_path):
-    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=1)
+    chain = run_real_gate1_to_gate7_artifacts(tmp_path / "real_chain", limit=2)
 
     artifacts = select_phase_b_representatives(
         chain["embedding_table"],
@@ -349,3 +352,6 @@ def test_gate6_real_root_family_evidence_is_post_clustering_only(tmp_path):
     evidence = artifacts["cluster_family_evidence_report"]
     assert evidence["family_labels_used_for_clustering"] is False
     assert evidence["evidence_mode"] == "post_clustering_only"
+    assert evidence["clusters"]
+    assert all(cluster["purity"] is not None for cluster in evidence["clusters"])
+    assert all(cluster["weight"] > 0 for cluster in evidence["clusters"])

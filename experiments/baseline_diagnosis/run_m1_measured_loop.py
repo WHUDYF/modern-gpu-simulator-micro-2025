@@ -7,13 +7,21 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import ARTIFACT_DIR, read_json, write_json
+try:
+    from .shared_acquisition import ARTIFACT_DIR, read_json, write_json
+    from . import m1_measured_feature_extractor
+    from . import m1_ncu_capture_dispatcher
+    from . import m1_selector_eligibility
+    from . import m1_workload_resolver
+    from . import pka_m1_selector
+except ImportError:  # pragma: no cover - compatibility for direct script imports.
+    from shared_acquisition import ARTIFACT_DIR, read_json, write_json
 
-import m1_measured_feature_extractor
-import m1_ncu_capture_dispatcher
-import m1_selector_eligibility
-import m1_workload_resolver
-import pka_m1_selector
+    import m1_measured_feature_extractor
+    import m1_ncu_capture_dispatcher
+    import m1_selector_eligibility
+    import m1_workload_resolver
+    import pka_m1_selector
 
 STATUS_PATH = ARTIFACT_DIR / "m1_measured_loop_status_l1.json"
 def _gate5_artifacts() -> list[Path]:

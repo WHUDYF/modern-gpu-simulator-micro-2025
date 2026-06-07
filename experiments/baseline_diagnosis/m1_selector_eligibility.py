@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
+try:
+    from .shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
+except ImportError:  # pragma: no cover - compatibility for direct script imports.
+    from shared_acquisition import ARTIFACT_DIR, FEATURE_ORDER, artifact_ref, file_hash, read_json, write_json
 
 MANIFEST_PATH = ARTIFACT_DIR / "kernel_validation_manifest_l1.json"
 RESOLUTION_GAP_PATH = ARTIFACT_DIR / "m1_workload_resolution_gap_l1.json"

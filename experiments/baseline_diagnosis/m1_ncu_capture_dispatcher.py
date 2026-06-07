@@ -11,20 +11,36 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from shared_acquisition import (
-    ARTIFACT_DIR,
-    REPO_ROOT,
-    artifact_ref,
-    command_hash,
-    environment_signature,
-    file_hash,
-    has_ncu_csv_header,
-    sanitize_token,
-    selected_metric_records,
-    selected_ncu_metrics,
-    stable_hash,
-    write_json,
-)
+try:
+    from .shared_acquisition import (
+        ARTIFACT_DIR,
+        REPO_ROOT,
+        artifact_ref,
+        command_hash,
+        environment_signature,
+        file_hash,
+        has_ncu_csv_header,
+        sanitize_token,
+        selected_metric_records,
+        selected_ncu_metrics,
+        stable_hash,
+        write_json,
+    )
+except ImportError:  # pragma: no cover - compatibility for direct script imports.
+    from shared_acquisition import (
+        ARTIFACT_DIR,
+        REPO_ROOT,
+        artifact_ref,
+        command_hash,
+        environment_signature,
+        file_hash,
+        has_ncu_csv_header,
+        sanitize_token,
+        selected_metric_records,
+        selected_ncu_metrics,
+        stable_hash,
+        write_json,
+    )
 
 RESOLUTION_PATH = ARTIFACT_DIR / "m1_workload_resolution_l1.json"
 ATTEMPTS_PATH = ARTIFACT_DIR / "m1_ncu_capture_attempts_l1.json"

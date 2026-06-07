@@ -38,7 +38,7 @@ def test_gate5_augmentation_does_not_overwrite_canonical_tensor():
 
 
 def test_gate5_exports_256d_canonical_kernel_embeddings_for_debug_smoke(tmp_path):
-    table, _training = run_embedding_export(_debug_tensors(), tmp_path)
+    table, _training, _ = run_embedding_export(_debug_tensors(), tmp_path)
 
     assert table["embedding_dim"] == 256
     assert table["readout_hierarchy"] == "node_to_warp_to_cta_to_selected_sm_to_kernel"
@@ -46,7 +46,7 @@ def test_gate5_exports_256d_canonical_kernel_embeddings_for_debug_smoke(tmp_path
 
 
 def test_gate5_rejects_projection_head_output_for_selector(tmp_path):
-    table, _training = run_embedding_export(_debug_tensors(), tmp_path)
+    table, _training, _ = run_embedding_export(_debug_tensors(), tmp_path)
     table["embeddings"][0]["embedding_dim"] = 64
     table["embeddings"][0]["kernel_embedding"] = table["embeddings"][0]["kernel_embedding"][:64]
 
@@ -55,7 +55,7 @@ def test_gate5_rejects_projection_head_output_for_selector(tmp_path):
 
 
 def test_gate5_artifact_shape_embedding_table_carries_auditable_training_lineage(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
 
     assert table["artifact_status"] == "debug_not_formal"
     assert table["formal_input_eligible"] is False
@@ -72,7 +72,7 @@ def test_gate5_artifact_shape_embedding_table_carries_auditable_training_lineage
 def test_gate5_exports_256d_canonical_kernel_embeddings_from_real_resnet50_root(tmp_path):
     _manifest, _reports, _preview, _graphs, tensors = build_real_tensors()
 
-    table, _training = run_embedding_export(tensors, tmp_path, seed=20260607)
+    table, _training, _ = run_embedding_export(tensors, tmp_path, seed=20260607)
 
     assert table["artifact_status"] == "formal"
     assert table["formal_input_eligible"] is True

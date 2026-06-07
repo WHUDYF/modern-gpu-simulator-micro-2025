@@ -12,7 +12,7 @@ def _embedding_table(tmp_path):
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest(invocation_count=2))
     graphs = build_phase_b_graphs(records)
     tensors = tensorize_phase_b_graphs(graphs)
-    table, _ = run_embedding_export(tensors, tmp_path)
+    table, _, _ = run_embedding_export(tensors, tmp_path)
     return table
 
 

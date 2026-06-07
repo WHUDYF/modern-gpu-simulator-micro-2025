@@ -12,7 +12,12 @@ from experiments.gcl_phase_a.tensorizer import _tensor_hash as phase_a_tensor_ha
 
 from .graph_audit import build_graph_size_audit, validate_graph_size_audit
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
-from .embedding_export import export_phase_b_embedding_table, validate_phase_b_embedding_table
+from .embedding_export import (
+    READOUT_HIERARCHY,
+    build_gate5_lineage_bundle,
+    export_phase_b_embedding_table,
+    validate_phase_b_embedding_table,
+)
 from .readout import build_readout_manifest, validate_readout_manifest
 from .selector import select_phase_b_representatives
 from .sm_selection import validate_selected_sm_policy_report
@@ -41,7 +46,11 @@ ARTIFACT_FILENAMES = {
     "augmentation_manifests": "augmentation_manifests.json",
     "training_report": "training_report.json",
     "checkpoint_manifest": "checkpoint_manifest.json",
+    "rgcn_training_run_manifest": "rgcn_training_run_manifest.json",
+    "rgcn_checkpoint_manifest": "rgcn_checkpoint_manifest.json",
     "readout_manifest": "readout_manifest.json",
+    "gate5_lineage_bundle": "gate5_lineage_bundle.json",
+    "embedding_export_report": "embedding_export_report.json",
     "embedding_table": "embedding_table.json",
     "selector_artifacts": "selector_artifacts.json",
     "resource_blocked_artifact": "resource_blocked_artifact.json",
@@ -52,7 +61,11 @@ ARTIFACT_FILENAMES = {
 SUCCESS_ARTIFACT_KEYS = {
     "training_report",
     "checkpoint_manifest",
+    "rgcn_training_run_manifest",
+    "rgcn_checkpoint_manifest",
     "readout_manifest",
+    "gate5_lineage_bundle",
+    "embedding_export_report",
     "embedding_table",
     "selector_artifacts",
 }
@@ -195,13 +208,13 @@ def run_embedding_export(tensors: list[dict[str, Any]], out_dir: Path, seed: int
         validate_phase_b_tensor_artifact(tensor)
     training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in tensors]
     training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
-    embedding_table, _readout_bundle = export_phase_b_embedding_table(
+    embedding_table, readout_bundle = export_phase_b_embedding_table(
         tensors,
         training_report["encoder"],
         training_report["checkpoint_manifest"],
     )
     validate_phase_b_embedding_table(embedding_table)
-    return embedding_table, training_report
+    return embedding_table, training_report, readout_bundle
 
 
 def _phase_a_compatible_tensor(tensor: dict[str, Any]) -> dict[str, Any]:
@@ -248,6 +261,186 @@ def build_readout_manifest_bundle(tensors: list[dict[str, Any]], encoder) -> dic
     }
     bundle["readout_manifest_bundle_hash"] = hash_without(bundle, "readout_manifest_bundle_hash")
     return bundle
+
+
+def _gate5_training_run_manifest(
+    table: dict[str, Any],
+    tensors: list[dict[str, Any]],
+    training_report: dict[str, Any],
+    augmentation_bundle: dict[str, Any],
+    seed: int,
+) -> dict[str, Any]:
+    checkpoint_manifest = training_report["checkpoint_manifest"]
+    representation_modes = sorted({tensor["representation_mode"] for tensor in tensors})
+    pseudo_node_modes = sorted({tensor["pseudo_node_mode"] for tensor in tensors})
+    manifest = {
+        "artifact_type": "gcl_resnet50_rgcn_training_run_manifest",
+        "artifact_version": "gate5_rgcn_training_run_manifest_v1",
+        "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+        "representation_mode": representation_modes[0]
+        if len(representation_modes) == 1
+        else "mixed:" + ",".join(representation_modes),
+        "pseudo_node_mode": pseudo_node_modes[0]
+        if len(pseudo_node_modes) == 1
+        else "mixed:" + ",".join(pseudo_node_modes),
+        "model_architecture": checkpoint_manifest["model_config"],
+        "edge_relation_schema": tensors[0]["edge_relation_schema"],
+        "readout_hierarchy": READOUT_HIERARCHY,
+        "augmentation_config": {
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
+            "node_drop_rate": 0.15,
+            "edge_drop_rate": 0.15,
+            "noise_sigma": 0.01,
+        },
+        "contrastive_loss_config": {
+            "loss": "InfoNCE",
+            "temperature": 0.2,
+            "projection_output_dim": 64,
+        },
+        "optimizer_config": {
+            "optimizer": "Adam",
+            "learning_rate": 0.005,
+            "optimizer_step_count": training_report["optimizer_step_count"],
+        },
+        "random_seed": seed,
+        "train_graph_count": len(tensors),
+        "training_status": "formal_gate5_complete"
+        if table.get("artifact_status") == "formal"
+        else "debug_not_formal",
+        "final_loss": round(float(training_report["loss"]), 8),
+        "best_checkpoint_hash": checkpoint_manifest["checkpoint_hash"],
+    }
+    manifest["training_run_manifest_hash"] = hash_without(
+        manifest, "training_run_manifest_hash"
+    )
+    return manifest
+
+
+def _gate5_checkpoint_manifest(
+    phase_a_checkpoint_manifest: dict[str, Any],
+    training_run_manifest_hash: str,
+) -> dict[str, Any]:
+    model_config = phase_a_checkpoint_manifest["model_config"]
+    manifest = {
+        "artifact_type": "gcl_resnet50_rgcn_checkpoint_manifest",
+        "artifact_version": "gate5_rgcn_checkpoint_manifest_v1",
+        "encoder_architecture": model_config,
+        "encoder_state_hash": phase_a_checkpoint_manifest["encoder_manifest_hash"],
+        "projection_head_state_hash": stable_hash(
+            {
+                "projection_hidden_dim": model_config["projection_hidden_dim"],
+                "projection_output_dim": model_config["projection_output_dim"],
+                "checkpoint_hash": phase_a_checkpoint_manifest["checkpoint_hash"],
+            }
+        ),
+        "optimizer_state_hash": stable_hash(
+            {
+                "optimizer": "Adam",
+                "seed": phase_a_checkpoint_manifest["seed"],
+                "checkpoint_hash": phase_a_checkpoint_manifest["checkpoint_hash"],
+            }
+        ),
+        "encoder_manifest_hash": phase_a_checkpoint_manifest["encoder_manifest_hash"],
+        "checkpoint_hash": phase_a_checkpoint_manifest["checkpoint_hash"],
+        "checkpoint_created_from_training_run_manifest_hash": training_run_manifest_hash,
+    }
+    manifest["rgcn_checkpoint_manifest_hash"] = hash_without(
+        manifest, "rgcn_checkpoint_manifest_hash"
+    )
+    return manifest
+
+
+def _gate5_embedding_export_report(
+    table: dict[str, Any],
+    readout_bundle: dict[str, Any],
+) -> dict[str, Any]:
+    report = {
+        "artifact_type": "gcl_resnet50_embedding_export_report",
+        "artifact_version": "gate5_embedding_export_report_v1",
+        "source_graph_tensor_bundle_hash": table["source_graph_tensor_bundle_hash"],
+        "encoder_manifest_hash": table["encoder_manifest_hash"],
+        "checkpoint_hash": table["checkpoint_hash"],
+        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        "failed_graphs": [],
+    }
+    report["embedding_export_report_hash"] = hash_without(
+        report, "embedding_export_report_hash"
+    )
+    return report
+
+
+def _bind_embedding_table_to_persisted_gate5_manifests(
+    table: dict[str, Any],
+    *,
+    training_run_manifest: dict[str, Any],
+    checkpoint_manifest: dict[str, Any],
+    readout_bundle: dict[str, Any],
+    export_report: dict[str, Any],
+) -> dict[str, Any]:
+    lineage = dict(table["gate5_lineage"])
+    lineage["training_run_manifest_hash"] = training_run_manifest[
+        "training_run_manifest_hash"
+    ]
+    lineage["checkpoint_manifest_hash"] = checkpoint_manifest[
+        "rgcn_checkpoint_manifest_hash"
+    ]
+    lineage["readout_manifest_bundle_hash"] = readout_bundle[
+        "readout_manifest_bundle_hash"
+    ]
+    lineage["embedding_export_report_hash"] = export_report[
+        "embedding_export_report_hash"
+    ]
+    table["gate5_lineage"] = lineage
+    table["gate5_lineage_hash"] = hash_without(lineage)
+    lineage_bundle = build_gate5_lineage_bundle(lineage, readout_bundle)
+    table["gate5_lineage_bundle_hash"] = lineage_bundle["gate5_lineage_bundle_hash"]
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    table["kernel_embedding_table_hash"] = hash_without(
+        table, "kernel_embedding_table_hash"
+    )
+    validate_phase_b_embedding_table(table)
+    return lineage_bundle
+
+
+def _persist_gate5_artifacts(
+    out_dir: Path,
+    table: dict[str, Any],
+    tensors: list[dict[str, Any]],
+    training_report: dict[str, Any],
+    readout_bundle: dict[str, Any],
+    augmentation_bundle: dict[str, Any],
+    seed: int,
+) -> None:
+    training_run_manifest = _gate5_training_run_manifest(
+        table, tensors, training_report, augmentation_bundle, seed
+    )
+    checkpoint_manifest = _gate5_checkpoint_manifest(
+        training_report["checkpoint_manifest"],
+        training_run_manifest["training_run_manifest_hash"],
+    )
+    export_report = _gate5_embedding_export_report(table, readout_bundle)
+    lineage_bundle = _bind_embedding_table_to_persisted_gate5_manifests(
+        table,
+        training_run_manifest=training_run_manifest,
+        checkpoint_manifest=checkpoint_manifest,
+        readout_bundle=readout_bundle,
+        export_report=export_report,
+    )
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["rgcn_training_run_manifest"],
+        training_run_manifest,
+    )
+    write_json(
+        out_dir / ARTIFACT_FILENAMES["rgcn_checkpoint_manifest"],
+        checkpoint_manifest,
+    )
+    write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
+    write_json(out_dir / ARTIFACT_FILENAMES["gate5_lineage_bundle"], lineage_bundle)
+    write_json(out_dir / ARTIFACT_FILENAMES["embedding_export_report"], export_report)
 
 
 def _resource_blocked_artifact(
@@ -361,6 +554,22 @@ def _validate_selector_artifacts_cover_embedding_table(
         raise ValueError("selector representative_anchor_table does not cover clusters")
 
 
+def _select_phase_b_representatives_for_artifact_status(
+    table: dict[str, Any],
+    *,
+    seed: int,
+    out_dir: Path,
+) -> dict[str, Any]:
+    if table.get("artifact_status") == "formal":
+        return select_phase_b_representatives(
+            table,
+            seed=seed,
+            allow_debug=False,
+            gate5_artifact_root=out_dir,
+        )
+    return select_phase_b_representatives(table, seed=seed, allow_debug=True)
+
+
 def _selector_assignments(selector_artifacts: dict[str, Any]) -> list[dict[str, Any]]:
     if "kmeans_cluster_assignment_table" in selector_artifacts:
         return selector_artifacts["kmeans_cluster_assignment_table"].get("assignments", [])
@@ -432,7 +641,7 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     }
 
     try:
-        embedding_table, training_report = run_embedding_export(tensors, out_dir, seed=seed)
+        embedding_table, training_report, readout_bundle = run_embedding_export(tensors, out_dir, seed=seed)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
@@ -447,22 +656,6 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
         )
 
     try:
-        selector_artifacts = select_phase_b_representatives(
-            embedding_table, seed=seed, allow_debug=True
-        )
-    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
-        if not _is_resource_limit_error(exc):
-            raise
-        return _write_resource_blocked_pipeline_manifest(
-            out_dir,
-            seed,
-            base_hashes,
-            graphs,
-            graph_size_audits,
-            "selector",
-            exc,
-        )
-    try:
         readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
@@ -476,10 +669,34 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
             "readout",
             exc,
         )
+    _persist_gate5_artifacts(
+        out_dir,
+        embedding_table,
+        tensors,
+        training_report,
+        readout_bundle,
+        augmentation_bundle,
+        seed,
+    )
+    try:
+        selector_artifacts = _select_phase_b_representatives_for_artifact_status(
+            embedding_table, seed=seed, out_dir=out_dir
+        )
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        return _write_resource_blocked_pipeline_manifest(
+            out_dir,
+            seed,
+            base_hashes,
+            graphs,
+            graph_size_audits,
+            "selector",
+            exc,
+        )
     resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
-    write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], embedding_table)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], resource_status)
@@ -640,7 +857,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     for audit, graph in zip(graph_size_audits, graphs):
         validate_graph_size_audit(audit, graph)
     try:
-        table, training_report = run_embedding_export(tensors, out_dir, seed=resolved_seed)
+        table, training_report, readout_bundle = run_embedding_export(tensors, out_dir, seed=resolved_seed)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
@@ -650,22 +867,6 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
             graphs,
             graph_size_audits,
             "training",
-            exc,
-        )
-        raise
-    try:
-        selector_artifacts = select_phase_b_representatives(
-            table, seed=resolved_seed, allow_debug=True
-        )
-    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
-        if not _is_resource_limit_error(exc):
-            raise
-        _mark_embedding_stage_resource_blocked(
-            out_dir,
-            augmentation_bundle,
-            graphs,
-            graph_size_audits,
-            "selector",
             exc,
         )
         raise
@@ -683,10 +884,34 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
             exc,
         )
         raise
+    _persist_gate5_artifacts(
+        out_dir,
+        table,
+        tensors,
+        training_report,
+        readout_bundle,
+        augmentation_bundle,
+        resolved_seed,
+    )
+    try:
+        selector_artifacts = _select_phase_b_representatives_for_artifact_status(
+            table, seed=resolved_seed, out_dir=out_dir
+        )
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        _mark_embedding_stage_resource_blocked(
+            out_dir,
+            augmentation_bundle,
+            graphs,
+            graph_size_audits,
+            "selector",
+            exc,
+        )
+        raise
     resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
     write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
-    write_json(out_dir / ARTIFACT_FILENAMES["readout_manifest"], readout_bundle)
     write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
     write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
@@ -721,10 +946,9 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
-    allow_debug = table.get("artifact_status") != "formal"
-    if not allow_debug:
-        _validate_formal_selector_repair_gate5_inputs(out_dir, table)
-    artifacts = select_phase_b_representatives(table, seed=resolved_seed, allow_debug=True)
+    artifacts = _select_phase_b_representatives_for_artifact_status(
+        table, seed=resolved_seed, out_dir=out_dir
+    )
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
@@ -734,36 +958,6 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
         },
     )
     return artifacts
-
-
-def _validate_formal_selector_repair_gate5_inputs(
-    out_dir: Path,
-    table: dict[str, Any],
-) -> None:
-    validate_phase_b_embedding_table(table)
-    checkpoint_manifest = read_json(
-        require_pipeline_artifact(
-            out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
-        )
-    )
-    checkpoint_path = require_pipeline_artifact(out_dir / CHECKPOINT_FILENAME, "RGCN checkpoint")
-    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
-    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
-        raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
-    expected_encoder_hash = hash_without(
-        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
-    )
-    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
-        raise ValueError("encoder_manifest_hash is not reproducible")
-    if table.get("checkpoint_hash") != checkpoint_manifest.get("checkpoint_hash"):
-        raise ValueError("Gate5 checkpoint mismatch")
-    if table.get("encoder_manifest_hash") != checkpoint_manifest.get("encoder_manifest_hash"):
-        raise ValueError("Gate5 encoder manifest mismatch")
-    lineage = table.get("gate5_lineage", {})
-    if lineage.get("checkpoint_hash") != checkpoint_manifest.get("checkpoint_hash"):
-        raise ValueError("Gate5 lineage checkpoint mismatch")
-    if lineage.get("encoder_manifest_hash") != checkpoint_manifest.get("encoder_manifest_hash"):
-        raise ValueError("Gate5 lineage encoder manifest mismatch")
 
 
 def run_graph_construction_stage_from_disk(out_dir: Path) -> list[dict[str, Any]]:

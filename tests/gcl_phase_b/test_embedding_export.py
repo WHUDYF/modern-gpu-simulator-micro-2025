@@ -25,7 +25,7 @@ def test_phase_b_exports_m0_compatible_256_dim_embeddings(tmp_path):
     graphs = build_phase_b_graphs(records)
     tensors = tensorize_phase_b_graphs(graphs)
 
-    table, _training_report = run_embedding_export(tensors, tmp_path)
+    table, _training_report, _ = run_embedding_export(tensors, tmp_path)
 
     assert table["artifact_type"] == "gcl_resnet50_kernel_embedding_table"
     assert table["artifact_version"] == "gate5_kernel_embedding_table_v1"
@@ -57,7 +57,7 @@ def test_phase_b_embedding_export_uses_cta_aware_readout(tmp_path):
     graphs = build_phase_b_graphs(records)
     tensors = tensorize_phase_b_graphs(graphs)
 
-    table, training_report = run_embedding_export(tensors, tmp_path)
+    table, training_report, _ = run_embedding_export(tensors, tmp_path)
     regrouped_tensors = [dict(tensor) for tensor in tensors]
     regrouped_tensors[0]["warp_partition_tensors"] = {
         key: dict(value) for key, value in tensors[0]["warp_partition_tensors"].items()
@@ -81,7 +81,7 @@ def test_phase_b_export_function_returns_readout_manifest_bundle(tmp_path):
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
     graphs = build_phase_b_graphs(records)
     tensors = tensorize_phase_b_graphs(graphs)
-    _table, training_report = run_embedding_export(tensors, tmp_path)
+    _table, training_report, _ = run_embedding_export(tensors, tmp_path)
 
     table, readout_bundle = export_phase_b_embedding_table(
         tensors,
@@ -98,7 +98,7 @@ def test_phase_b_embedding_table_validator_rejects_missing_formal_top_level_fiel
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
     graphs = build_phase_b_graphs(records)
     tensors = tensorize_phase_b_graphs(graphs)
-    table, _training_report = run_embedding_export(tensors, tmp_path)
+    table, _training_report, _ = run_embedding_export(tensors, tmp_path)
 
     del table["source_graph_tensor_bundle_hash"]
 

@@ -46,7 +46,11 @@ def test_phase_b_pipeline_e2e_on_eligible_trace_batch(tmp_path):
         "augmentation_manifests.json",
         "training_report.json",
         "checkpoint_manifest.json",
+        "rgcn_training_run_manifest.json",
+        "rgcn_checkpoint_manifest.json",
         "readout_manifest.json",
+        "gate5_lineage_bundle.json",
+        "embedding_export_report.json",
         "embedding_table.json",
         "selector_artifacts.json",
         "pipeline_manifest.json",
@@ -631,15 +635,23 @@ def test_from_disk_selector_stage_preserves_formal_gate5_lineage_validation(tmp_
     write_json(manifest_path, build_representative_sm_trace_manifest())
     run_pipeline(manifest_path, out_dir, seed=42)
 
-    checkpoint_path = out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]
-    checkpoint = json.loads(checkpoint_path.read_text())
-    checkpoint["checkpoint_hash"] = "tampered-checkpoint-hash"
-    checkpoint["encoder_manifest_hash"] = hash_without(
-        checkpoint, "encoder_manifest_hash", "checkpoint_path"
-    )
-    checkpoint_path.write_text(json.dumps(checkpoint, sort_keys=True))
+    for key in {
+        "gate5_lineage_bundle",
+        "rgcn_training_run_manifest",
+        "rgcn_checkpoint_manifest",
+        "embedding_export_report",
+    }:
+        assert (out_dir / ARTIFACT_FILENAMES[key]).exists()
 
-    with pytest.raises(ValueError, match="checkpoint_hash"):
+    export_report_path = out_dir / ARTIFACT_FILENAMES["embedding_export_report"]
+    export_report = json.loads(export_report_path.read_text())
+    export_report["source_graph_tensor_bundle_hash"] = "tampered-source-bundle"
+    export_report["embedding_export_report_hash"] = hash_without(
+        export_report, "embedding_export_report_hash"
+    )
+    export_report_path.write_text(json.dumps(export_report, sort_keys=True))
+
+    with pytest.raises(ValueError, match="persisted Gate5 manifest objects"):
         run_selector_stage_from_disk(out_dir)
 
 

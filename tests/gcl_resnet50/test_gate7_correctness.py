@@ -290,7 +290,7 @@ def test_gate7_rejects_stability_claim_from_single_run():
 
 
 def test_gate7_rejects_artifact_shape_embedding_chain_as_formal_evidence(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     selector_artifacts = select_phase_b_representatives(table, seed=11, allow_debug=True)
 
     with pytest.raises(ValueError, match="debug"):

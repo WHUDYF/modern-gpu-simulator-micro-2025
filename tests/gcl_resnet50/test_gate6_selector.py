@@ -243,7 +243,7 @@ def test_gate6_accepts_formal_table_with_persisted_gate5_artifact_root(tmp_path)
 
 
 def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
 
     with pytest.raises(ValueError, match="formal embedding table"):
         select_phase_b_representatives(table, seed=7)
@@ -264,7 +264,7 @@ def test_gate6_accepts_artifact_shape_gate5_embedding_table_only_in_debug_mode(t
 
 
 def test_gate6_preserves_debug_status_for_artifact_shape_embedding_table(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
 
     artifacts = select_phase_b_representatives(table, seed=7, allow_debug=True)
 
@@ -275,19 +275,19 @@ def test_gate6_preserves_debug_status_for_artifact_shape_embedding_table(tmp_pat
 
 
 def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["embedding_dim"] = 64
     table["embeddings"][0]["kernel_embedding"] = [0.0] * 64
 
     with pytest.raises(ValueError, match="256"):
         select_phase_b_representatives(table, allow_debug=True)
 
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["embeddings"][0]["source_view"] = "augmented"
     with pytest.raises(ValueError, match="canonical non-augmented"):
         select_phase_b_representatives(table, allow_debug=True)
 
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["artifact_status"] = "debug_not_formal"
     with pytest.raises(ValueError, match="formal"):
         select_phase_b_representatives(table)
@@ -300,7 +300,7 @@ def test_gate6_rejects_fixture_projection_or_augmented_embeddings(tmp_path):
 
 
 def test_gate6_rejects_forbidden_fields_in_clustering_path(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["clustering_input_fields"] = ["kernel_embedding", "kernel_name"]
 
     with pytest.raises(ValueError, match="forbidden clustering field"):
@@ -308,7 +308,7 @@ def test_gate6_rejects_forbidden_fields_in_clustering_path(tmp_path):
 
 
 def test_gate6_rejects_family_label_guided_clustering(tmp_path):
-    table, _training = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
+    table, _training, _ = run_embedding_export(build_artifact_shape_tensors(tmp_path), tmp_path)
     table["family_labels_used_for_clustering"] = True
 
     with pytest.raises(ValueError, match="family labels"):

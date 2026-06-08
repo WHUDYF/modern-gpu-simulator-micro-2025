@@ -41,6 +41,8 @@ def _semantic_node_type(token: str) -> str:
 
 
 def _is_memory_opcode(opcode: str) -> bool:
+    if opcode == "LDGDEPBAR":
+        return False
     return opcode.startswith(MEMORY_OPCODE_PREFIXES)
 
 
@@ -51,7 +53,7 @@ def _is_address_token(token: str) -> bool:
 def _address_register_tokens(token: str) -> list[str]:
     if token.startswith(("R", "UR")):
         return [token.split(".", 1)[0]]
-    matches = re.findall(r"\[\s*(UR|R)(\d+)(?:[.\]+-]|\s|$)", token)
+    matches = re.findall(r"(?<![A-Za-z0-9_])(UR|R)(\d+)(?:\.\d+)?", token)
     if matches:
         return [f"{prefix}{number}" for prefix, number in matches]
     return [token]

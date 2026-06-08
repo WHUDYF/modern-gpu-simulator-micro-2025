@@ -12,6 +12,7 @@ from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     run_resnet50_gate1_to_gate5,
     run_resnet50_gate1_to_gate7,
 )
+from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 from gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
 
@@ -194,6 +195,10 @@ def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
 
     assert manifest["artifact_type"] == "gcl_resnet50_gate1_7_pipeline_manifest"
     assert manifest["final_gate"] == "gate9_report_only"
+    assert manifest["run_scope"] == "bounded_resnet50_trace_replay"
+    assert manifest["invocation_limit"] == 1
+    assert manifest["invocation_ids"] is None
+    assert manifest["input_kernel_invocation_count"] == 1
     for filename in [
         "resnet50_trace_adapter_bundle.json",
         "representative_sm_trace_manifest.json",
@@ -251,6 +256,10 @@ def test_resnet50_gate1_to_gate5_entrypoint_stops_before_selector_and_reports(tm
 
     assert manifest["artifact_type"] == "gcl_resnet50_gate1_7_pipeline_manifest"
     assert manifest["final_gate"] == "gate5_embedding_exported"
+    assert manifest["run_scope"] == "bounded_resnet50_trace_replay"
+    assert manifest["invocation_limit"] == 1
+    assert manifest["invocation_ids"] is None
+    assert manifest["input_kernel_invocation_count"] == 1
     assert manifest["hashes"]["embedding_table_hash"]
     assert manifest["hashes"]["selector_manifest_hash"] is None
     assert manifest["hashes"]["gate7_correctness_manifest_hash"] is None
@@ -454,6 +463,112 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert gate9_manifest["tuning_effect_report_hash"]
     correctness = json.loads((out_dir / "gate7_cluster_correctness_manifest.json").read_text())
     assert correctness["metric_error_report"]["status"] == "reported"
+
+
+def test_resnet50_gate_pipeline_manifest_records_full_trace_scope(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    out_dir = tmp_path / "full_scope"
+    fake_adapter_bundle = {
+        "adapter_bundle_hash": "adapter-hash",
+        "kernel_invocation_table": [
+            {"kernel_invocation_id": f"d_0_s_0_k_{index}"}
+            for index in range(265)
+        ],
+    }
+
+    def fake_manifest_from_bundle(bundle):
+        assert bundle is fake_adapter_bundle
+        manifest = build_representative_sm_trace_manifest(invocation_count=2)
+        return (
+            manifest,
+            {
+                "artifact_type": "gcl_resnet50_selected_sm_policy_report_bundle",
+                "selected_sm_policy_report_bundle_hash": "policy-hash",
+                "reports": [],
+            },
+            {
+                "artifact_type": "gcl_resnet50_scope_preview_report",
+                "scope_preview_report_hash": "preview-hash",
+                "kernel_invocation_count": 2,
+                "invocations": [],
+            },
+        )
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "build_resnet50_trace_adapter_bundle",
+        lambda *args, **kwargs: fake_adapter_bundle,
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "build_representative_sm_manifest_from_bundle",
+        fake_manifest_from_bundle,
+    )
+
+    manifest = run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=None,
+        invocation_ids=None,
+    )
+
+    assert manifest["run_scope"] == "real_resnet50_full_trace"
+    assert manifest["invocation_limit"] is None
+    assert manifest["invocation_ids"] is None
+    assert manifest["input_kernel_invocation_count"] == 265
+
+
+def test_resnet50_gate_pipeline_manifest_records_full_trace_scope_at_gate5(tmp_path, monkeypatch):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    out_dir = tmp_path / "full_scope_gate5"
+    fake_adapter_bundle = {
+        "adapter_bundle_hash": "adapter-hash",
+        "kernel_invocation_table": [
+            {"kernel_invocation_id": f"d_0_s_0_k_{index}"}
+            for index in range(265)
+        ],
+    }
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "build_resnet50_trace_adapter_bundle",
+        lambda *args, **kwargs: fake_adapter_bundle,
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "build_representative_sm_manifest_from_bundle",
+        lambda bundle: (
+            build_representative_sm_trace_manifest(invocation_count=2),
+            {
+                "artifact_type": "gcl_resnet50_selected_sm_policy_report_bundle",
+                "selected_sm_policy_report_bundle_hash": "policy-hash",
+                "reports": [],
+            },
+            {
+                "artifact_type": "gcl_resnet50_scope_preview_report",
+                "scope_preview_report_hash": "preview-hash",
+                "kernel_invocation_count": 2,
+                "invocations": [],
+            },
+        ),
+    )
+
+    manifest = run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=None,
+        invocation_ids=None,
+    )
+
+    assert manifest["final_gate"] == "gate5_embedding_exported"
+    assert manifest["run_scope"] == "real_resnet50_full_trace"
+    assert manifest["invocation_limit"] is None
+    assert manifest["invocation_ids"] is None
+    assert manifest["input_kernel_invocation_count"] == 265
 
 
 def test_gate8_gate9_extension_stage_rejects_anchor_hash_mismatch_without_outputs(tmp_path):

@@ -210,6 +210,8 @@ def run_resnet50_gate1_to_gate7(
         _remove_resnet50_artifacts(out_dir, GATE6_PLUS_OUTPUT_FILENAMES)
         manifest = _gate5_pipeline_manifest(
             seed=seed,
+            invocation_limit=invocation_limit,
+            invocation_ids=invocation_ids,
             adapter_bundle=adapter_bundle,
             trace_manifest=trace_manifest,
             canonical_graph_bundle=canonical_graph_bundle,
@@ -246,6 +248,11 @@ def run_resnet50_gate1_to_gate7(
         "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
         "final_gate": final_gate,
         "seed": seed,
+        **_pipeline_run_scope_metadata(
+            adapter_bundle=adapter_bundle,
+            invocation_limit=invocation_limit,
+            invocation_ids=invocation_ids,
+        ),
         "hashes": {
             "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
             "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
@@ -277,6 +284,8 @@ def _remove_resnet50_artifacts(out_dir: Path, filenames: set[str]) -> None:
 def _gate5_pipeline_manifest(
     *,
     seed: int,
+    invocation_limit: int | None,
+    invocation_ids: list[str] | None,
     adapter_bundle: dict[str, Any],
     trace_manifest: dict[str, Any],
     canonical_graph_bundle: dict[str, Any],
@@ -287,6 +296,11 @@ def _gate5_pipeline_manifest(
         "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
         "final_gate": "gate5_embedding_exported",
         "seed": seed,
+        **_pipeline_run_scope_metadata(
+            adapter_bundle=adapter_bundle,
+            invocation_limit=invocation_limit,
+            invocation_ids=invocation_ids,
+        ),
         "hashes": {
             "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
             "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
@@ -301,6 +315,22 @@ def _gate5_pipeline_manifest(
     }
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     return manifest
+
+
+def _pipeline_run_scope_metadata(
+    *,
+    adapter_bundle: dict[str, Any],
+    invocation_limit: int | None,
+    invocation_ids: list[str] | None,
+) -> dict[str, Any]:
+    return {
+        "run_scope": "real_resnet50_full_trace"
+        if invocation_limit is None and invocation_ids is None
+        else "bounded_resnet50_trace_replay",
+        "invocation_limit": invocation_limit,
+        "invocation_ids": list(invocation_ids) if invocation_ids is not None else None,
+        "input_kernel_invocation_count": len(adapter_bundle["kernel_invocation_table"]),
+    }
 
 
 def _emit_gate8_gate9_extension_artifacts(

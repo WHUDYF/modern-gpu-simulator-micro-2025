@@ -62,6 +62,7 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
         [graph["edge_relation_schema"][edge["relation"]] for edge in graph["edges"]],
         dtype=np.int64,
     )
+    edge_offset_by_id = {edge["edge_id"]: offset for offset, edge in enumerate(graph["edges"])}
     warp_partitions = {
         partition_id: [node_index[node_id] for node_id in partition["node_ids"]]
         for partition_id, partition in graph["warp_partitions"].items()
@@ -72,11 +73,7 @@ def tensorize_phase_b_graph(graph: dict[str, Any]) -> dict[str, Any]:
             "cta_id": partition["cta_id"],
             "warp_id": partition["warp_id"],
             "node_indices": [node_index[node_id] for node_id in partition["node_ids"]],
-            "edge_indices": [
-                edge_offset
-                for edge_offset, edge in enumerate(graph["edges"])
-                if edge["edge_id"] in set(partition["edge_ids"])
-            ],
+            "edge_indices": _partition_edge_indices(partition, edge_offset_by_id),
             "instruction_count": partition["instruction_count"],
         }
         for partition_id, partition in graph["warp_partitions"].items()
@@ -152,6 +149,13 @@ def _paper_reproduction_mode(graph: dict[str, Any]) -> str:
     if mode == "no_pseudo_node":
         return FUNCTIONAL_FIRST_PAPER_MODE
     raise ValueError("unsupported paper reproduction mode")
+
+
+def _partition_edge_indices(
+    partition: dict[str, Any],
+    edge_offset_by_id: dict[str, int],
+) -> list[int]:
+    return [edge_offset_by_id[edge_id] for edge_id in partition["edge_ids"]]
 
 
 def _serializable_tensor(tensor: dict[str, Any]) -> dict[str, Any]:

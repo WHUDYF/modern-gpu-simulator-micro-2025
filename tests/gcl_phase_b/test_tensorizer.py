@@ -4,6 +4,7 @@ from experiments.gcl_phase_a.tensorizer import NODE_FEATURE_SCHEMA_NAME, PAPER_R
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.tensorizer import (
     FUNCTIONAL_FIRST_PAPER_MODE,
+    _partition_edge_indices,
     _tensor_hash,
     tensorize_phase_b_graphs,
     validate_phase_b_tensor_artifact,
@@ -89,6 +90,17 @@ def test_tensor_bundle_contains_warp_partition_tensors():
     for partition in tensor["warp_partition_tensors"].values():
         assert partition["node_indices"]
         assert all(0 <= index < tensor["node_features"].shape[0] for index in partition["node_indices"])
+
+
+def test_partition_edge_indices_use_precomputed_edge_lookup():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    graph = build_phase_b_graphs(records)[0]
+    edge_offset_by_id = {edge["edge_id"]: offset for offset, edge in enumerate(graph["edges"])}
+
+    partition = graph["warp_partitions"]["1:0"]
+    edge_indices = _partition_edge_indices(partition, edge_offset_by_id)
+
+    assert edge_indices == [edge_offset_by_id[edge_id] for edge_id in partition["edge_ids"]]
 
 
 def test_phase_b_tensor_validator_rejects_bad_partition_index():

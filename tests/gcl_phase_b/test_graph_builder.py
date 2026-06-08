@@ -125,6 +125,76 @@ def test_graph_builder_captures_all_compound_memory_address_registers():
     assert address_source_tokens == {"UR10.v0.w0", "R4.v0.w0"}
 
 
+def test_graph_builder_captures_real_resnet50_memory_address_expressions():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    warp = record["warps"][0]
+    warp["entries"] = [
+        {
+            **warp["entries"][0],
+            "opcode": "LDS.64",
+            "source_operands": ["[R48+UR4+0x120]"],
+            "destination_operands": ["R8"],
+            "trace_index": 0,
+        },
+        {
+            **warp["entries"][1],
+            "opcode": "STG.E",
+            "source_operands": ["[R12.64+UR6]", "R15"],
+            "destination_operands": [],
+            "trace_index": 1,
+        },
+    ]
+    record["warps"] = [warp]
+
+    graph = build_phase_b_graphs([record])[0]
+    data_source_edges = {
+        (edge["source"], edge["target"])
+        for edge in graph["edges"]
+        if edge["relation"] == "data_source"
+    }
+    address_sources_by_trace_index = {
+        node["trace_index"]: {
+            source_node["token"]
+            for source_node in graph["nodes"]
+            if source_node["node_type"] == "register_version"
+            and (
+                source_node["node_id"],
+                f"p:wp{node['warp_partition_id']}:mem_ref:t{node['trace_index']}",
+            )
+            in data_source_edges
+        }
+        for node in graph["nodes"]
+        if node["node_type"] == "instruction" and node["opcode"] in {"LDS.64", "STG.E"}
+    }
+
+    assert address_sources_by_trace_index[0] == {"R48.v0.w0", "UR4.v0.w0"}
+    assert address_sources_by_trace_index[1] == {"R12.v0.w0", "UR6.v0.w0"}
+
+
+def test_graph_builder_does_not_treat_ldgdepbar_as_memory_instruction():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    warp = record["warps"][0]
+    warp["entries"] = [
+        {
+            **warp["entries"][0],
+            "opcode": "LDGDEPBAR",
+            "source_operands": [],
+            "destination_operands": [],
+            "trace_index": 0,
+        }
+    ]
+    record["warps"] = [warp]
+
+    graph = build_phase_b_graphs([record])[0]
+    instruction = next(node for node in graph["nodes"] if node["node_type"] == "instruction")
+
+    assert instruction["opcode"] == "LDGDEPBAR"
+    assert "address_source_node_id" not in instruction
+    assert graph["graph_summary"]["pseudo_node_count"] == 0
+
+
 def test_graph_builder_creates_mem_ref_nodes_for_resnet50_memory_opcode_families():
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
     record = copy.deepcopy(records[0])

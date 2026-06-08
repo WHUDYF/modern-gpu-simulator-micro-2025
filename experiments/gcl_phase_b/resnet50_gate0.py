@@ -30,6 +30,7 @@ FORMAL_SOURCE_ARTIFACTS = {
     "scheduler_metadata.json": "file",
     "stats.csv": "file",
 }
+_ACTIVE_COLLECTOR_SESSION_IDS: set[str] = set()
 
 
 @dataclass(frozen=True)
@@ -68,21 +69,37 @@ def acquire_resnet50_gate0_trace(
     session = _write_collector_session(output_root, config)
     env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
     run = runner or _subprocess_runner
-    result = run(
-        list(config.workload_command),
-        cwd=Path(config.working_directory) if config.working_directory else None,
-        env=env,
-    )
-    returncode = _runner_returncode(result)
-    if returncode != 0:
-        raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
-    _write_nvbit_collection_evidence(output_root, result)
-    _write_collector_attestation(output_root, session, result)
-    return record_resnet50_gate0_trace_acquisition(output_root)
+    _ACTIVE_COLLECTOR_SESSION_IDS.add(session["collector_session_id"])
+    try:
+        result = run(
+            list(config.workload_command),
+            cwd=Path(config.working_directory) if config.working_directory else None,
+            env=env,
+        )
+        returncode = _runner_returncode(result)
+        if returncode != 0:
+            raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
+        _write_nvbit_collection_evidence(output_root, result)
+        _write_collector_attestation(output_root, session, result)
+        return record_resnet50_gate0_trace_acquisition(
+            output_root,
+            active_collector_session_id=session["collector_session_id"],
+        )
+    finally:
+        _ACTIVE_COLLECTOR_SESSION_IDS.discard(session["collector_session_id"])
 
 
-def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
+def record_resnet50_gate0_trace_acquisition(
+    root: Path,
+    *,
+    active_collector_session_id: str | None = None,
+) -> dict[str, Any]:
     """Record a formal Gate 0 manifest for an already collected NVBit trace root."""
+
+    if not active_collector_session_id:
+        raise ValueError("active collector session is required for formal Gate0 recording")
+    if active_collector_session_id not in _ACTIVE_COLLECTOR_SESSION_IDS:
+        raise ValueError("active collector session is required for formal Gate0 recording")
 
     root = Path(root)
     evidence = _load_nvbit_collection_evidence(root)
@@ -93,7 +110,12 @@ def record_resnet50_gate0_trace_acquisition(root: Path) -> dict[str, Any]:
     _reject_fixture_backed_root(root)
     _reject_synthetic_artifact_shape_root(root, evidence, scheduler_metadata)
     source_hashes = _source_artifact_hashes(root)
-    _validate_collector_attestation(root, evidence, source_hashes)
+    _validate_collector_attestation(
+        root,
+        evidence,
+        source_hashes,
+        active_collector_session_id=active_collector_session_id,
+    )
     manifest = {
         "artifact_type": GATE0_ARTIFACT_TYPE,
         "artifact_version": GATE0_ARTIFACT_VERSION,
@@ -214,6 +236,8 @@ def _validate_collector_attestation(
     root: Path,
     evidence: dict[str, Any],
     source_hashes: dict[str, str],
+    *,
+    active_collector_session_id: str,
 ) -> None:
     evidence_attestation_hash = evidence.get("collector_attestation_hash")
     if not evidence_attestation_hash:
@@ -229,6 +253,8 @@ def _validate_collector_attestation(
     session_id = attestation.get("collector_session_id")
     if not session_id:
         raise ValueError("collector-produced attestation requires collector_session_id")
+    if session_id != active_collector_session_id:
+        raise ValueError("collector attestation is not bound to the active collector session")
     session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
     if not session_path.is_file():
         raise ValueError("collector-produced session artifact is required for formal Gate0")

@@ -17,6 +17,19 @@ from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_ro
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
 
 
+def _record_with_test_active_session(root, session_id="test-session"):
+    from experiments.gcl_phase_b import resnet50_gate0
+
+    resnet50_gate0._ACTIVE_COLLECTOR_SESSION_IDS.add(session_id)
+    try:
+        return record_resnet50_gate0_trace_acquisition(
+            root,
+            active_collector_session_id=session_id,
+        )
+    finally:
+        resnet50_gate0._ACTIVE_COLLECTOR_SESSION_IDS.discard(session_id)
+
+
 def _fixture_backed_root(tmp_path):
     root = tmp_path / "fixture_backed"
     shutil.copytree(FIXTURE_ROOT, root)
@@ -72,7 +85,7 @@ def test_gate0_rejects_fixture_backed_placeholder_root(tmp_path):
     )
 
     with pytest.raises(ValueError, match="fixture-backed"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_rejects_missing_real_smid_metadata(tmp_path):
@@ -99,7 +112,7 @@ def test_gate0_rejects_missing_real_smid_metadata(tmp_path):
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_path):
@@ -402,7 +415,7 @@ def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tm
     assert manifest["formal_input_eligible"] is True
 
 
-def test_gate0_recording_accepts_persisted_acquisition_artifacts_after_restart(tmp_path):
+def test_gate0_recording_rejects_offline_self_authenticated_acquisition_artifacts(tmp_path):
     root = tmp_path / "formal_trace_restart"
 
     def runner(command, *, cwd, env):
@@ -473,12 +486,11 @@ def test_gate0_recording_accepts_persisted_acquisition_artifacts_after_restart(t
         working_directory=tmp_path,
     )
 
-    first_manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    acquire_resnet50_gate0_trace(config, runner=runner)
     (root / "gate0_trace_acquisition_manifest.json").unlink()
 
-    replay_manifest = record_resnet50_gate0_trace_acquisition(root)
-
-    assert replay_manifest["gate0_manifest_hash"] == first_manifest["gate0_manifest_hash"]
+    with pytest.raises(ValueError, match="active collector session"):
+        record_resnet50_gate0_trace_acquisition(root)
 
 
 def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp_path):
@@ -488,7 +500,7 @@ def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp
     )
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(tmp_path):
@@ -502,7 +514,7 @@ def test_gate0_rejects_handwritten_evidence_hash_without_persisted_attestation(t
     write_json(evidence_path, evidence)
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_rejects_handwritten_matching_attestation_on_synthetic_root(tmp_path):
@@ -532,7 +544,7 @@ def test_gate0_rejects_handwritten_matching_attestation_on_synthetic_root(tmp_pa
     write_json(evidence_path, evidence)
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_rejects_handwritten_session_attestation_triplet_on_synthetic_root(tmp_path):
@@ -583,7 +595,7 @@ def test_gate0_rejects_handwritten_session_attestation_triplet_on_synthetic_root
     write_json(evidence_path, evidence)
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_rejects_marker_rewritten_synthetic_root(tmp_path):
@@ -603,7 +615,7 @@ def test_gate0_rejects_marker_rewritten_synthetic_root(tmp_path):
     write_json(evidence_path, evidence)
 
     with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root)
 
 
 def test_gate0_acquisition_rejects_marker_rewritten_artifact_shape_runner_output(tmp_path):
@@ -741,7 +753,7 @@ def test_gate0_rejects_self_authenticated_real_shaped_root_without_runner_sessio
     write_json(root / "nvbit_collection_evidence.json", evidence)
 
     with pytest.raises(ValueError, match="runner session environment"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root, session["collector_session_id"])
 
 
 def test_gate0_rejects_self_authenticated_triplet_with_forged_session_hash(
@@ -843,7 +855,7 @@ def test_gate0_rejects_self_authenticated_triplet_with_forged_session_hash(
     write_json(root / "nvbit_collection_evidence.json", evidence)
 
     with pytest.raises(ValueError, match="collector session hash"):
-        record_resnet50_gate0_trace_acquisition(root)
+        _record_with_test_active_session(root, session["collector_session_id"])
 
 
 def test_gate0_acquisition_runner_rejects_synthetic_trace_before_attestation(tmp_path):

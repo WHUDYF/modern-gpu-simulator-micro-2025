@@ -84,7 +84,16 @@ def test_resnet50_gate_pipeline_rejects_synthetic_artifact_shape_as_formal_root(
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
 
     try:
-        record_resnet50_gate0_trace_acquisition(root)
+        from experiments.gcl_phase_b import resnet50_gate0
+
+        resnet50_gate0._ACTIVE_COLLECTOR_SESSION_IDS.add("test-session")
+        try:
+            record_resnet50_gate0_trace_acquisition(
+                root,
+                active_collector_session_id="test-session",
+            )
+        finally:
+            resnet50_gate0._ACTIVE_COLLECTOR_SESSION_IDS.discard("test-session")
     except ValueError as exc:
         assert "real NVBit runtime artifact origin" in str(exc)
     else:

@@ -20,11 +20,36 @@ def test_minimal_training_smoke(tmp_path):
     assert report["optimizer_step_count"] == 1
     assert report["kernel_embedding_shape"] == [12, 256]
     assert report["projection_output_shape"] == [12, 64]
+    assert report["encoder_batch_size"] > 0
     assert report["checkpoint_manifest"]["model_config"]["input_dim"] == 64
     assert report["checkpoint_manifest"]["model_config"]["hidden_dim"] == 128
     assert report["checkpoint_manifest"]["model_config"]["kernel_embedding_dim"] == 256
     assert report["checkpoint_manifest"]["model_config"]["projection_output_dim"] == 64
     assert (tmp_path / "rgcn_checkpoint.pt").exists()
+
+
+def test_minimal_training_accepts_explicit_encoder_batch_size(tmp_path):
+    report = train_minimal_contrastive(_tensors(), tmp_path, encoder_batch_size=3)
+
+    assert report["encoder_batch_size"] == 3
+    assert report["kernel_embedding_shape"] == [12, 256]
+    assert report["projection_output_shape"] == [12, 64]
+    assert report["checkpoint_manifest"]["encoder_batch_size"] == 3
+
+
+def test_partitioned_encoder_returns_kernel_embedding_without_whole_graph_forward():
+    from experiments.gcl_phase_a.rgcn import MinimalRGCNEncoder, require_torch
+
+    torch = require_torch()
+    tensor = _tensors()[0]
+    encoder = MinimalRGCNEncoder()
+    encoder.eval()
+
+    with torch.no_grad():
+        partitioned = encoder.encode_kernel_partitioned(tensor)
+
+    assert list(partitioned.shape) == [256]
+    assert torch.isfinite(partitioned).all()
 
 
 def test_encoder_manifest_hash_changes_when_checkpoint_payload_changes(monkeypatch, tmp_path):

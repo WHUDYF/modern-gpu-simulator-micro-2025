@@ -4,18 +4,62 @@ import sys
 
 import pytest
 
+from experiments.gcl_phase_b.resnet50_gate0 import GATE0_ARTIFACT_TYPE, GATE0_ARTIFACT_VERSION
+from experiments.gcl_phase_b.utils import hash_without
 from scripts import run_resnet50_full_trace_gcl
 
 
-def _write_gate0_manifest(root, *, artifact_status="formal", eligible=True, scope="full_resnet50_inference_trace"):
+def _write_gate0_manifest(
+    root,
+    *,
+    artifact_status="formal",
+    eligible=True,
+    scope="full_resnet50_inference_trace",
+    bad_hash=False,
+):
     root.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "artifact_type": GATE0_ARTIFACT_TYPE,
+        "artifact_version": GATE0_ARTIFACT_VERSION,
+        "artifact_status": artifact_status,
+        "formal_input_eligible": eligible,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": scope,
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "nvbit_collection_evidence_hash": "evidence-hash",
+        "source_artifact_hashes": {
+            "dynamic_trace.pb": "dynamic",
+            "threadblocks/": "threadblocks",
+            "enhanced_execution_info.json": "enhanced",
+            "scheduler_metadata.json": "scheduler",
+            "stats.csv": "stats",
+        },
+    }
+    manifest["gate0_manifest_hash"] = (
+        "bad-hash" if bad_hash else hash_without(manifest, "gate0_manifest_hash")
+    )
     (root / "gate0_trace_acquisition_manifest.json").write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
+    (root / "scheduler_metadata.json").write_text(
         json.dumps(
             {
-                "artifact_status": artifact_status,
-                "formal_input_eligible": eligible,
-                "input_scope": scope,
-                "gate0_manifest_hash": "gate0-hash",
+                "artifact_type": "gcl_real_trace_scheduler_metadata",
+                "artifact_version": "resnet50_scheduler_metadata_v1",
+                "scheduler_metadata_source": "real_nvbit_smid",
+                "kernel_invocations": [
+                    {
+                        "kernel_invocation_id": "d_0_s_0_k_1",
+                        "cta_records": [{"cta_id": "cta_0"}, {"cta_id": "cta_1"}],
+                    },
+                    {
+                        "kernel_invocation_id": "d_0_s_0_k_2",
+                        "cta_records": [{"cta_id": "cta_2"}],
+                    },
+                ],
             }
         ),
         encoding="utf-8",
@@ -70,6 +114,47 @@ def _fake_success_pipeline(calls):
     return fake_pipeline
 
 
+def _fake_success_resume(calls):
+    def fake_resume(out_dir, seed, baseline_artifacts_path=None):
+        calls["resume_out_dir"] = out_dir
+        calls["resume_seed"] = seed
+        calls["resume_baseline_artifacts_path"] = baseline_artifacts_path
+        (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+            json.dumps({"adapter_validation_report": {"status": "passed"}}),
+            encoding="utf-8",
+        )
+        (out_dir / "kernel_embedding_table.json").write_text(
+            json.dumps({"embeddings": [1, 2]}),
+            encoding="utf-8",
+        )
+        (out_dir / "selector_artifacts.json").write_text(
+            json.dumps({"k_selection_report": {"selected_k": 2}}),
+            encoding="utf-8",
+        )
+        (out_dir / "gate7_cluster_correctness_manifest.json").write_text(
+            json.dumps({"gate7_cluster_correctness_manifest_hash": "gate7-hash"}),
+            encoding="utf-8",
+        )
+        return {
+            "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+            "final_gate": "gate9_report_only",
+            "run_scope": "real_resnet50_full_trace",
+            "invocation_limit": None,
+            "invocation_ids": None,
+            "input_kernel_invocation_count": 265,
+            "hashes": {
+                "embedding_table_hash": "embedding-hash",
+                "selector_manifest_hash": "selector-hash",
+                "gate7_correctness_manifest_hash": "gate7-hash",
+                "gate8_tuning_vector_proposal_hash": "gate8-hash",
+                "gate9_sampled_vs_full_evaluation_hash": "gate9-hash",
+            },
+            "pipeline_manifest_hash": "pipeline-hash",
+        }
+
+    return fake_resume
+
+
 def test_full_trace_runner_calls_pipeline_without_invocation_slicing(tmp_path, monkeypatch):
     calls = {}
     monkeypatch.setattr(
@@ -91,16 +176,49 @@ def test_full_trace_runner_calls_pipeline_without_invocation_slicing(tmp_path, m
     assert calls["invocation_ids"] is None
     assert result["run_scope"] == "real_resnet50_full_trace"
     assert result["formal_full_trace_run"] is True
-    assert result["source_gate0_manifest_hash"] == "gate0-hash"
+    assert result["source_gate0_manifest_hash"]
+    assert result["input_cta_record_count"] == 3
     assert result["invocation_limit"] is None
     assert result["invocation_ids"] is None
+
+
+def test_full_trace_runner_resumes_from_persisted_gate4_when_available(tmp_path, monkeypatch):
+    calls = {}
+
+    def fail_if_rebuilt(*args, **kwargs):
+        raise AssertionError("full runner should resume from persisted Gate4 artifacts")
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "run_resnet50_gate1_to_gate7", fail_if_rebuilt)
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "resume_resnet50_gate5_to_gate9_from_disk",
+        _fake_success_resume(calls),
+    )
+    root = tmp_path / "formal_root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    (out_dir / "graph_tensor_bundle.json").parent.mkdir(parents=True)
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    assert calls["resume_out_dir"] == out_dir
+    assert calls["resume_seed"] == 20260608
+    assert calls["resume_baseline_artifacts_path"] is None
+    assert result["formal_full_trace_run"] is True
+    assert result["input_kernel_invocation_count"] == 265
 
 
 def test_full_trace_runner_rejects_non_full_gate0_scope(tmp_path):
     root = tmp_path / "root"
     _write_gate0_manifest(root, scope="bounded_invocation_slice")
 
-    with pytest.raises(ValueError, match="full ResNet50"):
+    with pytest.raises(ValueError, match="input_scope"):
         run_resnet50_full_trace_gcl.run_full_trace_reproduction(
             input_root=root,
             out_dir=tmp_path / "out",
@@ -113,13 +231,34 @@ def test_full_trace_runner_rejects_debug_gate0_manifest(tmp_path):
     root = tmp_path / "root"
     _write_gate0_manifest(root, artifact_status="debug_not_formal", eligible=False)
 
-    with pytest.raises(ValueError, match="not formal"):
+    with pytest.raises(ValueError, match="must be formal"):
         run_resnet50_full_trace_gcl.run_full_trace_reproduction(
             input_root=root,
             out_dir=tmp_path / "out",
             seed=20260608,
             baseline_artifacts=None,
         )
+
+
+def test_full_trace_runner_rejects_malformed_gate0_manifest_hash(tmp_path, monkeypatch):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "root"
+    _write_gate0_manifest(root, bad_hash=True)
+
+    with pytest.raises(ValueError, match="gate0_manifest_hash"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=tmp_path / "out",
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    assert calls == {}
 
 
 def test_full_trace_runner_cli_writes_manifest(tmp_path, monkeypatch, capsys):
@@ -149,6 +288,7 @@ def test_full_trace_runner_cli_writes_manifest(tmp_path, monkeypatch, capsys):
     )
     assert manifest["formal_full_trace_run"] is True
     assert manifest["artifact_presence"]["kernel_embedding_table.json"] is True
+    assert manifest["input_cta_record_count"] == 3
     assert "real_resnet50_full_trace" in capsys.readouterr().out
 
 
@@ -175,6 +315,59 @@ def test_full_trace_runner_writes_blocker_report_on_resource_failure(tmp_path, m
     assert blocker["run_scope"] == "real_resnet50_full_trace"
     assert blocker["formal_full_trace_run"] is False
     assert blocker["blocker_reason"] == "RuntimeError"
+    assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+
+
+@pytest.mark.parametrize(
+    "bounded_report",
+    [
+        {"formal_replay_invocation_limit": 1},
+        {"formal_replay_invocation_ids": ["d_0_s_0_k_1"]},
+    ],
+)
+def test_full_trace_runner_rejects_bounded_adapter_bundle(
+    tmp_path,
+    monkeypatch,
+    bounded_report,
+):
+    def fake_pipeline(
+        root,
+        out_dir,
+        seed,
+        baseline_artifacts_path=None,
+        invocation_limit=None,
+        invocation_ids=None,
+    ):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+            json.dumps({"adapter_validation_report": {"status": "passed", **bounded_report}}),
+            encoding="utf-8",
+        )
+        return {
+            "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+            "final_gate": "gate9_report_only",
+            "input_kernel_invocation_count": 265,
+            "hashes": {},
+            "pipeline_manifest_hash": "pipeline-hash",
+        }
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "run_resnet50_gate1_to_gate7", fake_pipeline)
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+
+    with pytest.raises(ValueError, match="bounded replay adapter"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    blocker = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").read_text()
+    )
+    assert blocker["blocker_reason"] == "ValueError"
     assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
 
 

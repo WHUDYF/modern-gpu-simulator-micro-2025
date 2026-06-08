@@ -5,14 +5,18 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
     record_resnet50_gate0_trace_acquisition,
     write_resnet50_gate0_blocker_report,
 )
+from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.utils import hash_without, write_json
 from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     GATE1_7_PIPELINE_MANIFEST_FILENAME,
     _emit_gate8_gate9_extension_artifacts,
+    resume_resnet50_gate5_to_gate9_from_disk,
     run_resnet50_gate1_to_gate5,
     run_resnet50_gate1_to_gate7,
 )
 from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
+from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 from gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
 
@@ -322,6 +326,155 @@ def test_resnet50_gate1_to_gate5_rerun_removes_stale_gate6_gate9_artifacts(tmp_p
     assert (out_dir / "kernel_embedding_table.json").exists()
     for filename in stale_outputs:
         assert not (out_dir / filename).exists()
+
+
+def test_resnet50_gate_pipeline_resumes_gate5_to_gate9_from_persisted_gate4(tmp_path):
+    out_dir = tmp_path / "resume_from_gate4"
+    gate5_manifest = run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    assert gate5_manifest["final_gate"] == "gate5_embedding_exported"
+    assert (out_dir / "graph_tensor_bundle.json").exists()
+
+    manifest = resume_resnet50_gate5_to_gate9_from_disk(
+        out_dir,
+        seed=20260607,
+    )
+
+    assert manifest["final_gate"] == "gate9_report_only"
+    assert manifest["resumed_from_persisted_gate4"] is True
+    assert manifest["run_scope"] == "bounded_resnet50_trace_replay"
+    assert manifest["invocation_limit"] == 1
+    assert manifest["invocation_ids"] is None
+    assert (out_dir / "kernel_embedding_table.json").exists()
+    assert (out_dir / "selector_artifacts.json").exists()
+    assert (out_dir / "gate7_cluster_correctness_manifest.json").exists()
+    stored = json.loads((out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).read_text())
+    assert stored["pipeline_manifest_hash"] == manifest["pipeline_manifest_hash"]
+
+
+def test_resnet50_gate_pipeline_resume_preserves_adapter_scope_when_previous_manifest_missing(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    out_dir = tmp_path / "resume_missing_manifest"
+    run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    (out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).unlink()
+
+    def fake_training_and_export(*, tensors, graph_tensor_bundle, augmentation_bundle, out_dir, seed):
+        return {
+            "kernel_embedding_table_hash": "embedding-hash",
+            "embeddings": [
+                {
+                    "record_id": "gcl_embedding:0000",
+                    "kernel_invocation_id": tensors[0]["kernel_invocation_id"],
+                    "kernel_embedding": [0.0] * 256,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "_run_gate5_training_and_export",
+        fake_training_and_export,
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "select_phase_b_representatives",
+        lambda *args, **kwargs: {
+            "selector_manifest_hash": "selector-hash",
+            "representative_anchor_table": {
+                "artifact_type": "gcl_resnet50_representative_anchor_table",
+                "anchors": [],
+            },
+        },
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "evaluate_gate7_correctness_from_artifacts",
+        lambda **kwargs: {
+            "gate7_cluster_correctness_manifest_hash": "gate7-hash",
+            "source_representative_anchor_table_hash": "anchor-hash",
+            "gate7_report_artifacts": {
+                key: {"report_hash": f"{key}-hash"}
+                for key in pipeline_module.GATE7_REPORT_FILENAMES
+            },
+        },
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "_emit_gate8_gate9_extension_artifacts",
+        lambda **kwargs: (
+            {"gate8_tuning_vector_proposal_hash": "gate8-hash"},
+            {"gate9_sampled_vs_full_evaluation_hash": "gate9-hash"},
+            "gate9_report_only",
+        ),
+    )
+
+    manifest = resume_resnet50_gate5_to_gate9_from_disk(out_dir, seed=20260607)
+
+    assert manifest["resumed_from_persisted_gate4"] is True
+    assert manifest["run_scope"] == "bounded_resnet50_trace_replay"
+    assert manifest["invocation_limit"] == 1
+    assert manifest["invocation_ids"] is None
+
+
+def test_resnet50_gate5_trains_on_bounded_subset_but_exports_all_embeddings(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+    from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+
+    original_train = pipeline_module.train_minimal_contrastive
+    captured = {}
+
+    def spy_train(tensors, out_dir, seed=20260602, **kwargs):
+        captured["training_count"] = len(tensors)
+        captured["kwargs"] = kwargs
+        return original_train(tensors, out_dir, seed=seed, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs) * 5
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=20260607,
+    )
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    training_manifest = json.loads((tmp_path / "rgcn_training_run_manifest.json").read_text())
+    assert len(embedding_table["embeddings"]) == len(tensors)
+    assert captured["training_count"] < len(tensors)
+    assert training_manifest["train_graph_count"] == captured["training_count"]
+    assert training_manifest["export_graph_count"] == len(tensors)
+    assert training_manifest["training_subset_policy"] == "deterministic_prefix_for_full_trace_scalability"
 
 
 def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_path):

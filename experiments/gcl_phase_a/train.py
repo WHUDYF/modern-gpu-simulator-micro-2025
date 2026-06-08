@@ -104,9 +104,29 @@ def _augment_with_retry(tensor: dict[str, Any], seed: int, max_retries: int = 3)
     raise ValueError(f"augmentation produced empty warp partition after {retry_count} retries")
 
 
-def _encode_batch(encoder, tensors: list[dict[str, Any]]):
-    embeddings = [encoder.encode_kernel(tensor) for tensor in tensors]
-    return require_torch().stack(embeddings, dim=0)
+def _encode_tensor(encoder, tensor: dict[str, Any], partitioned_encoding: bool):
+    if partitioned_encoding and hasattr(encoder, "encode_kernel_partitioned"):
+        return encoder.encode_kernel_partitioned(tensor)
+    return encoder.encode_kernel(tensor)
+
+
+def _encode_batch(
+    encoder,
+    tensors: list[dict[str, Any]],
+    encoder_batch_size: int,
+    partitioned_encoding: bool,
+):
+    torch = require_torch()
+    encoded_chunks = []
+    for start in range(0, len(tensors), encoder_batch_size):
+        chunk = tensors[start : start + encoder_batch_size]
+        encoded_chunks.append(
+            torch.stack(
+                [_encode_tensor(encoder, tensor, partitioned_encoding) for tensor in chunk],
+                dim=0,
+            )
+        )
+    return torch.cat(encoded_chunks, dim=0)
 
 
 def info_nce_loss(projections_a, projections_b, temperature: float = 0.2):
@@ -124,9 +144,13 @@ def train_minimal_contrastive(
     tensors: list[dict[str, Any]],
     out_dir: Path,
     seed: int = 20260602,
+    encoder_batch_size: int = 16,
+    partitioned_encoding: bool = True,
 ) -> dict[str, Any]:
     torch = require_torch()
     validate_training_inputs(tensors)
+    if encoder_batch_size <= 0:
+        raise ValueError("encoder_batch_size must be positive")
     torch.manual_seed(seed)
     np.random.seed(seed)
     encoder = MinimalRGCNEncoder()
@@ -146,8 +170,8 @@ def train_minimal_contrastive(
 
     encoder.train()
     projection_head.train()
-    embeddings_a = _encode_batch(encoder, views_a)
-    embeddings_b = _encode_batch(encoder, views_b)
+    embeddings_a = _encode_batch(encoder, views_a, encoder_batch_size, partitioned_encoding)
+    embeddings_b = _encode_batch(encoder, views_b, encoder_batch_size, partitioned_encoding)
     projections_a = projection_head(embeddings_a)
     projections_b = projection_head(embeddings_b)
     loss = info_nce_loss(projections_a, projections_b)
@@ -163,6 +187,8 @@ def train_minimal_contrastive(
             "projection_head": projection_head.state_dict(),
             "model_config": model_config(),
             "seed": seed,
+            "encoder_batch_size": encoder_batch_size,
+            "partitioned_encoding": partitioned_encoding,
         },
         checkpoint_path,
     )
@@ -176,6 +202,8 @@ def train_minimal_contrastive(
         "seed": seed,
         "checkpoint_path": str(checkpoint_path),
         "checkpoint_hash": checkpoint_hash,
+        "encoder_batch_size": encoder_batch_size,
+        "partitioned_encoding": partitioned_encoding,
     }
     encoder_manifest["encoder_manifest_hash"] = hash_without(
         encoder_manifest, "encoder_manifest_hash", "checkpoint_path"
@@ -184,6 +212,8 @@ def train_minimal_contrastive(
         "training_mode": "minimal_rgcn_contrastive_smoke",
         "loss": float(loss.detach().cpu().item()),
         "optimizer_step_count": 1,
+        "encoder_batch_size": encoder_batch_size,
+        "partitioned_encoding": partitioned_encoding,
         "augmentation_retry_count": retry_count,
         "kernel_embedding_shape": list(embeddings_a.shape),
         "projection_output_shape": list(projections_a.shape),

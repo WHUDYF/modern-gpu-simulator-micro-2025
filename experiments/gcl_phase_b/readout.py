@@ -86,6 +86,74 @@ def build_readout_manifest(tensor: dict[str, Any], node_embeddings) -> tuple[dic
     return manifest, kernel_embedding
 
 
+def build_readout_manifest_from_kernel_embedding(
+    tensor: dict[str, Any],
+    kernel_embedding,
+) -> tuple[dict[str, Any], Any]:
+    validate_phase_b_tensor_artifact(tensor)
+    warp_rows = []
+    warp_count_by_cta: dict[str, int] = defaultdict(int)
+    embedding_dim = int(kernel_embedding.shape[0])
+    for partition_id, indices in sorted(tensor["warp_partitions"].items()):
+        if not indices:
+            raise ValueError("warp partition must not be empty")
+        partition_tensor = tensor["warp_partition_tensors"][partition_id]
+        cta_id = partition_tensor["cta_id"]
+        warp_count_by_cta[cta_id] += 1
+        warp_rows.append(
+            {
+                "partition_id": partition_id,
+                "cta_id": cta_id,
+                "warp_id": partition_tensor["warp_id"],
+                "node_count_used": len(indices),
+                "pooling_method": "mean",
+                "warp_embedding_dim": embedding_dim,
+            }
+        )
+    if not warp_rows:
+        raise ValueError("at least one warp partition is required")
+    cta_rows = [
+        {
+            "cta_id": cta_id,
+            "warp_count_used": warp_count,
+            "pooling_method": "average",
+            "cta_embedding_dim": embedding_dim,
+        }
+        for cta_id, warp_count in sorted(warp_count_by_cta.items())
+    ]
+    kernel_embedding_hash = hash_without(
+        {
+            "kernel_embedding": [
+                round(float(value), 8)
+                for value in kernel_embedding.detach().cpu().tolist()
+            ]
+        }
+    )
+    manifest = {
+        "artifact_type": "gcl_phase_b_readout_manifest",
+        "graph_id": tensor["graph_id"],
+        "kernel_invocation_id": tensor["kernel_invocation_id"],
+        "input_graph_hash": tensor["input_graph_hash"],
+        "readout_hierarchy": READOUT_HIERARCHY,
+        "warps": warp_rows,
+        "ctas": cta_rows,
+        "selected_sm": {
+            "cta_count_used": len(cta_rows),
+            "pooling_method": "average",
+            "selected_sm_embedding_dim": embedding_dim,
+        },
+        "kernel": {
+            "kernel_embedding_source": "selected_sm_embedding",
+            "pooling_method": "identity",
+            "kernel_embedding_dim": embedding_dim,
+            "kernel_embedding_hash": kernel_embedding_hash,
+        },
+    }
+    manifest["readout_manifest_hash"] = hash_without(manifest, "readout_manifest_hash")
+    validate_readout_manifest(manifest, tensor)
+    return manifest, kernel_embedding
+
+
 def validate_readout_manifest(manifest: dict[str, Any], tensor: dict[str, Any]) -> None:
     required = {
         "readout_hierarchy",

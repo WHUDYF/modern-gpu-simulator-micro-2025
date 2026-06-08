@@ -13,13 +13,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.gcl_phase_b.resnet50_gate_pipeline import run_resnet50_gate1_to_gate7
+from experiments.gcl_phase_b.resnet50_gate0 import load_gate0_trace_acquisition_manifest
+from experiments.gcl_phase_b.resnet50_gate_pipeline import (
+    resume_resnet50_gate5_to_gate9_from_disk,
+    run_resnet50_gate1_to_gate7,
+)
 from experiments.gcl_phase_b.utils import stable_hash
 
 
 FULL_TRACE_MANIFEST = "resnet50_full_trace_reproduction_manifest.json"
 FULL_TRACE_BLOCKER = "resnet50_full_trace_reproduction_blocker_report.json"
-GATE0_MANIFEST = "gate0_trace_acquisition_manifest.json"
 ADAPTER_BUNDLE = "resnet50_trace_adapter_bundle.json"
 DEFAULT_DEADLINE_SECONDS = 2400
 
@@ -33,18 +36,21 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _load_gate0_manifest(input_root: Path) -> dict[str, Any]:
-    manifest_path = input_root / GATE0_MANIFEST
-    if not manifest_path.exists():
-        raise ValueError(f"missing Gate0 formal manifest: {manifest_path}")
-    manifest = _read_json(manifest_path)
-    if manifest.get("artifact_status") != "formal":
-        raise ValueError("Gate0 manifest is not formal")
-    if manifest.get("formal_input_eligible") is not True:
-        raise ValueError("Gate0 manifest is not formal-input eligible")
-    if manifest.get("input_scope") != "full_resnet50_inference_trace":
-        raise ValueError(f"Gate0 input_scope is not full ResNet50: {manifest.get('input_scope')}")
-    return manifest
+def _input_cta_record_count(input_root: Path) -> int:
+    scheduler_path = input_root / "scheduler_metadata.json"
+    if not scheduler_path.exists():
+        raise ValueError(f"missing scheduler metadata for CTA count: {scheduler_path}")
+    scheduler_metadata = _read_json(scheduler_path)
+    invocations = scheduler_metadata.get("kernel_invocations")
+    if not isinstance(invocations, list):
+        raise ValueError("scheduler metadata requires kernel_invocations for CTA count")
+    count = 0
+    for invocation in invocations:
+        cta_records = invocation.get("cta_records")
+        if not isinstance(cta_records, list):
+            raise ValueError("scheduler metadata kernel invocation requires cta_records")
+        count += len(cta_records)
+    return count
 
 
 def _artifact_presence(out_dir: Path) -> dict[str, bool]:
@@ -112,7 +118,8 @@ def run_full_trace_reproduction(
     baseline_artifacts: Path | None,
     deadline_seconds: int | None = DEFAULT_DEADLINE_SECONDS,
 ) -> dict[str, Any]:
-    gate0_manifest = _load_gate0_manifest(input_root)
+    gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
+    input_cta_record_count = _input_cta_record_count(input_root)
     started = time.monotonic()
     previous_handler = None
     if deadline_seconds is not None:
@@ -128,14 +135,21 @@ def run_full_trace_reproduction(
         )
         signal.alarm(deadline_seconds)
     try:
-        pipeline_manifest = run_resnet50_gate1_to_gate7(
-            input_root,
-            out_dir,
-            seed=seed,
-            baseline_artifacts_path=baseline_artifacts,
-            invocation_limit=None,
-            invocation_ids=None,
-        )
+        if (out_dir / "graph_tensor_bundle.json").exists():
+            pipeline_manifest = resume_resnet50_gate5_to_gate9_from_disk(
+                out_dir,
+                seed=seed,
+                baseline_artifacts_path=baseline_artifacts,
+            )
+        else:
+            pipeline_manifest = run_resnet50_gate1_to_gate7(
+                input_root,
+                out_dir,
+                seed=seed,
+                baseline_artifacts_path=baseline_artifacts,
+                invocation_limit=None,
+                invocation_ids=None,
+            )
         _reject_bounded_adapter_bundle(out_dir)
     except Exception as exc:
         _write_blocker(
@@ -162,7 +176,7 @@ def run_full_trace_reproduction(
         "input_root": str(input_root),
         "source_gate0_manifest_hash": gate0_manifest.get("gate0_manifest_hash"),
         "input_kernel_invocation_count": pipeline_manifest.get("input_kernel_invocation_count"),
-        "input_cta_record_count": gate0_manifest.get("cta_record_count"),
+        "input_cta_record_count": input_cta_record_count,
         "invocation_limit": None,
         "invocation_ids": None,
         "baseline_artifacts_path": str(baseline_artifacts) if baseline_artifacts else None,

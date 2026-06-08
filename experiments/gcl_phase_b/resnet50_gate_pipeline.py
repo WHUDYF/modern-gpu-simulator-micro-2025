@@ -25,7 +25,7 @@ from .resnet50_gate0 import GATE0_MANIFEST_FILENAME
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .selector import select_phase_b_representatives
 from .simulator_eval import evaluate_gate9_sampled_vs_full, gate9_baseline_missing_report
-from .tensorizer import tensor_to_jsonable, tensorize_phase_b_graphs
+from .tensorizer import tensor_from_jsonable, tensor_to_jsonable, tensorize_phase_b_graphs
 from .tuning import generate_gate8_tuning_vectors
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, read_json, stable_hash, write_json
@@ -78,6 +78,7 @@ GATE6_PLUS_OUTPUT_FILENAMES = {
     "gate9_simulator_evaluation_manifest.json",
     "gate9_sampled_vs_full_evaluation.json",
 }
+GATE5_TRAINING_GRAPH_LIMIT = 4
 
 
 def run_resnet50_gate1_to_gate5(
@@ -158,54 +159,13 @@ def run_resnet50_gate1_to_gate7(
     augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=seed)
     write_json(out_dir / "augmentation_manifest.json", augmentation_bundle)
 
-    training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in tensors]
-    training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
-    embedding_table, readout_bundle = export_phase_b_embedding_table(
-        tensors,
-        training_report["encoder"],
-        training_report["checkpoint_manifest"],
-        source_graph_tensor_bundle_hash=graph_tensor_bundle["graph_tensor_bundle_hash"],
-    )
-    training_run_manifest = _training_run_manifest(
-        graph_tensor_bundle=graph_tensor_bundle,
+    embedding_table = _run_gate5_training_and_export(
         tensors=tensors,
-        training_report=training_report,
+        graph_tensor_bundle=graph_tensor_bundle,
         augmentation_bundle=augmentation_bundle,
+        out_dir=out_dir,
         seed=seed,
     )
-    checkpoint_manifest = _checkpoint_manifest(
-        training_report["checkpoint_manifest"],
-        training_run_manifest["training_run_manifest_hash"],
-    )
-    write_json(out_dir / "rgcn_training_run_manifest.json", training_run_manifest)
-    write_json(out_dir / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
-    write_json(out_dir / "readout_manifest.json", readout_bundle)
-    export_report = {
-        "artifact_type": "gcl_resnet50_embedding_export_report",
-        "artifact_version": "gate5_embedding_export_report_v1",
-        "source_graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
-        "encoder_manifest_hash": embedding_table["encoder_manifest_hash"],
-        "checkpoint_hash": embedding_table["checkpoint_hash"],
-        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
-        "failed_graphs": [],
-    }
-    export_report["embedding_export_report_hash"] = hash_without(
-        export_report, "embedding_export_report_hash"
-    )
-    _bind_embedding_table_to_persisted_gate5_manifests(
-        embedding_table,
-        training_run_manifest=training_run_manifest,
-        checkpoint_manifest=checkpoint_manifest,
-        readout_bundle=readout_bundle,
-        export_report=export_report,
-    )
-    lineage_bundle = build_gate5_lineage_bundle(
-        embedding_table["gate5_lineage"],
-        readout_bundle,
-    )
-    write_json(out_dir / "gate5_lineage_bundle.json", lineage_bundle)
-    write_json(out_dir / "kernel_embedding_table.json", embedding_table)
-    write_json(out_dir / "embedding_export_report.json", export_report)
     if stop_after_gate5:
         _remove_resnet50_artifacts(out_dir, GATE6_PLUS_OUTPUT_FILENAMES)
         manifest = _gate5_pipeline_manifest(
@@ -276,9 +236,121 @@ def run_resnet50_gate1_to_gate7(
     return manifest
 
 
+def resume_resnet50_gate5_to_gate9_from_disk(
+    out_dir: Path,
+    seed: int = 20260606,
+    baseline_artifacts_path: Path | None = None,
+) -> dict[str, Any]:
+    graph_tensor_bundle = read_json(out_dir / "graph_tensor_bundle.json")
+    tensors = [tensor_from_jsonable(tensor) for tensor in graph_tensor_bundle.get("tensors", [])]
+    if not tensors:
+        raise ValueError("persisted graph_tensor_bundle.json does not contain tensors")
+    adapter_bundle = read_json(out_dir / "resnet50_trace_adapter_bundle.json")
+    trace_manifest = read_json(out_dir / "representative_sm_trace_manifest.json")
+    canonical_graph_bundle = read_json(out_dir / "canonical_graph_bundle.json")
+    previous_manifest_path = out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME
+    previous_manifest = read_json(previous_manifest_path) if previous_manifest_path.exists() else {}
+    invocation_limit, invocation_ids = _resume_invocation_scope(
+        previous_manifest,
+        adapter_bundle,
+    )
+    if graph_tensor_bundle.get("source_canonical_graph_bundle_hash") != canonical_graph_bundle.get(
+        "canonical_graph_bundle_hash"
+    ):
+        raise ValueError("graph tensor bundle is not bound to canonical graph bundle")
+    if [tensor["input_graph_hash"] for tensor in tensors] != [
+        graph["graph_hash"] for graph in canonical_graph_bundle.get("graphs", [])
+    ]:
+        raise ValueError("persisted tensors do not match persisted canonical graphs")
+
+    augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=seed)
+    write_json(out_dir / "augmentation_manifest.json", augmentation_bundle)
+    embedding_table = _run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=out_dir,
+        seed=seed,
+    )
+
+    selector_artifacts = select_phase_b_representatives(
+        embedding_table,
+        seed=seed,
+        gate5_artifact_root=out_dir,
+    )
+    write_json(out_dir / "selector_artifacts.json", selector_artifacts)
+
+    baseline_artifacts = _load_baseline_artifacts(baseline_artifacts_path)
+    correctness_manifest = evaluate_gate7_correctness_from_artifacts(
+        selector_artifacts=selector_artifacts,
+        embedding_table=embedding_table,
+        metric_rows=baseline_artifacts.get("metric_rows") if baseline_artifacts else None,
+    )
+    for report_key, filename in GATE7_REPORT_FILENAMES.items():
+        write_json(out_dir / filename, correctness_manifest["gate7_report_artifacts"][report_key])
+    write_json(out_dir / GATE7_CLUSTER_CORRECTNESS_FILENAME, correctness_manifest)
+    gate8_proposal, gate9_report, final_gate = _emit_gate8_gate9_extension_artifacts(
+        correctness_manifest=correctness_manifest,
+        selector_artifacts=selector_artifacts,
+        baseline_artifacts=baseline_artifacts,
+        out_dir=out_dir,
+    )
+
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
+        "final_gate": final_gate,
+        "seed": seed,
+        **_pipeline_run_scope_metadata(
+            adapter_bundle=adapter_bundle,
+            invocation_limit=invocation_limit,
+            invocation_ids=invocation_ids,
+        ),
+        "resumed_from_persisted_gate4": True,
+        "hashes": {
+            "adapter_bundle_hash": adapter_bundle["adapter_bundle_hash"],
+            "trace_manifest_hash": trace_manifest["trace_manifest_hash"],
+            "canonical_graph_bundle_hash": canonical_graph_bundle["canonical_graph_bundle_hash"],
+            "graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
+            "embedding_table_hash": _embedding_table_hash(embedding_table),
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+            "gate7_correctness_manifest_hash": correctness_manifest[
+                "gate7_cluster_correctness_manifest_hash"
+            ],
+            "gate8_tuning_vector_proposal_hash": gate8_proposal[
+                "gate8_tuning_vector_proposal_hash"
+            ],
+            "gate9_sampled_vs_full_evaluation_hash": gate9_report[
+                "gate9_sampled_vs_full_evaluation_hash"
+            ],
+        },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
+    write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
+    return manifest
+
+
 def _remove_resnet50_artifacts(out_dir: Path, filenames: set[str]) -> None:
     for filename in filenames:
         (out_dir / filename).unlink(missing_ok=True)
+
+
+def _resume_invocation_scope(
+    previous_manifest: dict[str, Any],
+    adapter_bundle: dict[str, Any],
+) -> tuple[int | None, list[str] | None]:
+    if previous_manifest:
+        invocation_ids = previous_manifest.get("invocation_ids")
+        return (
+            previous_manifest.get("invocation_limit"),
+            list(invocation_ids) if invocation_ids is not None else None,
+        )
+    report = adapter_bundle.get("adapter_validation_report", {})
+    invocation_limit = report.get("formal_replay_invocation_limit")
+    invocation_ids = report.get("formal_replay_invocation_ids")
+    return (
+        invocation_limit,
+        list(invocation_ids) if invocation_ids is not None else None,
+    )
 
 
 def _gate5_pipeline_manifest(
@@ -443,6 +515,73 @@ def _load_baseline_artifacts(path: Path | None) -> dict[str, Any] | None:
     return baseline
 
 
+def _run_gate5_training_and_export(
+    *,
+    tensors: list[dict[str, Any]],
+    graph_tensor_bundle: dict[str, Any],
+    augmentation_bundle: dict[str, Any],
+    out_dir: Path,
+    seed: int,
+) -> dict[str, Any]:
+    training_source_tensors = _select_gate5_training_tensors(tensors)
+    training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in training_source_tensors]
+    training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
+    embedding_table, readout_bundle = export_phase_b_embedding_table(
+        tensors,
+        training_report["encoder"],
+        training_report["checkpoint_manifest"],
+        source_graph_tensor_bundle_hash=graph_tensor_bundle["graph_tensor_bundle_hash"],
+    )
+    training_run_manifest = _training_run_manifest(
+        graph_tensor_bundle=graph_tensor_bundle,
+        tensors=training_source_tensors,
+        training_report=training_report,
+        augmentation_bundle=augmentation_bundle,
+        seed=seed,
+        export_graph_count=len(tensors),
+    )
+    checkpoint_manifest = _checkpoint_manifest(
+        training_report["checkpoint_manifest"],
+        training_run_manifest["training_run_manifest_hash"],
+    )
+    write_json(out_dir / "rgcn_training_run_manifest.json", training_run_manifest)
+    write_json(out_dir / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
+    write_json(out_dir / "readout_manifest.json", readout_bundle)
+    export_report = {
+        "artifact_type": "gcl_resnet50_embedding_export_report",
+        "artifact_version": "gate5_embedding_export_report_v1",
+        "source_graph_tensor_bundle_hash": graph_tensor_bundle["graph_tensor_bundle_hash"],
+        "encoder_manifest_hash": embedding_table["encoder_manifest_hash"],
+        "checkpoint_hash": embedding_table["checkpoint_hash"],
+        "readout_manifest_bundle_hash": readout_bundle["readout_manifest_bundle_hash"],
+        "failed_graphs": [],
+    }
+    export_report["embedding_export_report_hash"] = hash_without(
+        export_report, "embedding_export_report_hash"
+    )
+    _bind_embedding_table_to_persisted_gate5_manifests(
+        embedding_table,
+        training_run_manifest=training_run_manifest,
+        checkpoint_manifest=checkpoint_manifest,
+        readout_bundle=readout_bundle,
+        export_report=export_report,
+    )
+    lineage_bundle = build_gate5_lineage_bundle(
+        embedding_table["gate5_lineage"],
+        readout_bundle,
+    )
+    write_json(out_dir / "gate5_lineage_bundle.json", lineage_bundle)
+    write_json(out_dir / "kernel_embedding_table.json", embedding_table)
+    write_json(out_dir / "embedding_export_report.json", export_report)
+    return embedding_table
+
+
+def _select_gate5_training_tensors(tensors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if len(tensors) <= GATE5_TRAINING_GRAPH_LIMIT:
+        return tensors
+    return tensors[:GATE5_TRAINING_GRAPH_LIMIT]
+
+
 def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in report.items() if key not in {"encoder", "projection_head"}}
 
@@ -457,6 +596,7 @@ def _training_run_manifest(
     training_report: dict[str, Any],
     augmentation_bundle: dict[str, Any],
     seed: int,
+    export_graph_count: int | None = None,
 ) -> dict[str, Any]:
     checkpoint_manifest = training_report["checkpoint_manifest"]
     representation_modes = sorted({tensor["representation_mode"] for tensor in tensors})
@@ -494,6 +634,10 @@ def _training_run_manifest(
         },
         "random_seed": seed,
         "train_graph_count": len(tensors),
+        "export_graph_count": export_graph_count if export_graph_count is not None else len(tensors),
+        "training_subset_policy": "deterministic_prefix_for_full_trace_scalability"
+        if export_graph_count is not None and export_graph_count > len(tensors)
+        else "all_graphs",
         "training_status": "formal_gate5_complete"
         if len(tensors) >= 2
         else "debug_single_graph_not_formal",

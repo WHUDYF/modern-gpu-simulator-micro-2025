@@ -9,7 +9,7 @@ import numpy as np
 from experiments.gcl_phase_a.rgcn import require_torch
 from experiments.gcl_phase_a.utils import hash_without, stable_hash
 
-from .readout import build_readout_manifest
+from .readout import build_readout_manifest, build_readout_manifest_from_kernel_embedding
 from .tensorizer import validate_phase_b_tensor_artifact
 
 REPRESENTATION_MODE = "gcl_resnet50_rgcn_selected_sm_kernel_embedding"
@@ -39,11 +39,18 @@ def export_phase_b_embedding_table(
             if "augmentation_manifest" in tensor:
                 raise ValueError("selector embedding must come from canonical non-augmented graph")
             validate_phase_b_tensor_artifact(tensor)
-            node_features = torch.as_tensor(tensor["node_features"], dtype=torch.float32)
-            edge_index = torch.as_tensor(tensor["edge_index"], dtype=torch.long)
-            edge_type = torch.as_tensor(tensor["edge_type"], dtype=torch.long)
-            node_embeddings = encoder(node_features, edge_index, edge_type)
-            readout_manifest, kernel_embedding = build_readout_manifest(tensor, node_embeddings)
+            if hasattr(encoder, "encode_kernel_partitioned"):
+                kernel_embedding = encoder.encode_kernel_partitioned(tensor)
+                readout_manifest, kernel_embedding = build_readout_manifest_from_kernel_embedding(
+                    tensor,
+                    kernel_embedding,
+                )
+            else:
+                node_features = torch.as_tensor(tensor["node_features"], dtype=torch.float32)
+                edge_index = torch.as_tensor(tensor["edge_index"], dtype=torch.long)
+                edge_type = torch.as_tensor(tensor["edge_type"], dtype=torch.long)
+                node_embeddings = encoder(node_features, edge_index, edge_type)
+                readout_manifest, kernel_embedding = build_readout_manifest(tensor, node_embeddings)
             row = _embedding_row(
                 index=index,
                 tensor=tensor,

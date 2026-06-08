@@ -189,6 +189,7 @@ def run_full_trace_reproduction(
         "resource_status": "completed",
     }
     manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
+    (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)
     _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
     return manifest
 

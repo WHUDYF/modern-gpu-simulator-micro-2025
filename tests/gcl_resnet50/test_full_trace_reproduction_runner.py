@@ -292,6 +292,40 @@ def test_full_trace_runner_cli_writes_manifest(tmp_path, monkeypatch, capsys):
     assert "real_resnet50_full_trace" in capsys.readouterr().out
 
 
+def test_full_trace_runner_removes_stale_blocker_report_on_success(tmp_path, monkeypatch):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    blocker_path = out_dir / "resnet50_full_trace_reproduction_blocker_report.json"
+    blocker_path.write_text(
+        json.dumps(
+            {
+                "artifact_type": "gcl_resnet50_full_trace_reproduction_blocker_report",
+                "resource_status": "blocked",
+                "blocker_reason": "TimeoutError",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    assert (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+    assert not blocker_path.exists()
+
+
 def test_full_trace_runner_writes_blocker_report_on_resource_failure(tmp_path, monkeypatch):
     def fake_pipeline(*args, **kwargs):
         raise RuntimeError("out of memory while tensorizing full trace")

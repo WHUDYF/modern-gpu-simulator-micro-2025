@@ -52,6 +52,16 @@ Constraints: Fixture scheduler metadata must include only CTAs with correspondin
 Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py`; `pytest -q tests/gcl_phase_a tests/gcl_phase_b` passed in Round 3.
 Source Rounds: 3
 
+## Lesson: final-state-artifacts-mutually-exclusive
+Lesson ID: BL-20260609-final-state-artifacts-mutually-exclusive
+Scope: scripts/run_resnet50_full_trace_gcl.py, tests/gcl_resnet50/test_full_trace_reproduction_runner.py, artifacts/gcl_resnet50_full_trace_reproduction/
+Problem Description: A stable output root can contain both a previous blocker report and a later success manifest after a rerun completes, leaving contradictory final-state evidence for consumers.
+Root Cause: The failure path removed the success manifest before writing a blocker report, but the success path did not remove `resnet50_full_trace_reproduction_blocker_report.json`.
+Solution: Delete the stale blocker report immediately before writing a successful full-trace reproduction manifest, and add a regression test that seeds a blocker report before a successful monkeypatched run.
+Constraints: Failure-path behavior stays unchanged; blocker reports remain valid final evidence only when no success manifest is emitted.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 12 tests; the real stable-root command completed with `resource_status=completed`, `final_gate=gate9_report_only`, `embedding_rows=265`, `selected_k=2`, and no blocker report present; `git diff --check && git diff --cached --check` passed.
+Source Rounds: 4
+
 ## Lesson: persisted-formal-boundaries
 Lesson ID: BL-20260606-persisted-formal-boundaries
 Scope: experiments/gcl_phase_b/resnet50_gate0.py, experiments/gcl_phase_b/selector.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py

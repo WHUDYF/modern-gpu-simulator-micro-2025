@@ -264,6 +264,36 @@ def test_phase_b_replay_rejects_embedding_table_lineage_retarget_after_hash_refr
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_requires_persisted_gate5_lineage_bundle(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "missing_gate5_lineage_bundle"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    (out_dir / ARTIFACT_FILENAMES["gate5_lineage_bundle"]).unlink()
+
+    with pytest.raises(FileNotFoundError, match="persisted Gate5"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_stale_persisted_gate5_manifest_objects(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "stale_gate5_export_report"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    export_report_path = out_dir / ARTIFACT_FILENAMES["embedding_export_report"]
+    export_report = json.loads(export_report_path.read_text())
+    export_report["source_graph_tensor_bundle_hash"] = "tampered-source-bundle"
+    export_report["embedding_export_report_hash"] = hash_without(
+        export_report, "embedding_export_report_hash"
+    )
+    export_report_path.write_text(json.dumps(export_report, sort_keys=True))
+
+    with pytest.raises(ValueError, match="persisted Gate5 manifest objects"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_truncated_embedding_table_even_after_hash_refresh(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))

@@ -407,6 +407,84 @@ def _bind_embedding_table_to_persisted_gate5_manifests(
     return lineage_bundle
 
 
+def _checkpoint_manifest_hash(manifest: dict[str, Any]) -> str:
+    hash_field = (
+        "rgcn_checkpoint_manifest_hash"
+        if "rgcn_checkpoint_manifest_hash" in manifest
+        else "checkpoint_manifest_hash"
+    )
+    return hash_without(manifest, hash_field)
+
+
+def _validate_persisted_gate5_artifacts(
+    out_dir: Path,
+    table: dict[str, Any],
+    readout_bundle: dict[str, Any],
+) -> None:
+    lineage_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["gate5_lineage_bundle"],
+            "persisted Gate5 lineage bundle",
+        )
+    )
+    training_run_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["rgcn_training_run_manifest"],
+            "persisted Gate5 training run manifest",
+        )
+    )
+    checkpoint_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["rgcn_checkpoint_manifest"],
+            "persisted Gate5 checkpoint manifest",
+        )
+    )
+    export_report = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["embedding_export_report"],
+            "persisted Gate5 embedding export report",
+        )
+    )
+    if lineage_bundle.get("artifact_type") != "gcl_resnet50_gate5_lineage_bundle":
+        raise ValueError("persisted Gate5 lineage bundle artifact_type mismatch")
+    if lineage_bundle.get("lineage") != table.get("gate5_lineage"):
+        raise ValueError("persisted Gate5 lineage bundle does not match embedding table lineage")
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != table.get("gate5_lineage_bundle_hash"):
+        raise ValueError("persisted Gate5 lineage bundle hash does not match embedding table")
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != hash_without(
+        lineage_bundle, "gate5_lineage_bundle_hash"
+    ):
+        raise ValueError("persisted Gate5 lineage bundle hash is not reproducible")
+    if lineage_bundle.get("readout_manifest_bundle_hash") != readout_bundle.get(
+        "readout_manifest_bundle_hash"
+    ):
+        raise ValueError("persisted Gate5 lineage bundle readout hash mismatch")
+    lineage = table["gate5_lineage"]
+    persisted_hashes = lineage_bundle.get("persisted_manifest_hashes")
+    expected_hashes = {
+        "training_run_manifest_hash": lineage["training_run_manifest_hash"],
+        "checkpoint_manifest_hash": lineage["checkpoint_manifest_hash"],
+        "readout_manifest_bundle_hash": lineage["readout_manifest_bundle_hash"],
+        "embedding_export_report_hash": lineage["embedding_export_report_hash"],
+    }
+    if persisted_hashes != expected_hashes:
+        raise ValueError("persisted Gate5 manifest hashes do not match embedding table lineage")
+    recomputed_hashes = {
+        "training_run_manifest_hash": hash_without(
+            training_run_manifest, "training_run_manifest_hash"
+        ),
+        "checkpoint_manifest_hash": _checkpoint_manifest_hash(checkpoint_manifest),
+        "readout_manifest_bundle_hash": hash_without(
+            readout_bundle, "readout_manifest_bundle_hash"
+        ),
+        "embedding_export_report_hash": hash_without(
+            export_report, "embedding_export_report_hash"
+        ),
+    }
+    if recomputed_hashes != expected_hashes:
+        raise ValueError("persisted Gate5 manifest objects do not match embedding table lineage")
+
+
 def _persist_gate5_artifacts(
     out_dir: Path,
     table: dict[str, Any],
@@ -1303,6 +1381,7 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         raise ValueError("readout_manifest_bundle_hash is not reproducible")
     if pipeline_manifest["hashes"].get("readout_manifest_bundle_hash") != readout_bundle["readout_manifest_bundle_hash"]:
         raise ValueError("pipeline manifest readout_manifest_bundle_hash mismatch")
+    _validate_persisted_gate5_artifacts(out_dir, embedding_table, readout_bundle)
 
     return {
         "artifact_type": "gcl_phase_b_replay_validation",

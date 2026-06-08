@@ -50,6 +50,36 @@ def test_resnet50_gate_pipeline_blocker_manifest_is_replayable(tmp_path):
     assert not (out_dir / "gate1_5_pipeline_manifest.json").exists()
 
 
+def test_resnet50_gate_pipeline_clears_stale_downstream_artifacts_on_gate0_blocked_rerun(
+    tmp_path,
+):
+    root = _blocked_gate0_root(tmp_path)
+    out_dir = tmp_path / "gate0_blocked_stale_cleanup"
+    out_dir.mkdir()
+    for filename in [
+        "resnet50_trace_adapter_bundle.json",
+        "kernel_embedding_table.json",
+        "selector_artifacts.json",
+        "gate7_cluster_correctness_manifest.json",
+        "gate8_tuning_vector_proposal.json",
+        "gate9_sampled_vs_full_evaluation.json",
+    ]:
+        write_json(out_dir / filename, {"stale": filename})
+
+    manifest = run_resnet50_gate1_to_gate7(root, out_dir, seed=20260606)
+
+    assert manifest["final_gate"] == "gate0_blocked"
+    for filename in [
+        "resnet50_trace_adapter_bundle.json",
+        "kernel_embedding_table.json",
+        "selector_artifacts.json",
+        "gate7_cluster_correctness_manifest.json",
+        "gate8_tuning_vector_proposal.json",
+        "gate9_sampled_vs_full_evaluation.json",
+    ]:
+        assert not (out_dir / filename).exists()
+
+
 def test_resnet50_gate_pipeline_rejects_synthetic_artifact_shape_as_formal_root(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
 
@@ -236,6 +266,43 @@ def test_resnet50_gate1_to_gate5_entrypoint_stops_before_selector_and_reports(tm
         "gate9_sampled_vs_full_evaluation.json",
         "gate9_simulator_evaluation_manifest.json",
     ]:
+        assert not (out_dir / filename).exists()
+
+
+def test_resnet50_gate1_to_gate5_rerun_removes_stale_gate6_gate9_artifacts(tmp_path):
+    out_dir = tmp_path / "gate5_only_stale_cleanup"
+    run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    stale_outputs = [
+        "selector_artifacts.json",
+        "gate7_cluster_correctness_manifest.json",
+        "cluster_embedding_quality_report.json",
+        "cluster_family_alignment_report.json",
+        "representative_quality_report.json",
+        "cluster_metric_error_report.json",
+        "cluster_stability_report.json",
+        "gate8_tuning_vector_proposal.json",
+        "gate8_tuning_manifest.json",
+        "gate9_sampled_vs_full_evaluation.json",
+        "gate9_simulator_evaluation_manifest.json",
+    ]
+    for filename in stale_outputs:
+        assert (out_dir / filename).exists()
+
+    manifest = run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+
+    assert manifest["final_gate"] == "gate5_embedding_exported"
+    assert (out_dir / "kernel_embedding_table.json").exists()
+    for filename in stale_outputs:
         assert not (out_dir / filename).exists()
 
 

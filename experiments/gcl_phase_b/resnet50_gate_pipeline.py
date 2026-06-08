@@ -32,6 +32,52 @@ from .utils import hash_without, read_json, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
 
 GATE1_7_PIPELINE_MANIFEST_FILENAME = "gate1_7_pipeline_manifest.json"
+GATE1_PLUS_OUTPUT_FILENAMES = {
+    "resnet50_trace_adapter_bundle.json",
+    "representative_sm_trace_manifest.json",
+    "selected_sm_policy_report.json",
+    "scope_preview_report.json",
+    "canonical_graph_bundle.json",
+    "graph_tensor_bundle.json",
+    "augmentation_manifest.json",
+    "rgcn_training_run_manifest.json",
+    "rgcn_checkpoint_manifest.json",
+    "readout_manifest.json",
+    "gate5_lineage_bundle.json",
+    "kernel_embedding_table.json",
+    "embedding_export_report.json",
+    "selector_artifacts.json",
+    GATE7_CLUSTER_CORRECTNESS_FILENAME,
+    *GATE7_REPORT_FILENAMES.values(),
+    "cluster_tuning_vector_table.json",
+    "tuning_vector_provenance_report.json",
+    "tuning_safety_report.json",
+    "gate8_tuning_manifest.json",
+    "gate8_tuning_vector_proposal.json",
+    "full_vs_sampled_simulation_report.json",
+    "sampled_speedup_report.json",
+    "sampled_error_report.json",
+    "tuning_effect_report.json",
+    "gate9_simulator_evaluation_manifest.json",
+    "gate9_sampled_vs_full_evaluation.json",
+    "rgcn_checkpoint.pt",
+}
+GATE6_PLUS_OUTPUT_FILENAMES = {
+    "selector_artifacts.json",
+    GATE7_CLUSTER_CORRECTNESS_FILENAME,
+    *GATE7_REPORT_FILENAMES.values(),
+    "cluster_tuning_vector_table.json",
+    "tuning_vector_provenance_report.json",
+    "tuning_safety_report.json",
+    "gate8_tuning_manifest.json",
+    "gate8_tuning_vector_proposal.json",
+    "full_vs_sampled_simulation_report.json",
+    "sampled_speedup_report.json",
+    "sampled_error_report.json",
+    "tuning_effect_report.json",
+    "gate9_simulator_evaluation_manifest.json",
+    "gate9_sampled_vs_full_evaluation.json",
+}
 
 
 def run_resnet50_gate1_to_gate5(
@@ -63,6 +109,7 @@ def run_resnet50_gate1_to_gate7(
     out_dir.mkdir(parents=True, exist_ok=True)
     blocker_path = root / GATE0_BLOCKER_FILENAME
     if blocker_path.exists() and not (root / GATE0_MANIFEST_FILENAME).exists():
+        _remove_resnet50_artifacts(out_dir, GATE1_PLUS_OUTPUT_FILENAMES)
         return _write_gate0_blocked_pipeline_manifest(root, out_dir, seed)
 
     adapter_bundle = build_resnet50_trace_adapter_bundle(
@@ -160,6 +207,7 @@ def run_resnet50_gate1_to_gate7(
     write_json(out_dir / "kernel_embedding_table.json", embedding_table)
     write_json(out_dir / "embedding_export_report.json", export_report)
     if stop_after_gate5:
+        _remove_resnet50_artifacts(out_dir, GATE6_PLUS_OUTPUT_FILENAMES)
         manifest = _gate5_pipeline_manifest(
             seed=seed,
             adapter_bundle=adapter_bundle,
@@ -219,6 +267,11 @@ def run_resnet50_gate1_to_gate7(
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
     return manifest
+
+
+def _remove_resnet50_artifacts(out_dir: Path, filenames: set[str]) -> None:
+    for filename in filenames:
+        (out_dir / filename).unlink(missing_ok=True)
 
 
 def _gate5_pipeline_manifest(

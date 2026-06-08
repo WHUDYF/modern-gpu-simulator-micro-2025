@@ -1,8 +1,5 @@
 import ctypes
 
-import torch
-import torchvision.models as models
-
 
 def _load_cuda_runtime():
     errors = []
@@ -15,8 +12,11 @@ def _load_cuda_runtime():
 
 
 def main() -> None:
+    import torch
+    import torchvision.models as models
+
     torch.cuda.init()
-    model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT).cuda().eval()
+    model = models.resnet50(weights=None).cuda().eval()
     sample = torch.randn(1, 3, 224, 224, device="cuda")
 
     with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16):

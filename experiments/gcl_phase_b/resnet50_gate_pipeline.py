@@ -21,6 +21,7 @@ from .embedding_export import (
 from .pipeline import create_augmentation_manifest_bundle
 from .resnet50_adapter import build_resnet50_trace_adapter_bundle
 from .resnet50_gate0 import GATE0_BLOCKER_FILENAME
+from .resnet50_gate0 import GATE0_MANIFEST_FILENAME
 from .resnet50_manifest import build_representative_sm_manifest_from_bundle
 from .selector import select_phase_b_representatives
 from .simulator_eval import evaluate_gate9_sampled_vs_full, gate9_baseline_missing_report
@@ -61,7 +62,7 @@ def run_resnet50_gate1_to_gate7(
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     blocker_path = root / GATE0_BLOCKER_FILENAME
-    if blocker_path.exists():
+    if blocker_path.exists() and not (root / GATE0_MANIFEST_FILENAME).exists():
         return _write_gate0_blocked_pipeline_manifest(root, out_dir, seed)
 
     adapter_bundle = build_resnet50_trace_adapter_bundle(

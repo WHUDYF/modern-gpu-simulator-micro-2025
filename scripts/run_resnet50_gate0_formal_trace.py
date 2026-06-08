@@ -4,6 +4,16 @@ import torch
 import torchvision.models as models
 
 
+def _load_cuda_runtime():
+    errors = []
+    for library_name in ("libcudart.so", "libcudart.so.12", "libcudart.so.11.0"):
+        try:
+            return ctypes.CDLL(library_name)
+        except OSError as exc:
+            errors.append(f"{library_name}: {exc}")
+    raise OSError("unable to load CUDA runtime library: " + "; ".join(errors))
+
+
 def main() -> None:
     torch.cuda.init()
     model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT).cuda().eval()
@@ -13,7 +23,7 @@ def main() -> None:
         model(sample)
     torch.cuda.synchronize()
 
-    cudart = ctypes.CDLL("libcudart.so")
+    cudart = _load_cuda_runtime()
     start_status = cudart.cudaProfilerStart()
     if start_status != 0:
         raise RuntimeError(f"cudaProfilerStart failed with status {start_status}")

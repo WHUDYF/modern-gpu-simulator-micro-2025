@@ -5,6 +5,7 @@ from experiments.gcl_phase_b.resnet50_gate0 import (
     record_resnet50_gate0_trace_acquisition,
     write_resnet50_gate0_blocker_report,
 )
+from experiments.gcl_phase_b.utils import hash_without, write_json
 from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     GATE1_7_PIPELINE_MANIFEST_FILENAME,
     _emit_gate8_gate9_extension_artifacts,
@@ -94,6 +95,52 @@ def test_resnet50_gate_pipeline_keeps_baseline_artifacts_blocked_without_real_ga
     assert (out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).exists()
     assert not (out_dir / "gate7_cluster_correctness_manifest.json").exists()
     assert not (out_dir / "gate9_sampled_vs_full_evaluation.json").exists()
+
+
+def test_resnet50_gate_pipeline_ignores_stale_gate0_blocker_when_formal_manifest_exists(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    root = _blocked_gate0_root(tmp_path)
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate0_trace_acquisition_manifest",
+        "artifact_version": "gate0_trace_acquisition_manifest_v1",
+        "artifact_status": "formal",
+        "formal_input_eligible": True,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "nvbit_collection_evidence_hash": "formal-evidence",
+        "source_artifact_hashes": {
+            "dynamic_trace.pb": "dynamic",
+            "threadblocks/": "threadblocks",
+            "enhanced_execution_info.json": "enhanced",
+            "scheduler_metadata.json": "scheduler",
+            "stats.csv": "stats",
+        },
+    }
+    manifest["gate0_manifest_hash"] = hash_without(manifest, "gate0_manifest_hash")
+    write_json(root / "gate0_trace_acquisition_manifest.json", manifest)
+
+    def prove_not_short_circuited(*args, **kwargs):
+        raise RuntimeError("adapter reached after stale blocker was ignored")
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "build_resnet50_trace_adapter_bundle",
+        prove_not_short_circuited,
+    )
+
+    try:
+        run_resnet50_gate1_to_gate7(root, tmp_path / "out", seed=20260606)
+    except RuntimeError as exc:
+        assert "adapter reached" in str(exc)
+    else:
+        raise AssertionError("pipeline should continue past stale Gate0 blocker")
 
 
 def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):

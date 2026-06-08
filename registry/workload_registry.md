@@ -1,6 +1,6 @@
 # GPU Workload Trace Corpus Workload Registry Draft
 
-Generated at: `2026-05-11T07:50:39.819665+00:00`
+Generated at: `2026-06-07T00:00:00+00:00`
 
 | Workload | Source | Family | Kernel Count | Large Kernel | Irregularity | Path |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -80,6 +80,12 @@ Generated at: `2026-05-11T07:50:39.819665+00:00`
 | `cutlass_gemm` | `cutlass` | `kernel_generator` | `medium` | `large` | `low` | `.` |
 | `cutlass_conv` | `cutlass` | `kernel_generator` | `medium` | `large` | `low` | `.` |
 | `cutlass_attention` | `cutlass` | `kernel_generator` | `high` | `large` | `medium` | `.` |
+| `mlperf-inference_bert` | `mlperf-inference` | `full_network` | `high` | `medium` | `medium` | `.` |
+| `mlperf-inference_resnet50` | `mlperf-inference` | `full_network` | `high` | `large` | `low` | `.` |
+| `mlperf-inference_dlrm-v2` | `mlperf-inference` | `full_network` | `high` | `medium` | `high` | `.` |
+| `mlperf-inference_retinanet` | `mlperf-inference` | `full_network` | `high` | `large` | `medium` | `.` |
+| `mlperf-inference_3d-unet` | `mlperf-inference` | `full_network` | `high` | `large` | `medium` | `.` |
+| `mlperf-inference_stable-diffusion` | `mlperf-inference` | `full_network` | `high` | `large` | `medium` | `.` |
 | `gunrock_bfs` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `.` |
 | `gunrock_sssp` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `.` |
 | `gunrock_pagerank` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `.` |

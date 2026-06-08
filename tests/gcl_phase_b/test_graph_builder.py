@@ -58,6 +58,41 @@ def test_graph_builder_orders_multi_digit_warp_partitions_numerically():
     assert instruction_partitions[4:8] == ["10:0"] * 4
 
 
+def test_graph_builder_parses_bracketed_address_operands_to_base_registers():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    warp = record["warps"][0]
+    warp["entries"] = [
+        {
+            **warp["entries"][0],
+            "opcode": "LDG.E.64.SYS",
+            "source_operands": ["[R4+0x10]"],
+            "destination_operands": ["R8"],
+            "trace_index": 0,
+        },
+        {
+            **warp["entries"][1],
+            "opcode": "LDG.E.64.SYS",
+            "source_operands": ["[UR12+0x20]"],
+            "destination_operands": ["R9"],
+            "trace_index": 1,
+        },
+    ]
+    record["warps"] = [warp]
+
+    graph = build_phase_b_graphs([record])[0]
+    register_tokens = {
+        node["token"]
+        for node in graph["nodes"]
+        if node["node_type"] == "register_version"
+    }
+
+    assert "R4.v0.w0" in register_tokens
+    assert "UR12.v0.w0" in register_tokens
+    assert all("[R4+0x10]" not in token for token in register_tokens)
+    assert all("[UR12+0x20]" not in token for token in register_tokens)
+
+
 def test_graph_validator_rejects_cross_warp_control_flow():
     graph = _graph()
     instruction_nodes = [node for node in graph["nodes"] if node["node_type"] == "instruction"]

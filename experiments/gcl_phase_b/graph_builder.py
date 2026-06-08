@@ -41,10 +41,7 @@ def _is_address_token(token: str) -> bool:
 def _address_register_token(token: str) -> str:
     if token.startswith(("R", "UR")):
         return token.split(".", 1)[0]
-    match = re.search(r"\[(R)(\d+)(?:\.[^\]]+)?\]", token)
-    if match:
-        return f"{match.group(1)}{match.group(2)}"
-    match = re.search(r"\[(UR)(\d+)(?:\.[^\]]+)?\]", token)
+    match = re.search(r"\[\s*(UR|R)(\d+)(?:[.\]+-]|\s|$)", token)
     if match:
         return f"{match.group(1)}{match.group(2)}"
     return token

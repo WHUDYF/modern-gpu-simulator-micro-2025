@@ -79,7 +79,14 @@ def run_pca(matrix: np.ndarray, max_components: int = 3) -> tuple[np.ndarray, di
     u, s, vt = np.linalg.svd(centered, full_matrices=False)
     total = float(np.sum(s ** 2))
     if total <= 0:
-        raise ValueError("pca_degenerate_input")
+        return np.zeros((matrix.shape[0], 1), dtype=float), {
+            "method": "numpy_svd",
+            "n_components": 1,
+            "explained_variance_ratio": [0.0],
+            "total_explained_variance": 0.0,
+            "component_matrix": [[0.0 for _ in range(matrix.shape[1])]],
+            "degenerate_input": True,
+        }
     n_components = min(max_components, matrix.shape[0] - 1, matrix.shape[1], len(s))
     projection = u[:, :n_components] * s[:n_components]
     explained = ((s[:n_components] ** 2) / total).tolist()
@@ -89,6 +96,7 @@ def run_pca(matrix: np.ndarray, max_components: int = 3) -> tuple[np.ndarray, di
         "explained_variance_ratio": explained,
         "total_explained_variance": float(sum(explained)),
         "component_matrix": vt[:n_components, :].tolist(),
+        "degenerate_input": False,
     }
 
 
@@ -103,6 +111,11 @@ def _choose_k(n_records: int) -> int:
     return max(2, min(n_records, math.ceil(math.sqrt(n_records))))
 
 
+def _unique_projected_point_count(projection: np.ndarray) -> int:
+    rounded = np.round(projection, decimals=12)
+    return len(np.unique(rounded, axis=0))
+
+
 def farthest_first_kmeans(
     projection: np.ndarray,
     record_ids: list[str],
@@ -112,7 +125,10 @@ def farthest_first_kmeans(
     n_records = len(record_ids)
     if n_records != len(projection):
         raise ValueError("record_ids length does not match projection")
-    k = _choose_k(n_records) if k is None else max(1, min(k, n_records))
+    unique_point_count = _unique_projected_point_count(projection)
+    k_limit = max(1, unique_point_count)
+    requested_k = _choose_k(n_records) if k is None else k
+    k = max(1, min(requested_k, n_records, k_limit))
     first = min(range(n_records), key=lambda idx: record_ids[idx])
     center_indices = [first]
     while len(center_indices) < k:
@@ -147,6 +163,8 @@ def farthest_first_kmeans(
     return assignments, centers.tolist(), {
         "method": "deterministic_farthest_first",
         "k": k,
+        "requested_k": requested_k,
+        "unique_point_count": unique_point_count,
         "initial_center_record_ids": [record_ids[idx] for idx in center_indices],
         "max_iter": max_iter,
         "iterations": iterations,

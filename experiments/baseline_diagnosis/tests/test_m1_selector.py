@@ -23,6 +23,18 @@ def _record(idx: int) -> dict:
     }
 
 
+def _records_with_duplicate_features(values: list[int]) -> list[dict]:
+    records = []
+    for idx, feature_value in enumerate(values):
+        row = _record(idx)
+        row["features"] = {
+            name: {"value": float(feature_value), "status": "measured"}
+            for name in FEATURE_ORDER
+        }
+        records.append(row)
+    return records
+
+
 def test_gate5_consumes_projection_and_writes_formal_artifacts(monkeypatch, tmp_path):
     elig = tmp_path / "elig.json"
     selector_input = tmp_path / "selector_input.json"
@@ -68,3 +80,52 @@ def test_gate5_honors_timing_weight_contract(monkeypatch, tmp_path):
     assert outputs["evaluation"]["weight_mode"] == "timing_weight"
     assert outputs["evaluation"]["timing_unit"] == "duration_ns"
     assert outputs["evaluation"]["weighted_coverage"] == 1.0
+
+
+def test_gate5_identical_selector_rows_degrade_to_single_anchor(monkeypatch, tmp_path):
+    elig = tmp_path / "elig.json"
+    selector_input = tmp_path / "selector_input.json"
+    records = _records_with_duplicate_features([7, 7, 7])
+    elig.write_text(json.dumps({
+        "gate5_allowed": True,
+        "selector_eligibility_state": "selector_ready",
+        "weight_mode": "member_count_fallback",
+        "timing_unit": None,
+    }))
+    selector_input.write_text(json.dumps(records))
+    monkeypatch.setattr(selector, "ELIGIBILITY_PATH", elig)
+    monkeypatch.setattr(selector, "SELECTOR_INPUT_PATH", selector_input)
+    monkeypatch.setattr(selector, "ARTIFACT_DIR", tmp_path)
+
+    outputs = selector.run()
+
+    assert outputs["clusters"]["k"] == 1
+    assert outputs["evaluation"]["anchor_count"] == 1
+    assert outputs["evaluation"]["compression_ratio"] == 3.0
+    assert outputs["anchors"]["anchors"][0]["members"] == ["r0", "r1", "r2"]
+    assert outputs["evaluation"]["pca_diagnostics"]["degenerate_input"] is True
+    assert (tmp_path / "pka_pca_projection_l1.json").exists()
+    assert (tmp_path / "representative_anchor_table_l1.json").exists()
+
+
+def test_gate5_caps_k_by_unique_projected_points(monkeypatch, tmp_path):
+    elig = tmp_path / "elig.json"
+    selector_input = tmp_path / "selector_input.json"
+    records = _records_with_duplicate_features([1, 1, 5, 5, 5])
+    elig.write_text(json.dumps({
+        "gate5_allowed": True,
+        "selector_eligibility_state": "selector_ready",
+        "weight_mode": "member_count_fallback",
+        "timing_unit": None,
+    }))
+    selector_input.write_text(json.dumps(records))
+    monkeypatch.setattr(selector, "ELIGIBILITY_PATH", elig)
+    monkeypatch.setattr(selector, "SELECTOR_INPUT_PATH", selector_input)
+    monkeypatch.setattr(selector, "ARTIFACT_DIR", tmp_path)
+
+    outputs = selector.run()
+
+    assert outputs["clusters"]["k"] == 2
+    assert outputs["evaluation"]["anchor_count"] == 2
+    assert len(outputs["anchors"]["anchors"]) == 2
+    assert sorted(len(anchor["members"]) for anchor in outputs["anchors"]["anchors"]) == [2, 3]

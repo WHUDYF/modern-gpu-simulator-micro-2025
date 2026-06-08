@@ -729,6 +729,108 @@ def test_gate0_rejects_self_authenticated_real_shaped_root_without_runner_sessio
         record_resnet50_gate0_trace_acquisition(root)
 
 
+def test_gate0_rejects_self_authenticated_triplet_with_forged_session_hash(
+    tmp_path,
+):
+    root = tmp_path / "self_authenticated_forged_session_hash"
+    root.mkdir()
+    (root / "dynamic_trace.pb").write_bytes(b"looks-like-real-nvbit-dynamic-trace")
+    threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
+    threadblocks.mkdir(parents=True)
+    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"looks-like-real-threadblock")
+    write_json(
+        root / "enhanced_execution_info.json",
+        {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
+    )
+    write_json(
+        root / "scheduler_metadata.json",
+        {
+            "artifact_type": "gcl_real_trace_scheduler_metadata",
+            "artifact_version": "resnet50_scheduler_metadata_v1",
+            "scheduler_metadata_source": "real_nvbit_smid",
+            "source": "nvbit_tracer",
+            "kernel_invocations": [
+                {
+                    "kernel_invocation_id": "d_0_s_0_k_1",
+                    "kernel_id": 1,
+                    "cta_records": [
+                        {
+                            "cta_id": "0,0,0",
+                            "sm_id": 3,
+                            "first_seen_order": 10,
+                            "last_seen_order": 12,
+                            "warp_ids": [0, 1],
+                            "trace_entry_count": 3,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    (root / "stats.csv").write_text(
+        "device_id, stream_id, kernel id, kernel mangled name\n"
+        "0, 0, kernel-1.trace, real_kernel\n",
+        encoding="utf-8",
+    )
+
+    from experiments.gcl_phase_b.resnet50_gate0 import _source_artifact_hashes
+
+    session = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_session",
+        "artifact_version": "nvbit_collector_session_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": "handwritten-real-shaped-session",
+        "workload_command": ["python", "run_resnet50.py"],
+        "nvbit_tool_path": "/opt/nvbit/tools/trace_tool.so",
+        "output_root": str(root),
+        "created_unix_ns": 1,
+        "collector_session_hash": "forged-session-hash",
+    }
+    write_json(root / ".nvbit_collector_session.json", session)
+    attestation = {
+        "artifact_type": "gcl_resnet50_nvbit_collector_attestation",
+        "artifact_version": "nvbit_collector_attestation_v1",
+        "producer": COLLECTOR_PRODUCER,
+        "collector_session_id": session["collector_session_id"],
+        "collector_session_hash": session["collector_session_hash"],
+        "runner_returncode": 0,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "collection_status": "completed",
+        "source_artifact_hashes": _source_artifact_hashes(root),
+    }
+    attestation["collector_attestation_hash"] = hash_without(
+        attestation,
+        "collector_attestation_hash",
+    )
+    write_json(root / "nvbit_collector_attestation.json", attestation)
+    evidence = {
+        "artifact_status": "formal_collection_evidence",
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "collection_status": "completed",
+        "fixture_backed": False,
+        "collector_artifact_origin": "real_nvbit_runtime",
+        "evidence_scope": "real_resnet50_nvbit_collection",
+        "nvbit_loaded": True,
+        "collector_producer": COLLECTOR_PRODUCER,
+        "collector_session_id_from_env": session["collector_session_id"],
+        "collector_session_id": session["collector_session_id"],
+        "collector_session_hash": session["collector_session_hash"],
+        "collector_attestation_hash": attestation["collector_attestation_hash"],
+    }
+    write_json(root / "nvbit_collection_evidence.json", evidence)
+
+    with pytest.raises(ValueError, match="collector session hash"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+
 def test_gate0_acquisition_runner_rejects_synthetic_trace_before_attestation(tmp_path):
     root = tmp_path / "formal_trace"
     executed = []

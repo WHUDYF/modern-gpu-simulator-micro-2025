@@ -237,6 +237,13 @@ def _validate_collector_attestation(
         raise ValueError("collector-produced session artifact is required for formal Gate0")
     if session.get("collector_session_id") != session_id:
         raise ValueError("collector attestation session does not match producer session")
+    session_hash = hash_without(session, "collector_session_hash")
+    if session.get("collector_session_hash") != session_hash:
+        raise ValueError("collector session hash is not reproducible")
+    if attestation.get("collector_session_hash") != session_hash:
+        raise ValueError("collector attestation does not match collector session hash")
+    if evidence.get("collector_session_hash") != session_hash:
+        raise ValueError("collector evidence does not match collector session hash")
     if evidence.get("collector_session_id_from_env") != session_id:
         raise ValueError("collector evidence must be bound to the runner session environment")
     if evidence.get("collector_session_id") != session_id:

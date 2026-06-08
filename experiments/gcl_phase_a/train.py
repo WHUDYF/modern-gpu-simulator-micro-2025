@@ -189,6 +189,7 @@ def train_minimal_contrastive(
             "seed": seed,
             "encoder_batch_size": encoder_batch_size,
             "partitioned_encoding": partitioned_encoding,
+            "source_tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
         },
         checkpoint_path,
     )

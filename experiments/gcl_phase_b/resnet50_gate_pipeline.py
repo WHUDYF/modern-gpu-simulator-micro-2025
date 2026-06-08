@@ -14,6 +14,7 @@ from .correctness import (
     evaluate_gate7_correctness_from_artifacts,
 )
 from .embedding_export import (
+    GATE5_EXPORT_PROGRESS_FILENAME,
     READOUT_HIERARCHY,
     build_gate5_lineage_bundle,
     export_phase_b_embedding_table,
@@ -30,6 +31,7 @@ from .tuning import generate_gate8_tuning_vectors
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, read_json, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
+from experiments.gcl_phase_a.rgcn import MinimalRGCNEncoder, ProjectionHead, require_torch
 
 GATE1_7_PIPELINE_MANIFEST_FILENAME = "gate1_7_pipeline_manifest.json"
 GATE1_PLUS_OUTPUT_FILENAMES = {
@@ -412,25 +414,41 @@ def _emit_gate8_gate9_extension_artifacts(
     baseline_artifacts: dict[str, Any] | None,
     out_dir: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
+    expected_anchor_hash = correctness_manifest["source_representative_anchor_table_hash"]
+    selector_anchor_hash = selector_artifacts["representative_anchor_table"].get(
+        "representative_anchor_table_hash",
+        expected_anchor_hash,
+    )
+    if selector_anchor_hash != expected_anchor_hash:
+        raise ValueError(
+            "representative anchor table hash mismatch between Gate6 selector artifacts "
+            "and Gate7 correctness manifest"
+        )
     representative_anchor_table = {
         **selector_artifacts["representative_anchor_table"],
-        "representative_anchor_table_hash": selector_artifacts["representative_anchor_table"].get(
-            "representative_anchor_table_hash",
-            correctness_manifest["source_representative_anchor_table_hash"],
-        ),
+        "representative_anchor_table_hash": selector_anchor_hash,
     }
-    gate8_proposal = generate_gate8_tuning_vectors(
-        correctness_manifest,
-        representative_anchor_table=representative_anchor_table,
-        family_alignment_report=correctness_manifest["gate7_report_artifacts"][
-            "family_alignment_report"
-        ],
-        metric_error_report=correctness_manifest["gate7_report_artifacts"]["metric_error_report"],
-        tunable_component_schema={
-            "schema_version": "report_only_default_v1",
-            "components": ["memory_latency_scale", "compute_latency_scale"],
-        },
-    )
+    tunable_component_schema = {
+        "schema_version": "report_only_default_v1",
+        "components": ["memory_latency_scale", "compute_latency_scale"],
+    }
+    try:
+        gate8_proposal = generate_gate8_tuning_vectors(
+            correctness_manifest,
+            representative_anchor_table=representative_anchor_table,
+            family_alignment_report=correctness_manifest["gate7_report_artifacts"][
+                "family_alignment_report"
+            ],
+            metric_error_report=correctness_manifest["gate7_report_artifacts"]["metric_error_report"],
+            tunable_component_schema=tunable_component_schema,
+        )
+    except ValueError as exc:
+        gate8_proposal = _blocked_gate8_tuning_vector_proposal(
+            correctness_manifest=correctness_manifest,
+            representative_anchor_table=representative_anchor_table,
+            tunable_component_schema=tunable_component_schema,
+            blocker_message=str(exc),
+        )
     write_json(out_dir / "cluster_tuning_vector_table.json", gate8_proposal["cluster_tuning_vector_table"])
     write_json(
         out_dir / "tuning_vector_provenance_report.json",
@@ -469,6 +487,87 @@ def _emit_gate8_gate9_extension_artifacts(
     )
     write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
     return gate8_proposal, gate9_report, final_gate
+
+
+def _blocked_gate8_tuning_vector_proposal(
+    *,
+    correctness_manifest: dict[str, Any],
+    representative_anchor_table: dict[str, Any],
+    tunable_component_schema: dict[str, Any],
+    blocker_message: str,
+) -> dict[str, Any]:
+    cluster_tuning_vector_table = {
+        "artifact_type": "gcl_resnet50_cluster_tuning_vector_table",
+        "artifact_version": "gate8_cluster_tuning_vector_table_v1",
+        "source_gate7_correctness_manifest_hash": correctness_manifest[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "tuning_vectors": [],
+        "blocked_reason": blocker_message,
+    }
+    cluster_tuning_vector_table["cluster_tuning_vector_table_hash"] = stable_hash(
+        cluster_tuning_vector_table
+    )
+    provenance_report = {
+        "artifact_type": "gcl_resnet50_tuning_vector_provenance_report",
+        "artifact_version": "gate8_tuning_vector_provenance_report_v1",
+        "source_gate7_correctness_manifest_hash": correctness_manifest[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "source_claim_status": correctness_manifest["claim_status"],
+        "representative_anchor_table_hash": representative_anchor_table[
+            "representative_anchor_table_hash"
+        ],
+        "representative_anchor_count": len(representative_anchor_table.get("anchors", [])),
+        "tunable_component_schema": tunable_component_schema,
+        "blocked_reason": blocker_message,
+    }
+    provenance_report["tuning_vector_provenance_report_hash"] = stable_hash(provenance_report)
+    safety_report = {
+        "artifact_type": "gcl_resnet50_tuning_safety_report",
+        "artifact_version": "gate8_tuning_safety_report_v1",
+        "safety_status": "blocked_report_only",
+        "blocked_reason": blocker_message,
+        "accuracy_claim": "not_claimed",
+    }
+    safety_report["tuning_safety_report_hash"] = stable_hash(safety_report)
+    gate8_manifest = {
+        "artifact_type": "gcl_resnet50_gate8_tuning_manifest",
+        "artifact_version": "gate8_tuning_manifest_v1",
+        "extension_label": "our_extension_not_original_gcl_sampler",
+        "source_gate7_correctness_manifest_hash": correctness_manifest[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "representative_anchor_table_hash": representative_anchor_table[
+            "representative_anchor_table_hash"
+        ],
+        "cluster_tuning_vector_table_hash": cluster_tuning_vector_table[
+            "cluster_tuning_vector_table_hash"
+        ],
+        "tuning_vector_provenance_report_hash": provenance_report[
+            "tuning_vector_provenance_report_hash"
+        ],
+        "tuning_safety_report_hash": safety_report["tuning_safety_report_hash"],
+        "tuning_safety_status": "blocked_report_only",
+    }
+    gate8_manifest["gate8_tuning_manifest_hash"] = stable_hash(gate8_manifest)
+    artifact = {
+        "artifact_type": "gcl_resnet50_gate8_tuning_vector_proposal",
+        "artifact_version": "gate8_tuning_vector_proposal_v1",
+        "extension_label": "our_extension_not_original_gcl_sampler",
+        "source_gate7_correctness_manifest_hash": correctness_manifest[
+            "gate7_cluster_correctness_manifest_hash"
+        ],
+        "tunable_component_schema": tunable_component_schema,
+        "proposals": [],
+        "cluster_tuning_vector_table": cluster_tuning_vector_table,
+        "tuning_vector_provenance_report": provenance_report,
+        "tuning_safety_report": safety_report,
+        "gate8_tuning_manifest": gate8_manifest,
+        "blocked_reason": blocker_message,
+    }
+    artifact["gate8_tuning_vector_proposal_hash"] = stable_hash(artifact)
+    return artifact
 
 
 def _write_gate0_blocked_pipeline_manifest(root: Path, out_dir: Path, seed: int) -> dict[str, Any]:
@@ -523,15 +622,22 @@ def _run_gate5_training_and_export(
     out_dir: Path,
     seed: int,
 ) -> dict[str, Any]:
-    training_source_tensors = _select_gate5_training_tensors(tensors)
-    training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in training_source_tensors]
-    training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
-    embedding_table, readout_bundle = export_phase_b_embedding_table(
-        tensors,
-        training_report["encoder"],
-        training_report["checkpoint_manifest"],
-        source_graph_tensor_bundle_hash=graph_tensor_bundle["graph_tensor_bundle_hash"],
+    existing_embedding = _load_existing_gate5_embedding_table(
+        out_dir,
+        graph_tensor_bundle=graph_tensor_bundle,
     )
+    if existing_embedding is not None:
+        return existing_embedding
+    training_source_tensors = _select_gate5_training_tensors(tensors)
+    existing_training = _load_existing_gate5_training(
+        out_dir,
+        graph_tensor_bundle=graph_tensor_bundle,
+    )
+    if existing_training is None:
+        training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in training_source_tensors]
+        training_report = train_minimal_contrastive(training_tensors, out_dir, seed=seed)
+    else:
+        training_report = existing_training
     training_run_manifest = _training_run_manifest(
         graph_tensor_bundle=graph_tensor_bundle,
         tensors=training_source_tensors,
@@ -539,6 +645,7 @@ def _run_gate5_training_and_export(
         augmentation_bundle=augmentation_bundle,
         seed=seed,
         export_graph_count=len(tensors),
+        checkpoint_reuse=existing_training is not None,
     )
     checkpoint_manifest = _checkpoint_manifest(
         training_report["checkpoint_manifest"],
@@ -546,6 +653,13 @@ def _run_gate5_training_and_export(
     )
     write_json(out_dir / "rgcn_training_run_manifest.json", training_run_manifest)
     write_json(out_dir / "rgcn_checkpoint_manifest.json", checkpoint_manifest)
+    embedding_table, readout_bundle = export_phase_b_embedding_table(
+        tensors,
+        training_report["encoder"],
+        training_report["checkpoint_manifest"],
+        source_graph_tensor_bundle_hash=graph_tensor_bundle["graph_tensor_bundle_hash"],
+        progress_dir=out_dir,
+    )
     write_json(out_dir / "readout_manifest.json", readout_bundle)
     export_report = {
         "artifact_type": "gcl_resnet50_embedding_export_report",
@@ -576,10 +690,106 @@ def _run_gate5_training_and_export(
     return embedding_table
 
 
+def _load_existing_gate5_embedding_table(
+    out_dir: Path,
+    *,
+    graph_tensor_bundle: dict[str, Any],
+) -> dict[str, Any] | None:
+    embedding_path = out_dir / "kernel_embedding_table.json"
+    if not embedding_path.exists():
+        return None
+    embedding_table = read_json(embedding_path)
+    if embedding_table.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
+        "graph_tensor_bundle_hash"
+    ]:
+        return None
+    from .embedding_export import validate_phase_b_embedding_table
+
+    validate_phase_b_embedding_table(embedding_table)
+    (out_dir / GATE5_EXPORT_PROGRESS_FILENAME).unlink(missing_ok=True)
+    return embedding_table
+
+
 def _select_gate5_training_tensors(tensors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if len(tensors) <= GATE5_TRAINING_GRAPH_LIMIT:
         return tensors
     return tensors[:GATE5_TRAINING_GRAPH_LIMIT]
+
+
+def _load_existing_gate5_training(
+    out_dir: Path,
+    *,
+    graph_tensor_bundle: dict[str, Any],
+) -> dict[str, Any] | None:
+    checkpoint_path = out_dir / "rgcn_checkpoint.pt"
+    training_manifest_path = out_dir / "rgcn_training_run_manifest.json"
+    checkpoint_manifest_path = out_dir / "rgcn_checkpoint_manifest.json"
+    if not checkpoint_path.exists():
+        return None
+    torch = require_torch()
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    progress_path = out_dir / GATE5_EXPORT_PROGRESS_FILENAME
+    progress = read_json(progress_path) if progress_path.exists() else {}
+    training_manifest = read_json(training_manifest_path) if training_manifest_path.exists() else {}
+    if training_manifest and training_manifest.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
+        "graph_tensor_bundle_hash"
+    ]:
+        return None
+    checkpoint_manifest = (
+        read_json(checkpoint_manifest_path)
+        if checkpoint_manifest_path.exists()
+        else {
+            "encoder_architecture": checkpoint["model_config"],
+            "encoder_manifest_hash": progress.get("encoder_manifest_hash"),
+            "checkpoint_hash": checkpoint_hash,
+        }
+    )
+    encoder = MinimalRGCNEncoder()
+    encoder.load_state_dict(checkpoint["encoder"])
+    projection_head = ProjectionHead()
+    projection_head.load_state_dict(checkpoint["projection_head"])
+    phase_a_manifest = {
+        "encoder_name": "minimal_phase_a_rgcn",
+        "encoder_version": 1,
+        "model_config": checkpoint_manifest["encoder_architecture"],
+        "source_tensor_hashes": checkpoint.get("source_tensor_hashes", []),
+        "seed": checkpoint.get("seed"),
+        "checkpoint_path": str(checkpoint_path),
+        "checkpoint_hash": checkpoint_manifest.get("checkpoint_hash", checkpoint_hash),
+        "encoder_batch_size": checkpoint.get("encoder_batch_size", 16),
+        "partitioned_encoding": checkpoint.get("partitioned_encoding", True),
+        "encoder_manifest_hash": checkpoint_manifest.get("encoder_manifest_hash")
+        or progress.get("encoder_manifest_hash"),
+    }
+    if not phase_a_manifest["encoder_manifest_hash"]:
+        return None
+    train_graph_count = training_manifest.get(
+        "train_graph_count",
+        len(phase_a_manifest["source_tensor_hashes"]),
+    )
+    return {
+        "training_mode": "minimal_rgcn_contrastive_smoke",
+        "loss": float(training_manifest.get("final_loss", 0.0)),
+        "optimizer_step_count": training_manifest.get("optimizer_config", {}).get(
+            "optimizer_step_count",
+            1,
+        ),
+        "encoder_batch_size": phase_a_manifest["encoder_batch_size"],
+        "partitioned_encoding": phase_a_manifest["partitioned_encoding"],
+        "augmentation_retry_count": 0,
+        "kernel_embedding_shape": [
+            train_graph_count,
+            checkpoint_manifest["encoder_architecture"]["kernel_embedding_dim"],
+        ],
+        "projection_output_shape": [
+            train_graph_count,
+            checkpoint_manifest["encoder_architecture"]["projection_output_dim"],
+        ],
+        "checkpoint_manifest": phase_a_manifest,
+        "encoder": encoder,
+        "projection_head": projection_head,
+    }
 
 
 def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
@@ -597,6 +807,7 @@ def _training_run_manifest(
     augmentation_bundle: dict[str, Any],
     seed: int,
     export_graph_count: int | None = None,
+    checkpoint_reuse: bool = False,
 ) -> dict[str, Any]:
     checkpoint_manifest = training_report["checkpoint_manifest"]
     representation_modes = sorted({tensor["representation_mode"] for tensor in tensors})
@@ -638,6 +849,7 @@ def _training_run_manifest(
         "training_subset_policy": "deterministic_prefix_for_full_trace_scalability"
         if export_graph_count is not None and export_graph_count > len(tensors)
         else "all_graphs",
+        "checkpoint_reuse": checkpoint_reuse,
         "training_status": "formal_gate5_complete"
         if len(tensors) >= 2
         else "debug_single_graph_not_formal",

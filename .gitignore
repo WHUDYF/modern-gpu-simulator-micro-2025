@@ -13,3 +13,6 @@ artifacts/gcl_resnet50_gate0_formal_trace/traces/threadblocks/
 artifacts/gcl_resnet50_gate0_formal_trace/traces/scheduler_metadata.json
 artifacts/gcl_resnet50_gate0_formal_trace/traces/extra_info/enhanced_execution_info.json
 artifacts/gcl_resnet50_gate0_formal_trace/traces/stats.csv
+artifacts/gcl_resnet50_full_trace_reproduction/*
+!artifacts/gcl_resnet50_full_trace_reproduction/
+!artifacts/gcl_resnet50_full_trace_reproduction/resnet50_full_trace_reproduction_blocker_report.json

@@ -151,3 +151,13 @@ Solution: Bind every Gate8 tuning vector to representative-anchor, family-alignm
 Constraints: Gate8/Gate9 remain our extension, not original GCL-Sampler reproduction; provenance binding does not imply simulator accuracy claims.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate8_tuning.py tests/gcl_resnet50/test_gate9_simulator_evaluation.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 13 tests; `pytest -q tests/gcl_resnet50 tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_gate_replay.py` passed with 96 tests; `git diff --check` passed.
 Source Rounds: 9
+
+## Lesson: incremental-gate5-export
+Lesson ID: BL-20260609-incremental-gate5-export
+Scope: experiments/gcl_phase_b/embedding_export.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py, scripts/run_resnet50_full_trace_gcl.py
+Problem Description: Full ResNet50 trace Gate5 export can exceed a deadline and lose progress when the embedding table is written only after every kernel graph has been exported.
+Root Cause: Gate5 had no per-row export progress artifact and the pipeline retrained or restarted export instead of reusing a compatible checkpoint, progress prefix, or completed embedding table.
+Solution: Persist Gate5 export progress keyed by ordered tensor hashes and encoder manifest hash, skip completed tensor rows on rerun, reuse compatible RGCN checkpoints and completed embedding tables, and keep the stable runtime artifact root ignored but available for resume.
+Constraints: Final `kernel_embedding_table.json` schema remains unchanged; progress files are internal runtime state and are removed after the complete table validates.
+Validation Evidence: Formal full-trace command completed with `formal_full_trace_run=true`, `input_kernel_invocation_count=265`, `input_cta_record_count=124876`, `final_gate=gate9_report_only`, `embedding_rows=265`, and `selected_k=2`; `pytest -q tests/gcl_phase_b/test_embedding_export.py::test_phase_b_embedding_export_resumes_partial_progress tests/gcl_phase_b/test_resnet50_gate_pipeline.py::test_resnet50_gate5_reuses_existing_checkpoint_for_export_resume tests/gcl_phase_b/test_resnet50_gate_pipeline.py::test_resnet50_gate8_report_only_handles_weak_representatives_without_blocking tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 14 tests; `pytest -q tests/gcl_phase_a/test_rgcn_training.py tests/gcl_phase_b/test_readout.py tests/gcl_phase_b/test_embedding_export.py tests/gcl_resnet50/test_gate5_rgcn_training.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 46 tests; `git diff --check && git diff --cached --check` passed.
+Source Rounds: 3

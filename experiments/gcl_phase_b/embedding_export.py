@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -17,6 +19,7 @@ EMBEDDING_DIM = 256
 KERNEL_EMBEDDING_TABLE_TYPE = "gcl_resnet50_kernel_embedding_table"
 KERNEL_EMBEDDING_TABLE_VERSION = "gate5_kernel_embedding_table_v1"
 READOUT_HIERARCHY = "node_to_warp_to_cta_to_selected_sm_to_kernel"
+GATE5_EXPORT_PROGRESS_FILENAME = "gate5_embedding_export_progress.json"
 
 
 def export_phase_b_embedding_table(
@@ -24,6 +27,7 @@ def export_phase_b_embedding_table(
     encoder,
     encoder_manifest: dict[str, Any],
     source_graph_tensor_bundle_hash: str | None = None,
+    progress_dir: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     torch = require_torch()
     if not tensors:
@@ -31,11 +35,16 @@ def export_phase_b_embedding_table(
     if "encoder_manifest_hash" not in encoder_manifest:
         encoder_manifest = dict(encoder_manifest)
         encoder_manifest["encoder_manifest_hash"] = stable_hash(encoder_manifest)
-    rows = []
-    readout_manifests = []
+    progress_path = progress_dir / GATE5_EXPORT_PROGRESS_FILENAME if progress_dir else None
+    progress = _load_export_progress(progress_path, tensors, encoder_manifest) if progress_path else None
+    rows = list(progress["rows"]) if progress else []
+    readout_manifests = list(progress["readout_manifests"]) if progress else []
+    completed_hashes = {row["source_tensor_hash"] for row in rows}
     encoder.eval()
     with torch.no_grad():
         for index, tensor in enumerate(tensors):
+            if tensor["tensor_hash"] in completed_hashes:
+                continue
             if "augmentation_manifest" in tensor:
                 raise ValueError("selector embedding must come from canonical non-augmented graph")
             validate_phase_b_tensor_artifact(tensor)
@@ -61,6 +70,15 @@ def export_phase_b_embedding_table(
             )
             rows.append(row)
             readout_manifests.append(readout_manifest)
+            completed_hashes.add(tensor["tensor_hash"])
+            if progress_path:
+                _write_export_progress(
+                    progress_path,
+                    tensors=tensors,
+                    encoder_manifest=encoder_manifest,
+                    rows=rows,
+                    readout_manifests=readout_manifests,
+                )
     table = {
         "artifact_type": KERNEL_EMBEDDING_TABLE_TYPE,
         "artifact_version": KERNEL_EMBEDDING_TABLE_VERSION,
@@ -101,7 +119,53 @@ def export_phase_b_embedding_table(
         row["embedding_hash"] = hash_without(row, "embedding_hash")
     table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
     validate_phase_b_embedding_table(table)
+    if progress_path:
+        progress_path.unlink(missing_ok=True)
     return table, readout_bundle
+
+
+def _load_export_progress(
+    progress_path: Path,
+    tensors: list[dict[str, Any]],
+    encoder_manifest: dict[str, Any],
+) -> dict[str, Any] | None:
+    if not progress_path.exists():
+        return None
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
+    if progress.get("source_tensor_hashes") != expected_tensor_hashes:
+        raise ValueError("Gate5 export progress tensor hashes do not match current tensors")
+    if progress.get("encoder_manifest_hash") != encoder_manifest["encoder_manifest_hash"]:
+        raise ValueError("Gate5 export progress encoder_manifest_hash mismatch")
+    rows = progress.get("rows", [])
+    readout_manifests = progress.get("readout_manifests", [])
+    if len(rows) != len(readout_manifests):
+        raise ValueError("Gate5 export progress row/readout count mismatch")
+    if [row["source_tensor_hash"] for row in rows] != expected_tensor_hashes[: len(rows)]:
+        raise ValueError("Gate5 export progress rows are not a prefix of current tensors")
+    return progress
+
+
+def _write_export_progress(
+    progress_path: Path,
+    *,
+    tensors: list[dict[str, Any]],
+    encoder_manifest: dict[str, Any],
+    rows: list[dict[str, Any]],
+    readout_manifests: list[dict[str, Any]],
+) -> None:
+    progress = {
+        "artifact_type": "gcl_resnet50_gate5_embedding_export_progress",
+        "artifact_version": "gate5_embedding_export_progress_v1",
+        "encoder_manifest_hash": encoder_manifest["encoder_manifest_hash"],
+        "source_tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+        "completed_count": len(rows),
+        "rows": rows,
+        "readout_manifests": readout_manifests,
+    }
+    progress["progress_hash"] = hash_without(progress, "progress_hash")
+    progress_path.parent.mkdir(parents=True, exist_ok=True)
+    progress_path.write_text(json.dumps(progress, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _embedding_row(

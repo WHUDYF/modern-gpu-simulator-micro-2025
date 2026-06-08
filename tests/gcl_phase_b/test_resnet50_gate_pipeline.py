@@ -446,9 +446,16 @@ def test_resnet50_gate5_trains_on_bounded_subset_but_exports_all_embeddings(
 
     monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
     manifest = build_representative_sm_trace_manifest()
+    source_invocation = manifest["kernel_invocations"][0]
+    manifest["kernel_invocations"] = []
+    for index in range(5):
+        invocation = {**source_invocation, "kernel_invocation_id": f"debug_train_subset_{index}"}
+        invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+        manifest["kernel_invocations"].append(invocation)
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
     records = build_phase_b_trace_records(manifest)
     graphs = build_phase_b_graphs(records)
-    tensors = tensorize_phase_b_graphs(graphs) * 5
+    tensors = tensorize_phase_b_graphs(graphs)
     graph_tensor_bundle = {
         "artifact_type": "gcl_resnet50_graph_tensor_bundle",
         "artifact_version": "gate4_graph_tensor_bundle_v1",
@@ -475,6 +482,112 @@ def test_resnet50_gate5_trains_on_bounded_subset_but_exports_all_embeddings(
     assert training_manifest["train_graph_count"] == captured["training_count"]
     assert training_manifest["export_graph_count"] == len(tensors)
     assert training_manifest["training_subset_policy"] == "deterministic_prefix_for_full_trace_scalability"
+
+
+def test_resnet50_gate5_reuses_existing_checkpoint_for_export_resume(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+    from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=20260607,
+    )
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    def fail_if_retrained(*args, **kwargs):
+        raise AssertionError("Gate5 should reuse existing checkpoint")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_if_retrained)
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    assert len(embedding_table["embeddings"]) == len(tensors)
+    assert (tmp_path / "kernel_embedding_table.json").exists()
+
+
+def test_resnet50_gate8_report_only_handles_weak_representatives_without_blocking(tmp_path):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    correctness_manifest = {
+        "artifact_type": "gcl_resnet50_gate7_cluster_correctness_manifest",
+        "claim_status": "quantified_no_correctness_claim",
+        "gate7_cluster_correctness_manifest_hash": "gate7-hash",
+        "source_representative_anchor_table_hash": "anchor-hash",
+        "family_alignment_report_hash": "family-hash",
+        "metric_error_report_hash": "metric-hash",
+        "family_alignment_metrics": {"weighted_purity": 1.0},
+        "metric_error_report": {"global_weighted_mape": None},
+        "representative_quality_metrics": {"high_weight_outlier_count": 1},
+        "gate7_report_artifacts": {
+            "family_alignment_report": {"report_hash": "family-hash"},
+            "metric_error_report": {"report_hash": "metric-hash"},
+        },
+    }
+    selector_artifacts = {
+        "representative_anchor_table": {
+            "artifact_type": "gcl_resnet50_representative_anchor_table",
+            "anchors": [
+                {
+                    "cluster_id": 0,
+                    "representative_record_id": "record-0",
+                    "kernel_invocation_id": "kernel-0",
+                    "distance_to_centroid": 0.0,
+                }
+            ],
+        }
+    }
+    monkeypatch_hash = pipeline_module.stable_hash(
+        {
+            key: value
+            for key, value in selector_artifacts["representative_anchor_table"].items()
+            if key != "representative_anchor_table_hash"
+        }
+    )
+    correctness_manifest["source_representative_anchor_table_hash"] = monkeypatch_hash
+    selector_artifacts["representative_anchor_table"][
+        "representative_anchor_table_hash"
+    ] = monkeypatch_hash
+
+    gate8_proposal, gate9_report, final_gate = pipeline_module._emit_gate8_gate9_extension_artifacts(
+        correctness_manifest=correctness_manifest,
+        selector_artifacts=selector_artifacts,
+        baseline_artifacts=None,
+        out_dir=tmp_path,
+    )
+
+    assert final_gate == "gate9_report_only"
+    assert gate8_proposal["gate8_tuning_manifest"]["tuning_safety_status"] == "blocked_report_only"
+    assert gate9_report["gate9_simulator_evaluation_manifest"]["artifact_type"] == (
+        "gcl_resnet50_gate9_simulator_evaluation_manifest"
+    )
+    assert (tmp_path / "gate8_tuning_vector_proposal.json").exists()
+    assert (tmp_path / "gate9_sampled_vs_full_evaluation.json").exists()
 
 
 def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_path):

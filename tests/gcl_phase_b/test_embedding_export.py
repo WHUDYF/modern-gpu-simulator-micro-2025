@@ -4,9 +4,11 @@ from pathlib import Path
 
 from experiments.gcl_phase_b.embedding_export import (
     READOUT_HIERARCHY,
+    GATE5_EXPORT_PROGRESS_FILENAME,
     export_phase_b_embedding_table,
     validate_phase_b_embedding_table,
 )
+from experiments.gcl_phase_a.rgcn import require_torch
 from experiments.gcl_phase_b.utils import hash_without
 from experiments.gcl_phase_b.graph_builder import build_phase_b_graphs
 from experiments.gcl_phase_b.pipeline import run_embedding_export
@@ -92,6 +94,75 @@ def test_phase_b_export_function_returns_readout_manifest_bundle(tmp_path):
     validate_phase_b_embedding_table(table)
     assert readout_bundle["artifact_type"] == "gcl_phase_b_readout_manifest_bundle"
     assert readout_bundle["manifests"][0]["readout_hierarchy"] == READOUT_HIERARCHY
+
+
+def test_phase_b_embedding_export_resumes_partial_progress(tmp_path):
+    manifest = build_representative_sm_trace_manifest()
+    source_invocation = manifest["kernel_invocations"][0]
+    manifest["kernel_invocations"] = []
+    for index in range(3):
+        invocation = {**source_invocation, "kernel_invocation_id": f"debug_invocation_{index}"}
+        invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+        manifest["kernel_invocations"].append(invocation)
+    manifest["trace_manifest_hash"] = hash_without(manifest, "trace_manifest_hash")
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    torch = require_torch()
+    calls = []
+
+    class FailingEncoder:
+        def eval(self):
+            return self
+
+        def encode_kernel_partitioned(self, tensor):
+            calls.append(tensor["tensor_hash"])
+            if len(calls) == 2:
+                raise RuntimeError("simulated export interruption")
+            return torch.full((256,), float(len(calls)), dtype=torch.float32)
+
+    encoder_manifest = {
+        "encoder_manifest_hash": "encoder-hash",
+        "checkpoint_hash": "checkpoint-hash",
+    }
+
+    with pytest.raises(RuntimeError, match="simulated export interruption"):
+        export_phase_b_embedding_table(
+            tensors,
+            FailingEncoder(),
+            encoder_manifest,
+            progress_dir=tmp_path,
+        )
+
+    progress_path = tmp_path / GATE5_EXPORT_PROGRESS_FILENAME
+    assert progress_path.exists()
+    assert calls == [tensors[0]["tensor_hash"], tensors[1]["tensor_hash"]]
+
+    class ResumeEncoder:
+        def eval(self):
+            return self
+
+        def encode_kernel_partitioned(self, tensor):
+            calls.append(tensor["tensor_hash"])
+            return torch.full((256,), float(len(calls)), dtype=torch.float32)
+
+    table, readout_bundle = export_phase_b_embedding_table(
+        tensors,
+        ResumeEncoder(),
+        encoder_manifest,
+        progress_dir=tmp_path,
+    )
+
+    assert calls == [
+        tensors[0]["tensor_hash"],
+        tensors[1]["tensor_hash"],
+        tensors[1]["tensor_hash"],
+        tensors[2]["tensor_hash"],
+    ]
+    assert len(table["embeddings"]) == 3
+    assert len(readout_bundle["manifests"]) == 3
+    assert not progress_path.exists()
+    validate_phase_b_embedding_table(table)
 
 
 def test_phase_b_embedding_table_validator_rejects_missing_formal_top_level_field(tmp_path):

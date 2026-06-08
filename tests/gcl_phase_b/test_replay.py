@@ -28,6 +28,15 @@ def _refresh_pipeline_manifest_hashes(out_dir, hash_updates):
     manifest_path.write_text(json.dumps(manifest, sort_keys=True))
 
 
+def _graph_tensor_bundle_reference_hash(tensors):
+    return stable_hash(
+        {
+            "artifact_type": "gcl_resnet50_graph_tensor_bundle_reference",
+            "tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+        }
+    )
+
+
 def test_phase_b_artifacts_are_replayable(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())
@@ -208,6 +217,50 @@ def test_phase_b_replay_rejects_embedding_readout_hash_tamper_after_hash_refresh
     )
 
     with pytest.raises(ValueError, match="readout_manifest_hash coverage"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
+def test_phase_b_replay_rejects_embedding_table_lineage_retarget_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest(invocation_count=2))
+    out_dir = tmp_path / "embedding_lineage_retarget"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    tensor_bundle = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["tensor_bundle"]).read_text()
+    )
+    tensors = tensor_bundle["tensors"]
+    table_expected_bundle_hash = _graph_tensor_bundle_reference_hash(tensors)
+    assert table_expected_bundle_hash
+    wrong_bundle_hash = stable_hash(
+        {
+            "artifact_type": "gcl_resnet50_graph_tensor_bundle_reference",
+            "tensor_hashes": ["not-the-real-tensor-bundle"],
+        }
+    )
+    assert wrong_bundle_hash != table_expected_bundle_hash
+    table_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    table = json.loads(table_path.read_text())
+    table["source_graph_tensor_bundle_hash"] = wrong_bundle_hash
+    table["gate5_lineage"]["source_graph_tensor_bundle_hash"] = wrong_bundle_hash
+    table["gate5_lineage_hash"] = hash_without(table["gate5_lineage"])
+    for row in table["embeddings"]:
+        row["gate5_lineage_hash"] = table["gate5_lineage_hash"]
+        row["embedding_hash"] = hash_without(row, "embedding_hash")
+    table["kernel_embedding_table_hash"] = hash_without(table, "kernel_embedding_table_hash")
+    table_path.write_text(json.dumps(table, sort_keys=True))
+
+    selector_artifacts = select_phase_b_representatives(table, seed=42, allow_debug=True)
+    write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], selector_artifacts)
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "embedding_table_hash": table["kernel_embedding_table_hash"],
+            "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
+        },
+    )
+
+    with pytest.raises(ValueError, match="source_graph_tensor_bundle_hash"):
         validate_phase_b_replay_from_disk(out_dir)
 
 

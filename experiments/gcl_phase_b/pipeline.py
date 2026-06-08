@@ -17,6 +17,7 @@ from .embedding_export import (
     build_gate5_lineage_bundle,
     export_phase_b_embedding_table,
     validate_phase_b_embedding_table,
+    _source_graph_tensor_bundle_hash,
 )
 from .readout import build_readout_manifest, validate_readout_manifest
 from .selector import select_phase_b_representatives
@@ -1233,6 +1234,14 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
     validate_phase_b_embedding_table(embedding_table)
+    expected_graph_tensor_bundle_hash = _source_graph_tensor_bundle_hash(tensors)
+    if embedding_table.get("source_graph_tensor_bundle_hash") != expected_graph_tensor_bundle_hash:
+        raise ValueError("embedding table source_graph_tensor_bundle_hash does not match tensor bundle")
+    if (
+        embedding_table.get("gate5_lineage", {}).get("source_graph_tensor_bundle_hash")
+        != expected_graph_tensor_bundle_hash
+    ):
+        raise ValueError("Gate5 lineage source_graph_tensor_bundle_hash does not match tensor bundle")
     expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
     expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
     expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]

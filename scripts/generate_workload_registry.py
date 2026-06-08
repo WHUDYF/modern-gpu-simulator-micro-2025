@@ -54,6 +54,7 @@ CURATED_WORKLOADS = {
         ("protein-small-step", "hpc_full_application", "high", "large", "medium"),
     ],
 }
+SPARSE_DISCOVERABLE_SOURCES = {"hecbench"}
 
 SCAN_DIRECTORIES = ("cuda", "CUDA", "src", "test")
 SUPPORT_DIRECTORY_NAMES = {
@@ -268,7 +269,11 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
         availability_status = source.get("availability_status")
         if availability_status == "source_unavailable":
             continue
-        if availability_status == "source_sparse_available" and source_id not in CURATED_WORKLOADS:
+        if (
+            availability_status == "source_sparse_available"
+            and source_id not in CURATED_WORKLOADS
+            and source_id not in SPARSE_DISCOVERABLE_SOURCES
+        ):
             continue
         for workload in discover_workloads_for_source(source_id, Path(source["local_path"])):
             append_unique_workload(workloads, workload, seen_ids)

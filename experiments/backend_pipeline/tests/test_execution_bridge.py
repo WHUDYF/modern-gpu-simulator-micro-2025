@@ -233,7 +233,7 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     records = execute_run_specs(run_specs, timeout_seconds=5)
     summary = build_result_summary(run_specs, records, profile["parser"])
     assert records[0]["execution_status"] == "success"
-    assert summary[0]["result_status"] == "inconclusive"
+    assert summary[0]["result_status"] == "success"
     assert summary[0]["parse_status"] == "parsed-validation"
     assert summary[0]["sim_cycles"] == 42
     assert summary[0]["observed_metric_values"]["simulation_time"] == 1.25

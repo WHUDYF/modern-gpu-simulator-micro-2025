@@ -311,6 +311,7 @@ def _write_collector_attestation(
         attestation, "collector_attestation_hash"
     )
     evidence["collector_producer"] = COLLECTOR_PRODUCER
+    evidence["collector_session_id_from_env"] = session["collector_session_id"]
     evidence["collector_session_id"] = session["collector_session_id"]
     evidence["collector_session_hash"] = session["collector_session_hash"]
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]

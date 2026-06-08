@@ -84,6 +84,27 @@ def test_gate9_speedup_ignores_measured_only_metrics_not_in_full_baseline():
     assert "runtime_ms_speedup" not in report["sampled_speedup_report"]
 
 
+def test_gate9_treats_nonzero_sample_against_zero_baseline_as_bad_case():
+    report = evaluate_gate9_sampled_vs_full(
+        sampled_metrics={"dram_reads": 5.0, "cycles": 100.0},
+        full_baseline_metrics={"dram_reads": 0.0, "cycles": 100.0},
+        measured_baseline_metrics=None,
+        gate8_tuning_manifest={
+            "artifact_type": "gcl_resnet50_gate8_tuning_manifest",
+            "gate8_tuning_manifest_hash": "gate8-hash",
+        },
+        representative_anchor_table={
+            "artifact_type": "gcl_resnet50_representative_anchor_table",
+            "representative_anchor_table_hash": "anchor-hash",
+        },
+    )
+
+    assert report["full_vs_sampled_simulation_report"]["dram_reads"]["relative_error"] == 1.0
+    assert report["sampled_error_report"]["dram_reads_relative_error"] == 1.0
+    assert report["sampled_error_report"]["p95_relative_error"] == 1.0
+    assert report["sampled_error_report"]["high_weight_bad_case_count"] == 1
+
+
 def test_gate9_rejects_speedup_claim_without_full_baseline():
     with pytest.raises(ValueError, match="baseline"):
         evaluate_gate9_sampled_vs_full(

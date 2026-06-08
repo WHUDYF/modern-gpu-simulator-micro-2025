@@ -38,7 +38,7 @@ def evaluate_gate9_sampled_vs_full(
     for key in comparable_keys:
         sampled = float(sampled_metrics[key])
         expected = float(baseline[key])
-        relative_error = abs(sampled - expected) / expected if expected else 0.0
+        relative_error = _relative_error(sampled, expected)
         rounded_error = round(relative_error, 8)
         comparison[key] = {
             "sampled": sampled,
@@ -102,6 +102,12 @@ def gate9_baseline_missing_report() -> dict[str, Any]:
     )
     artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
     return artifact
+
+
+def _relative_error(sampled: float, expected: float) -> float:
+    if expected != 0.0:
+        return abs(sampled - expected) / abs(expected)
+    return 0.0 if sampled == 0.0 else 1.0
 
 
 def _gate9_manifest(

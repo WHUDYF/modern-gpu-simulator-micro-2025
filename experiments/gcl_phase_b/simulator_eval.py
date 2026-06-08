@@ -53,7 +53,8 @@ def evaluate_gate9_sampled_vs_full(
     )
     speedup_report = {}
     if full_baseline_metrics:
-        for key in comparable_keys:
+        speedup_keys = sorted(set(sampled_metrics).intersection(full_baseline_metrics))
+        for key in speedup_keys:
             sampled = float(sampled_metrics[key])
             full = float(full_baseline_metrics[key])
             if sampled:

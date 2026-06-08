@@ -893,6 +893,30 @@ def _mark_embedding_stage_resource_blocked(
     )
 
 
+def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc: Exception) -> None:
+    (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).unlink(missing_ok=True)
+    graph_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
+    )
+    graphs = graph_bundle.get("graphs", [])
+    audit_bundle = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
+        )
+    )
+    graph_size_audits = audit_bundle.get("audits", [])
+    blocked = _resource_blocked_artifact(graphs, graph_size_audits, failed_stage, exc)
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+    _refresh_pipeline_manifest_hashes_if_present(
+        out_dir,
+        {
+            "selector_manifest_hash": None,
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
+        },
+        top_level_updates={"resource_blocked": True},
+    )
+
+
 def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
     resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
     require_pipeline_artifact(
@@ -997,9 +1021,15 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )
-    artifacts = _select_phase_b_representatives_for_artifact_status(
-        table, seed=resolved_seed, out_dir=out_dir
-    )
+    try:
+        artifacts = _select_phase_b_representatives_for_artifact_status(
+            table, seed=resolved_seed, out_dir=out_dir
+        )
+    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
+        if not _is_resource_limit_error(exc):
+            raise
+        _mark_selector_stage_resource_blocked(out_dir, "selector", exc)
+        raise
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,

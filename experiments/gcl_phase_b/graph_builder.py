@@ -16,6 +16,16 @@ EDGE_RELATION_SCHEMA = {
 }
 GRAPH_HASH_EXCLUDED_FIELDS = ("graph_hash",)
 VARIABLE_NODE_TYPES = {"register_version", "input_variable", "unknown_variable"}
+MEMORY_OPCODE_PREFIXES = (
+    "LDG",
+    "LDS",
+    "LDL",
+    "LDC",
+    "LDCU",
+    "STG",
+    "STS",
+    "STL",
+)
 
 
 def _is_raw_register_token(token: str) -> bool:
@@ -31,11 +41,11 @@ def _semantic_node_type(token: str) -> str:
 
 
 def _is_memory_opcode(opcode: str) -> bool:
-    return opcode == "LDG" or opcode.startswith("LDG.") or opcode.startswith("STG")
+    return opcode.startswith(MEMORY_OPCODE_PREFIXES)
 
 
 def _is_address_token(token: str) -> bool:
-    return token.startswith(("R", "UR")) or "[R" in token or "[UR" in token
+    return token.startswith(("R", "UR", "c[")) or "[R" in token or "[UR" in token
 
 
 def _address_register_token(token: str) -> str:
@@ -462,8 +472,8 @@ def validate_phase_b_graph_artifact(graph: dict[str, Any]) -> None:
             raise ValueError("memory instructions require mem_ref pseudo nodes")
         if expected_address_source not in node_by_id:
             raise ValueError("memory instructions require known address source node")
-        if node_by_id[expected_address_source]["node_type"] != "register_version":
-            raise ValueError("memory instructions require register_version address source")
+        if node_by_id[expected_address_source]["node_type"] not in VARIABLE_NODE_TYPES:
+            raise ValueError("memory instructions require variable address source")
         if (expected_address_source, mem_ref_id) not in data_edges:
             raise ValueError("memory instructions require exact address variable to mem_ref data-flow")
         if (mem_ref_id, memory_node["node_id"]) not in data_edges:

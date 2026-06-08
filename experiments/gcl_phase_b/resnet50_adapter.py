@@ -612,10 +612,30 @@ def _trace_entry_from_pb_instruction(
     }
 
 
+STORE_OPCODE_PREFIXES = ("STG", "STS", "STL")
+ZERO_DESTINATION_OPCODE_PREFIXES = (
+    "BAR",
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "CALL",
+    "DEPBAR",
+    "EXIT",
+    "JMP",
+    "MEMBAR",
+    "NOP",
+    "RET",
+    "WARPSYNC",
+    "YIELD",
+)
+
+
 def _split_operands(opcode: str, operands: list[str]) -> tuple[list[str], list[str]]:
     if not operands:
         return [], []
-    if opcode.startswith("STG"):
+    if opcode.startswith(STORE_OPCODE_PREFIXES):
+        return [], operands
+    if opcode.startswith(ZERO_DESTINATION_OPCODE_PREFIXES):
         return [], operands
     return [operands[0]], operands[1:]
 

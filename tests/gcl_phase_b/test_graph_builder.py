@@ -93,6 +93,50 @@ def test_graph_builder_parses_bracketed_address_operands_to_base_registers():
     assert all("[UR12+0x20]" not in token for token in register_tokens)
 
 
+def test_graph_builder_creates_mem_ref_nodes_for_resnet50_memory_opcode_families():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    warp = record["warps"][0]
+    opcodes = ["LDS.128", "STS", "LDC.64", "LDCU.128"]
+    warp["entries"] = [
+        {
+            **warp["entries"][0],
+            "opcode": opcode,
+            "source_operands": [f"[R{index + 4}+0x10]", f"R{index + 20}"],
+            "destination_operands": [f"R{index + 40}"] if not opcode.startswith("ST") else [],
+            "trace_index": index,
+        }
+        for index, opcode in enumerate(opcodes)
+    ]
+    record["warps"] = [warp]
+
+    graph = build_phase_b_graphs([record])[0]
+
+    validate_phase_b_graph_artifact(graph)
+    mem_ref_nodes = [
+        node
+        for node in graph["nodes"]
+        if node["node_type"] == "pseudo" and node["pseudo_kind"] == "mem_ref"
+    ]
+    memory_instruction_nodes = [
+        node
+        for node in graph["nodes"]
+        if node["node_type"] == "instruction" and node["opcode"] in opcodes
+    ]
+    data_source_edges = {
+        (edge["source"], edge["target"])
+        for edge in graph["edges"]
+        if edge["relation"] == "data_source"
+    }
+
+    assert len(mem_ref_nodes) == len(opcodes)
+    assert all("address_source_node_id" in node for node in memory_instruction_nodes)
+    for instruction in memory_instruction_nodes:
+        mem_ref_id = f"p:wp{instruction['warp_partition_id']}:mem_ref:t{instruction['trace_index']}"
+        assert (instruction["address_source_node_id"], mem_ref_id) in data_source_edges
+        assert (mem_ref_id, instruction["node_id"]) in data_source_edges
+
+
 def test_graph_validator_rejects_cross_warp_control_flow():
     graph = _graph()
     instruction_nodes = [node for node in graph["nodes"] if node["node_type"] == "instruction"]

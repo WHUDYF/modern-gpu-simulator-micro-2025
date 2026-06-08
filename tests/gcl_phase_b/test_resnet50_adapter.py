@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     build_resnet50_trace_adapter_bundle,
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
+    _split_operands,
 )
 from experiments.gcl_phase_b.utils import hash_without
 
@@ -52,6 +53,19 @@ def test_gate1_builds_debug_resnet50_trace_adapter_bundle():
     assert len(bundle["kernel_invocation_table"]) == 2
     assert all("kernel_invocation_id" in row for row in bundle["cta_scheduler_records"])
     assert all("kernel_invocation_id" in row for row in bundle["per_warp_trace_records"])
+
+
+def test_gate1_operand_split_does_not_fabricate_destinations_for_control_ops():
+    for opcode, operands in {
+        "BRA": ["0x0000000000012340"],
+        "BSSY.RECONVERGENT": ["B0", "0x0000000000000040"],
+        "BSYNC.RECONVERGENT": ["B0"],
+        "EXIT": [],
+    }.items():
+        destinations, sources = _split_operands(opcode, operands)
+
+        assert destinations == []
+        assert sources == operands
 
 
 def test_gate1_rejects_non_real_scheduler_metadata():

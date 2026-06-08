@@ -131,6 +131,30 @@ def test_gate1_rejects_stray_warp_trace_cta():
         validate_resnet50_trace_adapter_bundle(bundle)
 
 
+def test_gate1_rejects_missing_representative_sm_cta_trace_in_formal_bundle():
+    bundle = _validator_formal_bundle()
+    bundle["adapter_validation_report"]["trace_materialization_scope"] = (
+        "representative_sm_all_ctas"
+    )
+    bundle["adapter_validation_report"]["trace_count_reconciliation_policy"] = (
+        "scheduler_count_is_runtime_packet_count"
+    )
+    missing_cta = bundle["cta_scheduler_records"][0]["cta_id"]
+    missing_invocation = bundle["cta_scheduler_records"][0]["kernel_invocation_id"]
+    bundle["per_warp_trace_records"] = [
+        record
+        for record in bundle["per_warp_trace_records"]
+        if not (
+            record["kernel_invocation_id"] == missing_invocation
+            and record["cta_id"] == missing_cta
+        )
+    ]
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    with pytest.raises(ValueError, match="scheduler CTA set"):
+        validate_resnet50_trace_adapter_bundle(bundle)
+
+
 def test_gate1_preserves_repeated_kernel_id_when_raw_sources_have_launch_order(tmp_path):
     root = tmp_path / "repeated_kernel_id"
     shutil.copytree(FIXTURE_ROOT, root)

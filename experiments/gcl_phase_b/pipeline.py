@@ -1031,12 +1031,19 @@ def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict
         _mark_selector_stage_resource_blocked(out_dir, "selector", exc)
         raise
     write_json(out_dir / ARTIFACT_FILENAMES["selector_artifacts"], artifacts)
+    graph_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
+    )
+    resource_status = _resource_not_blocked_artifact(graph_bundle.get("graphs", []))
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], resource_status)
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
             "embedding_table_hash": _embedding_table_hash(table),
             "selector_manifest_hash": artifacts["selector_manifest_hash"],
+            "resource_blocked_hash": resource_status["resource_blocked_hash"],
         },
+        top_level_updates={"resource_blocked": False},
     )
     return artifacts
 

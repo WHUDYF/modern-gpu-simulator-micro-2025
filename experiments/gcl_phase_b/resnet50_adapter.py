@@ -803,13 +803,13 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
         aggregate["warp_ids"].add(record["warp_id"])
         aggregate["entry_count"] += len(record.get("entries", []))
         trace_records_by_invocation[invocation_id] += len(record.get("entries", []))
+    expected_scheduler_by_cta = scheduler_by_cta
     if representative_trace_only:
-        if not set(trace_by_cta).issubset(set(scheduler_by_cta)):
-            raise ValueError("warp trace CTA set must be a subset of scheduler CTA set")
-    elif set(scheduler_by_cta) != set(trace_by_cta):
+        expected_scheduler_by_cta = _selected_sm_scheduler_ctas(scheduler_by_cta)
+    if set(expected_scheduler_by_cta) != set(trace_by_cta):
         raise ValueError("scheduler CTA set must match warp trace CTA set")
     for cta_key, trace_record in trace_by_cta.items():
-        scheduler_record = scheduler_by_cta[cta_key]
+        scheduler_record = expected_scheduler_by_cta[cta_key]
         if set(scheduler_record["warp_ids"]) != trace_record["warp_ids"]:
             raise ValueError("scheduler warp_ids must match traced warp IDs")
         if representative_trace_only:
@@ -822,6 +822,45 @@ def _validate_invocation_provenance(bundle: dict[str, Any]) -> None:
             raise ValueError("each kernel_invocation_id must retain scheduler records")
         if trace_records_by_invocation[invocation_id] <= 0:
             raise ValueError("each kernel_invocation_id must retain warp trace records")
+
+
+def _selected_sm_scheduler_ctas(
+    scheduler_by_cta: dict[tuple[str, str], dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    by_invocation: dict[str, dict[str, dict[str, Any]]] = {}
+    for (invocation_id, cta_id), record in scheduler_by_cta.items():
+        sm_id = str(record["sm_id"])
+        invocation_sms = by_invocation.setdefault(invocation_id, {})
+        metadata = invocation_sms.setdefault(
+            sm_id,
+            {
+                "sm_id": int(record["sm_id"]),
+                "cta_ids": [],
+                "warp_ids_by_cta": {},
+                "trace_entry_count_by_cta": {},
+                "cta_start_order": {},
+                "cta_end_order": {},
+            },
+        )
+        metadata["cta_ids"].append(cta_id)
+        metadata["warp_ids_by_cta"][cta_id] = list(record["warp_ids"])
+        metadata["trace_entry_count_by_cta"][cta_id] = int(record["trace_entry_count"])
+        metadata["cta_start_order"][cta_id] = int(record["first_seen_order"])
+        metadata["cta_end_order"][cta_id] = int(record["last_seen_order"])
+    selected = {}
+    for invocation_id, scheduler_metadata_by_sm in by_invocation.items():
+        selected_sm = int(
+            select_representative_sm(
+                {
+                    "kernel_invocation_id": invocation_id,
+                    "scheduler_metadata_by_sm": scheduler_metadata_by_sm,
+                }
+            )["selected_sm"]
+        )
+        for cta_key, record in scheduler_by_cta.items():
+            if cta_key[0] == invocation_id and int(record["sm_id"]) == selected_sm:
+                selected[cta_key] = record
+    return selected
 
 
 def write_resnet50_trace_adapter_bundle(root: Path, out_path: Path) -> dict[str, Any]:

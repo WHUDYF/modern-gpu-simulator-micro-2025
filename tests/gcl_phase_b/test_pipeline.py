@@ -654,6 +654,42 @@ def test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stal
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
 
 
+def test_from_disk_selector_stage_clears_resource_blocked_after_successful_retry(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_selector_recovery"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    def fail_selector(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated selector memory exhaustion")
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "_select_phase_b_representatives_for_artifact_status",
+        fail_selector,
+    )
+    with pytest.raises(pipeline_module.PhaseBResourceError):
+        run_selector_stage_from_disk(out_dir)
+
+    monkeypatch.undo()
+    artifacts = run_selector_stage_from_disk(out_dir)
+    validation = validate_phase_b_replay_from_disk(out_dir)
+    refreshed_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text()
+    )
+
+    assert refreshed_manifest["resource_blocked"] is False
+    assert refreshed_manifest["hashes"]["selector_manifest_hash"] == artifacts[
+        "selector_manifest_hash"
+    ]
+    assert validation["selector_manifest_hash"] == artifacts["selector_manifest_hash"]
+
+
 def test_from_disk_selector_stage_preserves_formal_gate5_lineage_validation(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     out_dir = tmp_path / "stage_selector_formal_lineage"

@@ -734,20 +734,6 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
             exc,
         )
 
-    try:
-        readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
-    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
-        if not _is_resource_limit_error(exc):
-            raise
-        return _write_resource_blocked_pipeline_manifest(
-            out_dir,
-            seed,
-            base_hashes,
-            graphs,
-            graph_size_audits,
-            "readout",
-            exc,
-        )
     _persist_gate5_artifacts(
         out_dir,
         embedding_table,
@@ -946,20 +932,6 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
             graphs,
             graph_size_audits,
             "training",
-            exc,
-        )
-        raise
-    try:
-        readout_bundle = build_readout_manifest_bundle(tensors, training_report["encoder"])
-    except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
-        if not _is_resource_limit_error(exc):
-            raise
-        _mark_embedding_stage_resource_blocked(
-            out_dir,
-            augmentation_bundle,
-            graphs,
-            graph_size_audits,
-            "readout",
             exc,
         )
         raise

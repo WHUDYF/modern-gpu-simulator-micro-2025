@@ -477,30 +477,24 @@ def test_from_disk_embedding_stage_failure_marks_resource_blocked_and_clears_sta
         assert blocked["hashes"][stale_hash] is None
 
 
-def test_from_disk_embedding_stage_readout_failure_marks_resource_blocked(
+def test_from_disk_embedding_stage_reuses_exported_readout_bundle(
     tmp_path,
     monkeypatch,
 ):
     import experiments.gcl_phase_b.pipeline as pipeline_module
 
     manifest_path = tmp_path / "trace_manifest.json"
-    out_dir = tmp_path / "stage_readout_failure"
+    out_dir = tmp_path / "stage_reuse_exported_readout"
     write_json(manifest_path, build_representative_sm_trace_manifest())
     run_pipeline(manifest_path, out_dir, seed=42)
 
-    def fail_readout(*args, **kwargs):
-        raise pipeline_module.PhaseBResourceError("simulated readout memory exhaustion")
+    def duplicate_readout_call(*args, **kwargs):
+        raise AssertionError("embedding stage must reuse the readout bundle returned by export")
 
-    monkeypatch.setattr(pipeline_module, "build_readout_manifest_bundle", fail_readout)
-    with pytest.raises(pipeline_module.PhaseBResourceError):
-        run_embedding_export_stage_from_disk(out_dir)
+    monkeypatch.setattr(pipeline_module, "build_readout_manifest_bundle", duplicate_readout_call)
+    table = run_embedding_export_stage_from_disk(out_dir)
 
-    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
-    resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
-    assert blocked["resource_blocked"] is True
-    assert resource["failed_stage"] == "readout"
-    for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
-        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    assert table["kernel_embedding_table_hash"]
 
 
 def test_from_disk_embedding_stage_rejects_stale_tensor_bundle_against_graphs(tmp_path):

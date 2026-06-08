@@ -239,6 +239,67 @@ def test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract(t
     assert (root / "nvbit_collector_attestation.json").exists()
 
 
+def test_gate0_acquisition_synthesized_evidence_records_current_collector_session(tmp_path):
+    root = tmp_path / "formal_trace_synthesized_evidence"
+
+    def runner(command, *, cwd, env):
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+        threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
+        threadblocks.mkdir(parents=True)
+        (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+        extra_info = root / "extra_info"
+        extra_info.mkdir()
+        write_json(
+            extra_info / "enhanced_execution_info.json",
+            {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
+        )
+        write_json(
+            root / "scheduler_metadata.json",
+            {
+                "artifact_type": "gcl_real_trace_scheduler_metadata",
+                "artifact_version": "resnet50_scheduler_metadata_v1",
+                "scheduler_metadata_source": "real_nvbit_smid",
+                "source": "nvbit_tracer",
+                "kernel_invocations": [
+                    {
+                        "kernel_invocation_id": "d_0_s_0_k_1",
+                        "kernel_id": 1,
+                        "cta_records": [
+                            {
+                                "cta_id": "0,0,0",
+                                "sm_id": 3,
+                                "first_seen_order": 10,
+                                "last_seen_order": 12,
+                                "warp_ids": [0, 1],
+                                "trace_entry_count": 3,
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+        (root / "stats.csv").write_text(
+            "device_id, stream_id, kernel id, kernel mangled name\n"
+            "0, 0, kernel-1.trace, real_kernel\n",
+            encoding="utf-8",
+        )
+        return {"returncode": 0, "stdout": "NVBit Loaded", "stderr": ""}
+
+    config = ResNet50NvbitAcquisitionConfig(
+        output_root=root,
+        workload_command=["python", "run_resnet50.py"],
+        nvbit_tool_path=Path("/opt/nvbit/tools/tracer_tool.so"),
+        working_directory=tmp_path,
+    )
+
+    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+
+    evidence = read_json(root / "nvbit_collection_evidence.json")
+    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
+    assert manifest["formal_input_eligible"] is True
+
+
 def test_gate0_recording_accepts_persisted_acquisition_artifacts_after_restart(tmp_path):
     root = tmp_path / "formal_trace_restart"
 

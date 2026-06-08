@@ -343,6 +343,10 @@ def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[s
         "evidence_scope": "real_resnet50_nvbit_collection",
         "nvbit_loaded": _runner_output_contains(result, "NVBit"),
     }
+    session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
+    if session_path.is_file():
+        session = read_json(session_path)
+        evidence["collector_session_id_from_env"] = session.get("collector_session_id")
     write_json(root / NVBIT_COLLECTION_EVIDENCE_FILENAME, evidence)
     return evidence
 

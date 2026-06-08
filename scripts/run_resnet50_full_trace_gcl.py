@@ -82,6 +82,25 @@ def _reject_bounded_adapter_bundle(out_dir: Path) -> None:
         )
 
 
+def _validate_resume_artifacts_match_gate0(
+    out_dir: Path,
+    *,
+    gate0_manifest: dict[str, Any],
+) -> None:
+    adapter_path = out_dir / ADAPTER_BUNDLE
+    if not adapter_path.exists():
+        raise ValueError(f"missing adapter bundle for Gate4 resume: {adapter_path}")
+    adapter = _read_json(adapter_path)
+    expected_hash = gate0_manifest.get("gate0_manifest_hash")
+    actual_hash = adapter.get("source_gate0_manifest_hash")
+    if actual_hash != expected_hash:
+        raise ValueError(
+            "Gate4 resume artifacts do not match requested Gate0 root: "
+            f"adapter source_gate0_manifest_hash={actual_hash!r}, "
+            f"gate0_manifest_hash={expected_hash!r}"
+        )
+
+
 def _write_blocker(
     *,
     out_dir: Path,
@@ -118,8 +137,6 @@ def run_full_trace_reproduction(
     baseline_artifacts: Path | None,
     deadline_seconds: int | None = DEFAULT_DEADLINE_SECONDS,
 ) -> dict[str, Any]:
-    gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
-    input_cta_record_count = _input_cta_record_count(input_root)
     started = time.monotonic()
     previous_handler = None
     if deadline_seconds is not None:
@@ -135,7 +152,13 @@ def run_full_trace_reproduction(
         )
         signal.alarm(deadline_seconds)
     try:
+        gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
+        input_cta_record_count = _input_cta_record_count(input_root)
         if (out_dir / "graph_tensor_bundle.json").exists():
+            _validate_resume_artifacts_match_gate0(
+                out_dir,
+                gate0_manifest=gate0_manifest,
+            )
             pipeline_manifest = resume_resnet50_gate5_to_gate9_from_disk(
                 out_dir,
                 seed=seed,

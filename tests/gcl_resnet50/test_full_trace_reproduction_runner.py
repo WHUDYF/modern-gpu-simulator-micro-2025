@@ -155,6 +155,20 @@ def _fake_success_resume(calls):
     return fake_resume
 
 
+def _write_success_manifest(out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "resnet50_full_trace_reproduction_manifest.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
+                "resource_status": "completed",
+                "formal_full_trace_run": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_full_trace_runner_calls_pipeline_without_invocation_slicing(tmp_path, monkeypatch):
     calls = {}
     monkeypatch.setattr(
@@ -199,6 +213,16 @@ def test_full_trace_runner_resumes_from_persisted_gate4_when_available(tmp_path,
     out_dir = tmp_path / "out"
     (out_dir / "graph_tensor_bundle.json").parent.mkdir(parents=True)
     (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+    gate0_manifest = json.loads((root / "gate0_trace_acquisition_manifest.json").read_text())
+    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+        json.dumps(
+            {
+                "source_gate0_manifest_hash": gate0_manifest["gate0_manifest_hash"],
+                "adapter_validation_report": {"status": "passed"},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
         input_root=root,
@@ -258,6 +282,38 @@ def test_full_trace_runner_rejects_malformed_gate0_manifest_hash(tmp_path, monke
             baseline_artifacts=None,
         )
 
+    assert calls == {}
+
+
+def test_full_trace_runner_preflight_failure_writes_blocker_and_removes_stale_success(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "root"
+    _write_gate0_manifest(root, bad_hash=True)
+    out_dir = tmp_path / "out"
+    _write_success_manifest(out_dir)
+
+    with pytest.raises(ValueError, match="gate0_manifest_hash"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    blocker = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").read_text()
+    )
+    assert blocker["blocker_reason"] == "ValueError"
+    assert blocker["resource_status"] == "blocked"
+    assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
     assert calls == {}
 
 
@@ -324,6 +380,52 @@ def test_full_trace_runner_removes_stale_blocker_report_on_success(tmp_path, mon
 
     assert (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
     assert not blocker_path.exists()
+
+
+def test_full_trace_runner_resume_rejects_gate4_from_different_gate0_root(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+
+    def fail_if_resumed(*args, **kwargs):
+        raise AssertionError("resume should be rejected before Gate5-to-Gate9 execution")
+
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "resume_resnet50_gate5_to_gate9_from_disk",
+        fail_if_resumed,
+    )
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    _write_success_manifest(out_dir)
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+        json.dumps(
+            {
+                "source_gate0_manifest_hash": "different-gate0-hash",
+                "adapter_validation_report": {"status": "passed"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Gate4 resume artifacts"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    blocker = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").read_text()
+    )
+    assert blocker["blocker_reason"] == "ValueError"
+    assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+    assert calls == {}
 
 
 def test_full_trace_runner_writes_blocker_report_on_resource_failure(tmp_path, monkeypatch):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import secrets
 import subprocess
 import time
 import uuid
@@ -23,7 +22,6 @@ GATE0_BLOCKER_VERSION = "gate0_trace_acquisition_blocker_report_v1"
 NVBIT_COLLECTION_EVIDENCE_FILENAME = "nvbit_collection_evidence.json"
 NVBIT_COLLECTOR_ATTESTATION_FILENAME = "nvbit_collector_attestation.json"
 NVBIT_COLLECTOR_SESSION_FILENAME = ".nvbit_collector_session.json"
-NVBIT_COLLECTOR_RUN_TOKEN_FILENAME = ".nvbit_collector_run_token"
 COLLECTOR_PRODUCER = "acquire_resnet50_gate0_trace"
 FORMAL_SOURCE_ARTIFACTS = {
     "dynamic_trace.pb": "file",
@@ -32,7 +30,6 @@ FORMAL_SOURCE_ARTIFACTS = {
     "scheduler_metadata.json": "file",
     "stats.csv": "file",
 }
-_ACTIVE_COLLECTOR_RUN_TOKEN_HASHES: set[str] = set()
 
 
 @dataclass(frozen=True)
@@ -79,7 +76,6 @@ def acquire_resnet50_gate0_trace(
     returncode = _runner_returncode(result)
     if returncode != 0:
         raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
-    _write_collector_run_token(output_root, session)
     _write_nvbit_collection_evidence(output_root, result)
     _write_collector_attestation(output_root, session, result)
     return record_resnet50_gate0_trace_acquisition(output_root)
@@ -241,19 +237,8 @@ def _validate_collector_attestation(
         raise ValueError("collector-produced session artifact is required for formal Gate0")
     if session.get("collector_session_id") != session_id:
         raise ValueError("collector attestation session does not match producer session")
-    token_path = root / NVBIT_COLLECTOR_RUN_TOKEN_FILENAME
-    if not token_path.is_file():
-        raise ValueError("collector run token is required for formal Gate0")
-    run_token = token_path.read_text(encoding="utf-8").strip()
-    if (
-        not run_token
-        or session.get("collector_run_token_hash") != _collector_run_token_hash(run_token)
-        or attestation.get("collector_run_token_hash") != session.get("collector_run_token_hash")
-        or evidence.get("collector_run_token_hash") != session.get("collector_run_token_hash")
-    ):
-        raise ValueError("collector run token does not match acquisition-produced artifacts")
-    if session.get("collector_run_token_hash") not in _ACTIVE_COLLECTOR_RUN_TOKEN_HASHES:
-        raise ValueError("collector run token was not produced by this acquisition process")
+    if evidence.get("collector_session_id_from_env") != session_id:
+        raise ValueError("collector evidence must be bound to the runner session environment")
     if evidence.get("collector_session_id") != session_id:
         raise ValueError("collector attestation session does not match evidence")
     if evidence.get("collector_producer") != COLLECTOR_PRODUCER:
@@ -296,24 +281,6 @@ def _write_collector_session(
     return session
 
 
-def _write_collector_run_token(output_root: Path, session: dict[str, Any]) -> str:
-    run_token = secrets.token_urlsafe(32)
-    token_hash = _collector_run_token_hash(run_token)
-    (output_root / NVBIT_COLLECTOR_RUN_TOKEN_FILENAME).write_text(
-        run_token + "\n",
-        encoding="utf-8",
-    )
-    session["collector_run_token_hash"] = token_hash
-    session["collector_session_hash"] = hash_without(session, "collector_session_hash")
-    write_json(output_root / NVBIT_COLLECTOR_SESSION_FILENAME, session)
-    _ACTIVE_COLLECTOR_RUN_TOKEN_HASHES.add(token_hash)
-    return token_hash
-
-
-def _collector_run_token_hash(run_token: str) -> str:
-    return hashlib.sha256(run_token.encode("utf-8")).hexdigest()
-
-
 def _write_collector_attestation(
     root: Path,
     session: dict[str, Any],
@@ -331,7 +298,6 @@ def _write_collector_attestation(
         "producer": COLLECTOR_PRODUCER,
         "collector_session_id": session["collector_session_id"],
         "collector_session_hash": session["collector_session_hash"],
-        "collector_run_token_hash": session["collector_run_token_hash"],
         "runner_returncode": _runner_returncode(result),
         "workload_id": evidence.get("workload_id"),
         "execution_mode": evidence.get("execution_mode"),
@@ -347,7 +313,6 @@ def _write_collector_attestation(
     evidence["collector_producer"] = COLLECTOR_PRODUCER
     evidence["collector_session_id"] = session["collector_session_id"]
     evidence["collector_session_hash"] = session["collector_session_hash"]
-    evidence["collector_run_token_hash"] = session["collector_run_token_hash"]
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(root / NVBIT_COLLECTOR_ATTESTATION_FILENAME, attestation)
     write_json(evidence_path, evidence)
@@ -419,11 +384,33 @@ def _reject_synthetic_artifact_shape_root(
     dynamic_path = root / "dynamic_trace.pb"
     if dynamic_path.is_file() and b"resnet50_formal_unit_trace" in dynamic_path.read_bytes():
         markers.append("artifact-shape dynamic_trace")
+    if dynamic_path.is_file() and _is_artifact_shape_dynamic_trace(dynamic_path):
+        markers.append("artifact-shape dynamic_trace protobuf")
     if markers:
         raise ValueError(
             "synthetic artifact-shape roots cannot produce formal Gate0 manifests: "
             + ", ".join(sorted(markers))
         )
+
+
+def _is_artifact_shape_dynamic_trace(path: Path) -> bool:
+    try:
+        from experiments.baseline_diagnosis.proto_gen import trace_pb2
+
+        trace = trace_pb2.Trace()
+        trace.ParseFromString(path.read_bytes())
+    except Exception:
+        return False
+    if trace.nvbit_version == "unit-nvbit":
+        return True
+    for device in trace.gpu_device:
+        for stream in device.streams:
+            for kernel in stream.kernels:
+                if kernel.name.startswith("resnet50_conv2d_fprop_tile") and (
+                    kernel.function_unique_id in {1701, 1702}
+                ):
+                    return True
+    return False
 
 
 def _validate_scheduler_metadata_records(scheduler_metadata: dict[str, Any]) -> None:

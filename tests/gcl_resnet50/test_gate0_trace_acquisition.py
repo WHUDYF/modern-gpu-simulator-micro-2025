@@ -129,6 +129,21 @@ def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_pa
     assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
+def test_gate0_dynamic_trace_shape_check_handles_real_trace_gpu_device_map(tmp_path):
+    from experiments.baseline_diagnosis.proto_gen import trace_pb2
+    from experiments.gcl_phase_b.resnet50_gate0 import _is_artifact_shape_dynamic_trace
+
+    trace = trace_pb2.Trace()
+    trace.nvbit_version = "real-nvbit"
+    kernel = trace.gpu_device[0].streams[0].kernels.add()
+    kernel.name = "real_resnet50_conv2d_kernel"
+    kernel.function_unique_id = 9999
+    path = tmp_path / "dynamic_trace.pb"
+    path.write_bytes(trace.SerializeToString())
+
+    assert _is_artifact_shape_dynamic_trace(path) is False
+
+
 def test_gate0_acquisition_runner_sets_nvbit_trace_folder_environment(tmp_path):
     root = tmp_path / "formal_trace"
     executed = []

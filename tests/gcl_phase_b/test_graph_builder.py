@@ -93,6 +93,38 @@ def test_graph_builder_parses_bracketed_address_operands_to_base_registers():
     assert all("[UR12+0x20]" not in token for token in register_tokens)
 
 
+def test_graph_builder_captures_all_compound_memory_address_registers():
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    record = copy.deepcopy(records[0])
+    warp = record["warps"][0]
+    warp["entries"] = [
+        {
+            **warp["entries"][0],
+            "opcode": "LDG.E.64.SYS",
+            "source_operands": ["desc[UR10][R4.64]"],
+            "destination_operands": ["R8"],
+            "trace_index": 0,
+        }
+    ]
+    record["warps"] = [warp]
+
+    graph = build_phase_b_graphs([record])[0]
+    mem_ref_id = "p:wp1:0:mem_ref:t0"
+    address_source_tokens = {
+        node["token"]
+        for node in graph["nodes"]
+        if node["node_type"] == "register_version"
+        and any(
+            edge["source"] == node["node_id"]
+            and edge["target"] == mem_ref_id
+            and edge["relation"] == "data_source"
+            for edge in graph["edges"]
+        )
+    }
+
+    assert address_source_tokens == {"UR10.v0.w0", "R4.v0.w0"}
+
+
 def test_graph_builder_creates_mem_ref_nodes_for_resnet50_memory_opcode_families():
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
     record = copy.deepcopy(records[0])

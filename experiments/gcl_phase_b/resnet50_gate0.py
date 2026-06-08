@@ -415,8 +415,8 @@ def _is_artifact_shape_dynamic_trace(path: Path) -> bool:
         return False
     if trace.nvbit_version == "unit-nvbit":
         return True
-    for device in trace.gpu_device:
-        for stream in device.streams:
+    for device in trace.gpu_device.values():
+        for stream in device.streams.values():
             for kernel in stream.kernels:
                 if kernel.name.startswith("resnet50_conv2d_fprop_tile") and (
                     kernel.function_unique_id in {1701, 1702}

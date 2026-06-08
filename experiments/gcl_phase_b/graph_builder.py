@@ -48,13 +48,13 @@ def _is_address_token(token: str) -> bool:
     return token.startswith(("R", "UR", "c[")) or "[R" in token or "[UR" in token
 
 
-def _address_register_token(token: str) -> str:
+def _address_register_tokens(token: str) -> list[str]:
     if token.startswith(("R", "UR")):
-        return token.split(".", 1)[0]
-    match = re.search(r"\[\s*(UR|R)(\d+)(?:[.\]+-]|\s|$)", token)
-    if match:
-        return f"{match.group(1)}{match.group(2)}"
-    return token
+        return [token.split(".", 1)[0]]
+    matches = re.findall(r"\[\s*(UR|R)(\d+)(?:[.\]+-]|\s|$)", token)
+    if matches:
+        return [f"{prefix}{number}" for prefix, number in matches]
+    return [token]
 
 
 def _versioned_register_token(token: str, warp_id: int, version: int) -> str:
@@ -229,43 +229,51 @@ def build_phase_b_graph(record: dict[str, Any]) -> dict[str, Any]:
             address_positions = _address_source_positions(entry)
             observed_values = entry.get("observed_dynamic_values", [])
             for source_index, token in enumerate(entry["source_operands"]):
-                source_token = (
-                    _address_register_token(token)
+                source_tokens = (
+                    _address_register_tokens(token)
                     if source_index in address_positions
-                    else token
+                    else [token]
                 )
-                resolved = _resolve_source_token(
-                    source_token, warp_id, partition_id, register_versions
-                )
-                variable_id = _add_variable_node(
-                    nodes, node_by_id, partition_id, cta_id, warp_id, resolved, observed_values
-                )
-                if variable_id not in partition_node_ids:
-                    partition_node_ids.append(variable_id)
-                before = len(edges)
-                if source_index in address_positions:
-                    instruction_node["address_source_node_id"] = variable_id
-                    mem_ref_id = _mem_ref_id(partition_id, entry["trace_index"])
-                    if mem_ref_id not in node_by_id:
-                        mem_node = {
-                            "node_id": mem_ref_id,
-                            "node_type": "pseudo",
-                            "pseudo_kind": "mem_ref",
-                            "cta_id": cta_id,
-                            "warp_id": warp_id,
-                            "warp_partition_id": partition_id,
-                            "trace_index": entry["trace_index"],
-                            "source_entry_hash": entry["source_entry_hash"],
-                        }
-                        node_by_id[mem_ref_id] = mem_node
-                        nodes.append(mem_node)
-                    if mem_ref_id not in partition_node_ids:
-                        partition_node_ids.append(mem_ref_id)
-                    _append_edge(edges, variable_id, mem_ref_id, "data_source", partition_id)
-                    _append_edge(edges, mem_ref_id, instruction_id, "data_source", partition_id)
-                else:
-                    _append_edge(edges, variable_id, instruction_id, "data_source", partition_id)
-                partition_edge_ids.extend(edge["edge_id"] for edge in edges[before:])
+                for source_token in source_tokens:
+                    resolved = _resolve_source_token(
+                        source_token, warp_id, partition_id, register_versions
+                    )
+                    variable_id = _add_variable_node(
+                        nodes, node_by_id, partition_id, cta_id, warp_id, resolved, observed_values
+                    )
+                    if variable_id not in partition_node_ids:
+                        partition_node_ids.append(variable_id)
+                    before = len(edges)
+                    if source_index in address_positions:
+                        instruction_node.setdefault("address_source_node_id", variable_id)
+                        instruction_node.setdefault("address_source_node_ids", []).append(variable_id)
+                        mem_ref_id = _mem_ref_id(partition_id, entry["trace_index"])
+                        if mem_ref_id not in node_by_id:
+                            mem_node = {
+                                "node_id": mem_ref_id,
+                                "node_type": "pseudo",
+                                "pseudo_kind": "mem_ref",
+                                "cta_id": cta_id,
+                                "warp_id": warp_id,
+                                "warp_partition_id": partition_id,
+                                "trace_index": entry["trace_index"],
+                                "source_entry_hash": entry["source_entry_hash"],
+                            }
+                            node_by_id[mem_ref_id] = mem_node
+                            nodes.append(mem_node)
+                        if mem_ref_id not in partition_node_ids:
+                            partition_node_ids.append(mem_ref_id)
+                        _append_edge(edges, variable_id, mem_ref_id, "data_source", partition_id)
+                        if not any(
+                            edge["source"] == mem_ref_id
+                            and edge["target"] == instruction_id
+                            and edge["relation"] == "data_source"
+                            for edge in edges
+                        ):
+                            _append_edge(edges, mem_ref_id, instruction_id, "data_source", partition_id)
+                    else:
+                        _append_edge(edges, variable_id, instruction_id, "data_source", partition_id)
+                    partition_edge_ids.extend(edge["edge_id"] for edge in edges[before:])
 
             for token in entry["destination_operands"]:
                 resolved = _resolve_destination_token(token, warp_id, register_versions)

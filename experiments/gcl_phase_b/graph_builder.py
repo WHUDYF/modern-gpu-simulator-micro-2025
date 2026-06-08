@@ -173,6 +173,48 @@ def _append_edge(
     edges.append(_edge(edge_id, source, target, relation, partition_id))
 
 
+def _append_mem_ref_edges(
+    *,
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, str]],
+    node_by_id: dict[str, dict[str, Any]],
+    partition_node_ids: list[str],
+    variable_id: str,
+    instruction_id: str,
+    instruction_node: dict[str, Any],
+    partition_id: str,
+    cta_id: str,
+    warp_id: int,
+    entry: dict[str, Any],
+) -> None:
+    instruction_node.setdefault("address_source_node_id", variable_id)
+    instruction_node.setdefault("address_source_node_ids", []).append(variable_id)
+    mem_ref_id = _mem_ref_id(partition_id, entry["trace_index"])
+    if mem_ref_id not in node_by_id:
+        mem_node = {
+            "node_id": mem_ref_id,
+            "node_type": "pseudo",
+            "pseudo_kind": "mem_ref",
+            "cta_id": cta_id,
+            "warp_id": warp_id,
+            "warp_partition_id": partition_id,
+            "trace_index": entry["trace_index"],
+            "source_entry_hash": entry["source_entry_hash"],
+        }
+        node_by_id[mem_ref_id] = mem_node
+        nodes.append(mem_node)
+    if mem_ref_id not in partition_node_ids:
+        partition_node_ids.append(mem_ref_id)
+    _append_edge(edges, variable_id, mem_ref_id, "data_source", partition_id)
+    if not any(
+        edge["source"] == mem_ref_id
+        and edge["target"] == instruction_id
+        and edge["relation"] == "data_source"
+        for edge in edges
+    ):
+        _append_edge(edges, mem_ref_id, instruction_id, "data_source", partition_id)
+
+
 def build_phase_b_graphs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not records:
         raise ValueError("Phase B graph construction requires trace records")
@@ -245,32 +287,19 @@ def build_phase_b_graph(record: dict[str, Any]) -> dict[str, Any]:
                         partition_node_ids.append(variable_id)
                     before = len(edges)
                     if source_index in address_positions:
-                        instruction_node.setdefault("address_source_node_id", variable_id)
-                        instruction_node.setdefault("address_source_node_ids", []).append(variable_id)
-                        mem_ref_id = _mem_ref_id(partition_id, entry["trace_index"])
-                        if mem_ref_id not in node_by_id:
-                            mem_node = {
-                                "node_id": mem_ref_id,
-                                "node_type": "pseudo",
-                                "pseudo_kind": "mem_ref",
-                                "cta_id": cta_id,
-                                "warp_id": warp_id,
-                                "warp_partition_id": partition_id,
-                                "trace_index": entry["trace_index"],
-                                "source_entry_hash": entry["source_entry_hash"],
-                            }
-                            node_by_id[mem_ref_id] = mem_node
-                            nodes.append(mem_node)
-                        if mem_ref_id not in partition_node_ids:
-                            partition_node_ids.append(mem_ref_id)
-                        _append_edge(edges, variable_id, mem_ref_id, "data_source", partition_id)
-                        if not any(
-                            edge["source"] == mem_ref_id
-                            and edge["target"] == instruction_id
-                            and edge["relation"] == "data_source"
-                            for edge in edges
-                        ):
-                            _append_edge(edges, mem_ref_id, instruction_id, "data_source", partition_id)
+                        _append_mem_ref_edges(
+                            nodes=nodes,
+                            edges=edges,
+                            node_by_id=node_by_id,
+                            partition_node_ids=partition_node_ids,
+                            variable_id=variable_id,
+                            instruction_id=instruction_id,
+                            instruction_node=instruction_node,
+                            partition_id=partition_id,
+                            cta_id=cta_id,
+                            warp_id=warp_id,
+                            entry=entry,
+                        )
                     else:
                         _append_edge(edges, variable_id, instruction_id, "data_source", partition_id)
                     partition_edge_ids.extend(edge["edge_id"] for edge in edges[before:])

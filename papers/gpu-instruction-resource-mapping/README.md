@@ -32,12 +32,13 @@ instruction / motif -> causal bottleneck truth
 | `sassi-flexible-software-profiling-gpu-architectures-isca2015.pdf` | SASSI: Flexible Software Profiling of GPU Architectures | 展示 SASS-level instrumentation 可以如何收集底层执行证据。对我们从 trace/SASS 构建 opcode evidence、edge evidence、dynamic instruction evidence 很关键。 |
 | `nsight-compute-kernel-profiling-guide.pdf` | NVIDIA Nsight Compute Kernel Profiling Guide | NVIDIA 官方 profiler metric 语义来源。用于把 opcode / motif candidate 与真实 counter 名称、memory pipeline、scheduler、occupancy 等概念对齐。 |
 | `gpu-performance-counters-kernel-characterization-iccs2020.pdf` | Utilizing GPU Performance Counters to Characterize GPU Kernels via Machine Learning | 使用 GPU performance counters 做 kernel characterization / classification。它不是 graph 方法，但可以作为 counter evidence 与 ML 分类的基线参考。 |
+| `hong-dissertation-code-optimization-on-gpus-2019.pdf` | Code Optimization on GPUs, Changwan Hong, PhD dissertation, 2019 | 开放全文。第 2 章包含 `GPU Code Optimization Using Abstract Kernel Emulation and Sensitivity Analysis` 的扩展内容。对我们最重要的是 SAAKE：通过 abstract kernel emulation 和 sensitivity analysis 判断资源瓶颈，并把结果接入 OpenTuner。 |
 
 ## Not Downloaded
 
 | Paper | Reason | Link |
 | --- | --- | --- |
-| GPU code optimization using abstract kernel emulation and sensitivity analysis | 已找到公开介绍页和 CORE PDF 链接，但 CORE 下载在本次尝试中返回 HTTP 522。为避免上传无效 HTML/损坏文件，本目录暂不保存 PDF。 | https://www.pnnl.gov/publications/gpu-code-optimization-using-abstract-kernel-emulation-and-sensitivity-analysis |
+| GPU code optimization using abstract kernel emulation and sensitivity analysis, PLDI 2018 standalone paper PDF | ACM PDF 入口返回 HTTP 403，CORE unpaywalled PDF 链接返回 HTTP 522。为避免上传无效 HTML/损坏文件，本目录暂不保存 standalone paper PDF。已保存作者博士论文开放全文作为替代阅读材料，其中第 2 章包含该 PLDI 工作的扩展内容。 | https://www.pnnl.gov/publications/gpu-code-optimization-using-abstract-kernel-emulation-and-sensitivity-analysis |
 
 ## How To Use These Papers In Our Method
 

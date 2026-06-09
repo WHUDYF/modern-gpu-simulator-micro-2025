@@ -637,15 +637,15 @@ def test_gate0_recording_accepts_persisted_collector_attestation_after_restart(t
     assert (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
-def test_gate0_recording_accepts_first_time_external_collected_trace_root(tmp_path):
+def test_gate0_recording_rejects_first_time_self_authenticated_trace_root(tmp_path):
     root = tmp_path / "external_collected_trace"
     _write_real_gate0_contract_artifacts(root)
     _write_collector_bound_gate0_evidence(root, "external-collector-session")
 
-    manifest = record_resnet50_gate0_trace_acquisition(root)
+    with pytest.raises(ValueError, match="existing formal Gate0 manifest"):
+        record_resnet50_gate0_trace_acquisition(root)
 
-    assert manifest["formal_input_eligible"] is True
-    assert (root / "gate0_trace_acquisition_manifest.json").exists()
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
 def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp_path):

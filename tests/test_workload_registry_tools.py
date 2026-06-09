@@ -257,9 +257,9 @@ def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_
 def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path):
     cases = {
         "deepbench": {
-            "deepbench_gemm": "code/kernels/gemm",
-            "deepbench_rnn": "code/kernels/rnn",
-            "deepbench_convolution": "code/kernels/convolution",
+            "deepbench_gemm": "code/nvidia/gemm_bench.cu",
+            "deepbench_rnn": "code/nvidia/rnn_bench.cu",
+            "deepbench_convolution": "code/nvidia/conv_bench.cu",
         },
         "cutlass": {
             "cutlass_gemm": "examples",
@@ -267,9 +267,14 @@ def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path
             "cutlass_attention": "examples",
         },
         "gunrock": {
-            "gunrock_bfs": "examples/bfs",
-            "gunrock_sssp": "examples/sssp",
-            "gunrock_pagerank": "examples/pr",
+            "gunrock_bfs": "examples/algorithms/bfs",
+            "gunrock_sssp": "examples/algorithms/sssp",
+            "gunrock_pagerank": "examples/algorithms/pr",
+        },
+        "pannotia": {
+            "pannotia_bfs": "graph_app/bc",
+            "pannotia_coloring": "graph_app/color",
+            "pannotia_pagerank": "graph_app/prk",
         },
     }
     for source_id, expected_paths in cases.items():
@@ -356,7 +361,8 @@ def test_build_workload_registry_detects_duplicate_normalized_ids(tmp_path):
 
 def test_build_workload_registry_filters_curated_available_sources_by_local_path(tmp_path):
     root = tmp_path / "deepbench"
-    (root / "code" / "kernels" / "gemm").mkdir(parents=True)
+    (root / "code" / "nvidia").mkdir(parents=True)
+    (root / "code" / "nvidia" / "gemm_bench.cu").write_text("fixture")
     source_registry = tmp_path / "source_registry.json"
     source_registry.write_text(
         json.dumps(

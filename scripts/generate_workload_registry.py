@@ -64,9 +64,9 @@ CURATED_WORKLOAD_PATHS = {
         "stable-diffusion": "text_to_image",
     },
     "deepbench": {
-        "gemm": "code/kernels/gemm",
-        "rnn": "code/kernels/rnn",
-        "convolution": "code/kernels/convolution",
+        "gemm": "code/nvidia/gemm_bench.cu",
+        "rnn": "code/nvidia/rnn_bench.cu",
+        "convolution": "code/nvidia/conv_bench.cu",
     },
     "cutlass": {
         "gemm": "examples",
@@ -74,15 +74,15 @@ CURATED_WORKLOAD_PATHS = {
         "attention": "examples",
     },
     "gunrock": {
-        "bfs": "examples/bfs",
-        "sssp": "examples/sssp",
-        "pagerank": "examples/pr",
-        "connected-components": "examples/cc",
+        "bfs": "examples/algorithms/bfs",
+        "sssp": "examples/algorithms/sssp",
+        "pagerank": "examples/algorithms/pr",
+        "connected-components": "examples/algorithms/cc",
     },
     "pannotia": {
-        "bfs": "cuda",
-        "coloring": "cuda",
-        "pagerank": "cuda",
+        "bfs": "graph_app/bc",
+        "coloring": "graph_app/color",
+        "pagerank": "graph_app/prk",
     },
     "lammps": {
         "lj-small-step": "examples/melt",

@@ -25,6 +25,12 @@ FULL_TRACE_MANIFEST = "resnet50_full_trace_reproduction_manifest.json"
 FULL_TRACE_BLOCKER = "resnet50_full_trace_reproduction_blocker_report.json"
 ADAPTER_BUNDLE = "resnet50_trace_adapter_bundle.json"
 DEFAULT_DEADLINE_SECONDS = 2400
+GATE4_RESUME_REQUIRED_ARTIFACTS = [
+    ADAPTER_BUNDLE,
+    "representative_sm_trace_manifest.json",
+    "canonical_graph_bundle.json",
+    "graph_tensor_bundle.json",
+]
 GATE1_PLUS_ARTIFACTS = [
     ADAPTER_BUNDLE,
     "representative_sm_trace_manifest.json",
@@ -131,6 +137,10 @@ def _clear_gate1_plus_artifacts(out_dir: Path) -> None:
         (out_dir / filename).unlink(missing_ok=True)
 
 
+def _has_complete_gate4_resume_artifact_set(out_dir: Path) -> bool:
+    return all((out_dir / filename).exists() for filename in GATE4_RESUME_REQUIRED_ARTIFACTS)
+
+
 def _validate_resume_artifacts_match_gate0(
     out_dir: Path,
     *,
@@ -204,7 +214,9 @@ def run_full_trace_reproduction(
     try:
         gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
         input_cta_record_count = _input_cta_record_count(input_root)
-        should_resume = (out_dir / "graph_tensor_bundle.json").exists()
+        should_resume = _has_complete_gate4_resume_artifact_set(out_dir)
+        if not should_resume and (out_dir / "graph_tensor_bundle.json").exists():
+            _clear_gate1_plus_artifacts(out_dir)
         if should_resume:
             is_bounded_resume = _validate_resume_artifacts_match_gate0(
                 out_dir,

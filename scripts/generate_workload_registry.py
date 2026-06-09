@@ -38,10 +38,10 @@ CURATED_WORKLOADS = {
         ("bfs", "irregular_graph", "medium", "medium", "high"),
         ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
-        ("connected-components", "irregular_graph", "medium", "medium", "high"),
+        ("coloring", "irregular_graph", "medium", "medium", "high"),
     ],
     "pannotia": [
-        ("bfs", "irregular_graph", "medium", "medium", "high"),
+        ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("coloring", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
     ],
@@ -77,16 +77,16 @@ CURATED_WORKLOAD_PATHS = {
         "bfs": "examples/algorithms/bfs",
         "sssp": "examples/algorithms/sssp",
         "pagerank": "examples/algorithms/pr",
-        "connected-components": "examples/algorithms/cc",
+        "coloring": "examples/algorithms/color",
     },
     "pannotia": {
-        "bfs": "graph_app/bc",
+        "sssp": "graph_app/sssp",
         "coloring": "graph_app/color",
         "pagerank": "graph_app/prk",
     },
     "lammps": {
         "lj-small-step": "examples/melt",
-        "eam-small-step": "examples/HEAT",
+        "eam-small-step": "examples/meam",
     },
     "gromacs": {
         "water-small-step": "share/top",

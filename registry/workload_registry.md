@@ -83,7 +83,8 @@ Generated at: `2026-06-07T00:00:00+00:00`
 | `gunrock_bfs` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/bfs` |
 | `gunrock_sssp` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/sssp` |
 | `gunrock_pagerank` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/pr` |
-| `pannotia_bfs` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/bc` |
+| `gunrock_coloring` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/color` |
+| `pannotia_sssp` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/sssp` |
 | `pannotia_coloring` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/color` |
 | `pannotia_pagerank` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/prk` |
 | `hecbench_bfs` | `hecbench` | `irregular_or_sparse` | `medium` | `medium` | `high` | `src/bfs-cuda` |
@@ -99,6 +100,6 @@ Generated at: `2026-06-07T00:00:00+00:00`
 | `hecbench_cfd` | `hecbench` | `benchmark_kernel` | `medium` | `large` | `low` | `src/cfd-cuda` |
 | `hecbench_lavamd` | `hecbench` | `benchmark_kernel` | `medium` | `large` | `low` | `src/lavaMD-cuda` |
 | `lammps_lj-small-step` | `lammps` | `hpc_full_application` | `high` | `large` | `medium` | `examples/melt` |
-| `lammps_eam-small-step` | `lammps` | `hpc_full_application` | `high` | `large` | `medium` | `examples/HEAT` |
+| `lammps_eam-small-step` | `lammps` | `hpc_full_application` | `high` | `large` | `medium` | `examples/meam` |
 | `gromacs_water-small-step` | `gromacs` | `hpc_full_application` | `high` | `large` | `medium` | `share/top` |
 | `gromacs_protein-small-step` | `gromacs` | `hpc_full_application` | `high` | `large` | `medium` | `share/top` |

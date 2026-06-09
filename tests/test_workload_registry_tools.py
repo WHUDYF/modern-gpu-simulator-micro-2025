@@ -270,11 +270,16 @@ def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path
             "gunrock_bfs": "examples/algorithms/bfs",
             "gunrock_sssp": "examples/algorithms/sssp",
             "gunrock_pagerank": "examples/algorithms/pr",
+            "gunrock_coloring": "examples/algorithms/color",
         },
         "pannotia": {
-            "pannotia_bfs": "graph_app/bc",
+            "pannotia_sssp": "graph_app/sssp",
             "pannotia_coloring": "graph_app/color",
             "pannotia_pagerank": "graph_app/prk",
+        },
+        "lammps": {
+            "lammps_lj-small-step": "examples/melt",
+            "lammps_eam-small-step": "examples/meam",
         },
     }
     for source_id, expected_paths in cases.items():

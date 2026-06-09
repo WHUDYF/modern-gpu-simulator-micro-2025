@@ -155,6 +155,28 @@ def _fake_success_resume(calls):
     return fake_resume
 
 
+def _write_complete_gate4_artifact_set(out_dir, gate0_manifest):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+        json.dumps(
+            {
+                "source_gate0_manifest_hash": gate0_manifest["gate0_manifest_hash"],
+                "adapter_validation_report": {"status": "passed"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out_dir / "representative_sm_trace_manifest.json").write_text(
+        json.dumps({"artifact_type": "gcl_representative_sm_trace_manifest"}),
+        encoding="utf-8",
+    )
+    (out_dir / "canonical_graph_bundle.json").write_text(
+        json.dumps({"artifact_type": "gcl_resnet50_canonical_graph_bundle"}),
+        encoding="utf-8",
+    )
+
+
 def _write_success_manifest(out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "resnet50_full_trace_reproduction_manifest.json").write_text(
@@ -211,18 +233,8 @@ def test_full_trace_runner_resumes_from_persisted_gate4_when_available(tmp_path,
     root = tmp_path / "formal_root"
     _write_gate0_manifest(root)
     out_dir = tmp_path / "out"
-    (out_dir / "graph_tensor_bundle.json").parent.mkdir(parents=True)
-    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
     gate0_manifest = json.loads((root / "gate0_trace_acquisition_manifest.json").read_text())
-    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
-        json.dumps(
-            {
-                "source_gate0_manifest_hash": gate0_manifest["gate0_manifest_hash"],
-                "adapter_validation_report": {"status": "passed"},
-            }
-        ),
-        encoding="utf-8",
-    )
+    _write_complete_gate4_artifact_set(out_dir, gate0_manifest)
 
     result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
         input_root=root,
@@ -236,6 +248,40 @@ def test_full_trace_runner_resumes_from_persisted_gate4_when_available(tmp_path,
     assert calls["resume_baseline_artifacts_path"] is None
     assert result["formal_full_trace_run"] is True
     assert result["input_kernel_invocation_count"] == 265
+
+
+def test_full_trace_runner_rebuilds_incomplete_gate4_artifact_set(tmp_path, monkeypatch):
+    calls = {}
+
+    def fail_if_resumed(*args, **kwargs):
+        raise AssertionError("incomplete Gate4 artifacts must be rebuilt")
+
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "resume_resnet50_gate5_to_gate9_from_disk",
+        fail_if_resumed,
+    )
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "formal_root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    assert calls["invocation_limit"] is None
+    assert calls["invocation_ids"] is None
+    assert result["formal_full_trace_run"] is True
 
 
 def test_full_trace_runner_rebuilds_bounded_gate4_from_same_gate0_root(
@@ -521,6 +567,14 @@ def test_full_trace_runner_resume_rejects_gate4_from_different_gate0_root(
                 "adapter_validation_report": {"status": "passed"},
             }
         ),
+        encoding="utf-8",
+    )
+    (out_dir / "representative_sm_trace_manifest.json").write_text(
+        json.dumps({"artifact_type": "gcl_representative_sm_trace_manifest"}),
+        encoding="utf-8",
+    )
+    (out_dir / "canonical_graph_bundle.json").write_text(
+        json.dumps({"artifact_type": "gcl_resnet50_canonical_graph_bundle"}),
         encoding="utf-8",
     )
 

@@ -59,7 +59,7 @@ CURATED_WORKLOAD_PATHS = {
         "bert": "language",
         "resnet50": "vision/classification_and_detection",
         "dlrm-v2": "recommendation",
-        "retinanet": "vision",
+        "retinanet": "vision/classification_and_detection",
         "3d-unet": "vision/medical_imaging",
         "stable-diffusion": "text_to_image",
     },

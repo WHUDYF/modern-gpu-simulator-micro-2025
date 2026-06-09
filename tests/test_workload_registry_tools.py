@@ -137,11 +137,13 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert '["mlperf-inference"]=' in script
     assert '["hecbench"]=' in script
     mlperf_sparse_rule = script.split('["mlperf-inference"]="', 1)[1].split('"', 1)[0]
+    mlperf_sparse_tokens = mlperf_sparse_rule.split()
     assert "language" in mlperf_sparse_rule
     assert "vision/classification_and_detection" in mlperf_sparse_rule
     assert "recommendation" in mlperf_sparse_rule
     assert "vision/medical_imaging" in mlperf_sparse_rule
     assert "text_to_image" in mlperf_sparse_rule
+    assert "vision" not in mlperf_sparse_tokens
     existing_branch = script[script.index('rev-parse --is-inside-work-tree') : script.index("continue")]
     assert "apply_sparse_checkout" in existing_branch
     assert "sparse-checkout init" in script
@@ -251,6 +253,7 @@ def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_
     paths = {item["workload_id"]: item["relative_path"] for item in workloads}
     assert paths["mlperf-inference_bert"] == "language"
     assert paths["mlperf-inference_resnet50"] == "vision/classification_and_detection"
+    assert paths["mlperf-inference_retinanet"] == "vision/classification_and_detection"
     assert all(item["workload_family"] == "full_network" for item in workloads)
 
 

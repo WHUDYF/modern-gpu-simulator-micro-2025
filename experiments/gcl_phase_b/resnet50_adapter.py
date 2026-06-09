@@ -613,6 +613,7 @@ def _trace_entry_from_pb_instruction(
 
 
 STORE_OPCODE_PREFIXES = ("STG", "STS", "STL")
+TWO_DESTINATION_OPCODE_PREFIXES = ("LEA",)
 ZERO_DESTINATION_OPCODE_PREFIXES = (
     "BAR",
     "BRA",
@@ -637,6 +638,8 @@ def _split_operands(opcode: str, operands: list[str]) -> tuple[list[str], list[s
         return [], operands
     if opcode.startswith(ZERO_DESTINATION_OPCODE_PREFIXES):
         return [], operands
+    if opcode.startswith(TWO_DESTINATION_OPCODE_PREFIXES) and len(operands) >= 2:
+        return operands[:2], operands[2:]
     return [operands[0]], operands[1:]
 
 

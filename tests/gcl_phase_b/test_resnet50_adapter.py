@@ -68,6 +68,16 @@ def test_gate1_operand_split_does_not_fabricate_destinations_for_control_ops():
         assert sources == operands
 
 
+def test_gate1_operand_split_preserves_lea_predicate_destination():
+    destinations, sources = _split_operands(
+        "LEA",
+        ["R24", "P0", "R12", "R20", "0x3"],
+    )
+
+    assert destinations == ["R24", "P0"]
+    assert sources == ["R12", "R20", "0x3"]
+
+
 def test_gate1_rejects_non_real_scheduler_metadata():
     bundle = _validator_formal_bundle()
     corrupted = copy.deepcopy(bundle)

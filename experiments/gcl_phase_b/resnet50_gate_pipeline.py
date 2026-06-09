@@ -718,8 +718,91 @@ def _load_existing_gate5_embedding_table(
     from .embedding_export import validate_phase_b_embedding_table
 
     validate_phase_b_embedding_table(embedding_table)
+    if not _gate5_side_artifacts_match_embedding_table(out_dir, embedding_table):
+        return None
     (out_dir / GATE5_EXPORT_PROGRESS_FILENAME).unlink(missing_ok=True)
     return embedding_table
+
+
+def _gate5_side_artifacts_match_embedding_table(
+    out_dir: Path,
+    embedding_table: dict[str, Any],
+) -> bool:
+    paths = {
+        "training_run_manifest": out_dir / "rgcn_training_run_manifest.json",
+        "checkpoint_manifest": out_dir / "rgcn_checkpoint_manifest.json",
+        "readout_manifest": out_dir / "readout_manifest.json",
+        "lineage_bundle": out_dir / "gate5_lineage_bundle.json",
+        "export_report": out_dir / "embedding_export_report.json",
+    }
+    if any(not path.exists() for path in paths.values()):
+        return False
+    try:
+        training_run_manifest = read_json(paths["training_run_manifest"])
+        checkpoint_manifest = read_json(paths["checkpoint_manifest"])
+        readout_bundle = read_json(paths["readout_manifest"])
+        lineage_bundle = read_json(paths["lineage_bundle"])
+        export_report = read_json(paths["export_report"])
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    expected_hashes = {
+        "training_run_manifest_hash": training_run_manifest.get("training_run_manifest_hash"),
+        "checkpoint_manifest_hash": checkpoint_manifest.get("rgcn_checkpoint_manifest_hash"),
+        "readout_manifest_bundle_hash": readout_bundle.get("readout_manifest_bundle_hash"),
+        "embedding_export_report_hash": export_report.get("embedding_export_report_hash"),
+    }
+    if not all(expected_hashes.values()):
+        return False
+    if training_run_manifest.get("training_run_manifest_hash") != hash_without(
+        training_run_manifest,
+        "training_run_manifest_hash",
+    ):
+        return False
+    if checkpoint_manifest.get("rgcn_checkpoint_manifest_hash") != hash_without(
+        checkpoint_manifest,
+        "rgcn_checkpoint_manifest_hash",
+    ):
+        return False
+    if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(
+        readout_bundle,
+        "readout_manifest_bundle_hash",
+    ):
+        return False
+    if export_report.get("embedding_export_report_hash") != hash_without(
+        export_report,
+        "embedding_export_report_hash",
+    ):
+        return False
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != hash_without(
+        lineage_bundle,
+        "gate5_lineage_bundle_hash",
+    ):
+        return False
+    if lineage_bundle.get("persisted_manifest_hashes") != expected_hashes:
+        return False
+    if lineage_bundle.get("lineage") != embedding_table.get("gate5_lineage"):
+        return False
+    if lineage_bundle.get("gate5_lineage_bundle_hash") != embedding_table.get(
+        "gate5_lineage_bundle_hash"
+    ):
+        return False
+    if expected_hashes != {
+        "training_run_manifest_hash": embedding_table["gate5_lineage"][
+            "training_run_manifest_hash"
+        ],
+        "checkpoint_manifest_hash": embedding_table["gate5_lineage"][
+            "checkpoint_manifest_hash"
+        ],
+        "readout_manifest_bundle_hash": embedding_table["gate5_lineage"][
+            "readout_manifest_bundle_hash"
+        ],
+        "embedding_export_report_hash": embedding_table["gate5_lineage"][
+            "embedding_export_report_hash"
+        ],
+    }:
+        return False
+    return True
 
 
 def _select_gate5_training_tensors(tensors: list[dict[str, Any]]) -> list[dict[str, Any]]:

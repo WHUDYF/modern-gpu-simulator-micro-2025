@@ -136,6 +136,12 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
 
     assert '["mlperf-inference"]=' in script
     assert '["hecbench"]=' in script
+    mlperf_sparse_rule = script.split('["mlperf-inference"]="', 1)[1].split('"', 1)[0]
+    assert "language" in mlperf_sparse_rule
+    assert "vision/classification_and_detection" in mlperf_sparse_rule
+    assert "recommendation" in mlperf_sparse_rule
+    assert "vision/medical_imaging" in mlperf_sparse_rule
+    assert "text_to_image" in mlperf_sparse_rule
     existing_branch = script[script.index('rev-parse --is-inside-work-tree') : script.index("continue")]
     assert "apply_sparse_checkout" in existing_branch
     assert "sparse-checkout init" in script

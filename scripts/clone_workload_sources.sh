@@ -26,7 +26,7 @@ repos=(
 )
 
 declare -A sparse_roots=(
-  ["mlperf-inference"]="language tools loadgen"
+  ["mlperf-inference"]="language vision/classification_and_detection recommendation vision vision/medical_imaging text_to_image tools loadgen"
   ["hecbench"]="src"
 )
 

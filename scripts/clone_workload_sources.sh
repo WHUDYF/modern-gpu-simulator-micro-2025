@@ -46,6 +46,7 @@ for entry in "${repos[@]}"; do
   name="${entry%%|*}"
   url="${entry#*|}"
   target="$SRC_DIR/$name"
+  status_path="sources/$name"
   log="$LOG_DIR/${name}.log"
 
   if git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -53,16 +54,16 @@ for entry in "${repos[@]}"; do
       :
     else
       code="$?"
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$status_path" "$url" >> "$STATUS"
       printf "Failed sparse checkout for existing %s; see %s\n" "$name" "$log"
       rm -rf "$target"
       continue
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
     if [[ -n "${sparse_roots[$name]:-}" ]]; then
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$target" "$url" >> "$STATUS"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$status_path" "$url" >> "$STATUS"
     else
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "exists" "$commit" "$target" "$url" >> "$STATUS"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "exists" "$commit" "$status_path" "$url" >> "$STATUS"
     fi
     continue
   fi
@@ -80,7 +81,7 @@ for entry in "${repos[@]}"; do
         :
       else
         code="$?"
-        printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
+        printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$status_path" "$url" >> "$STATUS"
         printf "Failed sparse checkout for %s; see %s\n" "$name" "$log"
         rm -rf "$target"
         continue
@@ -88,13 +89,13 @@ for entry in "${repos[@]}"; do
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
     if [[ -n "${sparse_roots[$name]:-}" ]]; then
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$target" "$url" >> "$STATUS"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$status_path" "$url" >> "$STATUS"
     else
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "cloned" "$commit" "$target" "$url" >> "$STATUS"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "cloned" "$commit" "$status_path" "$url" >> "$STATUS"
     fi
   else
     code="$?"
-    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:$code" "-" "$target" "$url" >> "$STATUS"
+    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:$code" "-" "$status_path" "$url" >> "$STATUS"
     printf "Failed %s; see %s\n" "$name" "$log"
     rm -rf "$target"
   fi

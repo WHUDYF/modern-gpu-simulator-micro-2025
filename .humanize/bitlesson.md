@@ -194,13 +194,13 @@ Source Rounds: 30
 
 ## Lesson: portable-tool-path-roots
 Lesson ID: BL-20260609-portable-tool-path-roots
-Scope: experiments/trace_compression_behavior/catalog.py, scripts/generate_source_registry.py, tests/test_workload_registry_tools.py
+Scope: experiments/trace_compression_behavior/catalog.py, scripts/clone_workload_sources.sh, scripts/generate_source_registry.py, tests/test_workload_registry_tools.py
 Problem Description: Tooling can pass in the author checkout while failing for generated external catalogs, installed packages, CI, or another developer machine.
-Root Cause: Catalog relative `source_path` values were resolved against the repository root, catalog duplicate IDs could silently overwrite records, and workload/source-registry defaults used absolute `/home/dyf/...` workload roots.
-Solution: Resolve catalog relative paths against the catalog file directory, reject duplicate catalog entry IDs at load time, keep fixture catalogs catalog-relative, and use portable relative default roots for workload cloning and source-registry generation.
-Constraints: Absolute catalog source paths remain valid; callers can still pass `--root` explicitly for external workload locations.
-Validation Evidence: `pytest -q experiments/trace_compression_behavior/tests/test_trace_compression_behavior_catalog.py`; `pytest -q tests/test_workload_registry_tools.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py scripts/generate_source_registry.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py`; `git diff --check && git diff --cached --check`.
-Source Rounds: 33, 34
+Root Cause: Catalog relative `source_path` values were resolved against the repository root, catalog duplicate IDs could silently overwrite records, workload/source-registry defaults used absolute `/home/dyf/...` workload roots, and clone status rows wrote paths relative to the caller instead of relative to `clone_status.tsv`.
+Solution: Resolve catalog relative paths against the catalog file directory, reject duplicate catalog entry IDs at load time, keep fixture catalogs catalog-relative, use portable relative default roots, and write clone status paths as `sources/<name>` so `build_source_registry()` resolves them under the workload root.
+Constraints: Absolute catalog source paths remain valid; callers can still pass `--root` explicitly for external workload locations; clone status relative paths must remain relative to the status file directory.
+Validation Evidence: `pytest -q experiments/trace_compression_behavior/tests/test_trace_compression_behavior_catalog.py`; `pytest -q tests/test_workload_registry_tools.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py scripts/generate_source_registry.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py`; `bash -n scripts/clone_workload_sources.sh`; `git diff --check && git diff --cached --check`.
+Source Rounds: 33, 34, 38
 
 ## Lesson: gate0-trace-runner-framework-compatibility
 Lesson ID: BL-20260609-gate0-trace-runner-framework-compatibility

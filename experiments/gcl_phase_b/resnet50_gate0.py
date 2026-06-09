@@ -31,6 +31,7 @@ FORMAL_SOURCE_ARTIFACTS = {
     "stats.csv": "file",
 }
 _ACTIVE_COLLECTOR_SESSION_IDS: set[str] = set()
+_ACTIVE_COLLECTOR_SESSIONS: dict[str, dict[str, Any]] = {}
 
 
 @dataclass(frozen=True)
@@ -69,7 +70,7 @@ def acquire_resnet50_gate0_trace(
     session = _write_collector_session(output_root, config)
     env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
     run = runner or _subprocess_runner
-    _ACTIVE_COLLECTOR_SESSION_IDS.add(session["collector_session_id"])
+    _register_active_collector_session(session)
     try:
         result = run(
             list(config.workload_command),
@@ -86,7 +87,7 @@ def acquire_resnet50_gate0_trace(
             active_collector_session_id=session["collector_session_id"],
         )
     finally:
-        _ACTIVE_COLLECTOR_SESSION_IDS.discard(session["collector_session_id"])
+        _discard_active_collector_session(session["collector_session_id"])
 
 
 def record_resnet50_gate0_trace_acquisition(
@@ -298,6 +299,11 @@ def _validate_collector_attestation(
         and active_collector_session_id not in _ACTIVE_COLLECTOR_SESSION_IDS
     ):
         raise ValueError("active collector session is required for formal Gate0 recording")
+    active_session_record = None
+    if active_collector_session_id is not None:
+        active_session_record = _ACTIVE_COLLECTOR_SESSIONS.get(active_collector_session_id)
+        if active_session_record is None:
+            raise ValueError("active collector session record is required for formal Gate0 recording")
     session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
     if not session_path.is_file():
         raise ValueError("collector-produced session artifact is required for formal Gate0")
@@ -309,6 +315,11 @@ def _validate_collector_attestation(
     session_hash = hash_without(session, "collector_session_hash")
     if session.get("collector_session_hash") != session_hash:
         raise ValueError("collector session hash is not reproducible")
+    if active_session_record is not None:
+        if active_session_record.get("collector_session_hash") != session_hash:
+            raise ValueError("collector session hash does not match active collector session record")
+        if active_session_record.get("output_root") != str(root):
+            raise ValueError("collector session output_root does not match active collector session record")
     if attestation.get("collector_session_hash") != session_hash:
         raise ValueError("collector attestation does not match collector session hash")
     if evidence.get("collector_session_hash") != session_hash:
@@ -358,6 +369,20 @@ def _write_collector_session(
     session["collector_session_hash"] = hash_without(session, "collector_session_hash")
     write_json(output_root / NVBIT_COLLECTOR_SESSION_FILENAME, session)
     return session
+
+
+def _register_active_collector_session(session: dict[str, Any]) -> None:
+    session_id = session["collector_session_id"]
+    _ACTIVE_COLLECTOR_SESSION_IDS.add(session_id)
+    _ACTIVE_COLLECTOR_SESSIONS[session_id] = {
+        "collector_session_hash": session["collector_session_hash"],
+        "output_root": session["output_root"],
+    }
+
+
+def _discard_active_collector_session(session_id: str) -> None:
+    _ACTIVE_COLLECTOR_SESSION_IDS.discard(session_id)
+    _ACTIVE_COLLECTOR_SESSIONS.pop(session_id, None)
 
 
 def _write_collector_attestation(

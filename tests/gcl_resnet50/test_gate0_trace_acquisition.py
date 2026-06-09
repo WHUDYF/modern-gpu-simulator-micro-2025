@@ -907,8 +907,20 @@ def test_gate0_rejects_self_authenticated_real_shaped_root_without_runner_sessio
     }
     write_json(root / "nvbit_collection_evidence.json", evidence)
 
-    with pytest.raises(ValueError, match="runner session environment"):
+    with pytest.raises(ValueError, match="active collector session record"):
         _record_with_test_active_session(root, session["collector_session_id"])
+
+
+def test_gate0_rejects_self_authenticated_triplet_even_with_active_session_id(tmp_path):
+    root = tmp_path / "self_authenticated_active_id_only"
+    _write_real_gate0_contract_artifacts(root)
+    session_id = "handwritten-active-session"
+    _write_collector_bound_gate0_evidence(root, session_id)
+
+    with pytest.raises(ValueError, match="active collector session record"):
+        _record_with_test_active_session(root, session_id)
+
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
 def test_gate0_restart_rejects_self_authenticated_triplet_without_existing_manifest(
@@ -1110,7 +1122,7 @@ def test_gate0_rejects_self_authenticated_triplet_with_forged_session_hash(
     }
     write_json(root / "nvbit_collection_evidence.json", evidence)
 
-    with pytest.raises(ValueError, match="collector session hash"):
+    with pytest.raises(ValueError, match="active collector session record"):
         _record_with_test_active_session(root, session["collector_session_id"])
 
 

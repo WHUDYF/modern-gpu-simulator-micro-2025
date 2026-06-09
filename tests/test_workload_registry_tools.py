@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.generate_source_registry import (
     build_source_registry,
+    infer_availability,
     infer_clone_mode,
     parse_clone_status,
 )
@@ -57,6 +58,15 @@ def test_infer_clone_mode_detects_sparse_checkout(tmp_path):
     subprocess.run(["git", "config", "core.sparseCheckout", "true"], cwd=repo, check=True)
 
     assert infer_clone_mode(repo) == "sparse_partial"
+
+
+def test_infer_clone_mode_keeps_non_sparse_promisor_clone_available(tmp_path):
+    repo = tmp_path / "repo"
+    init_git_repo(repo)
+    subprocess.run(["git", "config", "remote.origin.promisor", "true"], cwd=repo, check=True)
+
+    assert infer_clone_mode(repo) == "shallow_or_full"
+    assert infer_availability(repo) == "source_available"
 
 
 def test_build_source_registry_uses_local_git_commit(tmp_path):

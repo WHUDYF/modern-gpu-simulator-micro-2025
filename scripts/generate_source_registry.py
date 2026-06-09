@@ -66,7 +66,7 @@ def infer_clone_mode(path: Path, status: str = "") -> str:
         return "unavailable"
     if not is_git_checkout(path):
         return "unavailable"
-    if git_config_true(path, "core.sparseCheckout") or git_config_true(path, "remote.origin.promisor"):
+    if git_config_true(path, "core.sparseCheckout"):
         return "sparse_partial"
     return "shallow_or_full"
 

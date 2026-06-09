@@ -597,9 +597,12 @@ def build_result_summary(
                     parse_status = "parsed-smoke"
                     parse_note = "Parsed sim_cycles from simulator output for a smoke-mode run; do not treat as formal validation."
                 else:
-                    result_status = "success"
+                    result_status = "inconclusive"
                     parse_status = "parsed-validation"
-                    parse_note = "Parsed sim_cycles from simulator output for a validation-mode run."
+                    parse_note = (
+                        "Parsed sim_cycles from simulator output for a validation-mode run; "
+                        "comparison evidence is still required before validation can succeed."
+                    )
                 parsed_source = record["stdout_path"]
             else:
                 result_status = "parse-failed"

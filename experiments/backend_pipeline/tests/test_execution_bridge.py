@@ -37,13 +37,13 @@ def _manifest() -> list[dict]:
     return json.loads((RESULTS_ROOT / "backend_run_manifest_v1.json").read_text())
 
 
-def test_builtin_profile_loads_existing_repo_assets_as_smoke_only_fixture():
+def test_builtin_profile_loads_existing_repo_assets_as_validation_profile():
     profile = load_workload_profile("mini_transformer_v4")
     assert Path(profile["simulator_binary"]).exists()
     assert Path(profile["trace_path"]).exists()
     assert Path(profile["gpgpusim_config"]).exists()
     assert Path(profile["trace_config"]).exists()
-    assert profile["execution_mode"] == "smoke"
+    assert profile["execution_mode"] == "validation"
     assert profile["extra_cli_args"] == ["-is_extra_traces_enabled", "0"]
     assert "smoke_trace_builder" not in profile
 
@@ -233,7 +233,7 @@ def test_execute_run_specs_records_success_and_parser_extracts_metrics(tmp_path)
     records = execute_run_specs(run_specs, timeout_seconds=5)
     summary = build_result_summary(run_specs, records, profile["parser"])
     assert records[0]["execution_status"] == "success"
-    assert summary[0]["result_status"] == "success"
+    assert summary[0]["result_status"] == "inconclusive"
     assert summary[0]["parse_status"] == "parsed-validation"
     assert summary[0]["sim_cycles"] == 42
     assert summary[0]["observed_metric_values"]["simulation_time"] == 1.25

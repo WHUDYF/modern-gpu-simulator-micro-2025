@@ -36,7 +36,7 @@ def _resolve_path(path_str: str, base_dir: Path) -> str:
 DEFAULT_WORKLOAD_PROFILES: dict[str, dict[str, Any]] = {
     "mini_transformer_v4": {
         "workload_id": "mini_transformer_v4",
-        "execution_mode": "smoke",
+        "execution_mode": "validation",
         "working_directory": BUILTIN_FIXTURE_ROOT,
         "simulator_binary": f"{BUILTIN_FIXTURE_ROOT}/accel-sim.out",
         "setup_script": "",

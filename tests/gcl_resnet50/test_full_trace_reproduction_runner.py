@@ -238,6 +238,58 @@ def test_full_trace_runner_resumes_from_persisted_gate4_when_available(tmp_path,
     assert result["input_kernel_invocation_count"] == 265
 
 
+def test_full_trace_runner_rebuilds_bounded_gate4_from_same_gate0_root(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+
+    def fail_if_resumed(*args, **kwargs):
+        raise AssertionError("bounded Gate4 artifacts must not be resumed as full trace")
+
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "resume_resnet50_gate5_to_gate9_from_disk",
+        fail_if_resumed,
+    )
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "formal_root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+    gate0_manifest = json.loads((root / "gate0_trace_acquisition_manifest.json").read_text())
+    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+        json.dumps(
+            {
+                "source_gate0_manifest_hash": gate0_manifest["gate0_manifest_hash"],
+                "adapter_validation_report": {
+                    "status": "passed",
+                    "formal_replay_invocation_limit": 1,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    assert calls["invocation_limit"] is None
+    assert calls["invocation_ids"] is None
+    assert result["formal_full_trace_run"] is True
+    rebuilt_adapter = json.loads((out_dir / "resnet50_trace_adapter_bundle.json").read_text())
+    assert "formal_replay_invocation_limit" not in rebuilt_adapter["adapter_validation_report"]
+
+
 def test_full_trace_runner_rejects_non_full_gate0_scope(tmp_path):
     root = tmp_path / "root"
     _write_gate0_manifest(root, scope="bounded_invocation_slice")

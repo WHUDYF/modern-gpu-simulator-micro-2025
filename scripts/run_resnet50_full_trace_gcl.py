@@ -25,6 +25,26 @@ FULL_TRACE_MANIFEST = "resnet50_full_trace_reproduction_manifest.json"
 FULL_TRACE_BLOCKER = "resnet50_full_trace_reproduction_blocker_report.json"
 ADAPTER_BUNDLE = "resnet50_trace_adapter_bundle.json"
 DEFAULT_DEADLINE_SECONDS = 2400
+GATE1_PLUS_ARTIFACTS = [
+    ADAPTER_BUNDLE,
+    "representative_sm_trace_manifest.json",
+    "canonical_graph_bundle.json",
+    "graph_tensor_bundle.json",
+    "augmentation_manifest.json",
+    "rgcn_checkpoint.pt",
+    "rgcn_training_run_manifest.json",
+    "rgcn_checkpoint_manifest.json",
+    "gate5_embedding_export_progress.json",
+    "kernel_embedding_table.json",
+    "embedding_export_report.json",
+    "readout_manifest.json",
+    "gate5_lineage_bundle.json",
+    "selector_artifacts.json",
+    "gate7_cluster_correctness_manifest.json",
+    "gate8_tuning_vector_proposal.json",
+    "gate9_sampled_vs_full_evaluation.json",
+    "gate1_7_pipeline_manifest.json",
+]
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -82,11 +102,24 @@ def _reject_bounded_adapter_bundle(out_dir: Path) -> None:
         )
 
 
+def _adapter_has_bounded_replay(adapter: dict[str, Any]) -> bool:
+    report = adapter.get("adapter_validation_report", {})
+    return any(
+        field in report
+        for field in ["formal_replay_invocation_limit", "formal_replay_invocation_ids"]
+    )
+
+
+def _clear_gate1_plus_artifacts(out_dir: Path) -> None:
+    for filename in GATE1_PLUS_ARTIFACTS:
+        (out_dir / filename).unlink(missing_ok=True)
+
+
 def _validate_resume_artifacts_match_gate0(
     out_dir: Path,
     *,
     gate0_manifest: dict[str, Any],
-) -> None:
+) -> bool:
     adapter_path = out_dir / ADAPTER_BUNDLE
     if not adapter_path.exists():
         raise ValueError(f"missing adapter bundle for Gate4 resume: {adapter_path}")
@@ -99,6 +132,7 @@ def _validate_resume_artifacts_match_gate0(
             f"adapter source_gate0_manifest_hash={actual_hash!r}, "
             f"gate0_manifest_hash={expected_hash!r}"
         )
+    return _adapter_has_bounded_replay(adapter)
 
 
 def _write_blocker(
@@ -154,11 +188,16 @@ def run_full_trace_reproduction(
     try:
         gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
         input_cta_record_count = _input_cta_record_count(input_root)
-        if (out_dir / "graph_tensor_bundle.json").exists():
-            _validate_resume_artifacts_match_gate0(
+        should_resume = (out_dir / "graph_tensor_bundle.json").exists()
+        if should_resume:
+            is_bounded_resume = _validate_resume_artifacts_match_gate0(
                 out_dir,
                 gate0_manifest=gate0_manifest,
             )
+            if is_bounded_resume:
+                _clear_gate1_plus_artifacts(out_dir)
+                should_resume = False
+        if should_resume:
             pipeline_manifest = resume_resnet50_gate5_to_gate9_from_disk(
                 out_dir,
                 seed=seed,

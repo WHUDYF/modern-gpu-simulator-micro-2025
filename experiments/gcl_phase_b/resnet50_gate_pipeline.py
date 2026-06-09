@@ -726,13 +726,15 @@ def _load_existing_gate5_training(
     checkpoint_manifest_path = out_dir / "rgcn_checkpoint_manifest.json"
     if not checkpoint_path.exists():
         return None
+    if not training_manifest_path.exists():
+        return None
     torch = require_torch()
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
     progress_path = out_dir / GATE5_EXPORT_PROGRESS_FILENAME
     progress = read_json(progress_path) if progress_path.exists() else {}
-    training_manifest = read_json(training_manifest_path) if training_manifest_path.exists() else {}
-    if training_manifest and training_manifest.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
+    training_manifest = read_json(training_manifest_path)
+    if training_manifest.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
         "graph_tensor_bundle_hash"
     ]:
         return None

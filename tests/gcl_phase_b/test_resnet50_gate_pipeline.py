@@ -531,6 +531,62 @@ def test_resnet50_gate5_reuses_existing_checkpoint_for_export_resume(
     assert (tmp_path / "kernel_embedding_table.json").exists()
 
 
+def test_resnet50_gate5_retrains_when_checkpoint_training_manifest_missing(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+    from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=20260607,
+    )
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+    (tmp_path / "kernel_embedding_table.json").unlink()
+    (tmp_path / "embedding_export_report.json").unlink()
+    (tmp_path / "gate5_lineage_bundle.json").unlink()
+    (tmp_path / "readout_manifest.json").unlink()
+    (tmp_path / "rgcn_training_run_manifest.json").unlink()
+    retrain_calls = {"count": 0}
+    original_train = pipeline_module.train_minimal_contrastive
+
+    def spy_train(*args, **kwargs):
+        retrain_calls["count"] += 1
+        return original_train(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    assert retrain_calls["count"] == 1
+    assert len(embedding_table["embeddings"]) == len(tensors)
+    assert (tmp_path / "rgcn_training_run_manifest.json").exists()
+
+
 def test_resnet50_gate8_report_only_handles_weak_representatives_without_blocking(tmp_path):
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 

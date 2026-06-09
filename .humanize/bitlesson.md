@@ -201,3 +201,13 @@ Solution: Resolve catalog relative paths against the catalog file directory, rej
 Constraints: Absolute catalog source paths remain valid; callers can still pass `--root` explicitly for external workload locations.
 Validation Evidence: `pytest -q experiments/trace_compression_behavior/tests/test_trace_compression_behavior_catalog.py`; `pytest -q tests/test_workload_registry_tools.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py scripts/generate_source_registry.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py`; `git diff --check && git diff --cached --check`.
 Source Rounds: 33, 34
+
+## Lesson: gate0-trace-runner-framework-compatibility
+Lesson ID: BL-20260609-gate0-trace-runner-framework-compatibility
+Scope: scripts/run_resnet50_gate0_formal_trace.py, tests/gcl_resnet50/test_gate0_formal_trace_runner.py
+Problem Description: Gate0 formal trace collection can fail before NVBit profiling starts when the runner assumes newer PyTorch or torchvision APIs on hosts that are pinned to older framework builds.
+Root Cause: The runner called `models.resnet50(weights=None)` without a fallback for older torchvision `pretrained=` APIs, and used PyTorch 2.x `torch.amp.autocast("cuda", ...)` without a fallback for older `torch.cuda.amp.autocast(...)`.
+Solution: Build the offline ResNet-50 model with `weights=None` first and fall back to `pretrained=False` on `TypeError`; wrap CUDA autocast selection in a helper that prefers `torch.amp.autocast` but falls back to `torch.cuda.amp.autocast`.
+Constraints: Do not introduce pretrained downloads; do not pin a new framework minimum in tests unless the collection environment is intentionally narrowed.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate0_formal_trace_runner.py`; `python3 -m py_compile scripts/run_resnet50_gate0_formal_trace.py`; `git diff --check && git diff --cached --check`.
+Source Rounds: 37

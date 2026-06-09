@@ -151,3 +151,47 @@ def test_gate0_formal_trace_runner_uses_offline_resnet_weights(monkeypatch):
     run_resnet50_gate0_formal_trace.main()
 
     assert ("resnet50", None) in calls
+
+
+def test_gate0_formal_trace_runner_supports_legacy_torchvision_pretrained_api(monkeypatch):
+    calls = []
+
+    class FakeModels:
+        @staticmethod
+        def resnet50(**kwargs):
+            calls.append(kwargs)
+            if "weights" in kwargs:
+                raise TypeError("unexpected keyword argument 'weights'")
+            return "legacy-model"
+
+    model = run_resnet50_gate0_formal_trace._build_offline_resnet50(FakeModels)
+
+    assert model == "legacy-model"
+    assert calls == [{"weights": None}, {"pretrained": False}]
+
+
+def test_gate0_formal_trace_runner_supports_legacy_cuda_amp_autocast():
+    calls = []
+
+    class FakeTorch:
+        float16 = "float16"
+
+        class cuda:
+            class amp:
+                @staticmethod
+                def autocast(dtype):
+                    calls.append(("cuda.amp.autocast", dtype))
+
+                    class Context:
+                        def __enter__(self):
+                            return None
+
+                        def __exit__(self, *args):
+                            return False
+
+                    return Context()
+
+    with run_resnet50_gate0_formal_trace._cuda_autocast(FakeTorch):
+        calls.append(("inside",))
+
+    assert calls == [("cuda.amp.autocast", "float16"), ("inside",)]

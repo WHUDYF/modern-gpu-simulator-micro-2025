@@ -1,4 +1,5 @@
 import ctypes
+from contextlib import contextmanager
 
 
 def _load_cuda_runtime():
@@ -16,15 +17,34 @@ def _load_cuda_runtime():
     raise OSError("unable to load CUDA runtime library: " + "; ".join(errors))
 
 
+def _build_offline_resnet50(models):
+    try:
+        return models.resnet50(weights=None)
+    except TypeError:
+        return models.resnet50(pretrained=False)
+
+
+@contextmanager
+def _cuda_autocast(torch):
+    amp = getattr(torch, "amp", None)
+    autocast = getattr(amp, "autocast", None)
+    if autocast is not None:
+        with autocast("cuda", dtype=torch.float16):
+            yield
+        return
+    with torch.cuda.amp.autocast(dtype=torch.float16):
+        yield
+
+
 def main() -> None:
     import torch
     import torchvision.models as models
 
     torch.cuda.init()
-    model = models.resnet50(weights=None).cuda().eval()
+    model = _build_offline_resnet50(models).cuda().eval()
     sample = torch.randn(1, 3, 224, 224, device="cuda")
 
-    with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16):
+    with torch.no_grad(), _cuda_autocast(torch):
         model(sample)
     torch.cuda.synchronize()
 
@@ -33,7 +53,7 @@ def main() -> None:
     if start_status != 0:
         raise RuntimeError(f"cudaProfilerStart failed with status {start_status}")
 
-    with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16):
+    with torch.no_grad(), _cuda_autocast(torch):
         output = model(sample)
     torch.cuda.synchronize()
 

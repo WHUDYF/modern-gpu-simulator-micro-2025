@@ -311,8 +311,8 @@ def test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract(t
     assert (root / "nvbit_collector_attestation.json").exists()
 
 
-def test_gate0_acquisition_synthesized_evidence_records_current_collector_session(tmp_path):
-    root = tmp_path / "formal_trace_synthesized_evidence"
+def test_gate0_acquisition_rejects_missing_collector_evidence_even_when_artifacts_exist(tmp_path):
+    root = tmp_path / "formal_trace_missing_evidence"
 
     def runner(command, *, cwd, env):
         root.mkdir(parents=True, exist_ok=True)
@@ -365,16 +365,13 @@ def test_gate0_acquisition_synthesized_evidence_records_current_collector_sessio
         working_directory=tmp_path,
     )
 
-    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    with pytest.raises(ValueError, match="real NVBit collection evidence"):
+        acquire_resnet50_gate0_trace(config, runner=runner)
 
-    evidence = read_json(root / "nvbit_collection_evidence.json")
-    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
-    assert evidence["nvbit_loaded"] is True
-    assert evidence["nvbit_banner_observed"] is False
-    assert manifest["formal_input_eligible"] is True
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
-def test_gate0_acquisition_rewrites_stale_banner_failed_evidence_after_artifacts_validate(
+def test_gate0_acquisition_rejects_stale_banner_failed_evidence_after_artifacts_validate(
     tmp_path,
 ):
     root = tmp_path / "formal_trace_stale_banner_failed_evidence"
@@ -407,13 +404,12 @@ def test_gate0_acquisition_rewrites_stale_banner_failed_evidence_after_artifacts
         working_directory=tmp_path,
     )
 
-    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    with pytest.raises(ValueError, match="nvbit_loaded"):
+        acquire_resnet50_gate0_trace(config, runner=runner)
 
     evidence = read_json(root / "nvbit_collection_evidence.json")
-    assert evidence["nvbit_loaded"] is True
-    assert evidence["nvbit_banner_observed"] is False
-    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
-    assert manifest["formal_input_eligible"] is True
+    assert evidence["nvbit_loaded"] is False
+    assert evidence["collector_session_id_from_env"] == "stale-session"
 
 
 def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tmp_path):
@@ -503,7 +499,7 @@ def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tm
     assert manifest["formal_input_eligible"] is True
 
 
-def test_gate0_recording_rejects_offline_self_authenticated_acquisition_artifacts(tmp_path):
+def test_gate0_recording_accepts_persisted_collector_attestation_after_restart(tmp_path):
     root = tmp_path / "formal_trace_restart"
 
     def runner(command, *, cwd, env):
@@ -577,8 +573,10 @@ def test_gate0_recording_rejects_offline_self_authenticated_acquisition_artifact
     acquire_resnet50_gate0_trace(config, runner=runner)
     (root / "gate0_trace_acquisition_manifest.json").unlink()
 
-    with pytest.raises(ValueError, match="active collector session"):
-        record_resnet50_gate0_trace_acquisition(root)
+    manifest = record_resnet50_gate0_trace_acquisition(root)
+
+    assert manifest["formal_input_eligible"] is True
+    assert (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
 def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp_path):

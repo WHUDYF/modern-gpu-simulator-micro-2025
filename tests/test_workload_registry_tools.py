@@ -121,6 +121,7 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert "sparse-checkout init" in script
     assert "sparse-checkout set" in script
     assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
+    assert 'rm -rf "$target"' in script[script.index('"failed:$code"') :]
 
 
 def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):

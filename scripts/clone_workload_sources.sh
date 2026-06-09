@@ -72,6 +72,7 @@ for entry in "${repos[@]}"; do
     code="$?"
     printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:$code" "-" "$target" "$url" >> "$STATUS"
     printf "Failed %s; see %s\n" "$name" "$log"
+    rm -rf "$target"
   fi
 done
 

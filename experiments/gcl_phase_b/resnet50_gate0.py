@@ -96,11 +96,6 @@ def record_resnet50_gate0_trace_acquisition(
 ) -> dict[str, Any]:
     """Record a formal Gate 0 manifest for an already collected NVBit trace root."""
 
-    if not active_collector_session_id:
-        raise ValueError("active collector session is required for formal Gate0 recording")
-    if active_collector_session_id not in _ACTIVE_COLLECTOR_SESSION_IDS:
-        raise ValueError("active collector session is required for formal Gate0 recording")
-
     root = Path(root)
     evidence = _load_nvbit_collection_evidence(root)
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
@@ -237,7 +232,7 @@ def _validate_collector_attestation(
     evidence: dict[str, Any],
     source_hashes: dict[str, str],
     *,
-    active_collector_session_id: str,
+    active_collector_session_id: str | None,
 ) -> None:
     evidence_attestation_hash = evidence.get("collector_attestation_hash")
     if not evidence_attestation_hash:
@@ -253,8 +248,13 @@ def _validate_collector_attestation(
     session_id = attestation.get("collector_session_id")
     if not session_id:
         raise ValueError("collector-produced attestation requires collector_session_id")
-    if session_id != active_collector_session_id:
+    if active_collector_session_id is not None and session_id != active_collector_session_id:
         raise ValueError("collector attestation is not bound to the active collector session")
+    if (
+        active_collector_session_id is not None
+        and active_collector_session_id not in _ACTIVE_COLLECTOR_SESSION_IDS
+    ):
+        raise ValueError("active collector session is required for formal Gate0 recording")
     session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
     if not session_path.is_file():
         raise ValueError("collector-produced session artifact is required for formal Gate0")
@@ -270,7 +270,10 @@ def _validate_collector_attestation(
         raise ValueError("collector attestation does not match collector session hash")
     if evidence.get("collector_session_hash") != session_hash:
         raise ValueError("collector evidence does not match collector session hash")
-    if evidence.get("collector_session_id_from_env") != session_id:
+    if (
+        active_collector_session_id is not None
+        and evidence.get("collector_session_id_from_env") != session_id
+    ):
         raise ValueError("collector evidence must be bound to the runner session environment")
     if evidence.get("collector_session_id") != session_id:
         raise ValueError("collector attestation session does not match evidence")
@@ -355,30 +358,22 @@ def _write_collector_attestation(
 
 def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[str, Any]:
     _source_artifact_hashes(root)
+    evidence_path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
+    if not evidence_path.is_file():
+        raise ValueError("real NVBit collection evidence is required for formal Gate0")
+    evidence = read_json(evidence_path)
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
     if scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     _validate_scheduler_metadata_records(scheduler_metadata)
-    evidence = {
-        "artifact_status": "formal_collection_evidence",
-        "workload_id": "resnet50",
-        "execution_mode": "real_trace",
-        "trace_source": "nvbit",
-        "input_scope": "full_resnet50_inference_trace",
-        "scheduler_metadata_source": "real_nvbit_smid",
-        "collection_status": "completed",
-        "fixture_backed": False,
-        "collector_artifact_origin": "real_nvbit_runtime",
-        "evidence_scope": "real_resnet50_nvbit_collection",
-        "nvbit_loaded": True,
-        "nvbit_banner_observed": _runner_output_contains(result, "nvbit"),
-    }
     _reject_synthetic_artifact_shape_root(root, evidence, scheduler_metadata)
+    _validate_nvbit_collection_evidence(evidence)
+    evidence["nvbit_banner_observed"] = _runner_output_contains(result, "nvbit")
     session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
     if session_path.is_file():
         session = read_json(session_path)
         evidence["collector_session_id_from_env"] = session.get("collector_session_id")
-    write_json(root / NVBIT_COLLECTION_EVIDENCE_FILENAME, evidence)
+    write_json(evidence_path, evidence)
     return evidence
 
 

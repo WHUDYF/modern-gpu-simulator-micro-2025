@@ -356,9 +356,7 @@ def _write_collector_attestation(
 def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[str, Any]:
     evidence_path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
     if evidence_path.exists():
-        evidence = read_json(evidence_path)
-        _validate_nvbit_collection_evidence(evidence)
-        return evidence
+        _validate_nvbit_collection_evidence(read_json(evidence_path))
     _source_artifact_hashes(root)
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
     if scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":

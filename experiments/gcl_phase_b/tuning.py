@@ -36,10 +36,25 @@ def generate_gate8_tuning_vectors(
         raise ValueError("representative anchor table content does not match supplied hash")
     if expected_anchor_hash and computed_anchor_hash != expected_anchor_hash:
         raise ValueError("representative anchor table hash does not match Gate7 manifest")
-    weighted_purity = gate7_report.get("family_alignment_metrics", {}).get("weighted_purity")
+    family_metrics = gate7_report.get("family_alignment_metrics", {})
+    family_claim_status = family_metrics.get("family_alignment_claim_status", "reported")
+    if family_claim_status != "reported":
+        raise ValueError("family alignment evidence is unavailable for Gate8 tuning proposal")
+    weighted_purity = family_metrics.get("weighted_purity")
+    if weighted_purity is None:
+        raise ValueError("family alignment evidence is unavailable for Gate8 tuning proposal")
     if weighted_purity is not None and float(weighted_purity) < 0.8:
         raise ValueError("mixed-family cluster evidence cannot enter Gate8 tuning proposal")
-    metric_error = gate7_report.get("metric_error_report", {}).get("global_weighted_mape")
+    metric_report = gate7_report.get("metric_error_report", {})
+    metric_claim_status = metric_report.get(
+        "metric_claim_status",
+        metric_report.get("status", "reported"),
+    )
+    if metric_claim_status != "reported":
+        raise ValueError("metric error evidence is unavailable for Gate8 tuning proposal")
+    metric_error = metric_report.get("global_weighted_mape")
+    if metric_error is None:
+        raise ValueError("metric error evidence is unavailable for Gate8 tuning proposal")
     if metric_error is not None and float(metric_error) > 0.2:
         raise ValueError("high-error cluster evidence cannot enter Gate8 tuning proposal")
     quality = gate7_report.get("representative_quality_metrics", {})

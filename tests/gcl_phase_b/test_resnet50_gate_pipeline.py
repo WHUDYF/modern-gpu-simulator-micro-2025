@@ -450,6 +450,79 @@ def test_resnet50_gate_pipeline_resume_uses_persisted_seed_by_default(
     assert manifest["seed"] == 20260607
 
 
+def test_resnet50_gate_pipeline_resume_uses_gate5_seed_when_pipeline_manifest_missing(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    out_dir = tmp_path / "resume_uses_gate5_seed"
+    run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    (out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME).unlink()
+    captured = {}
+
+    def fake_training_and_export(*, tensors, graph_tensor_bundle, augmentation_bundle, out_dir, seed):
+        captured["seed"] = seed
+        return {
+            "kernel_embedding_table_hash": "embedding-hash",
+            "embeddings": [
+                {
+                    "record_id": "gcl_embedding:0000",
+                    "kernel_invocation_id": tensors[0]["kernel_invocation_id"],
+                    "kernel_embedding": [0.0] * 256,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "_run_gate5_training_and_export",
+        fake_training_and_export,
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "select_phase_b_representatives",
+        lambda *args, **kwargs: {
+            "selector_manifest_hash": "selector-hash",
+            "representative_anchor_table": {
+                "artifact_type": "gcl_resnet50_representative_anchor_table",
+                "anchors": [],
+            },
+        },
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "evaluate_gate7_correctness_from_artifacts",
+        lambda **kwargs: {
+            "gate7_cluster_correctness_manifest_hash": "gate7-hash",
+            "source_representative_anchor_table_hash": "anchor-hash",
+            "gate7_report_artifacts": {
+                key: {"report_hash": f"{key}-hash"}
+                for key in pipeline_module.GATE7_REPORT_FILENAMES
+            },
+        },
+    )
+    monkeypatch.setattr(
+        pipeline_module,
+        "_emit_gate8_gate9_extension_artifacts",
+        lambda **kwargs: (
+            {"gate8_tuning_vector_proposal_hash": "gate8-hash"},
+            {"gate9_sampled_vs_full_evaluation_hash": "gate9-hash"},
+            "gate9_report_only",
+        ),
+    )
+
+    manifest = resume_resnet50_gate5_to_gate9_from_disk(out_dir)
+
+    assert captured["seed"] == 20260607
+    assert manifest["seed"] == 20260607
+
+
 def test_resnet50_gate_pipeline_resume_preserves_adapter_scope_when_previous_manifest_missing(
     tmp_path,
     monkeypatch,
@@ -673,6 +746,65 @@ def test_resnet50_gate5_reexports_when_cached_table_lacks_side_artifacts(
     assert (tmp_path / "readout_manifest.json").exists()
     assert (tmp_path / "gate5_lineage_bundle.json").exists()
     assert (tmp_path / "embedding_export_report.json").exists()
+
+
+def test_resnet50_gate5_retrains_when_cached_checkpoint_hash_mismatches_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+    from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=20260607,
+    )
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+    checkpoint_path = tmp_path / "rgcn_checkpoint.pt"
+    checkpoint_path.write_bytes(checkpoint_path.read_bytes() + b"stale")
+    for filename in [
+        "kernel_embedding_table.json",
+        "embedding_export_report.json",
+        "gate5_lineage_bundle.json",
+        "readout_manifest.json",
+    ]:
+        (tmp_path / filename).unlink()
+    retrain_calls = {"count": 0}
+    original_train = pipeline_module.train_minimal_contrastive
+
+    def spy_train(*args, **kwargs):
+        retrain_calls["count"] += 1
+        return original_train(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    assert retrain_calls["count"] == 1
+    assert len(embedding_table["embeddings"]) == len(tensors)
 
 
 def test_resnet50_gate5_retrains_when_checkpoint_training_manifest_missing(

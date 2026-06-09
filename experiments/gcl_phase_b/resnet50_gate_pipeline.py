@@ -252,7 +252,7 @@ def resume_resnet50_gate5_to_gate9_from_disk(
     canonical_graph_bundle = read_json(out_dir / "canonical_graph_bundle.json")
     previous_manifest_path = out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME
     previous_manifest = read_json(previous_manifest_path) if previous_manifest_path.exists() else {}
-    resolved_seed = int(previous_manifest.get("seed", 20260606) if seed is None else seed)
+    resolved_seed = int(seed if seed is not None else _resume_seed_from_artifacts(out_dir, previous_manifest))
     invocation_limit, invocation_ids = _resume_invocation_scope(
         previous_manifest,
         adapter_bundle,
@@ -336,6 +336,17 @@ def resume_resnet50_gate5_to_gate9_from_disk(
     manifest["pipeline_manifest_hash"] = stable_hash(manifest)
     write_json(out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME, manifest)
     return manifest
+
+
+def _resume_seed_from_artifacts(out_dir: Path, previous_manifest: dict[str, Any]) -> int:
+    if previous_manifest.get("seed") is not None:
+        return int(previous_manifest["seed"])
+    training_manifest_path = out_dir / "rgcn_training_run_manifest.json"
+    if training_manifest_path.exists():
+        training_manifest = read_json(training_manifest_path)
+        if training_manifest.get("random_seed") is not None:
+            return int(training_manifest["random_seed"])
+    return 20260606
 
 
 def _remove_resnet50_artifacts(out_dir: Path, filenames: set[str]) -> None:
@@ -852,6 +863,28 @@ def _load_existing_gate5_training(
             "checkpoint_hash": checkpoint_hash,
         }
     )
+    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
+        return None
+    if checkpoint_manifest.get("encoder_manifest_hash") != hash_without(
+        {
+            "encoder_name": "minimal_phase_a_rgcn",
+            "encoder_version": 1,
+            "model_config": checkpoint["model_config"],
+            "source_tensor_hashes": checkpoint.get("source_tensor_hashes", []),
+            "seed": checkpoint.get("seed"),
+            "checkpoint_hash": checkpoint_hash,
+            "encoder_batch_size": checkpoint.get("encoder_batch_size", 16),
+            "partitioned_encoding": checkpoint.get("partitioned_encoding", True),
+        },
+        "encoder_manifest_hash",
+        "checkpoint_path",
+    ):
+        return None
+    expected_checkpoint_tensor_hashes = training_manifest.get("checkpoint_source_tensor_hashes", [])
+    if checkpoint.get("source_tensor_hashes", []) != expected_checkpoint_tensor_hashes:
+        return None
+    if checkpoint.get("seed") != seed:
+        return None
     encoder = MinimalRGCNEncoder()
     encoder.load_state_dict(checkpoint["encoder"])
     projection_head = ProjectionHead()
@@ -930,6 +963,8 @@ def _training_run_manifest(
         if len(pseudo_node_modes) == 1
         else "mixed:" + ",".join(pseudo_node_modes),
         "model_architecture": checkpoint_manifest["model_config"],
+        "source_tensor_hashes": [tensor["tensor_hash"] for tensor in tensors],
+        "checkpoint_source_tensor_hashes": checkpoint_manifest["source_tensor_hashes"],
         "edge_relation_schema": tensors[0]["edge_relation_schema"],
         "readout_hierarchy": READOUT_HIERARCHY,
         "augmentation_config": {

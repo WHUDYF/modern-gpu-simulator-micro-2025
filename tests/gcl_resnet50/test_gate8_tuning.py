@@ -102,6 +102,36 @@ def test_gate8_rejects_high_weight_mixed_or_high_error_clusters():
         )
 
 
+def test_gate8_rejects_unavailable_family_or_metric_evidence():
+    gate7 = _gate7_report()
+    gate7["family_alignment_metrics"] = {
+        "family_alignment_claim_status": "no_family_claim",
+        "weighted_purity": None,
+    }
+    with pytest.raises(ValueError, match="family alignment evidence"):
+        generate_gate8_tuning_vectors(
+            gate7,
+            representative_anchor_table=_anchor_table(),
+            family_alignment_report=_family_report(),
+            metric_error_report=_metric_report(),
+            tunable_component_schema={"components": ["x"]},
+        )
+
+    gate7 = _gate7_report()
+    gate7["metric_error_report"] = {
+        "metric_claim_status": "unavailable",
+        "global_weighted_mape": None,
+    }
+    with pytest.raises(ValueError, match="metric error evidence"):
+        generate_gate8_tuning_vectors(
+            gate7,
+            representative_anchor_table=_anchor_table(),
+            family_alignment_report=_family_report(),
+            metric_error_report=_metric_report(),
+            tunable_component_schema={"components": ["x"]},
+        )
+
+
 def test_gate8_rejects_mismatched_persisted_gate7_reports():
     report = _family_report()
     report["report_hash"] = "wrong"

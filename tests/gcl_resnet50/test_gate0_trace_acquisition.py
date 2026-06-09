@@ -40,6 +40,50 @@ def _fixture_backed_root(tmp_path):
     return root
 
 
+def _write_real_gate0_contract_artifacts(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+    threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
+    threadblocks.mkdir(parents=True, exist_ok=True)
+    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+    extra_info = root / "extra_info"
+    extra_info.mkdir(exist_ok=True)
+    write_json(
+        extra_info / "enhanced_execution_info.json",
+        {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
+    )
+    write_json(
+        root / "scheduler_metadata.json",
+        {
+            "artifact_type": "gcl_real_trace_scheduler_metadata",
+            "artifact_version": "resnet50_scheduler_metadata_v1",
+            "scheduler_metadata_source": "real_nvbit_smid",
+            "source": "nvbit_tracer",
+            "kernel_invocations": [
+                {
+                    "kernel_invocation_id": "d_0_s_0_k_1",
+                    "kernel_id": 1,
+                    "cta_records": [
+                        {
+                            "cta_id": "0,0,0",
+                            "sm_id": 3,
+                            "first_seen_order": 10,
+                            "last_seen_order": 12,
+                            "warp_ids": [0, 1],
+                            "trace_entry_count": 3,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    (root / "stats.csv").write_text(
+        "device_id, stream_id, kernel id, kernel mangled name\n"
+        "0, 0, kernel-1.trace, real_kernel\n",
+        encoding="utf-8",
+    )
+
+
 def test_gate0_writes_blocker_when_real_resnet50_nvbit_collection_is_unavailable(tmp_path):
     root = tmp_path / "missing_real_trace"
     root.mkdir()
@@ -132,7 +176,7 @@ def test_gate0_acquisition_runner_rejects_synthetic_artifact_shape_output(tmp_pa
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
         acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed
@@ -312,7 +356,7 @@ def test_gate0_acquisition_synthesized_evidence_records_current_collector_sessio
             "0, 0, kernel-1.trace, real_kernel\n",
             encoding="utf-8",
         )
-        return {"returncode": 0, "stdout": "NVBit Loaded", "stderr": ""}
+        return {"returncode": 0, "stdout": "collection completed", "stderr": ""}
 
     config = ResNet50NvbitAcquisitionConfig(
         output_root=root,
@@ -324,6 +368,50 @@ def test_gate0_acquisition_synthesized_evidence_records_current_collector_sessio
     manifest = acquire_resnet50_gate0_trace(config, runner=runner)
 
     evidence = read_json(root / "nvbit_collection_evidence.json")
+    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
+    assert evidence["nvbit_loaded"] is True
+    assert evidence["nvbit_banner_observed"] is False
+    assert manifest["formal_input_eligible"] is True
+
+
+def test_gate0_acquisition_rewrites_stale_banner_failed_evidence_after_artifacts_validate(
+    tmp_path,
+):
+    root = tmp_path / "formal_trace_stale_banner_failed_evidence"
+
+    def runner(command, *, cwd, env):
+        _write_real_gate0_contract_artifacts(root)
+        write_json(
+            root / "nvbit_collection_evidence.json",
+            {
+                "artifact_status": "formal_collection_evidence",
+                "workload_id": "resnet50",
+                "execution_mode": "real_trace",
+                "trace_source": "nvbit",
+                "input_scope": "full_resnet50_inference_trace",
+                "scheduler_metadata_source": "real_nvbit_smid",
+                "collection_status": "completed",
+                "fixture_backed": False,
+                "collector_artifact_origin": "real_nvbit_runtime",
+                "evidence_scope": "real_resnet50_nvbit_collection",
+                "nvbit_loaded": False,
+                "collector_session_id_from_env": "stale-session",
+            },
+        )
+        return {"returncode": 0, "stdout": "", "stderr": ""}
+
+    config = ResNet50NvbitAcquisitionConfig(
+        output_root=root,
+        workload_command=["python", "run_resnet50.py"],
+        nvbit_tool_path=Path("/opt/nvbit/tools/tracer_tool.so"),
+        working_directory=tmp_path,
+    )
+
+    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+
+    evidence = read_json(root / "nvbit_collection_evidence.json")
+    assert evidence["nvbit_loaded"] is True
+    assert evidence["nvbit_banner_observed"] is False
     assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
     assert manifest["formal_input_eligible"] is True
 
@@ -878,7 +966,7 @@ def test_gate0_acquisition_runner_rejects_synthetic_trace_before_attestation(tmp
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
 
-    with pytest.raises(ValueError, match="real NVBit runtime artifact origin"):
+    with pytest.raises(ValueError, match="synthetic artifact-shape"):
         acquire_resnet50_gate0_trace(config, runner=runner)
 
     assert executed

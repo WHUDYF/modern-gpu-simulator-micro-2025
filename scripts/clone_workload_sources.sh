@@ -58,6 +58,7 @@ for entry in "${repos[@]}"; do
         code="$?"
         printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
         printf "Failed sparse checkout for %s; see %s\n" "$name" "$log"
+        rm -rf "$target"
         continue
       }
     fi

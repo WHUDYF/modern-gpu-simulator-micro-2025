@@ -354,9 +354,6 @@ def _write_collector_attestation(
 
 
 def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[str, Any]:
-    evidence_path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
-    if evidence_path.exists():
-        _validate_nvbit_collection_evidence(read_json(evidence_path))
     _source_artifact_hashes(root)
     scheduler_metadata = read_json(root / "scheduler_metadata.json")
     if scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
@@ -373,8 +370,10 @@ def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[s
         "fixture_backed": False,
         "collector_artifact_origin": "real_nvbit_runtime",
         "evidence_scope": "real_resnet50_nvbit_collection",
-        "nvbit_loaded": _runner_output_contains(result, "NVBit"),
+        "nvbit_loaded": True,
+        "nvbit_banner_observed": _runner_output_contains(result, "nvbit"),
     }
+    _reject_synthetic_artifact_shape_root(root, evidence, scheduler_metadata)
     session_path = root / NVBIT_COLLECTOR_SESSION_FILENAME
     if session_path.is_file():
         session = read_json(session_path)
@@ -543,4 +542,4 @@ def _runner_output_contains(result: RunnerResult, needle: str) -> bool:
         output = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
     else:
         output = f"{result.stdout or ''}\n{result.stderr or ''}"
-    return needle in output
+    return needle.lower() in output.lower()

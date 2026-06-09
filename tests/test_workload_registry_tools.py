@@ -120,6 +120,7 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert '["hecbench"]=' in script
     assert "sparse-checkout init" in script
     assert "sparse-checkout set" in script
+    assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
 
 
 def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
@@ -220,6 +221,9 @@ def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_
 
     assert "mlperf-inference_bert" in ids
     assert "mlperf-inference_resnet50" in ids
+    paths = {item["workload_id"]: item["relative_path"] for item in workloads}
+    assert paths["mlperf-inference_bert"] == "language"
+    assert paths["mlperf-inference_resnet50"] == "vision/classification_and_detection"
     assert all(item["workload_family"] == "full_network" for item in workloads)
 
 
@@ -318,9 +322,11 @@ def test_build_workload_registry_skips_sparse_available_sources(tmp_path):
     assert registry["workloads"] == []
 
 
-def test_build_workload_registry_keeps_curated_sparse_available_sources(tmp_path):
+def test_build_workload_registry_filters_curated_sparse_available_sources_by_local_path(tmp_path):
     sparse_root = tmp_path / "mlperf-inference"
-    sparse_root.mkdir()
+    (sparse_root / "language").mkdir(parents=True)
+    (sparse_root / "tools").mkdir()
+    (sparse_root / "loadgen").mkdir()
     source_registry = tmp_path / "source_registry.json"
     source_registry.write_text(
         json.dumps(
@@ -342,7 +348,33 @@ def test_build_workload_registry_keeps_curated_sparse_available_sources(tmp_path
 
     workload_ids = {row["workload_id"] for row in registry["workloads"]}
     assert "mlperf-inference_bert" in workload_ids
-    assert "mlperf-inference_resnet50" in workload_ids
+    assert "mlperf-inference_resnet50" not in workload_ids
+    assert "mlperf-inference_retinanet" not in workload_ids
+
+
+def test_build_workload_registry_skips_sparse_curated_source_when_assets_omitted(tmp_path):
+    sparse_root = tmp_path / "mlperf-inference"
+    sparse_root.mkdir()
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "mlperf-inference",
+                        "local_path": str(sparse_root),
+                        "availability_status": "source_sparse_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    assert registry["workloads"] == []
 
 
 def test_build_workload_registry_keeps_sparse_hecbench_cuda_candidates(tmp_path):

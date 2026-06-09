@@ -54,6 +54,16 @@ CURATED_WORKLOADS = {
         ("protein-small-step", "hpc_full_application", "high", "large", "medium"),
     ],
 }
+CURATED_WORKLOAD_PATHS = {
+    "mlperf-inference": {
+        "bert": "language",
+        "resnet50": "vision/classification_and_detection",
+        "dlrm-v2": "recommendation",
+        "retinanet": "vision",
+        "3d-unet": "vision/medical_imaging",
+        "stable-diffusion": "text_to_image",
+    },
+}
 SPARSE_DISCOVERABLE_SOURCES = {"hecbench"}
 
 SCAN_DIRECTORIES = ("cuda", "CUDA", "src", "test")
@@ -138,6 +148,10 @@ def make_record(
     }
 
 
+def curated_workload_path(source_id: str, name: str) -> str:
+    return CURATED_WORKLOAD_PATHS.get(source_id, {}).get(name, ".")
+
+
 def discover_gpu_parboil_workloads(source_id: str, root: Path) -> list[dict[str, str]]:
     benchmarks_root = root / "benchmarks"
     if not benchmarks_root.is_dir():
@@ -218,7 +232,15 @@ def discover_nested_cuda_workloads(source_id: str, root: Path) -> list[dict[str,
 def discover_workloads_for_source(source_id: str, root: Path) -> list[dict[str, str]]:
     if source_id in CURATED_WORKLOADS:
         return [
-            make_record(source_id, name, family, kernel_count, large_kernel, irregularity, ".")
+            make_record(
+                source_id,
+                name,
+                family,
+                kernel_count,
+                large_kernel,
+                irregularity,
+                curated_workload_path(source_id, name),
+            )
             for name, family, kernel_count, large_kernel, irregularity in CURATED_WORKLOADS[source_id]
         ]
     if source_id == "gpu-parboil":
@@ -260,6 +282,11 @@ def append_unique_workload(workloads: list[dict[str, str]], workload: dict[str, 
     workloads.append(workload)
 
 
+def workload_path_exists(source_root: Path, workload: dict[str, str]) -> bool:
+    relative_path = workload.get("relative_path", ".")
+    return (source_root / relative_path).exists()
+
+
 def build_workload_registry(source_registry_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     source_registry = json.loads(source_registry_path.read_text())
     workloads = []
@@ -275,7 +302,12 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
             and source_id not in SPARSE_DISCOVERABLE_SOURCES
         ):
             continue
-        for workload in discover_workloads_for_source(source_id, Path(source["local_path"])):
+        source_root = Path(source["local_path"])
+        for workload in discover_workloads_for_source(source_id, source_root):
+            if availability_status == "source_sparse_available" and not workload_path_exists(
+                source_root, workload
+            ):
+                continue
             append_unique_workload(workloads, workload, seen_ids)
     return {
         "schema_version": "workload_registry_v1",

@@ -118,6 +118,8 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
 
     assert '["mlperf-inference"]=' in script
     assert '["hecbench"]=' in script
+    existing_branch = script[script.index('rev-parse --is-inside-work-tree') : script.index("continue")]
+    assert "apply_sparse_checkout" in existing_branch
     assert "sparse-checkout init" in script
     assert "sparse-checkout set" in script
     assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
@@ -226,6 +228,36 @@ def test_discover_workloads_for_full_network_source_uses_curated_candidates(tmp_
     assert paths["mlperf-inference_bert"] == "language"
     assert paths["mlperf-inference_resnet50"] == "vision/classification_and_detection"
     assert all(item["workload_family"] == "full_network" for item in workloads)
+
+
+def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path):
+    cases = {
+        "deepbench": {
+            "deepbench_gemm": "code/kernels/gemm",
+            "deepbench_rnn": "code/kernels/rnn",
+            "deepbench_convolution": "code/kernels/convolution",
+        },
+        "cutlass": {
+            "cutlass_gemm": "examples",
+            "cutlass_conv": "examples",
+            "cutlass_attention": "examples",
+        },
+        "gunrock": {
+            "gunrock_bfs": "examples/bfs",
+            "gunrock_sssp": "examples/sssp",
+            "gunrock_pagerank": "examples/pr",
+        },
+    }
+    for source_id, expected_paths in cases.items():
+        root = tmp_path / source_id
+        root.mkdir()
+
+        workloads = discover_workloads_for_source(source_id, root)
+        paths = {item["workload_id"]: item["relative_path"] for item in workloads}
+
+        for workload_id, expected_path in expected_paths.items():
+            assert paths[workload_id] == expected_path
+            assert paths[workload_id] != "."
 
 
 def test_discover_workloads_for_gpu_parboil_benchmark_src_dirs(tmp_path):

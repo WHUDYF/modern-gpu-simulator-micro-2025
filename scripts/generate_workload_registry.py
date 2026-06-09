@@ -63,6 +63,35 @@ CURATED_WORKLOAD_PATHS = {
         "3d-unet": "vision/medical_imaging",
         "stable-diffusion": "text_to_image",
     },
+    "deepbench": {
+        "gemm": "code/kernels/gemm",
+        "rnn": "code/kernels/rnn",
+        "convolution": "code/kernels/convolution",
+    },
+    "cutlass": {
+        "gemm": "examples",
+        "conv": "examples",
+        "attention": "examples",
+    },
+    "gunrock": {
+        "bfs": "examples/bfs",
+        "sssp": "examples/sssp",
+        "pagerank": "examples/pr",
+        "connected-components": "examples/cc",
+    },
+    "pannotia": {
+        "bfs": "cuda",
+        "coloring": "cuda",
+        "pagerank": "cuda",
+    },
+    "lammps": {
+        "lj-small-step": "examples/melt",
+        "eam-small-step": "examples/HEAT",
+    },
+    "gromacs": {
+        "water-small-step": "share/top",
+        "protein-small-step": "share/top",
+    },
 }
 SPARSE_DISCOVERABLE_SOURCES = {"hecbench"}
 

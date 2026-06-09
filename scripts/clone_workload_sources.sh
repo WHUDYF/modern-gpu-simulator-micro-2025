@@ -30,6 +30,18 @@ declare -A sparse_roots=(
   ["hecbench"]="src"
 )
 
+apply_sparse_checkout() {
+  local name="$1"
+  local target="$2"
+  local log="$3"
+  if [[ -n "${sparse_roots[$name]:-}" ]]; then
+    {
+      git -C "$target" sparse-checkout init --cone
+      git -C "$target" sparse-checkout set ${sparse_roots[$name]}
+    } >>"$log" 2>&1
+  fi
+}
+
 for entry in "${repos[@]}"; do
   name="${entry%%|*}"
   url="${entry#*|}"
@@ -37,8 +49,20 @@ for entry in "${repos[@]}"; do
   log="$LOG_DIR/${name}.log"
 
   if git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if apply_sparse_checkout "$name" "$target" "$log"; then
+      :
+    else
+      code="$?"
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
+      printf "Failed sparse checkout for existing %s; see %s\n" "$name" "$log"
+      continue
+    fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
-    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "exists" "$commit" "$target" "$url" >> "$STATUS"
+    if [[ -n "${sparse_roots[$name]:-}" ]]; then
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$target" "$url" >> "$STATUS"
+    else
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "exists" "$commit" "$target" "$url" >> "$STATUS"
+    fi
     continue
   fi
 
@@ -51,16 +75,15 @@ for entry in "${repos[@]}"; do
   fi
   if GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false timeout 30m "${clone_cmd[@]}" >"$log" 2>&1; then
     if [[ -n "${sparse_roots[$name]:-}" ]]; then
-      {
-        git -C "$target" sparse-checkout init --cone
-        git -C "$target" sparse-checkout set ${sparse_roots[$name]}
-      } >>"$log" 2>&1 || {
+      if apply_sparse_checkout "$name" "$target" "$log"; then
+        :
+      else
         code="$?"
         printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
         printf "Failed sparse checkout for %s; see %s\n" "$name" "$log"
         rm -rf "$target"
         continue
-      }
+      fi
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
     if [[ -n "${sparse_roots[$name]:-}" ]]; then

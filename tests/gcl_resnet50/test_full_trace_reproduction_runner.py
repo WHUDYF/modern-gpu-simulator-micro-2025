@@ -290,6 +290,66 @@ def test_full_trace_runner_rebuilds_bounded_gate4_from_same_gate0_root(
     assert "formal_replay_invocation_limit" not in rebuilt_adapter["adapter_validation_report"]
 
 
+def test_full_trace_runner_clears_bounded_sidecars_before_failed_full_rebuild(
+    tmp_path,
+    monkeypatch,
+):
+    def fail_rebuild(*args, **kwargs):
+        raise RuntimeError("full rebuild failed before regenerating sidecars")
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "run_resnet50_gate1_to_gate7", fail_rebuild)
+    root = tmp_path / "formal_root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    gate0_manifest = json.loads((root / "gate0_trace_acquisition_manifest.json").read_text())
+    (out_dir / "graph_tensor_bundle.json").write_text(json.dumps({"ready": True}), encoding="utf-8")
+    (out_dir / "resnet50_trace_adapter_bundle.json").write_text(
+        json.dumps(
+            {
+                "source_gate0_manifest_hash": gate0_manifest["gate0_manifest_hash"],
+                "adapter_validation_report": {
+                    "status": "passed",
+                    "formal_replay_invocation_limit": 1,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    stale_sidecars = [
+        "selected_sm_policy_report.json",
+        "scope_preview_report.json",
+        "cluster_embedding_quality_report.json",
+        "cluster_family_alignment_report.json",
+        "representative_quality_report.json",
+        "cluster_metric_error_report.json",
+        "cluster_stability_report.json",
+        "cluster_tuning_vector_table.json",
+        "tuning_vector_provenance_report.json",
+        "tuning_safety_report.json",
+        "gate8_tuning_manifest.json",
+        "full_vs_sampled_simulation_report.json",
+        "sampled_speedup_report.json",
+        "sampled_error_report.json",
+        "tuning_effect_report.json",
+        "gate9_simulator_evaluation_manifest.json",
+    ]
+    for filename in stale_sidecars:
+        (out_dir / filename).write_text(json.dumps({"stale": filename}), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="full rebuild failed"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    assert (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").exists()
+    for filename in stale_sidecars:
+        assert not (out_dir / filename).exists()
+
+
 def test_full_trace_runner_rejects_non_full_gate0_scope(tmp_path):
     root = tmp_path / "root"
     _write_gate0_manifest(root, scope="bounded_invocation_slice")

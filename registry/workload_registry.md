@@ -83,7 +83,8 @@ Generated at: `2026-06-07T00:00:00+00:00`
 | `gunrock_bfs` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/bfs` |
 | `gunrock_sssp` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/sssp` |
 | `gunrock_pagerank` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/pr` |
-| `gunrock_coloring` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/color` |
+| `gunrock_connected-components` | `gunrock` | `irregular_graph` | `medium` | `medium` | `high` | `examples/algorithms/connected-components` |
+| `pannotia_bfs` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/bfs` |
 | `pannotia_sssp` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/sssp` |
 | `pannotia_coloring` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/color` |
 | `pannotia_pagerank` | `pannotia` | `irregular_graph` | `medium` | `medium` | `high` | `graph_app/prk` |

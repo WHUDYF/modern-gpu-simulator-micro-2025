@@ -38,9 +38,10 @@ CURATED_WORKLOADS = {
         ("bfs", "irregular_graph", "medium", "medium", "high"),
         ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
-        ("coloring", "irregular_graph", "medium", "medium", "high"),
+        ("connected-components", "irregular_graph", "medium", "medium", "high"),
     ],
     "pannotia": [
+        ("bfs", "irregular_graph", "medium", "medium", "high"),
         ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("coloring", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
@@ -77,9 +78,10 @@ CURATED_WORKLOAD_PATHS = {
         "bfs": "examples/algorithms/bfs",
         "sssp": "examples/algorithms/sssp",
         "pagerank": "examples/algorithms/pr",
-        "coloring": "examples/algorithms/color",
+        "connected-components": "examples/algorithms/connected-components",
     },
     "pannotia": {
+        "bfs": "graph_app/bfs",
         "sssp": "graph_app/sssp",
         "coloring": "graph_app/color",
         "pagerank": "graph_app/prk",
@@ -333,9 +335,7 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
             continue
         source_root = Path(source["local_path"])
         for workload in discover_workloads_for_source(source_id, source_root):
-            should_validate_path = (
-                source_id in CURATED_WORKLOADS or availability_status == "source_sparse_available"
-            )
+            should_validate_path = availability_status == "source_sparse_available"
             if should_validate_path and not workload_path_exists(source_root, workload):
                 continue
             append_unique_workload(workloads, workload, seen_ids)

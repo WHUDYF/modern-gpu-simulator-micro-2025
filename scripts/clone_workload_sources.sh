@@ -55,8 +55,7 @@ for entry in "${repos[@]}"; do
     else
       code="$?"
       printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$status_path" "$url" >> "$STATUS"
-      printf "Failed sparse checkout for existing %s; see %s\n" "$name" "$log"
-      rm -rf "$target"
+      printf "Failed sparse checkout for existing %s; preserved %s; see %s\n" "$name" "$target" "$log"
       continue
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"

@@ -164,8 +164,8 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert "sparse-checkout set" in script
     assert '"sources/$name"' in script
     assert '"$target" "$url" >> "$STATUS"' not in script
-    assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
-    assert 'rm -rf "$target"' in existing_branch
+    assert 'rm -rf "$target"' in script[script.rindex("failed:sparse:") :]
+    assert 'rm -rf "$target"' not in existing_branch
     assert 'rm -rf "$target"' in script[script.index('"failed:$code"') :]
 
 
@@ -296,9 +296,10 @@ def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path
             "gunrock_bfs": "examples/algorithms/bfs",
             "gunrock_sssp": "examples/algorithms/sssp",
             "gunrock_pagerank": "examples/algorithms/pr",
-            "gunrock_coloring": "examples/algorithms/color",
+            "gunrock_connected-components": "examples/algorithms/connected-components",
         },
         "pannotia": {
+            "pannotia_bfs": "graph_app/bfs",
             "pannotia_sssp": "graph_app/sssp",
             "pannotia_coloring": "graph_app/color",
             "pannotia_pagerank": "graph_app/prk",
@@ -390,7 +391,7 @@ def test_build_workload_registry_detects_duplicate_normalized_ids(tmp_path):
         raise AssertionError("Expected duplicate workload_id ValueError")
 
 
-def test_build_workload_registry_filters_curated_available_sources_by_local_path(tmp_path):
+def test_build_workload_registry_keeps_curated_available_sources_from_table(tmp_path):
     root = tmp_path / "deepbench"
     (root / "code" / "nvidia").mkdir(parents=True)
     (root / "code" / "nvidia" / "gemm_bench.cu").write_text("fixture")
@@ -415,8 +416,43 @@ def test_build_workload_registry_filters_curated_available_sources_by_local_path
 
     workload_ids = {row["workload_id"] for row in registry["workloads"]}
     assert "deepbench_gemm" in workload_ids
-    assert "deepbench_rnn" not in workload_ids
-    assert "deepbench_convolution" not in workload_ids
+    assert "deepbench_rnn" in workload_ids
+    assert "deepbench_convolution" in workload_ids
+
+
+def test_build_workload_registry_keeps_expected_graph_suite_candidate_ids(tmp_path):
+    gunrock_root = tmp_path / "gunrock"
+    pannotia_root = tmp_path / "pannotia"
+    gunrock_root.mkdir()
+    pannotia_root.mkdir()
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "gunrock",
+                        "local_path": str(gunrock_root),
+                        "availability_status": "source_available",
+                    },
+                    {
+                        "source_id": "pannotia",
+                        "local_path": str(pannotia_root),
+                        "availability_status": "source_available",
+                    },
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    workload_ids = {row["workload_id"] for row in registry["workloads"]}
+    assert "gunrock_connected-components" in workload_ids
+    assert "gunrock_coloring" not in workload_ids
+    assert "pannotia_bfs" in workload_ids
 
 
 def test_build_workload_registry_skips_sparse_available_sources(tmp_path):

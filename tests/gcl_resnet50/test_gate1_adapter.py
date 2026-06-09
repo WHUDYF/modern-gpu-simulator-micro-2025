@@ -11,9 +11,9 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     validate_resnet50_trace_adapter_bundle,
 )
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
+from gcl_resnet50.real_chain import FORMAL_ROOT, require_formal_root
 
 FIXTURE_ROOT = Path("tests/fixtures/gcl_resnet50_gate1")
-FORMAL_ROOT = Path("artifacts/gcl_resnet50_gate0_formal_trace/traces")
 
 
 def _fixture_backed_root(tmp_path):
@@ -31,6 +31,13 @@ def test_gate1_requires_real_gate0_manifest_before_formal_adapter(tmp_path):
 
     with pytest.raises(ValueError, match="Gate0 formal acquisition manifest"):
         build_resnet50_trace_adapter_bundle(root)
+
+
+def test_real_chain_skips_when_formal_root_artifacts_are_missing(tmp_path):
+    from gcl_resnet50.real_chain import require_formal_root
+
+    with pytest.raises(pytest.skip.Exception, match="real ResNet-50 Gate0 trace"):
+        require_formal_root(tmp_path / "missing_formal_root")
 
 
 def test_gate1_rejects_fixture_as_formal_input():
@@ -101,6 +108,7 @@ def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_schedu
 
 
 def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
+    require_formal_root()
     bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT)
 
     validate_resnet50_trace_adapter_bundle(bundle)
@@ -127,6 +135,7 @@ def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
 
 
 def test_gate1_invocation_limit_bounds_real_root_materialization_before_threadblock_reads():
+    require_formal_root()
     bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_limit=1)
 
     validate_resnet50_trace_adapter_bundle(bundle)
@@ -142,6 +151,7 @@ def test_gate1_invocation_limit_bounds_real_root_materialization_before_threadbl
 
 
 def test_gate1_invocation_ids_mark_real_root_adapter_as_bounded_slice():
+    require_formal_root()
     selected_ids = ["d_0_s_0_k_267", "d_0_s_0_k_272"]
 
     bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_ids=selected_ids)

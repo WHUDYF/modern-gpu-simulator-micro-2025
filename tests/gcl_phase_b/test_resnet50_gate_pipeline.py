@@ -18,7 +18,11 @@ from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_
 from experiments.gcl_phase_b.tensorizer import tensorize_phase_b_graphs
 from experiments.gcl_phase_b.trace_scope import build_phase_b_trace_records
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
-from gcl_resnet50.real_chain import FORMAL_ROOT, run_real_nondegenerate_gate1_to_gate7_artifacts
+from gcl_resnet50.real_chain import (
+    FORMAL_ROOT,
+    require_formal_root,
+    run_real_nondegenerate_gate1_to_gate7_artifacts,
+)
 
 
 def _blocked_gate0_root(tmp_path):
@@ -188,6 +192,7 @@ def test_resnet50_gate_pipeline_ignores_stale_gate0_blocker_when_formal_manifest
 
 
 def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "real_root_pipeline"
 
     manifest = run_resnet50_gate1_to_gate7(
@@ -249,6 +254,7 @@ def test_resnet50_gate_pipeline_runs_real_root_through_gate7(tmp_path):
 
 
 def test_resnet50_gate1_to_gate5_entrypoint_stops_before_selector_and_reports(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "real_root_gate5_only"
 
     manifest = run_resnet50_gate1_to_gate5(
@@ -292,6 +298,7 @@ def test_resnet50_gate1_to_gate5_entrypoint_stops_before_selector_and_reports(tm
 
 
 def test_resnet50_gate1_to_gate5_rerun_removes_stale_gate6_gate9_artifacts(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "gate5_only_stale_cleanup"
     run_resnet50_gate1_to_gate7(
         FORMAL_ROOT,
@@ -329,6 +336,7 @@ def test_resnet50_gate1_to_gate5_rerun_removes_stale_gate6_gate9_artifacts(tmp_p
 
 
 def test_resnet50_gate_pipeline_resumes_gate5_to_gate9_from_persisted_gate4(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "resume_from_gate4"
     gate5_manifest = run_resnet50_gate1_to_gate5(
         FORMAL_ROOT,
@@ -357,6 +365,7 @@ def test_resnet50_gate_pipeline_resumes_gate5_to_gate9_from_persisted_gate4(tmp_
 
 
 def test_resnet50_gate_pipeline_resume_rejects_stale_gate2_trace_manifest(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "resume_rejects_stale_gate2"
     run_resnet50_gate1_to_gate5(
         FORMAL_ROOT,
@@ -381,6 +390,7 @@ def test_resnet50_gate_pipeline_resume_rejects_stale_gate2_trace_manifest(tmp_pa
 def test_resnet50_gate_pipeline_resume_rejects_trace_manifest_from_stale_adapter(
     tmp_path,
 ):
+    require_formal_root()
     out_dir = tmp_path / "resume_rejects_stale_adapter"
     run_resnet50_gate1_to_gate5(
         FORMAL_ROOT,
@@ -409,6 +419,7 @@ def test_resnet50_gate_pipeline_resume_uses_persisted_seed_by_default(
     tmp_path,
     monkeypatch,
 ):
+    require_formal_root()
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 
     out_dir = tmp_path / "resume_uses_persisted_seed"
@@ -481,6 +492,7 @@ def test_resnet50_gate_pipeline_resume_uses_gate5_seed_when_pipeline_manifest_mi
     tmp_path,
     monkeypatch,
 ):
+    require_formal_root()
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 
     out_dir = tmp_path / "resume_uses_gate5_seed"
@@ -554,6 +566,7 @@ def test_resnet50_gate_pipeline_resume_preserves_adapter_scope_when_previous_man
     tmp_path,
     monkeypatch,
 ):
+    require_formal_root()
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 
     out_dir = tmp_path / "resume_missing_manifest"
@@ -1020,6 +1033,7 @@ def test_resnet50_gate8_report_only_handles_weak_representatives_without_blockin
 
 
 def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_path):
+    require_formal_root()
     out_dir = tmp_path / "real_root_gate6_gate7"
 
     run_resnet50_gate1_to_gate7(
@@ -1088,6 +1102,7 @@ def test_resnet50_gate_pipeline_real_root_records_gate6_and_gate7_contracts(tmp_
 
 
 def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(tmp_path):
+    require_formal_root()
     baseline_path = tmp_path / "baseline_artifacts.json"
     baseline_path.write_text(
         json.dumps(
@@ -1161,6 +1176,7 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
 
 
 def test_resnet50_gate_pipeline_accepts_metric_rows_only_baseline_artifacts(tmp_path):
+    require_formal_root()
     baseline_path = tmp_path / "metric_rows_only_baseline.json"
     baseline_path.write_text(
         json.dumps(
@@ -1303,6 +1319,7 @@ def test_resnet50_gate_pipeline_manifest_records_full_trace_scope_at_gate5(tmp_p
 
 
 def test_gate8_gate9_extension_stage_rejects_anchor_hash_mismatch_without_outputs(tmp_path):
+    require_formal_root()
     chain = run_real_nondegenerate_gate1_to_gate7_artifacts(tmp_path / "real_chain")
     out_dir = tmp_path / "mismatch_extension"
     out_dir.mkdir()

@@ -975,14 +975,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
-        _mark_embedding_stage_resource_blocked(
-            out_dir,
-            augmentation_bundle,
-            graphs,
-            graph_size_audits,
-            "selector",
-            exc,
-        )
+        _mark_selector_stage_resource_blocked(out_dir, "selector", exc)
         raise
     resource_status = _resource_not_blocked_artifact(graphs)
     write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))

@@ -240,7 +240,7 @@ def run_resnet50_gate1_to_gate7(
 
 def resume_resnet50_gate5_to_gate9_from_disk(
     out_dir: Path,
-    seed: int = 20260606,
+    seed: int | None = None,
     baseline_artifacts_path: Path | None = None,
 ) -> dict[str, Any]:
     graph_tensor_bundle = read_json(out_dir / "graph_tensor_bundle.json")
@@ -252,6 +252,7 @@ def resume_resnet50_gate5_to_gate9_from_disk(
     canonical_graph_bundle = read_json(out_dir / "canonical_graph_bundle.json")
     previous_manifest_path = out_dir / GATE1_7_PIPELINE_MANIFEST_FILENAME
     previous_manifest = read_json(previous_manifest_path) if previous_manifest_path.exists() else {}
+    resolved_seed = int(previous_manifest.get("seed", 20260606) if seed is None else seed)
     invocation_limit, invocation_ids = _resume_invocation_scope(
         previous_manifest,
         adapter_bundle,
@@ -265,19 +266,19 @@ def resume_resnet50_gate5_to_gate9_from_disk(
     ]:
         raise ValueError("persisted tensors do not match persisted canonical graphs")
 
-    augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=seed)
+    augmentation_bundle = create_augmentation_manifest_bundle(tensors, seed=resolved_seed)
     write_json(out_dir / "augmentation_manifest.json", augmentation_bundle)
     embedding_table = _run_gate5_training_and_export(
         tensors=tensors,
         graph_tensor_bundle=graph_tensor_bundle,
         augmentation_bundle=augmentation_bundle,
         out_dir=out_dir,
-        seed=seed,
+        seed=resolved_seed,
     )
 
     selector_artifacts = select_phase_b_representatives(
         embedding_table,
-        seed=seed,
+        seed=resolved_seed,
         gate5_artifact_root=out_dir,
     )
     write_json(out_dir / "selector_artifacts.json", selector_artifacts)
@@ -301,7 +302,7 @@ def resume_resnet50_gate5_to_gate9_from_disk(
     manifest = {
         "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
         "final_gate": final_gate,
-        "seed": seed,
+        "seed": resolved_seed,
         **_pipeline_run_scope_metadata(
             adapter_bundle=adapter_bundle,
             invocation_limit=invocation_limit,

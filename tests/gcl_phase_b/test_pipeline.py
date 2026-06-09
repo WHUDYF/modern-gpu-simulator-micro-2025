@@ -654,6 +654,43 @@ def test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stal
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
 
 
+def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "embedding_stage_selector_failure"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+    embedding_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    checkpoint_path = out_dir / "rgcn_checkpoint.pt"
+    assert embedding_path.exists()
+    assert checkpoint_path.exists()
+
+    def fail_selector(*args, **kwargs):
+        raise pipeline_module.PhaseBResourceError("simulated selector memory exhaustion")
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "_select_phase_b_representatives_for_artifact_status",
+        fail_selector,
+    )
+
+    with pytest.raises(pipeline_module.PhaseBResourceError):
+        run_embedding_export_stage_from_disk(out_dir)
+
+    blocked = json.loads((out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
+    resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
+    assert blocked["resource_blocked"] is True
+    assert resource["failed_stage"] == "selector"
+    assert embedding_path.exists()
+    assert checkpoint_path.exists()
+    assert (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).exists()
+    assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
+
+
 def test_from_disk_selector_stage_clears_resource_blocked_after_successful_retry(
     tmp_path,
     monkeypatch,

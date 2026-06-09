@@ -356,6 +356,28 @@ def test_resnet50_gate_pipeline_resumes_gate5_to_gate9_from_persisted_gate4(tmp_
     assert stored["pipeline_manifest_hash"] == manifest["pipeline_manifest_hash"]
 
 
+def test_resnet50_gate_pipeline_resume_rejects_stale_gate2_trace_manifest(tmp_path):
+    out_dir = tmp_path / "resume_rejects_stale_gate2"
+    run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    trace_manifest_path = out_dir / "representative_sm_trace_manifest.json"
+    trace_manifest = json.loads(trace_manifest_path.read_text())
+    trace_manifest["manifest_version"] = "stale_gate2_manifest_v1"
+    trace_manifest["trace_manifest_hash"] = hash_without(trace_manifest, "trace_manifest_hash")
+    write_json(trace_manifest_path, trace_manifest)
+
+    try:
+        resume_resnet50_gate5_to_gate9_from_disk(out_dir, seed=20260607)
+    except ValueError as exc:
+        assert "canonical graph bundle is not bound to representative SM trace manifest" in str(exc)
+    else:
+        raise AssertionError("stale Gate2 trace manifest must block persisted Gate5-9 resume")
+
+
 def test_resnet50_gate_pipeline_resume_uses_persisted_seed_by_default(
     tmp_path,
     monkeypatch,

@@ -14,6 +14,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from experiments.gcl_phase_b.resnet50_gate0 import load_gate0_trace_acquisition_manifest
+from experiments.gcl_phase_b.resnet50_gate0 import (
+    GATE0_BLOCKER_FILENAME,
+    GATE0_MANIFEST_FILENAME,
+)
 from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     resume_resnet50_gate5_to_gate9_from_disk,
     run_resnet50_gate1_to_gate7,
@@ -141,6 +145,12 @@ def _has_complete_gate4_resume_artifact_set(out_dir: Path) -> bool:
     return all((out_dir / filename).exists() for filename in GATE4_RESUME_REQUIRED_ARTIFACTS)
 
 
+def _has_gate0_blocker_without_manifest(input_root: Path) -> bool:
+    return (input_root / GATE0_BLOCKER_FILENAME).exists() and not (
+        input_root / GATE0_MANIFEST_FILENAME
+    ).exists()
+
+
 def _validate_resume_artifacts_match_gate0(
     out_dir: Path,
     *,
@@ -159,6 +169,45 @@ def _validate_resume_artifacts_match_gate0(
             f"gate0_manifest_hash={expected_hash!r}"
         )
     return _adapter_has_bounded_replay(adapter)
+
+
+def _run_manifest_backed_pipeline(
+    *,
+    input_root: Path,
+    out_dir: Path,
+    seed: int,
+    baseline_artifacts: Path | None,
+) -> tuple[dict[str, Any], dict[str, Any], int]:
+    gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
+    input_cta_record_count = _input_cta_record_count(input_root)
+    should_resume = _has_complete_gate4_resume_artifact_set(out_dir)
+    if not should_resume and (out_dir / "graph_tensor_bundle.json").exists():
+        _clear_gate1_plus_artifacts(out_dir)
+    if should_resume:
+        is_bounded_resume = _validate_resume_artifacts_match_gate0(
+            out_dir,
+            gate0_manifest=gate0_manifest,
+        )
+        if is_bounded_resume:
+            _clear_gate1_plus_artifacts(out_dir)
+            should_resume = False
+    if should_resume:
+        pipeline_manifest = resume_resnet50_gate5_to_gate9_from_disk(
+            out_dir,
+            seed=seed,
+            baseline_artifacts_path=baseline_artifacts,
+        )
+    else:
+        pipeline_manifest = run_resnet50_gate1_to_gate7(
+            input_root,
+            out_dir,
+            seed=seed,
+            baseline_artifacts_path=baseline_artifacts,
+            invocation_limit=None,
+            invocation_ids=None,
+        )
+    _reject_bounded_adapter_bundle(out_dir)
+    return pipeline_manifest, gate0_manifest, input_cta_record_count
 
 
 def _write_blocker(
@@ -212,26 +261,9 @@ def run_full_trace_reproduction(
         )
         signal.alarm(deadline_seconds)
     try:
-        gate0_manifest = load_gate0_trace_acquisition_manifest(input_root)
-        input_cta_record_count = _input_cta_record_count(input_root)
-        should_resume = _has_complete_gate4_resume_artifact_set(out_dir)
-        if not should_resume and (out_dir / "graph_tensor_bundle.json").exists():
-            _clear_gate1_plus_artifacts(out_dir)
-        if should_resume:
-            is_bounded_resume = _validate_resume_artifacts_match_gate0(
-                out_dir,
-                gate0_manifest=gate0_manifest,
-            )
-            if is_bounded_resume:
-                _clear_gate1_plus_artifacts(out_dir)
-                should_resume = False
-        if should_resume:
-            pipeline_manifest = resume_resnet50_gate5_to_gate9_from_disk(
-                out_dir,
-                seed=seed,
-                baseline_artifacts_path=baseline_artifacts,
-            )
-        else:
+        gate0_manifest: dict[str, Any] | None = None
+        input_cta_record_count: int | None = None
+        if _has_gate0_blocker_without_manifest(input_root):
             pipeline_manifest = run_resnet50_gate1_to_gate7(
                 input_root,
                 out_dir,
@@ -240,7 +272,15 @@ def run_full_trace_reproduction(
                 invocation_limit=None,
                 invocation_ids=None,
             )
-        _reject_bounded_adapter_bundle(out_dir)
+        else:
+            pipeline_manifest, gate0_manifest, input_cta_record_count = (
+                _run_manifest_backed_pipeline(
+                    input_root=input_root,
+                    out_dir=out_dir,
+                    seed=seed,
+                    baseline_artifacts=baseline_artifacts,
+                )
+            )
     except Exception as exc:
         _write_blocker(
             out_dir=out_dir,
@@ -261,10 +301,12 @@ def run_full_trace_reproduction(
         "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
         "artifact_version": "full_trace_reproduction_manifest_v1",
         "run_scope": "real_resnet50_full_trace",
-        "formal_full_trace_run": True,
+        "formal_full_trace_run": pipeline_manifest["final_gate"] != "gate0_blocked",
         "seed": seed,
         "input_root": str(input_root),
-        "source_gate0_manifest_hash": gate0_manifest.get("gate0_manifest_hash"),
+        "source_gate0_manifest_hash": (
+            gate0_manifest.get("gate0_manifest_hash") if gate0_manifest else None
+        ),
         "input_kernel_invocation_count": pipeline_manifest.get("input_kernel_invocation_count"),
         "input_cta_record_count": input_cta_record_count,
         "invocation_limit": None,
@@ -276,7 +318,9 @@ def run_full_trace_reproduction(
         "pipeline_hashes": pipeline_manifest["hashes"],
         "artifact_presence": _artifact_presence(out_dir),
         "elapsed_seconds": round(time.monotonic() - started, 6),
-        "resource_status": "completed",
+        "resource_status": (
+            "blocked" if pipeline_manifest["final_gate"] == "gate0_blocked" else "completed"
+        ),
     }
     manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
     (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)

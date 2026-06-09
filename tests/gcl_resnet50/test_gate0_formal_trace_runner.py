@@ -27,6 +27,26 @@ def test_gate0_formal_trace_runner_falls_back_to_versioned_libcudart(monkeypatch
     assert attempts == ["libcudart.so", "libcudart.so.12"]
 
 
+def test_gate0_formal_trace_runner_falls_back_to_fully_versioned_libcudart(monkeypatch):
+    attempts = []
+
+    class FakeCudaRuntime:
+        pass
+
+    expected = FakeCudaRuntime()
+
+    def fake_cdll(name):
+        attempts.append(name)
+        if name == "libcudart.so.12.0":
+            return expected
+        raise OSError(f"missing {name}")
+
+    monkeypatch.setattr(ctypes, "CDLL", fake_cdll)
+
+    assert run_resnet50_gate0_formal_trace._load_cuda_runtime() is expected
+    assert "libcudart.so.12.0" in attempts
+
+
 def test_gate0_formal_trace_runner_reports_all_libcudart_attempts(monkeypatch):
     def fake_cdll(name):
         raise OSError(f"missing {name}")

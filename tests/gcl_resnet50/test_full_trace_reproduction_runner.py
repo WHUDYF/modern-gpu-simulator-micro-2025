@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from experiments.gcl_phase_b.resnet50_gate0 import GATE0_ARTIFACT_TYPE, GATE0_ARTIFACT_VERSION
+from experiments.gcl_phase_b.resnet50_gate0 import write_resnet50_gate0_blocker_report
 from experiments.gcl_phase_b.utils import hash_without
 from scripts import run_resnet50_full_trace_gcl
 
@@ -189,6 +190,34 @@ def _write_success_manifest(out_dir):
         ),
         encoding="utf-8",
     )
+
+
+def test_full_trace_runner_preserves_gate0_blocker_details(tmp_path):
+    root = tmp_path / "gate0_blocked_root"
+    write_resnet50_gate0_blocker_report(
+        root,
+        reason="real ResNet-50 NVBit trace is not available",
+        missing_requirements=["dynamic_trace.pb", "threadblocks/"],
+    )
+    out_dir = tmp_path / "out"
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    copied_gate0_blocker = json.loads(
+        (out_dir / "gate0_trace_acquisition_blocker_report.json").read_text()
+    )
+    assert result["final_gate"] == "gate0_blocked"
+    assert result["formal_full_trace_run"] is False
+    assert result["resource_status"] == "blocked"
+    assert result["pipeline_hashes"]["gate0_blocker_report_hash"] == copied_gate0_blocker[
+        "gate0_blocker_report_hash"
+    ]
+    assert not (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").exists()
 
 
 def test_full_trace_runner_calls_pipeline_without_invocation_slicing(tmp_path, monkeypatch):

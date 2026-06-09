@@ -3,7 +3,12 @@ import ctypes
 
 def _load_cuda_runtime():
     errors = []
-    for library_name in ("libcudart.so", "libcudart.so.12", "libcudart.so.11.0"):
+    for library_name in (
+        "libcudart.so",
+        "libcudart.so.12",
+        "libcudart.so.12.0",
+        "libcudart.so.11.0",
+    ):
         try:
             return ctypes.CDLL(library_name)
         except OSError as exc:

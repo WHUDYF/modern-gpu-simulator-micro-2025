@@ -194,10 +194,10 @@ def build_validation_status(run_manifest: list[dict], writeback_updates: list[di
         updates = updates_by_regime.get(regime_id, [])
         validation_candidates = [item["validation_status_update"] for item in updates]
         review_candidates = [item["review_status_update"] for item in updates]
-        if "validated" in validation_candidates:
-            current_status = "validated"
-        elif "failed" in validation_candidates:
+        if "failed" in validation_candidates:
             current_status = "failed"
+        elif "validated" in validation_candidates:
+            current_status = "validated"
         elif "selected" in validation_candidates:
             current_status = "selected"
         elif "pending-review" in validation_candidates:

@@ -380,8 +380,9 @@ def test_writeback_preserves_failed_status_even_if_another_run_validates(tmp_pat
     validation = json.loads((output_dir / "backend_validation_status_v1.json").read_text())
     regime = next(row for row in validation["regime_status"] if row["regime_id"] == "R1_qkv_projection_dense")
     family = next(row for row in validation["family_status"] if row["family_id"] == "F1_dense_tiled_backbone")
-    assert regime["current_status"] == "validated"
-    assert "R1_qkv_projection_dense" not in family["failed_regimes"]
+    assert regime["current_status"] == "failed"
+    assert "R1_qkv_projection_dense" not in family["validated_regimes"]
+    assert "R1_qkv_projection_dense" in family["failed_regimes"]
 
 
 def test_writeback_keeps_parse_failed_main_object_pending(tmp_path):

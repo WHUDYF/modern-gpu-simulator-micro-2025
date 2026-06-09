@@ -330,6 +330,34 @@ def test_build_workload_registry_detects_duplicate_normalized_ids(tmp_path):
         raise AssertionError("Expected duplicate workload_id ValueError")
 
 
+def test_build_workload_registry_filters_curated_available_sources_by_local_path(tmp_path):
+    root = tmp_path / "deepbench"
+    (root / "code" / "kernels" / "gemm").mkdir(parents=True)
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "deepbench",
+                        "local_path": str(root),
+                        "availability_status": "source_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    workload_ids = {row["workload_id"] for row in registry["workloads"]}
+    assert "deepbench_gemm" in workload_ids
+    assert "deepbench_rnn" not in workload_ids
+    assert "deepbench_convolution" not in workload_ids
+
+
 def test_build_workload_registry_skips_sparse_available_sources(tmp_path):
     sparse_root = tmp_path / "gpu-parboil"
     (sparse_root / "benchmarks" / "bfs" / "src").mkdir(parents=True)

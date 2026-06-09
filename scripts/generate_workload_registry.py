@@ -333,9 +333,10 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
             continue
         source_root = Path(source["local_path"])
         for workload in discover_workloads_for_source(source_id, source_root):
-            if availability_status == "source_sparse_available" and not workload_path_exists(
-                source_root, workload
-            ):
+            should_validate_path = (
+                source_id in CURATED_WORKLOADS or availability_status == "source_sparse_available"
+            )
+            if should_validate_path and not workload_path_exists(source_root, workload):
                 continue
             append_unique_workload(workloads, workload, seen_ids)
     return {

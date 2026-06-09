@@ -111,6 +111,12 @@ def record_resnet50_gate0_trace_acquisition(
         source_hashes,
         active_collector_session_id=active_collector_session_id,
     )
+    _validate_previous_gate0_manifest_for_revalidation(
+        root,
+        evidence,
+        source_hashes,
+        active_collector_session_id=active_collector_session_id,
+    )
     manifest = {
         "artifact_type": GATE0_ARTIFACT_TYPE,
         "artifact_version": GATE0_ARTIFACT_VERSION,
@@ -128,6 +134,35 @@ def record_resnet50_gate0_trace_acquisition(
     validate_gate0_trace_acquisition_manifest(manifest)
     write_json(root / GATE0_MANIFEST_FILENAME, manifest)
     return manifest
+
+
+def _validate_previous_gate0_manifest_for_revalidation(
+    root: Path,
+    evidence: dict[str, Any],
+    source_hashes: dict[str, str],
+    *,
+    active_collector_session_id: str | None,
+) -> None:
+    if active_collector_session_id is not None:
+        return
+    manifest_path = root / GATE0_MANIFEST_FILENAME
+    if not manifest_path.is_file():
+        raise ValueError(
+            "existing formal Gate0 manifest is required for collector attestation revalidation"
+        )
+    manifest = read_json(manifest_path)
+    if manifest.get("artifact_type") != GATE0_ARTIFACT_TYPE:
+        raise ValueError("existing formal Gate0 manifest artifact_type mismatch")
+    if manifest.get("artifact_status") != "formal":
+        raise ValueError("existing formal Gate0 manifest is required for revalidation")
+    if manifest.get("formal_input_eligible") is not True:
+        raise ValueError("existing formal Gate0 manifest must be formal input eligible")
+    if manifest.get("source_artifact_hashes") != source_hashes:
+        raise ValueError("existing formal Gate0 manifest source artifact hashes mismatch")
+    if manifest.get("nvbit_collection_evidence_hash") != hash_without(evidence):
+        raise ValueError("existing formal Gate0 manifest evidence hash mismatch")
+    if manifest.get("gate0_manifest_hash") != hash_without(manifest, "gate0_manifest_hash"):
+        raise ValueError("existing formal Gate0 manifest hash is not reproducible")
 
 
 def write_resnet50_gate0_blocker_report(

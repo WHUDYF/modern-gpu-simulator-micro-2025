@@ -66,11 +66,11 @@ Source Rounds: 4
 Lesson ID: BL-20260606-persisted-formal-boundaries
 Scope: experiments/gcl_phase_b/resnet50_gate0.py, experiments/gcl_phase_b/selector.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py
 Problem Description: Formal GCL gates can be bypassed when validation only checks self-consistency among caller-controlled or root-local JSON dictionaries.
-Root Cause: Gate0 accepted a handwritten attestation over the same untrusted root, and Gate6 accepted in-memory Gate5 manifest dicts supplied by the caller instead of loading persisted artifacts.
-Solution: Bind Gate0 formal acceptance to acquisition-produced session/attestation artifacts, and make Gate6 formal validation load Gate5 lineage and manifest files from a persisted artifact root before recomputing hashes.
-Constraints: This does not prove real ResNet-50 trace availability; fixture-backed producer-path tests remain contract coverage only.
-Validation Evidence: `pytest -q tests/gcl_resnet50 tests/gcl_phase_b` passed with 179 tests; `pytest -q tests/gcl_phase_a tests/gcl_phase_b tests/gcl_resnet50` passed with 242 tests; `git diff --check` passed.
-Source Rounds: 7
+Root Cause: Gate0 accepted a handwritten attestation over the same untrusted root, restart/revalidation skipped live collector session binding when `active_collector_session_id` was absent, and Gate6 accepted in-memory Gate5 manifest dicts supplied by the caller instead of loading persisted artifacts.
+Solution: Bind Gate0 formal acceptance to acquisition-produced session/attestation artifacts, require no-active-session Gate0 revalidation to be backed by an existing formal Gate0 manifest whose evidence/source hashes still match, and make Gate6 formal validation load Gate5 lineage and manifest files from a persisted artifact root before recomputing hashes.
+Constraints: This does not prove real ResNet-50 trace availability; fixture-backed producer-path tests remain contract coverage only; restart revalidation is allowed only for an already formalized root, not for minting a first formal manifest from self-authenticated files.
+Validation Evidence: `pytest -q tests/gcl_resnet50 tests/gcl_phase_b` passed with 179 tests; `pytest -q tests/gcl_phase_a tests/gcl_phase_b tests/gcl_resnet50` passed with 242 tests; `pytest -q tests/gcl_resnet50/test_gate0_trace_acquisition.py tests/gcl_resnet50/test_gate0_formal_trace_runner.py tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 43 tests; `git diff --check` passed.
+Source Rounds: 7, 32
 
 ## Lesson: real-root-schema-contract
 Lesson ID: BL-20260607-real-root-schema-contract

@@ -95,6 +95,24 @@ def test_build_source_registry_accepts_git_worktree_with_git_file(tmp_path):
     assert registry["sources"][0]["availability_status"] == "source_available"
 
 
+def test_build_source_registry_resolves_relative_clone_paths_from_status_file(tmp_path):
+    root = tmp_path / "workloads"
+    source = root / "sources" / "gpu-rodinia"
+    commit = init_git_repo(source)
+    status = root / "clone_status.tsv"
+    status.write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        "gpu-rodinia\texists\told\tsources/gpu-rodinia\thttps://example/rodinia.git\n"
+    )
+
+    registry = build_source_registry(status)
+
+    source_row = registry["sources"][0]
+    assert source_row["local_path"] == str(source)
+    assert source_row["commit"] == commit
+    assert source_row["availability_status"] == "source_available"
+
+
 def test_build_source_registry_preserves_failed_clone_status_over_git_shape(tmp_path):
     source = tmp_path / "sources" / "gpu-rodinia"
     init_git_repo(source)

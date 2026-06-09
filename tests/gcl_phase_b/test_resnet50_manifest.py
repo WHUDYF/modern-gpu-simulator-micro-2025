@@ -72,3 +72,51 @@ def test_gate2_debug_groups_repeated_kernel_id_by_kernel_invocation_id():
     invocation_ids = [row["kernel_invocation_id"] for row in manifest["kernel_invocations"]]
     assert invocation_ids == ["resnet50_k00000", "resnet50_k00001"]
     assert len(reports["reports"]) == 2
+
+
+def test_gate2_preserves_adapter_launch_order_for_formal_invocation_ids():
+    bundle = build_resnet50_debug_trace_adapter_bundle(FIXTURE_ROOT)
+    original_ids = [
+        row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]
+    ]
+    id_map = {
+        original_ids[0]: "d_0_s_0_k_1",
+        original_ids[1]: "d_0_s_0_k_2",
+    }
+    third = dict(bundle["kernel_invocation_table"][1])
+    third["kernel_invocation_id"] = "d_0_s_0_k_10"
+    third["kernel_id"] = 19
+    third["launch_order"] = 10
+    for row in bundle["kernel_invocation_table"]:
+        row["kernel_invocation_id"] = id_map[row["kernel_invocation_id"]]
+    bundle["kernel_invocation_table"].append(third)
+    for record in bundle["cta_scheduler_records"]:
+        record["kernel_invocation_id"] = id_map[record["kernel_invocation_id"]]
+    for record in bundle["per_warp_trace_records"]:
+        record["kernel_invocation_id"] = id_map[record["kernel_invocation_id"]]
+    template_scheduler = [
+        dict(record)
+        for record in bundle["cta_scheduler_records"]
+        if record["kernel_invocation_id"] == "d_0_s_0_k_2"
+    ]
+    template_traces = [
+        dict(record)
+        for record in bundle["per_warp_trace_records"]
+        if record["kernel_invocation_id"] == "d_0_s_0_k_2"
+    ]
+    for record in template_scheduler:
+        record["kernel_invocation_id"] = "d_0_s_0_k_10"
+        record["kernel_id"] = 19
+    for record in template_traces:
+        record["kernel_invocation_id"] = "d_0_s_0_k_10"
+        record["kernel_id"] = 19
+    bundle["cta_scheduler_records"].extend(template_scheduler)
+    bundle["per_warp_trace_records"].extend(template_traces)
+    bundle["adapter_bundle_hash"] = hash_without(bundle, "adapter_bundle_hash")
+
+    manifest, _reports, preview = build_representative_sm_manifest_from_bundle(bundle)
+
+    invocation_ids = [row["kernel_invocation_id"] for row in manifest["kernel_invocations"]]
+    preview_ids = [row["kernel_invocation_id"] for row in preview["invocations"]]
+    assert invocation_ids == ["d_0_s_0_k_1", "d_0_s_0_k_2", "d_0_s_0_k_10"]
+    assert preview_ids == invocation_ids

@@ -90,9 +90,12 @@ def default_generated_at() -> str:
 
 def build_source_registry(status_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     sources = []
+    status_root = status_path.resolve().parent
     for row in parse_clone_status(status_path):
         source_id = row["name"]
         local_path = Path(row["path"])
+        if not local_path.is_absolute():
+            local_path = status_root / local_path
         source_type, corpus_role = SOURCE_METADATA.get(source_id, ("unknown", "candidate"))
         clone_status = row["status"]
         commit = (

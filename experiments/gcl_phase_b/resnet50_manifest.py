@@ -20,14 +20,16 @@ def build_representative_sm_manifest_from_bundle(
         validate_resnet50_trace_adapter_bundle(bundle)
     elif bundle.get("artifact_status") != "debug_not_formal":
         raise ValueError("representative SM manifest requires formal or debug_not_formal adapter")
-    kernel_by_invocation = {
-        row["kernel_invocation_id"]: row for row in bundle["kernel_invocation_table"]
-    }
+    kernel_rows = sorted(
+        bundle["kernel_invocation_table"],
+        key=lambda row: (int(row.get("launch_order", 0)), row["kernel_invocation_id"]),
+    )
     scheduler_by_invocation = _scheduler_records_by_invocation(bundle["cta_scheduler_records"])
     trace_records_by_invocation = _trace_records_by_invocation(bundle["per_warp_trace_records"])
     invocations = []
     reports = []
-    for invocation_id, kernel_row in sorted(kernel_by_invocation.items()):
+    for kernel_row in kernel_rows:
+        invocation_id = kernel_row["kernel_invocation_id"]
         selection_input = _selection_input(
             kernel_row,
             scheduler_by_invocation[invocation_id],

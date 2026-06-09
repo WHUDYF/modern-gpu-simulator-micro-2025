@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_ROOT = Path("/home/dyf/workloads/trace-compressions-industrial-codex-workload")
+DEFAULT_ROOT = Path("workloads/trace-compressions-industrial-codex-workload")
 DEFAULT_OUTPUT_DIR = Path("registry")
 
 SOURCE_METADATA = {

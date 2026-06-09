@@ -191,3 +191,13 @@ Solution: On selector resource failure, remove all success artifacts and clear `
 Constraints: Graph/tensor artifacts remain valid inputs for recovery; success-path reruns can clear the resource-blocked state after rebuilding the downstream artifacts.
 Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py` passed with 65 tests.
 Source Rounds: 30
+
+## Lesson: portable-tool-path-roots
+Lesson ID: BL-20260609-portable-tool-path-roots
+Scope: experiments/trace_compression_behavior/catalog.py, scripts/generate_source_registry.py, tests/test_workload_registry_tools.py
+Problem Description: Tooling can pass in the author checkout while failing for generated external catalogs, installed packages, CI, or another developer machine.
+Root Cause: Catalog relative `source_path` values were resolved against the repository root, and source-registry CLI defaults used an absolute `/home/dyf/...` workload root.
+Solution: Resolve catalog relative paths against the catalog file directory, keep fixture catalogs catalog-relative, and use a portable relative default root for source-registry generation.
+Constraints: Absolute catalog source paths remain valid; callers can still pass `--root` explicitly for external workload locations.
+Validation Evidence: `pytest -q experiments/trace_compression_behavior/tests/test_trace_compression_behavior_catalog.py`; `pytest -q tests/test_workload_registry_tools.py`; `python3 -m py_compile experiments/trace_compression_behavior/catalog.py scripts/generate_source_registry.py`; `git diff --check && git diff --cached --check`.
+Source Rounds: 33

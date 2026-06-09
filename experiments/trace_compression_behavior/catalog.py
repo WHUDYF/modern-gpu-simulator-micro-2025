@@ -6,9 +6,6 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-
-
 @dataclass(frozen=True)
 class CatalogEntry:
     id: str
@@ -26,6 +23,7 @@ class Catalog:
 
 
 def load_catalog(path: Path) -> Catalog:
+    path = Path(path)
     data = json.loads(path.read_text())
     entries = data.get("entries")
     if not isinstance(entries, list) or not entries:
@@ -39,7 +37,7 @@ def load_catalog(path: Path) -> Catalog:
                 id=str(entry["id"]),
                 label=str(entry["label"]),
                 role=str(entry["role"]),
-                source_path=_resolve_source_path(str(entry["source_path"]), REPO_ROOT),
+                source_path=_resolve_source_path(str(entry["source_path"]), path.parent),
                 record_pointer=str(entry["record_pointer"]),
             )
             for entry in entries

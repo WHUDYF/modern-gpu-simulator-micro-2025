@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.generate_source_registry import (
+    DEFAULT_ROOT,
     build_source_registry,
     infer_availability,
     infer_clone_mode,
@@ -161,6 +162,12 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
     assert 'rm -rf "$target"' in existing_branch
     assert 'rm -rf "$target"' in script[script.index('"failed:$code"') :]
+
+
+def test_generate_source_registry_default_root_is_portable():
+    assert not DEFAULT_ROOT.is_absolute()
+    assert "/home/" not in str(DEFAULT_ROOT)
+    assert str(DEFAULT_ROOT) == "workloads/trace-compressions-industrial-codex-workload"
 
 
 def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):

@@ -28,6 +28,7 @@ def load_catalog(path: Path) -> Catalog:
     entries = data.get("entries")
     if not isinstance(entries, list) or not entries:
         raise ValueError(f"catalog must contain a non-empty entries list: {path}")
+    _validate_unique_entry_ids(entries, path)
 
     return Catalog(
         catalog_id=str(data["catalog_id"]),
@@ -43,6 +44,15 @@ def load_catalog(path: Path) -> Catalog:
             for entry in entries
         ],
     )
+
+
+def _validate_unique_entry_ids(entries: list[dict[str, Any]], path: Path) -> None:
+    seen: set[str] = set()
+    for entry in entries:
+        entry_id = str(entry["id"])
+        if entry_id in seen:
+            raise ValueError(f"duplicate catalog entry id in {path}: {entry_id}")
+        seen.add(entry_id)
 
 
 def load_catalog_records(catalog: Catalog) -> dict[str, Any]:

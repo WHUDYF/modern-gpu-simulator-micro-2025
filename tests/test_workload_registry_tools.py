@@ -145,6 +145,9 @@ def test_build_source_registry_preserves_failed_clone_status_over_git_shape(tmp_
 def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     script = (REPO_ROOT / "scripts" / "clone_workload_sources.sh").read_text()
 
+    root_default_line = next(line for line in script.splitlines() if line.startswith("ROOT="))
+    assert "/home/" not in root_default_line
+    assert "workloads/trace-compressions-industrial-codex-workload" in root_default_line
     assert '["mlperf-inference"]=' in script
     assert '["hecbench"]=' in script
     mlperf_sparse_rule = script.split('["mlperf-inference"]="', 1)[1].split('"', 1)[0]

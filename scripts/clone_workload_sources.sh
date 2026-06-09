@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-ROOT="${1:-/home/dyf/workloads/trace-compressions-industrial-codex-workload}"
+ROOT="${1:-workloads/trace-compressions-industrial-codex-workload}"
 SRC_DIR="$ROOT/sources"
 STATUS="$ROOT/clone_status.tsv"
 LOG_DIR="$ROOT/logs"

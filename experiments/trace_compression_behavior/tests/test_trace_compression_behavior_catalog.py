@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 import json
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -60,3 +62,36 @@ def test_load_catalog_resolves_relative_source_paths_from_catalog_directory(tmp_
 
     assert catalog.entries[0].source_path == source.resolve()
     assert records["external_record"]["value"] == 7
+
+
+def test_load_catalog_rejects_duplicate_entry_ids(tmp_path):
+    source = tmp_path / "record.json"
+    source.write_text(json.dumps({"record": {"value": 7}}), encoding="utf-8")
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "catalog_id": "duplicate_catalog",
+                "entries": [
+                    {
+                        "id": "duplicate",
+                        "label": "First",
+                        "role": "target",
+                        "source_path": "record.json",
+                        "record_pointer": "/record",
+                    },
+                    {
+                        "id": "duplicate",
+                        "label": "Second",
+                        "role": "candidate",
+                        "source_path": "record.json",
+                        "record_pointer": "/record",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicate catalog entry id"):
+        load_catalog(catalog_path)

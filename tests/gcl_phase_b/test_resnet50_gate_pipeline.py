@@ -1160,6 +1160,42 @@ def test_resnet50_gate_pipeline_real_root_reaches_gate9_with_baseline_artifacts(
     assert correctness["metric_error_report"]["status"] == "reported"
 
 
+def test_resnet50_gate_pipeline_accepts_metric_rows_only_baseline_artifacts(tmp_path):
+    baseline_path = tmp_path / "metric_rows_only_baseline.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "metric_rows": [
+                    {
+                        "cluster_id": 0,
+                        "measured": 100.0,
+                        "predicted": 95.0,
+                        "weight": 1.0,
+                        "unit": "cycles",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "metric_rows_only_gate7"
+
+    manifest = run_resnet50_gate1_to_gate7(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        baseline_artifacts_path=baseline_path,
+        invocation_limit=1,
+    )
+
+    assert manifest["final_gate"] == "gate9_report_only"
+    correctness = json.loads((out_dir / "gate7_cluster_correctness_manifest.json").read_text())
+    assert correctness["metric_error_report"]["status"] == "reported"
+    gate9 = json.loads((out_dir / "gate9_sampled_vs_full_evaluation.json").read_text())
+    assert gate9["claim_status"] == "baseline_missing_no_speedup_or_accuracy_claim"
+    assert gate9["tuning_effect_report"]["status"] == "not_evaluated_without_baseline"
+
+
 def test_resnet50_gate_pipeline_manifest_records_full_trace_scope(tmp_path, monkeypatch):
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 

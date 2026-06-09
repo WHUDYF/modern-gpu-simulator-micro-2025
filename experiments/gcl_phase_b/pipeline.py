@@ -894,7 +894,7 @@ def _mark_embedding_stage_resource_blocked(
 
 
 def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc: Exception) -> None:
-    (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).unlink(missing_ok=True)
+    _remove_success_artifacts(out_dir)
     graph_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
     )
@@ -910,15 +910,15 @@ def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc:
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
         {
-            "selector_manifest_hash": None,
             "resource_blocked_hash": blocked["resource_blocked_hash"],
+            **EMBEDDING_DOWNSTREAM_HASH_NULLS,
         },
         top_level_updates={"resource_blocked": True},
     )
 
 
 def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
-    resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
+    resolved_seed = int(seed) if seed is not None else _recorded_seed(out_dir, 20260602)
     require_pipeline_artifact(
         out_dir / ARTIFACT_FILENAMES["graph_size_audits"], "graph size audit bundle"
     )
@@ -1010,7 +1010,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
 
 
 def run_selector_stage_from_disk(out_dir: Path, seed: int | None = None) -> dict[str, Any]:
-    resolved_seed = _recorded_seed(out_dir, 20260602 if seed is None else seed)
+    resolved_seed = int(seed) if seed is not None else _recorded_seed(out_dir, 20260602)
     table = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
     )

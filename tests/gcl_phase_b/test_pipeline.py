@@ -371,6 +371,42 @@ def test_from_disk_embedding_and_selector_stages_reuse_pipeline_seed(tmp_path):
     assert artifacts["structural_evaluation_artifacts"]["seed"] == 42
 
 
+def test_from_disk_embedding_and_selector_stages_respect_explicit_seed_override(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.pipeline as pipeline_module
+
+    manifest_path = tmp_path / "trace_manifest.json"
+    out_dir = tmp_path / "stage_seed_override"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    run_pipeline(manifest_path, out_dir, seed=42)
+    captured = {}
+    original_export = pipeline_module.run_embedding_export
+    original_select = pipeline_module._select_phase_b_representatives_for_artifact_status
+
+    def spy_export(tensors, out_dir, seed):
+        captured["embedding_seed"] = seed
+        return original_export(tensors, out_dir, seed=seed)
+
+    def spy_select(table, seed, out_dir):
+        captured.setdefault("selector_seeds", []).append(seed)
+        return original_select(table, seed=seed, out_dir=out_dir)
+
+    monkeypatch.setattr(pipeline_module, "run_embedding_export", spy_export)
+    monkeypatch.setattr(
+        pipeline_module,
+        "_select_phase_b_representatives_for_artifact_status",
+        spy_select,
+    )
+
+    run_embedding_export_stage_from_disk(out_dir, seed=7)
+    run_selector_stage_from_disk(out_dir, seed=9)
+
+    assert captured["embedding_seed"] == 7
+    assert captured["selector_seeds"] == [7, 9]
+
+
 def test_from_disk_embedding_stage_refreshes_downstream_manifest_hashes(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     out_dir = tmp_path / "stage_embedding_refresh"
@@ -650,8 +686,17 @@ def test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stal
     resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
     assert blocked["resource_blocked"] is True
     assert blocked["hashes"]["selector_manifest_hash"] is None
+    for key in [
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+    ]:
+        assert blocked["hashes"][key] is None
     assert resource["failed_stage"] == "selector"
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
+    validate_phase_b_replay_from_disk(out_dir)
 
 
 def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
@@ -685,10 +730,19 @@ def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
     resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
     assert blocked["resource_blocked"] is True
     assert resource["failed_stage"] == "selector"
-    assert embedding_path.exists()
-    assert checkpoint_path.exists()
-    assert (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).exists()
+    for key in [
+        "encoder_manifest_hash",
+        "readout_manifest_hashes",
+        "readout_manifest_bundle_hash",
+        "embedding_table_hash",
+        "selector_manifest_hash",
+    ]:
+        assert blocked["hashes"][key] is None
+    assert not embedding_path.exists()
+    assert not checkpoint_path.exists()
+    assert not (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).exists()
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
+    validate_phase_b_replay_from_disk(out_dir)
 
 
 def test_from_disk_selector_stage_clears_resource_blocked_after_successful_retry(
@@ -714,6 +768,7 @@ def test_from_disk_selector_stage_clears_resource_blocked_after_successful_retry
         run_selector_stage_from_disk(out_dir)
 
     monkeypatch.undo()
+    run_embedding_export_stage_from_disk(out_dir)
     artifacts = run_selector_stage_from_disk(out_dir)
     validation = validate_phase_b_replay_from_disk(out_dir)
     refreshed_manifest = json.loads(

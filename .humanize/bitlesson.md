@@ -181,3 +181,13 @@ Solution: Check for the blocker-report-without-manifest state before loading the
 Constraints: Stale blocker reports must still be ignored when a formal success manifest exists; success-path validation remains manifest-backed.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_full_trace_reproduction_runner.py tests/gcl_resnet50/test_gate0_formal_trace_runner.py` passed with 22 tests; `pytest -q tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 42 tests; `git diff --check && git diff --cached --check` passed.
 Source Rounds: 26
+
+## Lesson: resource-blocked-final-state-clears-success-lineage
+Lesson ID: BL-20260609-resource-blocked-clears-success-lineage
+Scope: experiments/gcl_phase_b/pipeline.py, tests/gcl_phase_b/test_pipeline.py, tests/gcl_phase_b/test_replay.py
+Problem Description: A later-stage resource failure can leave a pipeline manifest marked `resource_blocked` while still retaining hashes and artifacts from earlier successful downstream stages.
+Root Cause: Selector-stage resource blocking removed only selector artifacts and selector hash, but replay validation treats any resource-blocked final state as mutually exclusive with Gate5/selector success lineage.
+Solution: On selector resource failure, remove all success artifacts and clear `EMBEDDING_DOWNSTREAM_HASH_NULLS` together with the new `resource_blocked_hash`; retries must rebuild Gate5 before rerunning selector.
+Constraints: Graph/tensor artifacts remain valid inputs for recovery; success-path reruns can clear the resource-blocked state after rebuilding the downstream artifacts.
+Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py` passed with 65 tests.
+Source Rounds: 30

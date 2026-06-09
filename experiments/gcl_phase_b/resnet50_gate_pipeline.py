@@ -480,7 +480,7 @@ def _emit_gate8_gate9_extension_artifacts(
     gate8_blocked = gate8_proposal["gate8_tuning_manifest"].get(
         "tuning_safety_status"
     ) == "blocked_report_only"
-    if baseline_artifacts and not gate8_blocked:
+    if baseline_artifacts and _has_gate9_baseline_metrics(baseline_artifacts) and not gate8_blocked:
         gate9_report = evaluate_gate9_sampled_vs_full(
             sampled_metrics=baseline_artifacts["sampled_metrics"],
             full_baseline_metrics=baseline_artifacts.get("full_baseline_metrics"),
@@ -510,6 +510,16 @@ def _emit_gate8_gate9_extension_artifacts(
     )
     write_json(out_dir / "gate9_sampled_vs_full_evaluation.json", gate9_report)
     return gate8_proposal, gate9_report, final_gate
+
+
+def _has_gate9_baseline_metrics(baseline_artifacts: dict[str, Any]) -> bool:
+    return bool(
+        baseline_artifacts.get("sampled_metrics")
+        and (
+            baseline_artifacts.get("full_baseline_metrics")
+            or baseline_artifacts.get("measured_baseline_metrics")
+        )
+    )
 
 
 def _blocked_gate8_tuning_vector_proposal(
@@ -628,11 +638,11 @@ def _load_baseline_artifacts(path: Path | None) -> dict[str, Any] | None:
     if path is None:
         return None
     baseline = read_json(path)
-    required = {"sampled_metrics"}
-    missing = required.difference(baseline)
-    if missing:
-        raise ValueError(f"baseline artifacts missing required fields: {sorted(missing)}")
-    if not baseline.get("full_baseline_metrics") and not baseline.get("measured_baseline_metrics"):
+    if not baseline.get("metric_rows") and not baseline.get("sampled_metrics"):
+        raise ValueError("baseline artifacts require metric_rows or sampled_metrics")
+    if baseline.get("sampled_metrics") and not (
+        baseline.get("full_baseline_metrics") or baseline.get("measured_baseline_metrics")
+    ):
         raise ValueError("baseline artifacts require full or measured baseline metrics")
     return baseline
 

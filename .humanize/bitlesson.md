@@ -226,8 +226,18 @@ Source Rounds: 41
 Lesson ID: BL-20260609-selector-blocked-keeps-gate5-artifacts
 Scope: experiments/gcl_phase_b/pipeline.py, tests/gcl_phase_b/test_pipeline.py, tests/gcl_phase_b/test_replay.py
 Problem Description: A transient selector-only resource failure can delete completed Gate5 training/export artifacts and force unnecessary retraining on the next retry.
-Root Cause: `_mark_selector_stage_resource_blocked()` reused the full success-artifact cleanup path intended for earlier training/export failures, and replay validation treated every resource-blocked state as incompatible with any downstream success artifacts.
-Solution: Selector-stage resource blocking now removes only `selector_artifacts.json`, clears only `selector_manifest_hash`, preserves Gate5 files and hashes, and replay validation has a selector-blocked branch that validates Gate5 artifacts while requiring selector artifacts to be absent.
+Root Cause: `_mark_selector_stage_resource_blocked()` and the full `run_pipeline()` selector failure path reused the full success-artifact cleanup path intended for earlier training/export failures, and replay validation treated every resource-blocked state as incompatible with any downstream success artifacts.
+Solution: Selector-stage resource blocking now removes only `selector_artifacts.json`, clears only `selector_manifest_hash`, preserves Gate5 files and hashes in both from-disk retry and full `run_pipeline()` paths, and replay validation has a selector-blocked branch that validates Gate5 artifacts while requiring selector artifacts to be absent.
 Constraints: Training and embedding-stage resource failures still clear Gate5/downstream success artifacts; preserving Gate5 is only valid when the recorded `failed_stage` is `selector`.
-Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py`; `python3 -m py_compile experiments/gcl_phase_b/pipeline.py`.
-Source Rounds: 41
+Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_selector_resource_failure_writes_resource_blocked_artifact`; `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py`; `python3 -m py_compile experiments/gcl_phase_b/pipeline.py`.
+Source Rounds: 41, 42
+
+## Lesson: frontend-timing-fallback-workload-identity
+Lesson ID: BL-20260609-frontend-timing-fallback-workload-identity
+Scope: artifacts/gpu_trace_frontend_difftest_necessity/complete_flow_burden_ratio_calc.py, tests/test_complete_flow_burden_ratio_calc.py
+Problem Description: A generic `frontend_timing_breakdown.json` file can be reused as measured timing for unrelated workloads when per-workload timing files are absent.
+Root Cause: The fallback loader checked only timing field presence and did not verify that the single-run timing artifact was generated for the requested workload ID.
+Solution: Require generic fallback timing artifacts to declare a matching `workload_id` or include the workload in `workload_ids`; otherwise skip the artifact and use the modeled/formula fallback for that workload.
+Constraints: Per-workload `frontend_timing_breakdown_<workload_id>.json` files remain trusted by filename; the identity check applies to the generic single-run fallback file.
+Validation Evidence: `pytest -q tests/test_complete_flow_burden_ratio_calc.py`; `python3 -m py_compile artifacts/gpu_trace_frontend_difftest_necessity/complete_flow_burden_ratio_calc.py tests/test_complete_flow_burden_ratio_calc.py`.
+Source Rounds: 42

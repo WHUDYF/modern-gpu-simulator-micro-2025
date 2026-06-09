@@ -42,3 +42,32 @@ def test_build_workloads_uses_measured_frontend_timing_without_complete_flow_rec
     assert workload["T_kernel_or_trace_export_s"]["label"] == "placeholder"
     assert workload["T_sim_backend_execution_s"]["label"] == "placeholder"
     assert workload["T_result_analysis_s"]["label"] == "placeholder"
+
+
+def test_single_run_frontend_timing_fallback_must_match_workload_id(tmp_path, monkeypatch):
+    timing = {
+        "workload_id": "bert-base-encoder-layer-slice",
+        "trace_read_s": 1.0,
+        "parse_pb_s": 2.0,
+        "static_bind_s": 3.0,
+        "warp_trace_build_s": 4.0,
+        "tb_load_s": 5.0,
+        "get_next_inst_s": 6.0,
+    }
+    (tmp_path / "frontend_timing_breakdown.json").write_text(
+        json.dumps(timing),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(complete_flow_burden_ratio_calc, "ARTIFACT_DIR", str(tmp_path))
+
+    workloads = complete_flow_burden_ratio_calc.build_workloads()
+
+    matched = next(
+        item for item in workloads if item["workload_id"] == "bert-base-encoder-layer-slice"
+    )
+    mismatched = next(
+        item for item in workloads if item["workload_id"] == "bert-base-pretraining-full-step"
+    )
+    assert matched["T_trace_to_sim_s"] == {"value": 21.0, "label": "measured"}
+    assert mismatched["T_trace_to_sim_s"]["label"] == "placeholder"
+    assert mismatched["T_trace_to_sim_s"]["value"] == 105.0

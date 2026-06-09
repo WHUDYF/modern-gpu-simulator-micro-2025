@@ -845,13 +845,15 @@ def run_pipeline(input_manifest_path: Path, out_dir: Path, seed: int = 20260602)
     except (PhaseBResourceError, MemoryError, RuntimeError) as exc:
         if not _is_resource_limit_error(exc):
             raise
-        return _write_resource_blocked_pipeline_manifest(
+        return _write_selector_blocked_pipeline_manifest(
             out_dir,
             seed,
             base_hashes,
+            training_report,
+            readout_bundle,
+            embedding_table,
             graphs,
             graph_size_audits,
-            "selector",
             exc,
         )
     resource_status = _resource_not_blocked_artifact(graphs)
@@ -951,6 +953,50 @@ def _write_resource_blocked_pipeline_manifest(
         "hashes": {
             **base_hashes,
             **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+            "resource_blocked_hash": blocked["resource_blocked_hash"],
+        },
+    }
+    manifest["pipeline_manifest_hash"] = stable_hash(manifest)
+    write_json(out_dir / ARTIFACT_FILENAMES["pipeline_manifest"], manifest)
+    return manifest
+
+
+def _write_selector_blocked_pipeline_manifest(
+    out_dir: Path,
+    seed: int,
+    base_hashes: dict[str, Any],
+    training_report: dict[str, Any],
+    readout_bundle: dict[str, Any],
+    embedding_table: dict[str, Any],
+    graphs: list[dict[str, Any]],
+    graph_size_audits: list[dict[str, Any]],
+    exc: Exception,
+) -> dict[str, Any]:
+    _remove_selector_artifacts(out_dir)
+    blocked = _resource_blocked_artifact(graphs, graph_size_audits, "selector", exc)
+    write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
+    write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
+    write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], embedding_table)
+    write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+    manifest = {
+        "artifact_type": "gcl_phase_b_pipeline_manifest",
+        "seed": seed,
+        "resource_blocked": True,
+        "paths": _paths(out_dir),
+        "hashes": {
+            **base_hashes,
+            "encoder_manifest_hash": training_report["checkpoint_manifest"][
+                "encoder_manifest_hash"
+            ],
+            "readout_manifest_hashes": [
+                manifest["readout_manifest_hash"]
+                for manifest in readout_bundle["manifests"]
+            ],
+            "readout_manifest_bundle_hash": readout_bundle[
+                "readout_manifest_bundle_hash"
+            ],
+            "embedding_table_hash": _embedding_table_hash(embedding_table),
+            "selector_manifest_hash": None,
             "resource_blocked_hash": blocked["resource_blocked_hash"],
         },
     }

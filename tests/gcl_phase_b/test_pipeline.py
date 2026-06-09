@@ -231,8 +231,20 @@ def test_selector_resource_failure_writes_resource_blocked_artifact(tmp_path, mo
     assert blocked["failed_stage"] == "selector"
     assert "simulated selector memory exhaustion" in blocked["resource_failure_reason"]
     assert manifest["resource_blocked"] is True
-    for key in {"training_report", "checkpoint_manifest", "readout_manifest", "embedding_table", "selector_artifacts"}:
-        assert not (out_dir / ARTIFACT_FILENAMES[key]).exists()
+    embedding_table = json.loads((out_dir / ARTIFACT_FILENAMES["embedding_table"]).read_text())
+    readout_manifest = json.loads((out_dir / ARTIFACT_FILENAMES["readout_manifest"]).read_text())
+    assert manifest["hashes"]["embedding_table_hash"] == embedding_table[
+        "kernel_embedding_table_hash"
+    ]
+    assert manifest["hashes"]["readout_manifest_bundle_hash"] == readout_manifest[
+        "readout_manifest_bundle_hash"
+    ]
+    assert manifest["hashes"]["selector_manifest_hash"] is None
+    assert (out_dir / ARTIFACT_FILENAMES["training_report"]).exists()
+    assert (out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]).exists()
+    assert (out_dir / "rgcn_checkpoint.pt").exists()
+    assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
+    validate_phase_b_replay_from_disk(out_dir)
 
 
 def test_non_resource_runtime_error_is_not_marked_resource_blocked(tmp_path, monkeypatch):

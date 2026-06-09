@@ -46,10 +46,19 @@ def _load_measured_timing_for(wid):
             data = json.load(f)
         if "status" in data or "trace_read_s" not in data:
             continue
+        if fname == "frontend_timing_breakdown.json" and not _timing_matches_workload(data, wid):
+            continue
         return (data.get("trace_read_s", 0) + data.get("parse_pb_s", 0) +
                 data.get("static_bind_s", 0) + data.get("warp_trace_build_s", 0) +
                 data.get("tb_load_s", 0) + data.get("get_next_inst_s", 0))
     return None
+
+def _timing_matches_workload(data, wid):
+    """Return True only when a single-run timing artifact names this workload."""
+    if data.get("workload_id") == wid:
+        return True
+    workload_ids = data.get("workload_ids")
+    return isinstance(workload_ids, list) and wid in workload_ids
 
 def build_workloads():
     """Build workload list from measurement records or modeled fallbacks."""

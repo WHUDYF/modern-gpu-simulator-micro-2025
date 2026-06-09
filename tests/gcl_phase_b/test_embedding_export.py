@@ -165,6 +165,54 @@ def test_phase_b_embedding_export_resumes_partial_progress(tmp_path):
     validate_phase_b_embedding_table(table)
 
 
+def test_phase_b_embedding_export_discards_stale_progress_on_tensor_mismatch(tmp_path):
+    records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    progress_path = tmp_path / GATE5_EXPORT_PROGRESS_FILENAME
+    progress_path.write_text(
+        """{
+  "artifact_type": "gcl_resnet50_gate5_embedding_export_progress",
+  "artifact_version": "gate5_embedding_export_progress_v1",
+  "encoder_manifest_hash": "encoder-hash",
+  "source_tensor_hashes": ["stale-tensor-hash"],
+  "completed_count": 0,
+  "rows": [],
+  "readout_manifests": []
+}
+""",
+        encoding="utf-8",
+    )
+    torch = require_torch()
+    calls = []
+
+    class Encoder:
+        def eval(self):
+            return self
+
+        def encode_kernel_partitioned(self, tensor):
+            calls.append(tensor["tensor_hash"])
+            return torch.full((256,), 1.0, dtype=torch.float32)
+
+    encoder_manifest = {
+        "encoder_manifest_hash": "encoder-hash",
+        "checkpoint_hash": "checkpoint-hash",
+    }
+
+    table, readout_bundle = export_phase_b_embedding_table(
+        tensors,
+        Encoder(),
+        encoder_manifest,
+        progress_dir=tmp_path,
+    )
+
+    assert calls == [tensor["tensor_hash"] for tensor in tensors]
+    assert len(table["embeddings"]) == len(tensors)
+    assert len(readout_bundle["manifests"]) == len(tensors)
+    assert not progress_path.exists()
+    validate_phase_b_embedding_table(table)
+
+
 def test_phase_b_embedding_table_validator_rejects_missing_formal_top_level_field(tmp_path):
     records = build_phase_b_trace_records(build_representative_sm_trace_manifest())
     graphs = build_phase_b_graphs(records)

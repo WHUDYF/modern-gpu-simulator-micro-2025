@@ -50,18 +50,24 @@ def load_resnet50_trace_sources(
     if invocation_limit is not None:
         dynamic_trace = _limit_dynamic_trace_invocations(dynamic_trace, invocation_limit)
     if invocation_limit is not None or invocation_ids is not None:
-        kept_invocation_ids = {
-            row["source_kernel_invocation_id"]
-            for row in dynamic_trace["kernel_invocations"]
-            if row.get("source_kernel_invocation_id")
-        }
-        kept_invocation_ids.update(
-            _legacy_scheduler_invocation_ids(dynamic_trace["kernel_invocations"])
-        )
-        scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
-            scheduler_metadata,
-            kept_invocation_ids,
-        )
+        if invocation_limit is not None and invocation_ids is None:
+            scheduler_metadata = _limit_scheduler_metadata_invocations(
+                scheduler_metadata,
+                len(dynamic_trace["kernel_invocations"]),
+            )
+        else:
+            kept_invocation_ids = {
+                row["source_kernel_invocation_id"]
+                for row in dynamic_trace["kernel_invocations"]
+                if row.get("source_kernel_invocation_id")
+            }
+            kept_invocation_ids.update(
+                _legacy_scheduler_invocation_ids(dynamic_trace["kernel_invocations"])
+            )
+            scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
+                scheduler_metadata,
+                kept_invocation_ids,
+            )
     return ResNet50TraceSources(
         dynamic_trace=dynamic_trace,
         threadblocks=_load_threadblocks_from_scheduler(
@@ -482,6 +488,19 @@ def _filter_scheduler_metadata_by_invocation_ids(
         if _scheduler_invocation_id(invocation) in kept_invocation_ids
         or _scheduler_canonical_invocation_id(invocation) in kept_invocation_ids
     ]
+    if not filtered["kernel_invocations"]:
+        raise ValueError("invocation_limit selected no scheduler metadata")
+    return filtered
+
+
+def _limit_scheduler_metadata_invocations(
+    scheduler_metadata: dict[str, Any],
+    invocation_count: int,
+) -> dict[str, Any]:
+    filtered = dict(scheduler_metadata)
+    filtered["kernel_invocations"] = list(
+        scheduler_metadata.get("kernel_invocations", [])[:invocation_count]
+    )
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
     return filtered

@@ -134,9 +134,11 @@ def _load_export_progress(
     progress = json.loads(progress_path.read_text(encoding="utf-8"))
     expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
     if progress.get("source_tensor_hashes") != expected_tensor_hashes:
-        raise ValueError("Gate5 export progress tensor hashes do not match current tensors")
+        progress_path.unlink(missing_ok=True)
+        return None
     if progress.get("encoder_manifest_hash") != encoder_manifest["encoder_manifest_hash"]:
-        raise ValueError("Gate5 export progress encoder_manifest_hash mismatch")
+        progress_path.unlink(missing_ok=True)
+        return None
     rows = progress.get("rows", [])
     readout_manifests = progress.get("readout_manifests", [])
     if len(rows) != len(readout_manifests):

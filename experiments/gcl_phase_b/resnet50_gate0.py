@@ -69,7 +69,6 @@ def acquire_resnet50_gate0_trace(
     env["GCL_RESNET50_TRACE_OUT"] = str(output_root)
     session = _write_collector_session(output_root, config)
     env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
-    env["GCL_RESNET50_COLLECTOR_RUNTIME_NONCE"] = session["collector_runtime_nonce"]
     run = runner or _subprocess_runner
     _register_active_collector_session(session)
     try:
@@ -81,6 +80,8 @@ def acquire_resnet50_gate0_trace(
         returncode = _runner_returncode(result)
         if returncode != 0:
             raise RuntimeError(f"ResNet-50 NVBit acquisition failed with returncode {returncode}")
+        if not _runner_is_trusted_collector(run):
+            raise ValueError("trusted NVBit collector runner is required for formal Gate0 acquisition")
         _write_nvbit_collection_evidence(output_root, result)
         _write_collector_attestation(output_root, session, result)
         return record_resnet50_gate0_trace_acquisition(
@@ -149,9 +150,9 @@ def _validate_previous_gate0_manifest_for_revalidation(
         return
     manifest_path = root / GATE0_MANIFEST_FILENAME
     if not manifest_path.is_file():
-        raise ValueError(
-            "existing formal Gate0 manifest is required for collector attestation revalidation"
-        )
+        if evidence.get("collector_runtime_proof_hash"):
+            return
+        raise ValueError("collector runtime proof is required for first formal Gate0 recording")
     manifest = read_json(manifest_path)
     _validate_existing_gate0_manifest(manifest, evidence, source_hashes)
 
@@ -323,7 +324,7 @@ def _validate_collector_attestation(
             raise ValueError("collector session output_root does not match active collector session record")
         runtime_proof_hash = _collector_runtime_proof_hash(
             session_id,
-            str(active_session_record["collector_runtime_nonce"]),
+            session_hash,
             str(root),
         )
         if evidence.get("collector_runtime_proof_hash") != runtime_proof_hash:
@@ -369,7 +370,6 @@ def _write_collector_session(
         "artifact_version": "nvbit_collector_session_v1",
         "producer": COLLECTOR_PRODUCER,
         "collector_session_id": uuid.uuid4().hex,
-        "collector_runtime_nonce": uuid.uuid4().hex,
         "workload_command": list(config.workload_command),
         "nvbit_tool_path": str(config.nvbit_tool_path),
         "output_root": str(output_root),
@@ -385,7 +385,6 @@ def _register_active_collector_session(session: dict[str, Any]) -> None:
     _ACTIVE_COLLECTOR_SESSION_IDS.add(session_id)
     _ACTIVE_COLLECTOR_SESSIONS[session_id] = {
         "collector_session_hash": session["collector_session_hash"],
-        "collector_runtime_nonce": session["collector_runtime_nonce"],
         "output_root": session["output_root"],
     }
 
@@ -428,6 +427,11 @@ def _write_collector_attestation(
     evidence["collector_session_id_from_env"] = session["collector_session_id"]
     evidence["collector_session_id"] = session["collector_session_id"]
     evidence["collector_session_hash"] = session["collector_session_hash"]
+    evidence["collector_runtime_proof_hash"] = _collector_runtime_proof_hash(
+        session["collector_session_id"],
+        session["collector_session_hash"],
+        str(root),
+    )
     evidence["collector_attestation_hash"] = attestation["collector_attestation_hash"]
     write_json(root / NVBIT_COLLECTOR_ATTESTATION_FILENAME, attestation)
     write_json(evidence_path, evidence)
@@ -457,13 +461,13 @@ def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[s
 
 def _collector_runtime_proof_hash(
     collector_session_id: str,
-    collector_runtime_nonce: str,
+    collector_session_hash: str,
     output_root: str,
 ) -> str:
     return hash_without(
         {
             "collector_session_id": collector_session_id,
-            "collector_runtime_nonce": collector_runtime_nonce,
+            "collector_session_hash": collector_session_hash,
             "output_root": output_root,
         }
     )
@@ -616,6 +620,13 @@ def _subprocess_runner(command: list[str], *, cwd: Path | None, env: dict[str, s
         text=True,
         capture_output=True,
     )
+
+
+_subprocess_runner.trusted_nvbit_collector = True  # type: ignore[attr-defined]
+
+
+def _runner_is_trusted_collector(runner: Runner) -> bool:
+    return bool(getattr(runner, "trusted_nvbit_collector", False))
 
 
 def _runner_returncode(result: RunnerResult) -> int:

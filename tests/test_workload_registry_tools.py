@@ -95,6 +95,33 @@ def test_build_source_registry_accepts_git_worktree_with_git_file(tmp_path):
     assert registry["sources"][0]["availability_status"] == "source_available"
 
 
+def test_build_source_registry_preserves_failed_clone_status_over_git_shape(tmp_path):
+    source = tmp_path / "sources" / "gpu-rodinia"
+    init_git_repo(source)
+    status = tmp_path / "clone_status.tsv"
+    status.write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        f"gpu-rodinia\tfailed:124\t-\t{source}\thttps://example/rodinia.git\n"
+    )
+
+    registry = build_source_registry(status)
+
+    source_row = registry["sources"][0]
+    assert source_row["clone_status"] == "failed:124"
+    assert source_row["clone_mode"] == "unavailable"
+    assert source_row["availability_status"] == "source_unavailable"
+    assert source_row["commit"] == "-"
+
+
+def test_clone_workload_sources_has_sparse_rules_for_large_sources():
+    script = (REPO_ROOT / "scripts" / "clone_workload_sources.sh").read_text()
+
+    assert '["mlperf-inference"]=' in script
+    assert '["hecbench"]=' in script
+    assert "sparse-checkout init" in script
+    assert "sparse-checkout set" in script
+
+
 def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
     source = tmp_path / "sources" / "gpu-rodinia"
     init_git_repo(source)

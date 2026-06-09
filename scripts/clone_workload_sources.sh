@@ -25,6 +25,11 @@ repos=(
   "gromacs|https://github.com/gromacs/gromacs.git"
 )
 
+declare -A sparse_roots=(
+  ["mlperf-inference"]="language tools loadgen"
+  ["hecbench"]="src"
+)
+
 for entry in "${repos[@]}"; do
   name="${entry%%|*}"
   url="${entry#*|}"
@@ -39,9 +44,29 @@ for entry in "${repos[@]}"; do
 
   rm -rf "$target"
   printf "Cloning %s -> %s\n" "$name" "$target"
-  if GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false timeout 30m git clone --depth 1 "$url" "$target" >"$log" 2>&1; then
+  if [[ -n "${sparse_roots[$name]:-}" ]]; then
+    clone_cmd=(git clone --depth 1 --filter=blob:none --sparse "$url" "$target")
+  else
+    clone_cmd=(git clone --depth 1 "$url" "$target")
+  fi
+  if GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/false timeout 30m "${clone_cmd[@]}" >"$log" 2>&1; then
+    if [[ -n "${sparse_roots[$name]:-}" ]]; then
+      {
+        git -C "$target" sparse-checkout init --cone
+        git -C "$target" sparse-checkout set ${sparse_roots[$name]}
+      } >>"$log" 2>&1 || {
+        code="$?"
+        printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:sparse:$code" "-" "$target" "$url" >> "$STATUS"
+        printf "Failed sparse checkout for %s; see %s\n" "$name" "$log"
+        continue
+      }
+    fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
-    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "cloned" "$commit" "$target" "$url" >> "$STATUS"
+    if [[ -n "${sparse_roots[$name]:-}" ]]; then
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$target" "$url" >> "$STATUS"
+    else
+      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "cloned" "$commit" "$target" "$url" >> "$STATUS"
+    fi
   else
     code="$?"
     printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:$code" "-" "$target" "$url" >> "$STATUS"

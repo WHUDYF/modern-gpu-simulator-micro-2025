@@ -57,7 +57,13 @@ def git_config_true(path: Path, key: str) -> bool:
     return value is not None and value.lower() == "true"
 
 
-def infer_clone_mode(path: Path) -> str:
+def clone_status_failed(status: str) -> bool:
+    return status.startswith("failed:")
+
+
+def infer_clone_mode(path: Path, status: str = "") -> str:
+    if clone_status_failed(status):
+        return "unavailable"
     if not is_git_checkout(path):
         return "unavailable"
     if git_config_true(path, "core.sparseCheckout") or git_config_true(path, "remote.origin.promisor"):
@@ -65,10 +71,12 @@ def infer_clone_mode(path: Path) -> str:
     return "shallow_or_full"
 
 
-def infer_availability(path: Path) -> str:
+def infer_availability(path: Path, status: str = "") -> str:
+    if clone_status_failed(status):
+        return "source_unavailable"
     if not is_git_checkout(path):
         return "source_unavailable"
-    if infer_clone_mode(path) == "sparse_partial":
+    if infer_clone_mode(path, status) == "sparse_partial":
         return "source_sparse_available"
     return "source_available"
 
@@ -86,7 +94,12 @@ def build_source_registry(status_path: Path, generated_at: str | None = None) ->
         source_id = row["name"]
         local_path = Path(row["path"])
         source_type, corpus_role = SOURCE_METADATA.get(source_id, ("unknown", "candidate"))
-        commit = run_git(local_path, ["rev-parse", "--short", "HEAD"]) or row["commit"]
+        clone_status = row["status"]
+        commit = (
+            row["commit"]
+            if clone_status_failed(clone_status)
+            else run_git(local_path, ["rev-parse", "--short", "HEAD"]) or row["commit"]
+        )
 
         sources.append(
             {
@@ -96,9 +109,9 @@ def build_source_registry(status_path: Path, generated_at: str | None = None) ->
                 "url": row["url"],
                 "local_path": str(local_path),
                 "commit": commit,
-                "clone_status": row["status"],
-                "clone_mode": infer_clone_mode(local_path),
-                "availability_status": infer_availability(local_path),
+                "clone_status": clone_status,
+                "clone_mode": infer_clone_mode(local_path, clone_status),
+                "availability_status": infer_availability(local_path, clone_status),
                 "license_status": "needs_review",
             }
         )

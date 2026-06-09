@@ -55,6 +55,9 @@ def load_resnet50_trace_sources(
             for row in dynamic_trace["kernel_invocations"]
             if row.get("source_kernel_invocation_id")
         }
+        kept_invocation_ids.update(
+            _legacy_scheduler_invocation_ids(dynamic_trace["kernel_invocations"])
+        )
         scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
             scheduler_metadata,
             kept_invocation_ids,
@@ -271,12 +274,13 @@ def _kernel_invocation_table(
     prefer_source_invocation_id: bool = False,
 ) -> list[dict[str, Any]]:
     rows = []
-    for launch_order, row in enumerate(dynamic_trace.get("kernel_invocations", [])):
+    for fallback_launch_order, row in enumerate(dynamic_trace.get("kernel_invocations", [])):
+        launch_order = int(row.get("launch_order", fallback_launch_order))
         rows.append(
             {
                 "kernel_invocation_id": row.get("source_kernel_invocation_id")
                 if prefer_source_invocation_id and row.get("source_kernel_invocation_id")
-                else f"resnet50_k{launch_order:05d}",
+                else _launch_order_invocation_id(launch_order),
                 "kernel_id": row["kernel_id"],
                 "kernel_name": row["kernel_name"],
                 "function_unique_id": row["function_unique_id"],
@@ -305,8 +309,8 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
                 invocations.append(
                     {
                         "kernel_id": int(kernel.id),
-                        "source_kernel_invocation_id": (
-                            f"d_{int(device_id)}_s_{int(stream_id)}_k_{int(kernel.id)}"
+                        "source_kernel_invocation_id": _launch_order_invocation_id(
+                            launch_order
                         ),
                         "kernel_name": kernel.name,
                         "function_unique_id": int(kernel.function_unique_id),
@@ -363,7 +367,7 @@ def _load_threadblocks_from_scheduler(
                 _threadblock_records_from_pb(
                     pb_path=pb_path,
                     kernel_id=int(invocation["kernel_id"]),
-                    kernel_invocation_id=_scheduler_invocation_id(invocation),
+                    kernel_invocation_id=_scheduler_canonical_invocation_id(invocation),
                     launch_order=invocation.get("launch_order"),
                     cta_id=str(cta["cta_id"]),
                     static_instruction_index=static_instruction_index,
@@ -401,10 +405,16 @@ def _filter_dynamic_trace_by_invocation_ids(
         invocation
         for invocation in dynamic_trace.get("kernel_invocations", [])
         if invocation.get("source_kernel_invocation_id") in invocation_ids
+        or _legacy_scheduler_invocation_id(invocation) in invocation_ids
     ]
     found = {
-        invocation.get("source_kernel_invocation_id")
+        found_id
         for invocation in filtered["kernel_invocations"]
+        for found_id in {
+            invocation.get("source_kernel_invocation_id"),
+            _legacy_scheduler_invocation_id(invocation),
+        }
+        if found_id
     }
     missing = sorted(invocation_ids.difference(found))
     if missing:
@@ -423,10 +433,27 @@ def _filter_scheduler_metadata_by_invocation_ids(
         invocation
         for invocation in scheduler_metadata.get("kernel_invocations", [])
         if _scheduler_invocation_id(invocation) in kept_invocation_ids
+        or _scheduler_canonical_invocation_id(invocation) in kept_invocation_ids
     ]
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
     return filtered
+
+
+def _launch_order_invocation_id(launch_order: int) -> str:
+    return f"resnet50_k{int(launch_order):05d}"
+
+
+def _legacy_scheduler_invocation_id(invocation: dict[str, Any]) -> str:
+    return (
+        f"d_{int(invocation.get('device_id', 0))}_"
+        f"s_{int(invocation.get('stream_id', 0))}_"
+        f"k_{int(invocation['kernel_id'])}"
+    )
+
+
+def _legacy_scheduler_invocation_ids(invocations: list[dict[str, Any]]) -> set[str]:
+    return {_legacy_scheduler_invocation_id(invocation) for invocation in invocations}
 
 
 def _enhanced_execution_info_path(root: Path) -> Path:
@@ -481,12 +508,14 @@ def _scheduler_invocation_id(invocation: dict[str, Any]) -> str:
     if explicit:
         return str(explicit)
     if "launch_order" in invocation:
-        return f"resnet50_k{int(invocation['launch_order']):05d}"
-    return (
-        f"d_{int(invocation.get('device_id', 0))}_"
-        f"s_{int(invocation.get('stream_id', 0))}_"
-        f"k_{int(invocation['kernel_id'])}"
-    )
+        return _launch_order_invocation_id(int(invocation["launch_order"]))
+    return _legacy_scheduler_invocation_id(invocation)
+
+
+def _scheduler_canonical_invocation_id(invocation: dict[str, Any]) -> str:
+    if "launch_order" in invocation:
+        return _launch_order_invocation_id(int(invocation["launch_order"]))
+    return _scheduler_invocation_id(invocation)
 
 
 def _threadblock_relative_path(invocation: dict[str, Any], cta: dict[str, Any]) -> str:
@@ -656,12 +685,18 @@ def _invocation_lookup(kernel_invocation_table: list[dict[str, Any]]) -> dict[st
     by_id = {row["kernel_invocation_id"]: row for row in kernel_invocation_table}
     by_launch_order = {int(row["launch_order"]): row for row in kernel_invocation_table}
     by_kernel_id: dict[int, list[dict[str, Any]]] = {}
+    legacy_candidates: dict[str, list[dict[str, Any]]] = {}
     for row in kernel_invocation_table:
         by_kernel_id.setdefault(int(row["kernel_id"]), []).append(row)
+        legacy_candidates.setdefault(_legacy_scheduler_invocation_id(row), []).append(row)
+    by_legacy_id = {
+        legacy_id: rows[0] for legacy_id, rows in legacy_candidates.items() if len(rows) == 1
+    }
     return {
         "by_id": by_id,
         "by_launch_order": by_launch_order,
         "by_kernel_id": by_kernel_id,
+        "by_legacy_id": by_legacy_id,
     }
 
 
@@ -669,16 +704,17 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
     explicit = record.get("kernel_invocation_id")
     if explicit is not None:
         if explicit not in lookup["by_id"]:
+            if "launch_order" in record:
+                return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
+            if explicit in lookup["by_legacy_id"]:
+                row = lookup["by_legacy_id"][explicit]
+                _validate_record_identity_consistency(record, row)
+                return row["kernel_invocation_id"]
             raise ValueError("raw record references unknown kernel_invocation_id")
         _validate_record_identity_consistency(record, lookup["by_id"][explicit])
         return explicit
     if "launch_order" in record:
-        launch_order = int(record["launch_order"])
-        if launch_order not in lookup["by_launch_order"]:
-            raise ValueError("raw record references unknown launch_order")
-        row = lookup["by_launch_order"][launch_order]
-        _validate_record_identity_consistency(record, row)
-        return row["kernel_invocation_id"]
+        return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
     kernel_id = int(record["kernel_id"])
     candidates = lookup["by_kernel_id"].get(kernel_id, [])
     if len(candidates) == 1:
@@ -686,6 +722,18 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
     raise ValueError(
         "raw record for repeated kernel_id requires kernel_invocation_id or launch_order"
     )
+
+
+def _resolve_kernel_invocation_id_by_launch_order(
+    record: dict[str, Any],
+    lookup: dict[str, Any],
+) -> str:
+    launch_order = int(record["launch_order"])
+    if launch_order not in lookup["by_launch_order"]:
+        raise ValueError("raw record references unknown launch_order")
+    row = lookup["by_launch_order"][launch_order]
+    _validate_record_identity_consistency(record, row)
+    return row["kernel_invocation_id"]
 
 
 def _validate_record_identity_consistency(record: dict[str, Any], row: dict[str, Any]) -> None:
@@ -723,8 +771,8 @@ def _per_warp_trace_records(
         kernel_invocation_id = _resolve_kernel_invocation_id(record, invocation_lookup)
         records.append(
             {
-                "kernel_invocation_id": kernel_invocation_id,
                 **record,
+                "kernel_invocation_id": kernel_invocation_id,
             }
         )
     return records

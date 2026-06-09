@@ -10,6 +10,7 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
+from experiments.gcl_phase_b.utils import hash_without
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 from gcl_resnet50.real_chain import FORMAL_ROOT, require_formal_root
 
@@ -24,6 +25,33 @@ def _fixture_backed_root(tmp_path):
     threadblocks_dir.mkdir()
     shutil.copy(root / "threadblocks.json", threadblocks_dir / "threadblocks.json")
     return root
+
+
+def _write_formal_gate0_manifest(root):
+    manifest = {
+        "artifact_type": "gcl_resnet50_gate0_trace_acquisition_manifest",
+        "artifact_version": "gate0_trace_acquisition_manifest_v1",
+        "artifact_status": "formal",
+        "formal_input_eligible": True,
+        "workload_id": "resnet50",
+        "execution_mode": "real_trace",
+        "trace_source": "nvbit",
+        "input_scope": "full_resnet50_inference_trace",
+        "scheduler_metadata_source": "real_nvbit_smid",
+        "nvbit_collection_evidence_hash": "unit-test-evidence-hash",
+        "source_artifact_hashes": {
+            "dynamic_trace.pb": "unit-test-dynamic-hash",
+            "threadblocks/": "unit-test-threadblocks-hash",
+            "enhanced_execution_info.json": "unit-test-info-hash",
+            "scheduler_metadata.json": "unit-test-scheduler-hash",
+            "stats.csv": "unit-test-stats-hash",
+        },
+    }
+    manifest["gate0_manifest_hash"] = hash_without(manifest, "gate0_manifest_hash")
+    (root / "gate0_trace_acquisition_manifest.json").write_text(
+        json.dumps(manifest),
+        encoding="utf-8",
+    )
 
 
 def test_gate1_requires_real_gate0_manifest_before_formal_adapter(tmp_path):
@@ -92,6 +120,22 @@ def test_gate1_artifact_shape_adapter_reads_dynamic_trace_pb_and_threadblock_dir
     ]
 
 
+def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_reused_kernel_id")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
+
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
+    trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
+    assert invocation_ids == ["resnet50_k00001"]
+    assert scheduler_ids == {"resnet50_k00001"}
+    assert trace_ids == {"resnet50_k00001"}
+    assert {row["kernel_id"] for row in bundle["kernel_invocation_table"]} == {17}
+    assert bundle["kernel_invocation_table"][0]["launch_order"] == 1
+
+
 def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
     missing = (
@@ -122,7 +166,7 @@ def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
     assert bundle["cta_scheduler_records"]
     assert bundle["per_warp_trace_records"]
     invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
-    assert "d_0_s_0_k_267" in invocation_ids
+    assert "resnet50_k00000" in invocation_ids
     assert all(
         record["kernel_invocation_id"] in invocation_ids
         for record in bundle["cta_scheduler_records"]
@@ -160,5 +204,5 @@ def test_gate1_invocation_ids_mark_real_root_adapter_as_bounded_slice():
     assert bundle["input_scope"] == "bounded_resnet50_invocation_slice"
     assert [
         row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]
-    ] == selected_ids
+    ] == ["resnet50_k00000", "resnet50_k00005"]
     assert bundle["adapter_validation_report"]["formal_replay_invocation_ids"] == selected_ids

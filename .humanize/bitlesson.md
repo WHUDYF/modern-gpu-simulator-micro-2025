@@ -36,11 +36,11 @@ Source Rounds: 1
 Lesson ID: BL-20260606-source-invocation-identity
 Scope: experiments/gcl_phase_b/resnet50_adapter.py, tests/gcl_phase_b/test_resnet50_adapter.py
 Problem Description: Raw trace adapter records can collapse repeated launches when fallback provenance maps only by `kernel_id`.
-Root Cause: `kernel_id` is a static/function identity and is not unique per launch; using it as a key overwrites earlier invocations when repeated launches share the same kernel ID.
-Solution: Preserve explicit `kernel_invocation_id` when present, otherwise align raw records by `launch_order`; reject repeated `kernel_id` records without `kernel_invocation_id` or `launch_order`.
-Constraints: Ambiguous raw records must fail fast instead of silently merging launches; launch-order fallback is only valid when raw records include launch order.
-Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py`; `pytest -q tests/gcl_phase_a tests/gcl_phase_b` passed in Round 2.
-Source Rounds: 2
+Root Cause: `kernel_id` is a static/function identity and is not unique per launch; using it as a key overwrites earlier invocations when repeated launches share the same kernel ID, and formal `dynamic_trace.pb` can repeat the same `kernel.id` across distinct launches.
+Solution: Preserve explicit `kernel_invocation_id` when present for raw debug records, otherwise align raw records by `launch_order`; formal protobuf records must generate `source_kernel_invocation_id` from launch order, preserve original launch order after filtering, and treat legacy scheduler IDs only as unique input aliases that resolve to canonical launch-order IDs.
+Constraints: Ambiguous raw records must fail fast instead of silently merging launches; launch-order fallback is only valid when raw records include launch order; legacy `d_<device>_s_<stream>_k_<kernel_id>` IDs are accepted only for compatibility when they uniquely map to a launch and must not become final formal adapter IDs.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate1_adapter.py::test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id`; `pytest -q tests/gcl_resnet50/test_gate1_adapter.py tests/gcl_phase_b/test_resnet50_adapter.py`; `pytest -q tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_replay.py`; `python3 -m py_compile experiments/gcl_phase_b/resnet50_adapter.py tests/gcl_resnet50/test_gate1_adapter.py`.
+Source Rounds: 2, 40
 
 ## Lesson: scheduler-trace-reconciliation
 Lesson ID: BL-20260606-scheduler-trace-reconciliation

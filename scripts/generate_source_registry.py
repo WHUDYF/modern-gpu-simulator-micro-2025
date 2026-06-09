@@ -88,20 +88,29 @@ def default_generated_at() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def portable_local_path(local_path: Path, status_root: Path) -> str:
+    if not local_path.is_absolute():
+        return local_path.as_posix()
+    try:
+        return local_path.resolve().relative_to(status_root).as_posix()
+    except ValueError:
+        return str(local_path)
+
+
 def build_source_registry(status_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     sources = []
     status_root = status_path.resolve().parent
     for row in parse_clone_status(status_path):
         source_id = row["name"]
         local_path = Path(row["path"])
-        if not local_path.is_absolute():
-            local_path = status_root / local_path
+        serialized_local_path = portable_local_path(local_path, status_root)
+        probe_path = local_path if local_path.is_absolute() else status_root / local_path
         source_type, corpus_role = SOURCE_METADATA.get(source_id, ("unknown", "candidate"))
         clone_status = row["status"]
         commit = (
             row["commit"]
             if clone_status_failed(clone_status)
-            else run_git(local_path, ["rev-parse", "--short", "HEAD"]) or row["commit"]
+            else run_git(probe_path, ["rev-parse", "--short", "HEAD"]) or row["commit"]
         )
 
         sources.append(
@@ -110,11 +119,11 @@ def build_source_registry(status_path: Path, generated_at: str | None = None) ->
                 "source_type": source_type,
                 "corpus_role": corpus_role,
                 "url": row["url"],
-                "local_path": str(local_path),
+                "local_path": serialized_local_path,
                 "commit": commit,
                 "clone_status": clone_status,
-                "clone_mode": infer_clone_mode(local_path, clone_status),
-                "availability_status": infer_availability(local_path, clone_status),
+                "clone_mode": infer_clone_mode(probe_path, clone_status),
+                "availability_status": infer_availability(probe_path, clone_status),
                 "license_status": "needs_review",
             }
         )

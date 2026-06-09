@@ -14,6 +14,7 @@ from typing import Any
 
 DEFAULT_SOURCE_REGISTRY = Path("registry/source_registry.json")
 DEFAULT_OUTPUT_DIR = Path("registry")
+DEFAULT_WORKLOAD_ROOT = Path("workloads/trace-compressions-industrial-codex-workload")
 
 CURATED_WORKLOADS = {
     "mlperf-inference": [
@@ -318,7 +319,23 @@ def workload_path_exists(source_root: Path, workload: dict[str, str]) -> bool:
     return (source_root / relative_path).exists()
 
 
-def build_workload_registry(source_registry_path: Path, generated_at: str | None = None) -> dict[str, Any]:
+def resolve_source_root(
+    source_registry_path: Path,
+    local_path: str,
+    workload_root: Path | None = None,
+) -> Path:
+    source_root = Path(local_path)
+    if source_root.is_absolute():
+        return source_root
+    base_root = workload_root if workload_root is not None else source_registry_path.resolve().parent
+    return base_root / source_root
+
+
+def build_workload_registry(
+    source_registry_path: Path,
+    generated_at: str | None = None,
+    workload_root: Path | None = None,
+) -> dict[str, Any]:
     source_registry = json.loads(source_registry_path.read_text())
     workloads = []
     seen_ids: set[str] = set()
@@ -333,7 +350,13 @@ def build_workload_registry(source_registry_path: Path, generated_at: str | None
             and source_id not in SPARSE_DISCOVERABLE_SOURCES
         ):
             continue
-        source_root = Path(source["local_path"])
+        source_root = resolve_source_root(
+            source_registry_path,
+            source["local_path"],
+            workload_root=workload_root,
+        )
+        if not source_root.exists():
+            continue
         for workload in discover_workloads_for_source(source_id, source_root):
             should_validate_path = availability_status == "source_sparse_available"
             if should_validate_path and not workload_path_exists(source_root, workload):
@@ -393,12 +416,22 @@ def parse_args() -> argparse.Namespace:
         "--generated-at",
         help="Timestamp to write into generated artifacts for deterministic output.",
     )
+    parser.add_argument(
+        "--workload-root",
+        type=Path,
+        default=DEFAULT_WORKLOAD_ROOT,
+        help="Root used to resolve relative source local_path entries.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    registry = build_workload_registry(args.source_registry, generated_at=args.generated_at)
+    registry = build_workload_registry(
+        args.source_registry,
+        generated_at=args.generated_at,
+        workload_root=args.workload_root,
+    )
     write_json(args.output_dir / "workload_registry.json", registry)
     write_markdown(args.output_dir / "workload_registry.md", registry)
     return 0

@@ -119,7 +119,43 @@ def test_build_source_registry_resolves_relative_clone_paths_from_status_file(tm
     registry = build_source_registry(status)
 
     source_row = registry["sources"][0]
-    assert source_row["local_path"] == str(source)
+    assert source_row["local_path"] == "sources/gpu-rodinia"
+    assert source_row["commit"] == commit
+    assert source_row["availability_status"] == "source_available"
+
+
+def test_build_source_registry_serializes_relative_clone_paths_portably(tmp_path):
+    root = tmp_path / "workloads"
+    source = root / "sources" / "gpu-rodinia"
+    commit = init_git_repo(source)
+    status = root / "clone_status.tsv"
+    status.write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        "gpu-rodinia\texists\told\tsources/gpu-rodinia\thttps://example/rodinia.git\n"
+    )
+
+    registry = build_source_registry(status)
+
+    source_row = registry["sources"][0]
+    assert source_row["local_path"] == "sources/gpu-rodinia"
+    assert source_row["commit"] == commit
+    assert source_row["availability_status"] == "source_available"
+
+
+def test_build_source_registry_serializes_status_root_absolute_paths_portably(tmp_path):
+    root = tmp_path / "workloads"
+    source = root / "sources" / "gpu-rodinia"
+    commit = init_git_repo(source)
+    status = root / "clone_status.tsv"
+    status.write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        f"gpu-rodinia\texists\told\t{source}\thttps://example/rodinia.git\n"
+    )
+
+    registry = build_source_registry(status)
+
+    source_row = registry["sources"][0]
+    assert source_row["local_path"] == "sources/gpu-rodinia"
     assert source_row["commit"] == commit
     assert source_row["availability_status"] == "source_available"
 
@@ -418,6 +454,62 @@ def test_build_workload_registry_keeps_curated_available_sources_from_table(tmp_
     assert "deepbench_gemm" in workload_ids
     assert "deepbench_rnn" in workload_ids
     assert "deepbench_convolution" in workload_ids
+
+
+def test_build_workload_registry_resolves_relative_paths_against_workload_root(tmp_path):
+    workload_root = tmp_path / "workloads"
+    root = workload_root / "sources" / "gpu-parboil"
+    (root / "benchmarks" / "bfs" / "src").mkdir(parents=True)
+    source_registry = tmp_path / "registry" / "source_registry.json"
+    source_registry.parent.mkdir()
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "gpu-parboil",
+                        "local_path": "sources/gpu-parboil",
+                        "availability_status": "source_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(
+        source_registry,
+        generated_at="2026-05-11T00:00:00+00:00",
+        workload_root=workload_root,
+    )
+
+    workload_ids = {row["workload_id"] for row in registry["workloads"]}
+    assert "gpu-parboil_bfs" in workload_ids
+
+
+def test_build_workload_registry_skips_source_available_when_local_root_is_missing(tmp_path):
+    missing_root = tmp_path / "missing-deepbench"
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "deepbench",
+                        "local_path": str(missing_root),
+                        "availability_status": "source_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    assert registry["workloads"] == []
 
 
 def test_build_workload_registry_keeps_expected_graph_suite_candidate_ids(tmp_path):

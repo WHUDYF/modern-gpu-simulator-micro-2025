@@ -147,10 +147,28 @@ def _validate_previous_gate0_manifest_for_revalidation(
         return
     manifest_path = root / GATE0_MANIFEST_FILENAME
     if not manifest_path.is_file():
+        _validate_first_time_gate0_recording_evidence(evidence)
+        return
+    manifest = read_json(manifest_path)
+    _validate_existing_gate0_manifest(manifest, evidence, source_hashes)
+
+
+def _validate_first_time_gate0_recording_evidence(evidence: dict[str, Any]) -> None:
+    if evidence.get("collector_session_id_from_env") != evidence.get("collector_session_id"):
         raise ValueError(
             "existing formal Gate0 manifest is required for collector attestation revalidation"
         )
-    manifest = read_json(manifest_path)
+    if evidence.get("nvbit_banner_observed") is not True:
+        raise ValueError(
+            "existing formal Gate0 manifest is required for collector attestation revalidation"
+        )
+
+
+def _validate_existing_gate0_manifest(
+    manifest: dict[str, Any],
+    evidence: dict[str, Any],
+    source_hashes: dict[str, str],
+) -> None:
     if manifest.get("artifact_type") != GATE0_ARTIFACT_TYPE:
         raise ValueError("existing formal Gate0 manifest artifact_type mismatch")
     if manifest.get("artifact_status") != "formal":

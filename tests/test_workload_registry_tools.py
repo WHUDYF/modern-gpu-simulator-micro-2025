@@ -254,7 +254,9 @@ def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
 
     assert (output / "source_registry.json").read_text() == first_json
     assert (output / "source_registry.md").read_text() == first_md
-    assert json.loads(first_json)["generated_at"] == "2026-05-11T00:00:00+00:00"
+    generated = json.loads(first_json)
+    assert generated["generated_at"] == "2026-05-11T00:00:00+00:00"
+    assert not Path(generated["source_root"]).is_absolute()
 
 
 def test_discover_workloads_for_gpu_rodinia_cuda_dirs(tmp_path):
@@ -694,3 +696,49 @@ def test_workload_registry_cli_writes_outputs(tmp_path):
     assert registry["generated_at"] == "2026-05-11T00:00:00+00:00"
     assert registry["workloads"][0]["workload_id"] == "gpu-parboil_bfs"
     assert "gpu-parboil_bfs" in (output / "workload_registry.md").read_text()
+
+
+def test_workload_registry_cli_resolves_relative_paths_from_custom_source_registry_root(tmp_path):
+    workload_root = tmp_path / "custom-workloads"
+    source = workload_root / "sources" / "gpu-parboil"
+    init_git_repo(source)
+    (source / "benchmarks" / "bfs" / "src").mkdir(parents=True)
+    (workload_root / "clone_status.tsv").write_text(
+        "name\tstatus\tcommit\tpath\turl\n"
+        f"gpu-parboil\texists\told\t{source}\thttps://example/parboil.git\n"
+    )
+    registry_dir = tmp_path / "registry"
+    output = tmp_path / "workload-registry"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "generate_source_registry.py"),
+            "--root",
+            str(workload_root),
+            "--output-dir",
+            str(registry_dir),
+            "--generated-at",
+            "2026-05-11T00:00:00+00:00",
+        ],
+        check=True,
+    )
+    source_registry = json.loads((registry_dir / "source_registry.json").read_text())
+    assert not Path(source_registry["source_root"]).is_absolute()
+    subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "generate_workload_registry.py"),
+            "--source-registry",
+            str(registry_dir / "source_registry.json"),
+            "--output-dir",
+            str(output),
+            "--generated-at",
+            "2026-05-11T00:00:00+00:00",
+        ],
+        check=True,
+    )
+
+    registry = json.loads((output / "workload_registry.json").read_text())
+    workload_ids = {row["workload_id"] for row in registry["workloads"]}
+    assert "gpu-parboil_bfs" in workload_ids

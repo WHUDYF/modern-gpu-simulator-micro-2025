@@ -97,6 +97,13 @@ def portable_local_path(local_path: Path, status_root: Path) -> str:
         return str(local_path)
 
 
+def portable_source_root(status_root: Path, output_dir: Path) -> str:
+    try:
+        return os.path.relpath(status_root, output_dir.resolve())
+    except ValueError:
+        return status_root.as_posix()
+
+
 def build_source_registry(status_path: Path, generated_at: str | None = None) -> dict[str, Any]:
     sources = []
     status_root = status_path.resolve().parent
@@ -131,6 +138,7 @@ def build_source_registry(status_path: Path, generated_at: str | None = None) ->
     return {
         "schema_version": "source_registry_v1",
         "generated_at": generated_at or default_generated_at(),
+        "source_root": status_root.as_posix(),
         "sources": sources,
     }
 
@@ -186,7 +194,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    registry = build_source_registry(args.root / "clone_status.tsv", generated_at=args.generated_at)
+    status_path = args.root / "clone_status.tsv"
+    registry = build_source_registry(status_path, generated_at=args.generated_at)
+    registry["source_root"] = portable_source_root(status_path.resolve().parent, args.output_dir)
     write_json(args.output_dir / "source_registry.json", registry)
     write_markdown(args.output_dir / "source_registry.md", registry)
     return 0

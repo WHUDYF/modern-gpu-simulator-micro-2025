@@ -14,7 +14,6 @@ from typing import Any
 
 DEFAULT_SOURCE_REGISTRY = Path("registry/source_registry.json")
 DEFAULT_OUTPUT_DIR = Path("registry")
-DEFAULT_WORKLOAD_ROOT = Path("workloads/trace-compressions-industrial-codex-workload")
 
 CURATED_WORKLOADS = {
     "mlperf-inference": [
@@ -337,6 +336,14 @@ def build_workload_registry(
     workload_root: Path | None = None,
 ) -> dict[str, Any]:
     source_registry = json.loads(source_registry_path.read_text())
+    resolved_workload_root = workload_root
+    if resolved_workload_root is None and source_registry.get("source_root"):
+        source_root = Path(source_registry["source_root"])
+        resolved_workload_root = (
+            source_root
+            if source_root.is_absolute()
+            else source_registry_path.resolve().parent / source_root
+        )
     workloads = []
     seen_ids: set[str] = set()
     for source in source_registry["sources"]:
@@ -353,7 +360,7 @@ def build_workload_registry(
         source_root = resolve_source_root(
             source_registry_path,
             source["local_path"],
-            workload_root=workload_root,
+            workload_root=resolved_workload_root,
         )
         if not source_root.exists():
             continue
@@ -419,8 +426,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workload-root",
         type=Path,
-        default=DEFAULT_WORKLOAD_ROOT,
-        help="Root used to resolve relative source local_path entries.",
+        default=None,
+        help=(
+            "Root used to resolve relative source local_path entries. "
+            "Defaults to source_registry.json source_root when present."
+        ),
     )
     return parser.parse_args()
 

@@ -143,6 +143,18 @@ def _write_collector_bound_gate0_evidence(root: Path, session_id: str) -> None:
     )
 
 
+def _add_runtime_proof(evidence: dict, env: dict) -> dict:
+    from experiments.gcl_phase_b.resnet50_gate0 import _collector_runtime_proof_hash
+
+    evidence = dict(evidence)
+    evidence["collector_runtime_proof_hash"] = _collector_runtime_proof_hash(
+        env["GCL_RESNET50_COLLECTOR_SESSION_ID"],
+        env["GCL_RESNET50_COLLECTOR_RUNTIME_NONCE"],
+        env["GCL_RESNET50_TRACE_OUT"],
+    )
+    return evidence
+
+
 def test_gate0_writes_blocker_when_real_resnet50_nvbit_collection_is_unavailable(tmp_path):
     root = tmp_path / "missing_real_trace"
     root.mkdir()
@@ -333,6 +345,53 @@ def test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract(t
         )
         write_json(
             root / "nvbit_collection_evidence.json",
+            _add_runtime_proof(
+                {
+                    "artifact_status": "formal_collection_evidence",
+                    "workload_id": "resnet50",
+                    "execution_mode": "real_trace",
+                    "trace_source": "nvbit",
+                    "input_scope": "full_resnet50_inference_trace",
+                    "scheduler_metadata_source": "real_nvbit_smid",
+                    "collection_status": "completed",
+                    "fixture_backed": False,
+                    "collector_artifact_origin": "real_nvbit_runtime",
+                    "evidence_scope": "real_resnet50_nvbit_collection",
+                    "nvbit_loaded": True,
+                    "collector_session_id_from_env": env[
+                        "GCL_RESNET50_COLLECTOR_SESSION_ID"
+                    ],
+                },
+                env,
+            ),
+        )
+        return {"returncode": 0, "stdout": "NVBit Loaded", "stderr": ""}
+
+    config = ResNet50NvbitAcquisitionConfig(
+        output_root=root,
+        workload_command=["python", "run_resnet50.py"],
+        nvbit_tool_path=Path("/opt/nvbit/tools/tracer_tool.so"),
+        working_directory=tmp_path,
+    )
+
+    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+
+    evidence = read_json(root / "nvbit_collection_evidence.json")
+    assert evidence["collector_artifact_origin"] == "real_nvbit_runtime"
+    assert evidence["fixture_backed"] is False
+    assert evidence["nvbit_loaded"] is True
+    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
+    assert manifest["formal_input_eligible"] is True
+    assert (root / "nvbit_collector_attestation.json").exists()
+
+
+def test_gate0_acquisition_rejects_fake_runner_without_runtime_proof(tmp_path):
+    root = tmp_path / "fake_runner_real_shaped_root"
+
+    def runner(command, *, cwd, env):
+        _write_real_gate0_contract_artifacts(root)
+        write_json(
+            root / "nvbit_collection_evidence.json",
             {
                 "artifact_status": "formal_collection_evidence",
                 "workload_id": "resnet50",
@@ -359,15 +418,10 @@ def test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract(t
         working_directory=tmp_path,
     )
 
-    manifest = acquire_resnet50_gate0_trace(config, runner=runner)
+    with pytest.raises(ValueError, match="collector runtime proof"):
+        acquire_resnet50_gate0_trace(config, runner=runner)
 
-    evidence = read_json(root / "nvbit_collection_evidence.json")
-    assert evidence["collector_artifact_origin"] == "real_nvbit_runtime"
-    assert evidence["fixture_backed"] is False
-    assert evidence["nvbit_loaded"] is True
-    assert evidence["collector_session_id_from_env"] == evidence["collector_session_id"]
-    assert manifest["formal_input_eligible"] is True
-    assert (root / "nvbit_collector_attestation.json").exists()
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
 def test_gate0_acquisition_rejects_missing_collector_evidence_even_when_artifacts_exist(tmp_path):
@@ -518,10 +572,9 @@ def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tm
             "0, 0, kernel-1.trace, real_kernel\n",
             encoding="utf-8",
         )
-        evidence_path = root / "nvbit_collection_evidence.json"
-        if not evidence_path.exists():
-            write_json(
-                evidence_path,
+        write_json(
+            root / "nvbit_collection_evidence.json",
+            _add_runtime_proof(
                 {
                     "artifact_status": "formal_collection_evidence",
                     "workload_id": "resnet50",
@@ -538,7 +591,9 @@ def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tm
                         "GCL_RESNET50_COLLECTOR_SESSION_ID"
                     ],
                 },
-            )
+                env,
+            ),
+        )
         return {"returncode": 0, "stdout": "NVBit Loaded", "stderr": ""}
 
     config = ResNet50NvbitAcquisitionConfig(
@@ -603,22 +658,25 @@ def test_gate0_recording_accepts_persisted_collector_attestation_after_restart(t
         )
         write_json(
             root / "nvbit_collection_evidence.json",
-            {
-                "artifact_status": "formal_collection_evidence",
-                "workload_id": "resnet50",
-                "execution_mode": "real_trace",
-                "trace_source": "nvbit",
-                "input_scope": "full_resnet50_inference_trace",
-                "scheduler_metadata_source": "real_nvbit_smid",
-                "collection_status": "completed",
-                "fixture_backed": False,
-                "collector_artifact_origin": "real_nvbit_runtime",
-                "evidence_scope": "real_resnet50_nvbit_collection",
-                "nvbit_loaded": True,
-                "collector_session_id_from_env": env[
-                    "GCL_RESNET50_COLLECTOR_SESSION_ID"
-                ],
-            },
+            _add_runtime_proof(
+                {
+                    "artifact_status": "formal_collection_evidence",
+                    "workload_id": "resnet50",
+                    "execution_mode": "real_trace",
+                    "trace_source": "nvbit",
+                    "input_scope": "full_resnet50_inference_trace",
+                    "scheduler_metadata_source": "real_nvbit_smid",
+                    "collection_status": "completed",
+                    "fixture_backed": False,
+                    "collector_artifact_origin": "real_nvbit_runtime",
+                    "evidence_scope": "real_resnet50_nvbit_collection",
+                    "nvbit_loaded": True,
+                    "collector_session_id_from_env": env[
+                        "GCL_RESNET50_COLLECTOR_SESSION_ID"
+                    ],
+                },
+                env,
+            ),
         )
         return {"returncode": 0, "stdout": "NVBit Loaded", "stderr": ""}
 

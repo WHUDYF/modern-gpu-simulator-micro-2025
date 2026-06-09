@@ -1,4 +1,5 @@
 import ctypes
+import json
 import sys
 from types import SimpleNamespace
 
@@ -195,3 +196,22 @@ def test_gate0_formal_trace_runner_supports_legacy_cuda_amp_autocast():
         calls.append(("inside",))
 
     assert calls == [("cuda.amp.autocast", "float16"), ("inside",)]
+
+
+def test_gate0_formal_trace_runner_writes_collector_runtime_proof(tmp_path, monkeypatch):
+    evidence_path = tmp_path / "nvbit_collection_evidence.json"
+    evidence_path.write_text(json.dumps({"collection_status": "completed"}), encoding="utf-8")
+    monkeypatch.setenv("GCL_RESNET50_TRACE_OUT", str(tmp_path))
+    monkeypatch.setenv("GCL_RESNET50_COLLECTOR_SESSION_ID", "session-1")
+    monkeypatch.setenv("GCL_RESNET50_COLLECTOR_RUNTIME_NONCE", "nonce-1")
+
+    run_resnet50_gate0_formal_trace._write_runtime_proof()
+
+    evidence = json.loads(evidence_path.read_text())
+    assert evidence["collector_runtime_proof_hash"] == (
+        run_resnet50_gate0_formal_trace._runtime_proof_hash(
+            "session-1",
+            "nonce-1",
+            str(tmp_path),
+        )
+    )

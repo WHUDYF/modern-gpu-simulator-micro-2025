@@ -69,6 +69,7 @@ def acquire_resnet50_gate0_trace(
     env["GCL_RESNET50_TRACE_OUT"] = str(output_root)
     session = _write_collector_session(output_root, config)
     env["GCL_RESNET50_COLLECTOR_SESSION_ID"] = session["collector_session_id"]
+    env["GCL_RESNET50_COLLECTOR_RUNTIME_NONCE"] = session["collector_runtime_nonce"]
     run = runner or _subprocess_runner
     _register_active_collector_session(session)
     try:
@@ -320,6 +321,13 @@ def _validate_collector_attestation(
             raise ValueError("collector session hash does not match active collector session record")
         if active_session_record.get("output_root") != str(root):
             raise ValueError("collector session output_root does not match active collector session record")
+        runtime_proof_hash = _collector_runtime_proof_hash(
+            session_id,
+            str(active_session_record["collector_runtime_nonce"]),
+            str(root),
+        )
+        if evidence.get("collector_runtime_proof_hash") != runtime_proof_hash:
+            raise ValueError("collector runtime proof is required for formal Gate0 recording")
     if attestation.get("collector_session_hash") != session_hash:
         raise ValueError("collector attestation does not match collector session hash")
     if evidence.get("collector_session_hash") != session_hash:
@@ -361,6 +369,7 @@ def _write_collector_session(
         "artifact_version": "nvbit_collector_session_v1",
         "producer": COLLECTOR_PRODUCER,
         "collector_session_id": uuid.uuid4().hex,
+        "collector_runtime_nonce": uuid.uuid4().hex,
         "workload_command": list(config.workload_command),
         "nvbit_tool_path": str(config.nvbit_tool_path),
         "output_root": str(output_root),
@@ -376,6 +385,7 @@ def _register_active_collector_session(session: dict[str, Any]) -> None:
     _ACTIVE_COLLECTOR_SESSION_IDS.add(session_id)
     _ACTIVE_COLLECTOR_SESSIONS[session_id] = {
         "collector_session_hash": session["collector_session_hash"],
+        "collector_runtime_nonce": session["collector_runtime_nonce"],
         "output_root": session["output_root"],
     }
 
@@ -443,6 +453,20 @@ def _write_nvbit_collection_evidence(root: Path, result: RunnerResult) -> dict[s
         evidence["collector_session_id_from_env"] = session.get("collector_session_id")
     write_json(evidence_path, evidence)
     return evidence
+
+
+def _collector_runtime_proof_hash(
+    collector_session_id: str,
+    collector_runtime_nonce: str,
+    output_root: str,
+) -> str:
+    return hash_without(
+        {
+            "collector_session_id": collector_session_id,
+            "collector_runtime_nonce": collector_runtime_nonce,
+            "output_root": output_root,
+        }
+    )
 
 
 def _reject_fixture_backed_root(root: Path) -> None:

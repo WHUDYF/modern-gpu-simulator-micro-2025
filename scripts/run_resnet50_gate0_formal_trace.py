@@ -1,5 +1,9 @@
 import ctypes
+import hashlib
+import json
+import os
 from contextlib import contextmanager
+from pathlib import Path
 
 
 def _load_cuda_runtime():
@@ -22,6 +26,38 @@ def _build_offline_resnet50(models):
         return models.resnet50(weights=None)
     except TypeError:
         return models.resnet50(pretrained=False)
+
+
+def _runtime_proof_hash(
+    collector_session_id: str,
+    collector_runtime_nonce: str,
+    output_root: str,
+) -> str:
+    payload = {
+        "collector_session_id": collector_session_id,
+        "collector_runtime_nonce": collector_runtime_nonce,
+        "output_root": output_root,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _write_runtime_proof() -> None:
+    output_root = os.environ.get("GCL_RESNET50_TRACE_OUT") or os.environ.get("TRACES_FOLDER")
+    session_id = os.environ.get("GCL_RESNET50_COLLECTOR_SESSION_ID")
+    nonce = os.environ.get("GCL_RESNET50_COLLECTOR_RUNTIME_NONCE")
+    if not output_root or not session_id or not nonce:
+        return
+    evidence_path = Path(output_root) / "nvbit_collection_evidence.json"
+    if not evidence_path.is_file():
+        return
+    evidence = json.loads(evidence_path.read_text())
+    evidence["collector_runtime_proof_hash"] = _runtime_proof_hash(
+        session_id,
+        nonce,
+        output_root,
+    )
+    evidence_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
 
 
 @contextmanager
@@ -60,6 +96,7 @@ def main() -> None:
     stop_status = cudart.cudaProfilerStop()
     if stop_status != 0:
         raise RuntimeError(f"cudaProfilerStop failed with status {stop_status}")
+    _write_runtime_proof()
 
     print("resnet50_formal_trace_done", tuple(output.shape))
 

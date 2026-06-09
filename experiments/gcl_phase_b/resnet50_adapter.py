@@ -400,26 +400,59 @@ def _filter_dynamic_trace_by_invocation_ids(
 ) -> dict[str, Any]:
     if not invocation_ids:
         raise ValueError("invocation_ids must be non-empty")
+    resolved_invocation_ids = _resolve_requested_dynamic_invocation_ids(
+        dynamic_trace,
+        invocation_ids,
+    )
     filtered = dict(dynamic_trace)
     filtered["kernel_invocations"] = [
         invocation
         for invocation in dynamic_trace.get("kernel_invocations", [])
-        if invocation.get("source_kernel_invocation_id") in invocation_ids
-        or _legacy_scheduler_invocation_id(invocation) in invocation_ids
+        if invocation.get("source_kernel_invocation_id") in resolved_invocation_ids
     ]
     found = {
-        found_id
+        str(invocation.get("source_kernel_invocation_id"))
         for invocation in filtered["kernel_invocations"]
-        for found_id in {
-            invocation.get("source_kernel_invocation_id"),
-            _legacy_scheduler_invocation_id(invocation),
-        }
-        if found_id
+        if invocation.get("source_kernel_invocation_id")
     }
-    missing = sorted(invocation_ids.difference(found))
+    missing = sorted(resolved_invocation_ids.difference(found))
     if missing:
         raise ValueError(f"invocation_ids not found in dynamic trace: {missing}")
     return filtered
+
+
+def _resolve_requested_dynamic_invocation_ids(
+    dynamic_trace: dict[str, Any],
+    invocation_ids: set[str],
+) -> set[str]:
+    canonical_ids = {
+        str(invocation.get("source_kernel_invocation_id"))
+        for invocation in dynamic_trace.get("kernel_invocations", [])
+        if invocation.get("source_kernel_invocation_id")
+    }
+    legacy_aliases: dict[str, list[str]] = {}
+    for invocation in dynamic_trace.get("kernel_invocations", []):
+        source_id = invocation.get("source_kernel_invocation_id")
+        if not source_id:
+            continue
+        legacy_aliases.setdefault(_legacy_scheduler_invocation_id(invocation), []).append(
+            str(source_id)
+        )
+
+    resolved = set()
+    missing = []
+    for requested_id in sorted(invocation_ids):
+        if requested_id in canonical_ids:
+            resolved.add(requested_id)
+            continue
+        legacy_matches = legacy_aliases.get(requested_id, [])
+        if legacy_matches:
+            resolved.add(legacy_matches[0])
+            continue
+        missing.append(requested_id)
+    if missing:
+        raise ValueError(f"invocation_ids not found in dynamic trace: {missing}")
+    return resolved
 
 
 def _filter_scheduler_metadata_by_invocation_ids(

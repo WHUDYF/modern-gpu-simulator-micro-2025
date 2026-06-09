@@ -136,6 +136,20 @@ def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(t
     assert bundle["kernel_invocation_table"][0]["launch_order"] == 1
 
 
+def test_gate1_legacy_invocation_alias_selects_single_repeated_launch(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_legacy_alias")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["d_0_s_0_k_17"])
+
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
+    trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
+    assert invocation_ids == ["resnet50_k00000"]
+    assert scheduler_ids == {"resnet50_k00000"}
+    assert trace_ids == {"resnet50_k00000"}
+
+
 def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "artifact_shape_trace")
     missing = (

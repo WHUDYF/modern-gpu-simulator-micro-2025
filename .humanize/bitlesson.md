@@ -171,3 +171,13 @@ Solution: Persist Gate5 export progress keyed by ordered tensor hashes and encod
 Constraints: Final `kernel_embedding_table.json` schema remains unchanged; progress files are internal runtime state and are removed after the complete table validates.
 Validation Evidence: Formal full-trace command completed with `formal_full_trace_run=true`, `input_kernel_invocation_count=265`, `input_cta_record_count=124876`, `final_gate=gate9_report_only`, `embedding_rows=265`, and `selected_k=2`; `pytest -q tests/gcl_phase_b/test_embedding_export.py::test_phase_b_embedding_export_resumes_partial_progress tests/gcl_phase_b/test_resnet50_gate_pipeline.py::test_resnet50_gate5_reuses_existing_checkpoint_for_export_resume tests/gcl_phase_b/test_resnet50_gate_pipeline.py::test_resnet50_gate8_report_only_handles_weak_representatives_without_blocking tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 14 tests; `pytest -q tests/gcl_phase_a/test_rgcn_training.py tests/gcl_phase_b/test_readout.py tests/gcl_phase_b/test_embedding_export.py tests/gcl_resnet50/test_gate5_rgcn_training.py tests/gcl_phase_b/test_resnet50_gate_pipeline.py` passed with 46 tests; `git diff --check && git diff --cached --check` passed.
 Source Rounds: 3
+
+## Lesson: blocked-artifact-preflight-order
+Lesson ID: BL-20260609-blocked-artifact-preflight-order
+Scope: scripts/run_resnet50_full_trace_gcl.py, experiments/gcl_phase_b/resnet50_gate_pipeline.py, tests/gcl_resnet50/test_full_trace_reproduction_runner.py
+Problem Description: A wrapper runner can make a formal blocked state unreachable when it eagerly requires the success manifest before checking for the paired blocker report.
+Root Cause: The full-trace runner loaded `gate0_trace_acquisition_manifest.json` before detecting `gate0_trace_acquisition_blocker_report.json`, so Gate0 acquisition failures were converted into generic manifest-missing blockers and lost the original blocker evidence.
+Solution: Check for the blocker-report-without-manifest state before loading the success manifest, delegate to the gate pipeline's blocked path, and preserve the original blocker hash in the final wrapper manifest.
+Constraints: Stale blocker reports must still be ignored when a formal success manifest exists; success-path validation remains manifest-backed.
+Validation Evidence: `pytest -q tests/gcl_resnet50/test_full_trace_reproduction_runner.py tests/gcl_resnet50/test_gate0_formal_trace_runner.py` passed with 22 tests; `pytest -q tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_resnet50/test_full_trace_reproduction_runner.py` passed with 42 tests; `git diff --check && git diff --cached --check` passed.
+Source Rounds: 26

@@ -211,3 +211,23 @@ Solution: Build the offline ResNet-50 model with `weights=None` first and fall b
 Constraints: Do not introduce pretrained downloads; do not pin a new framework minimum in tests unless the collection environment is intentionally narrowed.
 Validation Evidence: `pytest -q tests/gcl_resnet50/test_gate0_formal_trace_runner.py`; `python3 -m py_compile scripts/run_resnet50_gate0_formal_trace.py`; `git diff --check && git diff --cached --check`.
 Source Rounds: 37
+
+## Lesson: sass-predicate-destination-operands
+Lesson ID: BL-20260609-sass-predicate-destination-operands
+Scope: experiments/gcl_phase_b/resnet50_adapter.py, tests/gcl_phase_b/test_resnet50_adapter.py
+Problem Description: Formal ResNet-50 trace decoding can misclassify the second predicate output of `ISETP.*` and `PSETP.*` instructions as a source operand.
+Root Cause: `_split_operands()` treated only `LEA` as a two-destination opcode, so predicate setter instructions emitted one missing destination edge and one false source dependency in downstream graph construction.
+Solution: Include `ISETP` and `PSETP` in the two-destination opcode prefix set and add an operand split regression test for both opcode families.
+Constraints: Store and control-flow zero-destination handling remains unchanged; this fix only changes opcodes whose SASS operand schema has two predicate destinations.
+Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py`; `python3 -m py_compile experiments/gcl_phase_b/resnet50_adapter.py`.
+Source Rounds: 41
+
+## Lesson: selector-blocked-keeps-gate5-artifacts
+Lesson ID: BL-20260609-selector-blocked-keeps-gate5-artifacts
+Scope: experiments/gcl_phase_b/pipeline.py, tests/gcl_phase_b/test_pipeline.py, tests/gcl_phase_b/test_replay.py
+Problem Description: A transient selector-only resource failure can delete completed Gate5 training/export artifacts and force unnecessary retraining on the next retry.
+Root Cause: `_mark_selector_stage_resource_blocked()` reused the full success-artifact cleanup path intended for earlier training/export failures, and replay validation treated every resource-blocked state as incompatible with any downstream success artifacts.
+Solution: Selector-stage resource blocking now removes only `selector_artifacts.json`, clears only `selector_manifest_hash`, preserves Gate5 files and hashes, and replay validation has a selector-blocked branch that validates Gate5 artifacts while requiring selector artifacts to be absent.
+Constraints: Training and embedding-stage resource failures still clear Gate5/downstream success artifacts; preserving Gate5 is only valid when the recorded `failed_stage` is `selector`.
+Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py`; `python3 -m py_compile experiments/gcl_phase_b/pipeline.py`.
+Source Rounds: 41

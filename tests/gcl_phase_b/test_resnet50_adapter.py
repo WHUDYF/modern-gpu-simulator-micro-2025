@@ -78,6 +78,17 @@ def test_gate1_operand_split_preserves_lea_predicate_destination():
     assert sources == ["R12", "R20", "0x3"]
 
 
+def test_gate1_operand_split_preserves_predicate_setter_destinations():
+    for opcode in ["ISETP.NE.AND", "PSETP.AND.AND"]:
+        destinations, sources = _split_operands(
+            opcode,
+            ["P0", "PT", "R12", "R20", "PT"],
+        )
+
+        assert destinations == ["P0", "PT"]
+        assert sources == ["R12", "R20", "PT"]
+
+
 def test_gate1_rejects_non_real_scheduler_metadata():
     bundle = _validator_formal_bundle()
     corrupted = copy.deepcopy(bundle)

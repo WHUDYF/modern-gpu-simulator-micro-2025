@@ -686,16 +686,23 @@ def test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stal
     resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
     assert blocked["resource_blocked"] is True
     assert blocked["hashes"]["selector_manifest_hash"] is None
-    for key in [
-        "encoder_manifest_hash",
-        "readout_manifest_hashes",
-        "readout_manifest_bundle_hash",
-        "embedding_table_hash",
-        "selector_manifest_hash",
-    ]:
-        assert blocked["hashes"][key] is None
+    embedding_table = json.loads((out_dir / ARTIFACT_FILENAMES["embedding_table"]).read_text())
+    readout_manifest = json.loads((out_dir / ARTIFACT_FILENAMES["readout_manifest"]).read_text())
+    assert blocked["hashes"]["embedding_table_hash"] == embedding_table[
+        "kernel_embedding_table_hash"
+    ]
+    assert blocked["hashes"]["readout_manifest_bundle_hash"] == readout_manifest[
+        "readout_manifest_bundle_hash"
+    ]
+    assert blocked["hashes"]["readout_manifest_hashes"] == [
+        manifest["readout_manifest_hash"] for manifest in readout_manifest["manifests"]
+    ]
+    assert blocked["hashes"]["encoder_manifest_hash"]
     assert resource["failed_stage"] == "selector"
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
+    assert (out_dir / ARTIFACT_FILENAMES["training_report"]).exists()
+    assert (out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]).exists()
+    assert (out_dir / "rgcn_checkpoint.pt").exists()
     validate_phase_b_replay_from_disk(out_dir)
 
 
@@ -730,17 +737,21 @@ def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
     resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
     assert blocked["resource_blocked"] is True
     assert resource["failed_stage"] == "selector"
-    for key in [
-        "encoder_manifest_hash",
-        "readout_manifest_hashes",
-        "readout_manifest_bundle_hash",
-        "embedding_table_hash",
-        "selector_manifest_hash",
-    ]:
-        assert blocked["hashes"][key] is None
-    assert not embedding_path.exists()
-    assert not checkpoint_path.exists()
-    assert not (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).exists()
+    table = json.loads(embedding_path.read_text())
+    readout_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).read_text()
+    )
+    assert blocked["hashes"]["embedding_table_hash"] == table[
+        "kernel_embedding_table_hash"
+    ]
+    assert blocked["hashes"]["readout_manifest_bundle_hash"] == readout_manifest[
+        "readout_manifest_bundle_hash"
+    ]
+    assert blocked["hashes"]["readout_manifest_hashes"] == [
+        manifest["readout_manifest_hash"] for manifest in readout_manifest["manifests"]
+    ]
+    assert blocked["hashes"]["encoder_manifest_hash"]
+    assert checkpoint_path.exists()
     assert not (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists()
     validate_phase_b_replay_from_disk(out_dir)
 

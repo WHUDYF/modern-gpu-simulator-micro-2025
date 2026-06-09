@@ -126,6 +126,97 @@ def _embedding_table_hash(table: dict[str, Any]) -> str:
     return table["kernel_embedding_table_hash"]
 
 
+def _validate_gate5_replay_artifacts(
+    out_dir: Path,
+    pipeline_manifest: dict[str, Any],
+    tensors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    checkpoint_manifest = read_json(
+        require_pipeline_artifact(
+            out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
+        )
+    )
+    checkpoint_path = require_pipeline_artifact(out_dir / CHECKPOINT_FILENAME, "RGCN checkpoint")
+    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
+        raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
+    expected_encoder_hash = hash_without(
+        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
+    )
+    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
+        raise ValueError("encoder_manifest_hash is not reproducible")
+    source_tensor_hashes = [_phase_a_compatible_tensor(tensor)["tensor_hash"] for tensor in tensors]
+    if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
+        raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")
+
+    embedding_table = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
+    )
+    validate_phase_b_embedding_table(embedding_table)
+    expected_graph_tensor_bundle_hash = _source_graph_tensor_bundle_hash(tensors)
+    if embedding_table.get("source_graph_tensor_bundle_hash") != expected_graph_tensor_bundle_hash:
+        raise ValueError("embedding table source_graph_tensor_bundle_hash does not match tensor bundle")
+    if (
+        embedding_table.get("gate5_lineage", {}).get("source_graph_tensor_bundle_hash")
+        != expected_graph_tensor_bundle_hash
+    ):
+        raise ValueError("Gate5 lineage source_graph_tensor_bundle_hash does not match tensor bundle")
+    expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
+    expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
+    expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]
+    embedding_rows = embedding_table.get("embeddings", [])
+    if len(embedding_rows) != len(tensors):
+        raise ValueError("embedding table row count does not match tensor batch")
+    if [row["source_graph_hash"] for row in embedding_rows] != expected_graph_hashes:
+        raise ValueError("embedding table source_graph_hash coverage mismatch")
+    if [row["source_tensor_hash"] for row in embedding_rows] != expected_tensor_hashes:
+        raise ValueError("embedding table source_tensor_hash coverage mismatch")
+    if [row["kernel_invocation_id"] for row in embedding_rows] != expected_invocation_ids:
+        raise ValueError("embedding table kernel_invocation_id coverage mismatch")
+    for row in embedding_rows:
+        if row["embedding_hash"] != hash_without(row, "embedding_hash"):
+            raise ValueError("embedding row embedding_hash is not reproducible")
+    if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
+        raise ValueError("embedding table encoder_manifest_hash mismatch")
+    if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
+        raise ValueError("pipeline manifest encoder_manifest_hash mismatch")
+    if pipeline_manifest["hashes"].get("embedding_table_hash") != _embedding_table_hash(embedding_table):
+        raise ValueError("pipeline manifest embedding_table_hash mismatch")
+
+    readout_bundle = read_json(
+        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["readout_manifest"], "readout manifest")
+    )
+    readout_manifests = readout_bundle.get("manifests", [])
+    if len(readout_manifests) != len(tensors):
+        raise ValueError("readout manifest count mismatch")
+    for manifest, tensor in zip(readout_manifests, tensors):
+        validate_readout_manifest(manifest, tensor)
+    readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_manifests]
+    if [row["readout_manifest_hash"] for row in embedding_rows] != readout_hashes:
+        raise ValueError("embedding table readout_manifest_hash coverage mismatch")
+    if [row["kernel_embedding_hash"] for row in embedding_rows] != [
+        manifest["kernel"]["kernel_embedding_hash"] for manifest in readout_manifests
+    ]:
+        raise ValueError("embedding table kernel_embedding_hash coverage mismatch")
+    if pipeline_manifest["hashes"].get("readout_manifest_hashes") != readout_hashes:
+        raise ValueError("pipeline manifest readout_manifest_hashes mismatch")
+    if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(
+        readout_bundle, "readout_manifest_bundle_hash"
+    ):
+        raise ValueError("readout_manifest_bundle_hash is not reproducible")
+    if pipeline_manifest["hashes"].get("readout_manifest_bundle_hash") != readout_bundle[
+        "readout_manifest_bundle_hash"
+    ]:
+        raise ValueError("pipeline manifest readout_manifest_bundle_hash mismatch")
+    _validate_persisted_gate5_artifacts(out_dir, embedding_table, readout_bundle)
+    return {
+        "checkpoint_hash": checkpoint_hash,
+        "checkpoint_manifest": checkpoint_manifest,
+        "embedding_table": embedding_table,
+        "readout_bundle": readout_bundle,
+    }
+
+
 def _write_bundle_artifacts(
     out_dir: Path,
     manifest: dict[str, Any],
@@ -184,6 +275,10 @@ def _remove_success_artifacts(out_dir: Path) -> None:
     for key in SUCCESS_ARTIFACT_KEYS:
         (out_dir / ARTIFACT_FILENAMES[key]).unlink(missing_ok=True)
     (out_dir / CHECKPOINT_FILENAME).unlink(missing_ok=True)
+
+
+def _remove_selector_artifacts(out_dir: Path) -> None:
+    (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).unlink(missing_ok=True)
 
 
 def _remove_tensor_and_downstream_artifacts(out_dir: Path) -> None:
@@ -894,7 +989,7 @@ def _mark_embedding_stage_resource_blocked(
 
 
 def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc: Exception) -> None:
-    _remove_success_artifacts(out_dir)
+    _remove_selector_artifacts(out_dir)
     graph_bundle = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["graph_bundle"], "graph bundle")
     )
@@ -911,7 +1006,7 @@ def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc:
         out_dir,
         {
             "resource_blocked_hash": blocked["resource_blocked_hash"],
-            **EMBEDDING_DOWNSTREAM_HASH_NULLS,
+            "selector_manifest_hash": None,
         },
         top_level_updates={"resource_blocked": True},
     )
@@ -1275,6 +1370,23 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         raise ValueError("resource_blocked_hash mismatch")
 
     if pipeline_manifest.get("resource_blocked"):
+        if resource_status.get("failed_stage") == "selector":
+            gate5 = _validate_gate5_replay_artifacts(out_dir, pipeline_manifest, tensors)
+            if pipeline_manifest["hashes"].get("selector_manifest_hash") is not None:
+                raise ValueError("selector-blocked replay contains stale selector hash")
+            if (out_dir / ARTIFACT_FILENAMES["selector_artifacts"]).exists():
+                raise ValueError("selector-blocked replay contains stale selector artifact")
+            return {
+                "artifact_type": "gcl_phase_b_replay_validation",
+                "resource_blocked": True,
+                "resource_blocked_hash": resource_status["resource_blocked_hash"],
+                "checkpoint_hash": gate5["checkpoint_hash"],
+                "encoder_manifest_hash": gate5["checkpoint_manifest"][
+                    "encoder_manifest_hash"
+                ],
+                "embedding_table_hash": _embedding_table_hash(gate5["embedding_table"]),
+                "selector_manifest_hash": None,
+            }
         for key in EMBEDDING_DOWNSTREAM_HASH_NULLS:
             if pipeline_manifest["hashes"].get(key) is not None:
                 raise ValueError("resource-blocked replay contains stale success hash")
@@ -1289,60 +1401,10 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
             "resource_blocked_hash": resource_status["resource_blocked_hash"],
         }
 
-    checkpoint_manifest = read_json(
-        require_pipeline_artifact(
-            out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], "checkpoint manifest"
-        )
-    )
-    checkpoint_path = require_pipeline_artifact(out_dir / CHECKPOINT_FILENAME, "RGCN checkpoint")
-    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
-    if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
-        raise ValueError("checkpoint_hash does not match rgcn_checkpoint.pt")
-    expected_encoder_hash = hash_without(
-        checkpoint_manifest, "encoder_manifest_hash", "checkpoint_path"
-    )
-    if checkpoint_manifest.get("encoder_manifest_hash") != expected_encoder_hash:
-        raise ValueError("encoder_manifest_hash is not reproducible")
-    source_tensor_hashes = [
-        _phase_a_compatible_tensor(tensor)["tensor_hash"]
-        for tensor in tensors
-    ]
-    if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
-        raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")
-
-    embedding_table = read_json(
-        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["embedding_table"], "embedding table")
-    )
-    validate_phase_b_embedding_table(embedding_table)
-    expected_graph_tensor_bundle_hash = _source_graph_tensor_bundle_hash(tensors)
-    if embedding_table.get("source_graph_tensor_bundle_hash") != expected_graph_tensor_bundle_hash:
-        raise ValueError("embedding table source_graph_tensor_bundle_hash does not match tensor bundle")
-    if (
-        embedding_table.get("gate5_lineage", {}).get("source_graph_tensor_bundle_hash")
-        != expected_graph_tensor_bundle_hash
-    ):
-        raise ValueError("Gate5 lineage source_graph_tensor_bundle_hash does not match tensor bundle")
-    expected_graph_hashes = [tensor["input_graph_hash"] for tensor in tensors]
-    expected_tensor_hashes = [tensor["tensor_hash"] for tensor in tensors]
-    expected_invocation_ids = [tensor["kernel_invocation_id"] for tensor in tensors]
-    embedding_rows = embedding_table.get("embeddings", [])
-    if len(embedding_rows) != len(tensors):
-        raise ValueError("embedding table row count does not match tensor batch")
-    if [row["source_graph_hash"] for row in embedding_rows] != expected_graph_hashes:
-        raise ValueError("embedding table source_graph_hash coverage mismatch")
-    if [row["source_tensor_hash"] for row in embedding_rows] != expected_tensor_hashes:
-        raise ValueError("embedding table source_tensor_hash coverage mismatch")
-    if [row["kernel_invocation_id"] for row in embedding_rows] != expected_invocation_ids:
-        raise ValueError("embedding table kernel_invocation_id coverage mismatch")
-    for row in embedding_rows:
-        if row["embedding_hash"] != hash_without(row, "embedding_hash"):
-            raise ValueError("embedding row embedding_hash is not reproducible")
-    if embedding_table.get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
-        raise ValueError("embedding table encoder_manifest_hash mismatch")
-    if pipeline_manifest["hashes"].get("encoder_manifest_hash") != checkpoint_manifest["encoder_manifest_hash"]:
-        raise ValueError("pipeline manifest encoder_manifest_hash mismatch")
-    if pipeline_manifest["hashes"].get("embedding_table_hash") != _embedding_table_hash(embedding_table):
-        raise ValueError("pipeline manifest embedding_table_hash mismatch")
+    gate5 = _validate_gate5_replay_artifacts(out_dir, pipeline_manifest, tensors)
+    checkpoint_manifest = gate5["checkpoint_manifest"]
+    checkpoint_hash = gate5["checkpoint_hash"]
+    embedding_table = gate5["embedding_table"]
 
     selector_artifacts = read_json(
         require_pipeline_artifact(
@@ -1358,32 +1420,6 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     if pipeline_manifest["hashes"].get("selector_manifest_hash") != selector_artifacts["selector_manifest_hash"]:
         raise ValueError("pipeline manifest selector_manifest_hash mismatch")
     _validate_selector_artifacts_cover_embedding_table(selector_artifacts, embedding_table)
-
-    readout_bundle = read_json(
-        require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["readout_manifest"], "readout manifest")
-    )
-    readout_manifests = readout_bundle.get("manifests", [])
-    if len(readout_manifests) != len(tensors):
-        raise ValueError("readout manifest count mismatch")
-    for manifest, tensor in zip(readout_manifests, tensors):
-        validate_readout_manifest(manifest, tensor)
-    readout_hashes = [manifest["readout_manifest_hash"] for manifest in readout_manifests]
-    if [row["readout_manifest_hash"] for row in embedding_rows] != readout_hashes:
-        raise ValueError("embedding table readout_manifest_hash coverage mismatch")
-    if [row["kernel_embedding_hash"] for row in embedding_rows] != [
-        manifest["kernel"]["kernel_embedding_hash"]
-        for manifest in readout_manifests
-    ]:
-        raise ValueError("embedding table kernel_embedding_hash coverage mismatch")
-    if pipeline_manifest["hashes"].get("readout_manifest_hashes") != readout_hashes:
-        raise ValueError("pipeline manifest readout_manifest_hashes mismatch")
-    if readout_bundle.get("readout_manifest_bundle_hash") != hash_without(
-        readout_bundle, "readout_manifest_bundle_hash"
-    ):
-        raise ValueError("readout_manifest_bundle_hash is not reproducible")
-    if pipeline_manifest["hashes"].get("readout_manifest_bundle_hash") != readout_bundle["readout_manifest_bundle_hash"]:
-        raise ValueError("pipeline manifest readout_manifest_bundle_hash mismatch")
-    _validate_persisted_gate5_artifacts(out_dir, embedding_table, readout_bundle)
 
     return {
         "artifact_type": "gcl_phase_b_replay_validation",

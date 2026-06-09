@@ -457,7 +457,10 @@ def _emit_gate8_gate9_extension_artifacts(
     write_json(out_dir / "tuning_safety_report.json", gate8_proposal["tuning_safety_report"])
     write_json(out_dir / "gate8_tuning_manifest.json", gate8_proposal["gate8_tuning_manifest"])
     write_json(out_dir / "gate8_tuning_vector_proposal.json", gate8_proposal)
-    if baseline_artifacts:
+    gate8_blocked = gate8_proposal["gate8_tuning_manifest"].get(
+        "tuning_safety_status"
+    ) == "blocked_report_only"
+    if baseline_artifacts and not gate8_blocked:
         gate9_report = evaluate_gate9_sampled_vs_full(
             sampled_metrics=baseline_artifacts["sampled_metrics"],
             full_baseline_metrics=baseline_artifacts.get("full_baseline_metrics"),
@@ -625,6 +628,7 @@ def _run_gate5_training_and_export(
     existing_embedding = _load_existing_gate5_embedding_table(
         out_dir,
         graph_tensor_bundle=graph_tensor_bundle,
+        seed=seed,
     )
     if existing_embedding is not None:
         return existing_embedding
@@ -632,6 +636,7 @@ def _run_gate5_training_and_export(
     existing_training = _load_existing_gate5_training(
         out_dir,
         graph_tensor_bundle=graph_tensor_bundle,
+        seed=seed,
     )
     if existing_training is None:
         training_tensors = [_phase_a_compatible_tensor(tensor) for tensor in training_source_tensors]
@@ -694,9 +699,16 @@ def _load_existing_gate5_embedding_table(
     out_dir: Path,
     *,
     graph_tensor_bundle: dict[str, Any],
+    seed: int,
 ) -> dict[str, Any] | None:
     embedding_path = out_dir / "kernel_embedding_table.json"
     if not embedding_path.exists():
+        return None
+    training_manifest_path = out_dir / "rgcn_training_run_manifest.json"
+    if not training_manifest_path.exists():
+        return None
+    training_manifest = read_json(training_manifest_path)
+    if training_manifest.get("random_seed") != seed:
         return None
     embedding_table = read_json(embedding_path)
     if embedding_table.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
@@ -720,6 +732,7 @@ def _load_existing_gate5_training(
     out_dir: Path,
     *,
     graph_tensor_bundle: dict[str, Any],
+    seed: int,
 ) -> dict[str, Any] | None:
     checkpoint_path = out_dir / "rgcn_checkpoint.pt"
     training_manifest_path = out_dir / "rgcn_training_run_manifest.json"
@@ -737,6 +750,8 @@ def _load_existing_gate5_training(
     if training_manifest.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
         "graph_tensor_bundle_hash"
     ]:
+        return None
+    if training_manifest.get("random_seed") != seed:
         return None
     checkpoint_manifest = (
         read_json(checkpoint_manifest_path)

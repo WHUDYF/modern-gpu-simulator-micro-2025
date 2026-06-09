@@ -587,6 +587,58 @@ def test_resnet50_gate5_retrains_when_checkpoint_training_manifest_missing(
     assert (tmp_path / "rgcn_training_run_manifest.json").exists()
 
 
+def test_resnet50_gate5_retrains_when_requested_seed_changes(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+    from experiments.gcl_phase_b.trace_fixture import build_representative_sm_trace_manifest
+
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=20260607,
+    )
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+    retrain_calls = {"count": 0}
+    original_train = pipeline_module.train_minimal_contrastive
+
+    def spy_train(*args, **kwargs):
+        retrain_calls["count"] += 1
+        return original_train(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
+
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260608,
+    )
+
+    training_manifest = json.loads((tmp_path / "rgcn_training_run_manifest.json").read_text())
+    assert retrain_calls["count"] == 1
+    assert training_manifest["random_seed"] == 20260608
+    assert training_manifest["checkpoint_reuse"] is False
+
+
 def test_resnet50_gate8_report_only_handles_weak_representatives_without_blocking(tmp_path):
     import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
 
@@ -633,12 +685,30 @@ def test_resnet50_gate8_report_only_handles_weak_representatives_without_blockin
     gate8_proposal, gate9_report, final_gate = pipeline_module._emit_gate8_gate9_extension_artifacts(
         correctness_manifest=correctness_manifest,
         selector_artifacts=selector_artifacts,
-        baseline_artifacts=None,
+        baseline_artifacts={
+            "metric_rows": [
+                {
+                    "cluster_id": 0,
+                    "measured": 100.0,
+                    "predicted": 95.0,
+                    "weight": 1.0,
+                    "unit": "cycles",
+                }
+            ],
+            "sampled_metrics": {"cycles": 95.0},
+            "full_baseline_metrics": {"cycles": 100.0},
+        },
         out_dir=tmp_path,
     )
 
     assert final_gate == "gate9_report_only"
     assert gate8_proposal["gate8_tuning_manifest"]["tuning_safety_status"] == "blocked_report_only"
+    assert gate9_report["claim_status"] == (
+        "baseline_missing_no_speedup_or_accuracy_claim"
+    )
+    assert gate9_report["tuning_effect_report"]["status"] == (
+        "not_evaluated_without_baseline"
+    )
     assert gate9_report["gate9_simulator_evaluation_manifest"]["artifact_type"] == (
         "gcl_resnet50_gate9_simulator_evaluation_manifest"
     )

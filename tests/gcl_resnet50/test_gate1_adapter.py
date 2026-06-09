@@ -107,6 +107,7 @@ def test_gate1_builds_formal_adapter_from_real_resnet50_trace_root():
     assert bundle["artifact_status"] == "formal"
     assert bundle["formal_input_eligible"] is True
     assert bundle["trace_source"] == "nvbit"
+    assert bundle["input_scope"] == "full_resnet50_inference_trace"
     assert bundle["scheduler_metadata_source"] == "real_nvbit_smid"
     assert bundle["kernel_invocation_table"]
     assert bundle["static_instruction_table"]
@@ -129,6 +130,7 @@ def test_gate1_invocation_limit_bounds_real_root_materialization_before_threadbl
     bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_limit=1)
 
     validate_resnet50_trace_adapter_bundle(bundle)
+    assert bundle["input_scope"] == "bounded_resnet50_invocation_slice"
     assert len(bundle["kernel_invocation_table"]) == 1
     kept_id = bundle["kernel_invocation_table"][0]["kernel_invocation_id"]
     assert {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]} == {kept_id}
@@ -137,3 +139,16 @@ def test_gate1_invocation_limit_bounds_real_root_materialization_before_threadbl
     assert bundle["adapter_validation_report"]["trace_materialization_scope"] == (
         "representative_sm_all_ctas"
     )
+
+
+def test_gate1_invocation_ids_mark_real_root_adapter_as_bounded_slice():
+    selected_ids = ["d_0_s_0_k_267", "d_0_s_0_k_272"]
+
+    bundle = build_resnet50_trace_adapter_bundle(FORMAL_ROOT, invocation_ids=selected_ids)
+
+    validate_resnet50_trace_adapter_bundle(bundle)
+    assert bundle["input_scope"] == "bounded_resnet50_invocation_slice"
+    assert [
+        row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]
+    ] == selected_ids
+    assert bundle["adapter_validation_report"]["formal_replay_invocation_ids"] == selected_ids

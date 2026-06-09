@@ -85,6 +85,11 @@ def build_resnet50_trace_adapter_bundle(
         invocation_limit=invocation_limit,
         invocation_ids=invocation_ids,
     )
+    input_scope = (
+        "bounded_resnet50_invocation_slice"
+        if invocation_limit is not None or invocation_ids is not None
+        else "full_resnet50_inference_trace"
+    )
     if sources.scheduler_metadata.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     kernel_invocation_table = _kernel_invocation_table(
@@ -107,7 +112,7 @@ def build_resnet50_trace_adapter_bundle(
         "workload_id": "resnet50",
         "execution_mode": "real_trace",
         "trace_source": "nvbit",
-        "input_scope": "full_resnet50_inference_trace",
+        "input_scope": input_scope,
         "scheduler_metadata_source": "real_nvbit_smid",
         "source_gate0_manifest_hash": sources.gate0_manifest["gate0_manifest_hash"],
         "source_artifact_hashes": {
@@ -740,8 +745,11 @@ def validate_resnet50_trace_adapter_bundle(bundle: dict[str, Any]) -> None:
         raise ValueError("execution_mode must be real_trace")
     if bundle.get("trace_source") != "nvbit":
         raise ValueError("trace_source must be nvbit")
-    if bundle.get("input_scope") != "full_resnet50_inference_trace":
-        raise ValueError("input_scope must be full_resnet50_inference_trace")
+    if bundle.get("input_scope") not in {
+        "full_resnet50_inference_trace",
+        "bounded_resnet50_invocation_slice",
+    }:
+        raise ValueError("input_scope must be full_resnet50_inference_trace or bounded_resnet50_invocation_slice")
     if bundle.get("scheduler_metadata_source") != "real_nvbit_smid":
         raise ValueError("scheduler_metadata_source must be real_nvbit_smid")
     if not bundle.get("source_gate0_manifest_hash"):

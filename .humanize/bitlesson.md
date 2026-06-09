@@ -222,6 +222,16 @@ Constraints: Store and control-flow zero-destination handling remains unchanged;
 Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py`; `python3 -m py_compile experiments/gcl_phase_b/resnet50_adapter.py`.
 Source Rounds: 41
 
+## Lesson: augmentation-derived-metadata-and-launch-order
+Lesson ID: BL-20260609-augmentation-derived-metadata-launch-order
+Scope: experiments/gcl_phase_a/train.py, experiments/gcl_phase_b/resnet50_adapter.py
+Problem Description: GCL augmentation and trace parsing can keep stale or guessed provenance when derived metadata is copied across a structural transform.
+Root Cause: `augment_tensor()` rebuilt node features, edges, and `warp_partitions` but copied pre-augmentation `warp_partition_tensors`; `_load_dynamic_trace_pb()` assigned launch-order IDs by grouped device/stream iteration even though multi-stream protobufs do not expose a cross-stream global chronology.
+Solution: Rebuild `warp_partition_tensors` from augmented node and edge arrays after node/edge dropping, and reject active multi-stream `dynamic_trace.pb` inputs unless a scheduler-aligned global launch order is available before invocation IDs are minted.
+Constraints: Single-stream formal ResNet-50 traces keep the existing protobuf order; multi-stream inputs must fail fast rather than silently binding scheduler metadata to guessed launch IDs.
+Validation Evidence: `pytest -q tests/gcl_phase_a/test_rgcn_training.py`; `pytest -q tests/gcl_phase_b/test_tensorizer.py tests/gcl_phase_b/test_embedding_export.py`; `pytest -q tests/gcl_resnet50/test_gate1_adapter.py tests/gcl_phase_b/test_resnet50_adapter.py`; `pytest -q tests/gcl_phase_b/test_resnet50_gate_pipeline.py tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_resnet50_gate_replay.py`; `pytest -q tests/gcl_resnet50/test_gate5_rgcn_training.py tests/gcl_resnet50/test_gate6_selector.py tests/gcl_resnet50/test_gate7_correctness.py`; `python3 -m py_compile experiments/gcl_phase_a/train.py experiments/gcl_phase_b/resnet50_adapter.py tests/gcl_phase_a/test_rgcn_training.py tests/gcl_resnet50/test_gate1_adapter.py`; `git diff --check && git diff --cached --check` passed.
+Source Rounds: 47
+
 ## Lesson: selector-blocked-keeps-gate5-artifacts
 Lesson ID: BL-20260609-selector-blocked-keeps-gate5-artifacts
 Scope: experiments/gcl_phase_b/pipeline.py, tests/gcl_phase_b/test_pipeline.py, tests/gcl_phase_b/test_replay.py

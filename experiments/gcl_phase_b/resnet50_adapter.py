@@ -301,6 +301,7 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
         raise FileNotFoundError("dynamic_trace.pb is required for formal Gate1")
     trace = trace_pb2.Trace()
     trace.ParseFromString(path.read_bytes())
+    _reject_unordered_multi_stream_trace(trace)
     invocations = []
     launch_order = 0
     for device_id, device in sorted(trace.gpu_device.items()):
@@ -338,6 +339,19 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
         "artifact_type": "resnet50_dynamic_trace_pb",
         "kernel_invocations": invocations,
     }
+
+
+def _reject_unordered_multi_stream_trace(trace) -> None:
+    active_streams = []
+    for device_id, device in trace.gpu_device.items():
+        for stream_id, stream in device.streams.items():
+            if stream.kernels:
+                active_streams.append((int(device_id), int(stream_id)))
+    if len(active_streams) > 1:
+        raise ValueError(
+            "multi-stream dynamic_trace.pb lacks global launch order; "
+            "Gate1 requires scheduler-aligned invocation IDs before parsing protobuf kernels"
+        )
 
 
 def _load_threadblocks_from_scheduler(

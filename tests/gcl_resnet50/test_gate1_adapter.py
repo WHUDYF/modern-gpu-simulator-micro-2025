@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from experiments.baseline_diagnosis.proto_gen import trace_pb2
 from experiments.gcl_phase_b.resnet50_adapter import (
     build_resnet50_artifact_shape_trace_adapter_bundle,
     build_resnet50_trace_adapter_bundle,
@@ -118,6 +119,31 @@ def test_gate1_artifact_shape_adapter_reads_dynamic_trace_pb_and_threadblock_dir
         "FADD",
         "STG.E.64.SYS",
     ]
+
+
+def test_gate1_rejects_multi_stream_pb_without_global_launch_order(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "multi_stream_trace")
+    trace = trace_pb2.Trace()
+    trace.name = "multi_stream_without_global_order"
+    device = trace.gpu_device[0]
+    device.id = 0
+    for stream_id, kernel_id in [(0, 101), (1, 202)]:
+        stream = device.streams[stream_id]
+        stream.id = stream_id
+        kernel = stream.kernels.add()
+        kernel.id = kernel_id
+        kernel.name = f"stream_{stream_id}_kernel"
+        kernel.function_unique_id = 9000 + stream_id
+        kernel.grid_dim.x = 1
+        kernel.grid_dim.y = 1
+        kernel.grid_dim.z = 1
+        kernel.block_dim.x = 32
+        kernel.block_dim.y = 1
+        kernel.block_dim.z = 1
+    (root / "dynamic_trace.pb").write_bytes(trace.SerializeToString())
+
+    with pytest.raises(ValueError, match="multi-stream dynamic_trace.pb lacks global launch order"):
+        build_resnet50_artifact_shape_trace_adapter_bundle(root)
 
 
 def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(tmp_path):

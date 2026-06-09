@@ -2,6 +2,8 @@ import pytest
 import subprocess
 import sys
 
+import numpy as np
+
 from experiments.gcl_phase_a.graph_builder import build_canonical_graphs
 from experiments.gcl_phase_a.tensorizer import tensorize_graphs
 from experiments.gcl_phase_a.trace_fixture import build_controlled_trace_fixture
@@ -112,6 +114,39 @@ def test_augmentation_preserves_strict_zero_padding_columns():
             assert (augmented["node_features"][index, 40:64] == 0.0).all()
         if node_type == "pseudo":
             assert (augmented["node_features"][index, 16:64] == 0.0).all()
+
+
+def test_augmentation_rebuilds_warp_partition_tensors_after_node_and_edge_drops():
+    tensor = {
+        "node_features": np.zeros((4, 64), dtype=np.float32),
+        "node_types": ["instruction", "register_version", "instruction", "pseudo"],
+        "edge_index": np.asarray([[0, 1, 2], [1, 2, 3]], dtype=np.int64),
+        "edge_type": np.asarray([0, 1, 2], dtype=np.int64),
+        "warp_partitions": {"cta_0:warp_0": [0, 1, 2, 3]},
+        "warp_partition_tensors": {
+            "cta_0:warp_0": {
+                "partition_id": "cta_0:warp_0",
+                "cta_id": "cta_0",
+                "warp_id": 0,
+                "node_indices": [0, 1, 2, 3],
+                "edge_indices": [0, 1, 2],
+                "instruction_count": 2,
+            }
+        },
+    }
+
+    augmented, _ = augment_tensor(
+        tensor,
+        seed=11,
+        node_drop_rate=1.0,
+        edge_drop_rate=0.0,
+        noise_sigma=0.0,
+    )
+
+    partition = augmented["warp_partition_tensors"]["cta_0:warp_0"]
+    assert partition["node_indices"] == augmented["warp_partitions"]["cta_0:warp_0"]
+    assert partition["node_indices"] == [0, 1]
+    assert partition["edge_indices"] == []
 
 
 def test_training_rejects_empty_warp_partition():

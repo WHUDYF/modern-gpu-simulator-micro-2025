@@ -38,6 +38,29 @@ def _filter_edges(edge_index: np.ndarray, edge_type: np.ndarray, keep_indices: n
     return np.zeros((2, 0), dtype=np.int64), np.zeros((0,), dtype=np.int64)
 
 
+def _rebuild_warp_partition_tensors(
+    original_partition_tensors: dict[str, dict[str, Any]],
+    warp_partitions: dict[str, list[int]],
+    edge_index: np.ndarray,
+) -> dict[str, dict[str, Any]]:
+    rebuilt = {}
+    for partition_id, node_indices in warp_partitions.items():
+        original = original_partition_tensors.get(partition_id, {})
+        node_set = set(node_indices)
+        edge_indices = [
+            edge_offset
+            for edge_offset, column in enumerate(edge_index.T)
+            if int(column[0]) in node_set and int(column[1]) in node_set
+        ]
+        rebuilt[partition_id] = {
+            **original,
+            "partition_id": original.get("partition_id", partition_id),
+            "node_indices": list(node_indices),
+            "edge_indices": edge_indices,
+        }
+    return rebuilt
+
+
 def augment_tensor(
     tensor: dict[str, Any],
     seed: int,
@@ -76,12 +99,19 @@ def augment_tensor(
         edge_keep = rng.random(edge_type.shape[0]) >= edge_drop_rate
         edge_index = edge_index[:, edge_keep]
         edge_type = edge_type[edge_keep]
+    warp_partition_tensors = _rebuild_warp_partition_tensors(
+        tensor.get("warp_partition_tensors", {}),
+        warp_partitions,
+        edge_index,
+    )
     augmented = dict(tensor)
     augmented["node_features"] = node_features
     augmented["node_types"] = node_types
     augmented["edge_index"] = edge_index
     augmented["edge_type"] = edge_type
     augmented["warp_partitions"] = warp_partitions
+    if warp_partition_tensors:
+        augmented["warp_partition_tensors"] = warp_partition_tensors
     augmented["augmentation_manifest"] = {
         "node_drop_rate": node_drop_rate,
         "edge_drop_rate": edge_drop_rate,

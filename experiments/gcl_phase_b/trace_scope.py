@@ -49,6 +49,7 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
         if set(invocation["included_cta_ids"]) != expected_ctas:
             raise ValueError("included_cta_ids must cover all selected SM CTAs")
         scoped_entries = _scoped_entries(invocation)
+        _validate_selected_sm_trace_entry_coverage(invocation, scoped_entries)
         expected_instruction_count = len(scoped_entries)
         expected_warp_count = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
         if invocation["instruction_count"] != expected_instruction_count:
@@ -72,6 +73,35 @@ def validate_phase_b_trace_manifest(manifest: dict[str, Any]) -> None:
 def _scoped_entries(invocation: dict[str, Any]) -> list[dict[str, Any]]:
     included = set(invocation["included_cta_ids"])
     return [entry for entry in invocation.get("all_trace_entries", []) if entry["cta_id"] in included]
+
+
+def _validate_selected_sm_trace_entry_coverage(
+    invocation: dict[str, Any],
+    scoped_entries: list[dict[str, Any]],
+) -> None:
+    included_ctas = set(invocation["included_cta_ids"])
+    entries_by_cta: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    observed_warps_by_cta: dict[str, set[int]] = defaultdict(set)
+    for entry in scoped_entries:
+        cta_id = entry["cta_id"]
+        entries_by_cta[cta_id].append(entry)
+        observed_warps_by_cta[cta_id].add(int(entry["warp_id"]))
+
+    missing_ctas = sorted(included_ctas.difference(entries_by_cta))
+    if missing_ctas:
+        raise ValueError(f"CTA trace entries missing for selected SM CTAs: {missing_ctas}")
+
+    selected_sm_metadata = invocation["scheduler_metadata_by_sm"][str(invocation["selected_sm"])]
+    warp_ids_by_cta = selected_sm_metadata.get("warp_ids_by_cta")
+    if not isinstance(warp_ids_by_cta, dict):
+        raise ValueError("selected SM scheduler metadata must define warp_ids_by_cta")
+    for cta_id in sorted(included_ctas):
+        expected_warps = {int(warp_id) for warp_id in warp_ids_by_cta.get(cta_id, [])}
+        missing_warps = sorted(expected_warps.difference(observed_warps_by_cta.get(cta_id, set())))
+        if missing_warps:
+            raise ValueError(
+                f"warp trace entries missing for selected SM CTA {cta_id}: {missing_warps}"
+            )
 
 
 def build_scope_audit(invocation: dict[str, Any]) -> dict[str, Any]:

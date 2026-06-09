@@ -107,6 +107,58 @@ def test_trace_manifest_rejects_inconsistent_scoped_counts_and_hash():
         validate_phase_b_trace_manifest(bad_hash)
 
 
+def test_trace_manifest_rejects_included_cta_without_trace_entries():
+    manifest = build_representative_sm_trace_manifest()
+    missing_cta_entries = copy.deepcopy(manifest)
+    invocation = missing_cta_entries["kernel_invocations"][0]
+    invocation["all_trace_entries"] = [
+        entry for entry in invocation["all_trace_entries"] if entry["cta_id"] != "cta_3"
+    ]
+    scoped_entries = [
+        entry for entry in invocation["all_trace_entries"] if entry["cta_id"] in invocation["included_cta_ids"]
+    ]
+    invocation["instruction_count"] = len(scoped_entries)
+    invocation["warp_count"] = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
+    invocation["instruction_count_before_scope"] = len(invocation["all_trace_entries"])
+    invocation["warp_count_before_scope"] = len(
+        {(entry["cta_id"], entry["warp_id"]) for entry in invocation["all_trace_entries"]}
+    )
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    missing_cta_entries["trace_manifest_hash"] = hash_without(
+        missing_cta_entries, "trace_manifest_hash"
+    )
+
+    with pytest.raises(ValueError, match="CTA trace entries"):
+        validate_phase_b_trace_manifest(missing_cta_entries)
+
+
+def test_trace_manifest_rejects_included_cta_without_expected_warp_entries():
+    manifest = build_representative_sm_trace_manifest()
+    missing_warp_entries = copy.deepcopy(manifest)
+    invocation = missing_warp_entries["kernel_invocations"][0]
+    invocation["all_trace_entries"] = [
+        entry
+        for entry in invocation["all_trace_entries"]
+        if not (entry["cta_id"] == "cta_3" and entry["warp_id"] == 1)
+    ]
+    scoped_entries = [
+        entry for entry in invocation["all_trace_entries"] if entry["cta_id"] in invocation["included_cta_ids"]
+    ]
+    invocation["instruction_count"] = len(scoped_entries)
+    invocation["warp_count"] = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
+    invocation["instruction_count_before_scope"] = len(invocation["all_trace_entries"])
+    invocation["warp_count_before_scope"] = len(
+        {(entry["cta_id"], entry["warp_id"]) for entry in invocation["all_trace_entries"]}
+    )
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    missing_warp_entries["trace_manifest_hash"] = hash_without(
+        missing_warp_entries, "trace_manifest_hash"
+    )
+
+    with pytest.raises(ValueError, match="warp trace entries"):
+        validate_phase_b_trace_manifest(missing_warp_entries)
+
+
 def test_trace_manifest_rejects_stale_top_level_hash_after_invocation_rehash():
     manifest = build_representative_sm_trace_manifest()
     manifest["kernel_invocations"][0]["selected_sm_reason"] = "tampered_reason"

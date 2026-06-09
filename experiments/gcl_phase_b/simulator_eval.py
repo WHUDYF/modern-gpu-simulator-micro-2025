@@ -28,7 +28,11 @@ def evaluate_gate9_sampled_vs_full(
         raise ValueError("Gate8 tuning manifest hash is required")
     if not anchor_hash:
         raise ValueError("representative anchor table hash is required")
-    baseline = measured_baseline_metrics or full_baseline_metrics or {}
+    baseline = _accuracy_baseline_by_sampled_key(
+        sampled_metrics=sampled_metrics,
+        full_baseline_metrics=full_baseline_metrics,
+        measured_baseline_metrics=measured_baseline_metrics,
+    )
     comparable_keys = sorted(set(sampled_metrics).intersection(baseline))
     if not comparable_keys:
         raise ValueError("baseline has no comparable metric keys")
@@ -102,6 +106,21 @@ def gate9_baseline_missing_report() -> dict[str, Any]:
     )
     artifact["gate9_sampled_vs_full_evaluation_hash"] = stable_hash(artifact)
     return artifact
+
+
+def _accuracy_baseline_by_sampled_key(
+    *,
+    sampled_metrics: dict[str, float],
+    full_baseline_metrics: dict[str, float] | None,
+    measured_baseline_metrics: dict[str, float] | None,
+) -> dict[str, float]:
+    baseline = {}
+    for key in sampled_metrics:
+        if measured_baseline_metrics and key in measured_baseline_metrics:
+            baseline[key] = measured_baseline_metrics[key]
+        elif full_baseline_metrics and key in full_baseline_metrics:
+            baseline[key] = full_baseline_metrics[key]
+    return baseline
 
 
 def _relative_error(sampled: float, expected: float) -> float:

@@ -64,6 +64,29 @@ def test_gate9_accuracy_uses_measured_baseline_when_full_baseline_also_exists():
     assert report["sampled_speedup_report"]["cycles_speedup"] == round(100.0 / 90.0, 8)
 
 
+def test_gate9_accuracy_falls_back_to_full_baseline_for_missing_measured_keys():
+    report = evaluate_gate9_sampled_vs_full(
+        sampled_metrics={"cycles": 90.0, "runtime_ms": 9.0},
+        full_baseline_metrics={"cycles": 100.0, "runtime_ms": 10.0},
+        measured_baseline_metrics={"cycles": 120.0},
+        gate8_tuning_manifest={
+            "artifact_type": "gcl_resnet50_gate8_tuning_manifest",
+            "gate8_tuning_manifest_hash": "gate8-hash",
+        },
+        representative_anchor_table={
+            "artifact_type": "gcl_resnet50_representative_anchor_table",
+            "representative_anchor_table_hash": "anchor-hash",
+        },
+    )
+
+    assert report["full_vs_sampled_simulation_report"]["cycles"]["baseline"] == 120.0
+    assert report["full_vs_sampled_simulation_report"]["runtime_ms"]["baseline"] == 10.0
+    assert report["sampled_error_report"]["cycles_relative_error"] == 0.25
+    assert report["sampled_error_report"]["runtime_ms_relative_error"] == 0.1
+    assert report["sampled_speedup_report"]["cycles_speedup"] == round(100.0 / 90.0, 8)
+    assert report["sampled_speedup_report"]["runtime_ms_speedup"] == round(10.0 / 9.0, 8)
+
+
 def test_gate9_speedup_ignores_measured_only_metrics_not_in_full_baseline():
     report = evaluate_gate9_sampled_vs_full(
         sampled_metrics={"cycles": 90.0, "runtime_ms": 9.0},

@@ -64,10 +64,14 @@ def build_workloads():
             w["T_sim_backend_execution_s"] = {"value": rec["T_sim_backend_execution_s"], "label": "measured"}
             w["T_result_analysis_s"] = {"value": rec["T_result_analysis_s"], "label": "measured"}
         else:
-            t_f = _formula_estimate(wid)
+            measured_timing = _load_measured_timing_for(wid)
+            t_f = measured_timing if measured_timing is not None else _formula_estimate(wid)
             label = "modeled" if "llama" in wid else "placeholder"
             w["T_kernel_or_trace_export_s"] = {"value": _formula_export(wid), "label": label}
-            w["T_trace_to_sim_s"] = {"value": t_f, "label": label}
+            w["T_trace_to_sim_s"] = {
+                "value": t_f,
+                "label": "measured" if measured_timing is not None else label,
+            }
             w["T_sim_backend_execution_s"] = {"value": _formula_backend(wid), "label": label}
             w["T_result_analysis_s"] = {"value": 5.0, "label": label}
         workloads.append(w)

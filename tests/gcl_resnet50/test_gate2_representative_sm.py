@@ -40,6 +40,7 @@ def test_gate2_builds_artifact_shape_representative_sm_manifest_without_formal_c
     assert manifest["artifact_status"] == "debug_not_formal"
     assert manifest["formal_input_eligible"] is False
     assert manifest["trace_source"] == "synthetic_protobuf_artifact_shape"
+    assert manifest["source_adapter_bundle_hash"] == _bundle["adapter_bundle_hash"]
     assert reports["reports"]
     assert preview["invocations"]
     for invocation in manifest["kernel_invocations"]:
@@ -54,6 +55,7 @@ def test_gate2_selects_representative_sm_from_real_resnet50_scheduler_metadata()
     assert manifest["artifact_status"] == "formal"
     assert manifest["formal_input_eligible"] is True
     assert manifest["trace_source"] == "nvbit"
+    assert manifest["source_adapter_bundle_hash"] == bundle["adapter_bundle_hash"]
     assert reports["reports"]
     assert preview["invocations"]
     for invocation, report in zip(manifest["kernel_invocations"], reports["reports"]):

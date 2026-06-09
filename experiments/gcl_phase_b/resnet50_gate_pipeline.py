@@ -261,6 +261,8 @@ def resume_resnet50_gate5_to_gate9_from_disk(
         "canonical_graph_bundle_hash"
     ):
         raise ValueError("graph tensor bundle is not bound to canonical graph bundle")
+    if trace_manifest.get("source_adapter_bundle_hash") != adapter_bundle.get("adapter_bundle_hash"):
+        raise ValueError("representative SM trace manifest is not bound to adapter bundle")
     if canonical_graph_bundle.get("source_trace_manifest_hash") != trace_manifest.get(
         "trace_manifest_hash"
     ):

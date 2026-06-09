@@ -159,6 +159,7 @@ def test_clone_workload_sources_has_sparse_rules_for_large_sources():
     assert "sparse-checkout init" in script
     assert "sparse-checkout set" in script
     assert 'rm -rf "$target"' in script[script.index("failed:sparse:") :]
+    assert 'rm -rf "$target"' in existing_branch
     assert 'rm -rf "$target"' in script[script.index('"failed:$code"') :]
 
 

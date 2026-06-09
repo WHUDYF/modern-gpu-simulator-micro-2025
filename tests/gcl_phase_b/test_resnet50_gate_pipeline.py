@@ -378,6 +378,33 @@ def test_resnet50_gate_pipeline_resume_rejects_stale_gate2_trace_manifest(tmp_pa
         raise AssertionError("stale Gate2 trace manifest must block persisted Gate5-9 resume")
 
 
+def test_resnet50_gate_pipeline_resume_rejects_trace_manifest_from_stale_adapter(
+    tmp_path,
+):
+    out_dir = tmp_path / "resume_rejects_stale_adapter"
+    run_resnet50_gate1_to_gate5(
+        FORMAL_ROOT,
+        out_dir,
+        seed=20260607,
+        invocation_limit=1,
+    )
+    adapter_path = out_dir / "resnet50_trace_adapter_bundle.json"
+    adapter_bundle = json.loads(adapter_path.read_text())
+    adapter_bundle["adapter_validation_report"] = {
+        **adapter_bundle["adapter_validation_report"],
+        "formal_replay_invocation_limit": 2,
+    }
+    adapter_bundle["adapter_bundle_hash"] = hash_without(adapter_bundle, "adapter_bundle_hash")
+    write_json(adapter_path, adapter_bundle)
+
+    try:
+        resume_resnet50_gate5_to_gate9_from_disk(out_dir, seed=20260607)
+    except ValueError as exc:
+        assert "representative SM trace manifest is not bound to adapter bundle" in str(exc)
+    else:
+        raise AssertionError("stale adapter-bound Gate2 manifest must block persisted resume")
+
+
 def test_resnet50_gate_pipeline_resume_uses_persisted_seed_by_default(
     tmp_path,
     monkeypatch,

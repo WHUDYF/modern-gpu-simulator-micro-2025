@@ -50,6 +50,7 @@ def build_representative_sm_manifest_from_bundle(
         "trace_source": bundle.get("trace_source"),
         "input_scope": bundle.get("input_scope"),
         "scheduler_metadata_source": bundle.get("scheduler_metadata_source"),
+        "source_adapter_bundle_hash": bundle["adapter_bundle_hash"],
         "collection_scope": COLLECTION_SCOPE,
         "trace_family": "resnet50_real_trace",
         "kernel_invocations": invocations,

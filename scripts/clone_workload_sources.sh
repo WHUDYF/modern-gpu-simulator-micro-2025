@@ -40,6 +40,7 @@ apply_sparse_checkout() {
       git -C "$target" sparse-checkout set ${sparse_roots[$name]}
     } >>"$log" 2>&1
   fi
+  return 0
 }
 
 for entry in "${repos[@]}"; do

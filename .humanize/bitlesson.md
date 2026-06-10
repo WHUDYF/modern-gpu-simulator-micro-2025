@@ -301,3 +301,13 @@ Solution: Persist Gate5 core artifacts immediately after successful re-export, r
 Constraints: Selector artifacts are still removed on selector failure; training/export failures still clear downstream success artifacts; selector-blocked replay is valid only when Gate5 artifacts are mutually consistent.
 Validation Evidence: `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs`; `pytest -q tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_failure_marks_resource_blocked_and_clears_stale_selector tests/gcl_phase_b/test_pipeline.py::test_from_disk_selector_stage_clears_resource_blocked_after_successful_retry tests/gcl_phase_b/test_replay.py::test_phase_b_replay_accepts_resource_blocked_artifacts`; `pytest -q tests/gcl_phase_b/test_pipeline.py tests/gcl_phase_b/test_replay.py`; `python3 -m py_compile experiments/gcl_phase_b/pipeline.py tests/gcl_phase_b/test_pipeline.py`.
 Source Rounds: 58
+
+## Lesson: shell-helper-noop-branches-return-success
+Lesson ID: BL-20260610-shell-helper-noop-success
+Scope: scripts/clone_workload_sources.sh, tests/test_workload_registry_tools.py
+Problem Description: A bash helper used inside an `if helper; then` branch can report failure for legitimate no-op work if the helper falls through after an unmet condition.
+Root Cause: `apply_sparse_checkout()` returned the exit status of `[[ -n "${sparse_roots[$name]:-}" ]]`; for non-sparse repositories that test is false, so existing full checkouts were misclassified as sparse checkout failures on rerun.
+Solution: Add an explicit `return 0` at the end of the helper and cover the script contract with a text regression test.
+Constraints: Sparse repositories still return the status of the sparse-checkout commands when those commands run; existing checkout preservation behavior remains unchanged.
+Validation Evidence: `pytest -q tests/test_workload_registry_tools.py::test_clone_workload_sources_has_sparse_rules_for_large_sources`; `pytest -q tests/test_workload_registry_tools.py`; `bash -n scripts/clone_workload_sources.sh`; `git diff --check && git diff --cached --check`.
+Source Rounds: 59

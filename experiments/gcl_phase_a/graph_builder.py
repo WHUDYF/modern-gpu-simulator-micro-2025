@@ -78,7 +78,7 @@ def _resolve_destination_token(
     register_versions: dict[str, int],
 ) -> str:
     if not _is_raw_register_token(token):
-        return token
+        return _warp_scoped_variable_token(token, warp_id)
     version = register_versions.get(token, 0) + 1
     register_versions[token] = version
     return _versioned_register_token(token, warp_id, version)
@@ -97,6 +97,7 @@ def _add_variable_node(
     nodes: list[dict[str, Any]],
     node_by_id: dict[str, dict[str, Any]],
     token: str,
+    warp_id: int,
     values: list[float],
 ) -> str:
     node_id = _variable_id(token)
@@ -105,10 +106,13 @@ def _add_variable_node(
             "node_id": node_id,
             "node_type": _semantic_node_type(token),
             "token": token,
+            "warp_id": warp_id,
             "observed_dynamic_values": [],
         }
         node_by_id[node_id] = node
         nodes.append(node)
+    elif node_by_id[node_id].get("warp_id") != warp_id:
+        raise ValueError("variable node must not be shared across warp partitions")
     node_by_id[node_id]["observed_dynamic_values"].extend(values)
     return node_id
 
@@ -157,7 +161,13 @@ def build_canonical_graph(record: dict[str, Any], fixture_hash: str) -> dict[str
             observed_values = entry.get("observed_dynamic_values", [])
             for source_index, token in enumerate(entry["source_operands"]):
                 resolved_token = _resolve_source_token(token, entry["warp_id"], register_versions)
-                variable_id = _add_variable_node(nodes, node_by_id, resolved_token, observed_values)
+                variable_id = _add_variable_node(
+                    nodes,
+                    node_by_id,
+                    resolved_token,
+                    entry["warp_id"],
+                    observed_values,
+                )
                 if source_index in address_positions:
                     instruction_node["address_source_node_id"] = variable_id
                     mem_ref_id = _mem_ref_id(entry)
@@ -179,10 +189,20 @@ def build_canonical_graph(record: dict[str, Any], fixture_hash: str) -> dict[str
 
             for token in entry["destination_operands"]:
                 resolved_token = _resolve_destination_token(token, entry["warp_id"], register_versions)
-                variable_id = _add_variable_node(nodes, node_by_id, resolved_token, observed_values)
+                variable_id = _add_variable_node(
+                    nodes,
+                    node_by_id,
+                    resolved_token,
+                    entry["warp_id"],
+                    observed_values,
+                )
                 edges.append(_edge(instruction_id, variable_id, "data_destination"))
 
-        warp_partitions[warp_key] = instruction_ids
+        warp_partitions[warp_key] = [
+            node["node_id"]
+            for node in nodes
+            if str(node.get("warp_id")) == warp_key
+        ]
 
     graph = {
         "artifact_type": "canonical_graph",
@@ -246,29 +266,6 @@ def validate_graph_artifact(graph: dict[str, Any]) -> None:
     if not graph["warp_partitions"]:
         raise ValueError("warp_partitions must not be empty")
 
-    observed_instruction_order: dict[str, list[int]] = defaultdict(list)
-    for node in graph["nodes"]:
-        if node["node_type"] == "instruction":
-            observed_instruction_order[str(node["warp_id"])].append(node["trace_index"])
-    for warp_id, trace_indices in observed_instruction_order.items():
-        if trace_indices != sorted(trace_indices):
-            raise ValueError(f"ordering violation in warp {warp_id}")
-        expected_node_ids = [
-            node["node_id"]
-            for node in graph["nodes"]
-            if node["node_type"] == "instruction" and str(node["warp_id"]) == warp_id
-        ]
-        if graph["warp_partitions"].get(warp_id) != expected_node_ids:
-            raise ValueError("warp_partitions must match instruction node order")
-        control_edges = {
-            (edge["source"], edge["target"])
-            for edge in graph["edges"]
-            if edge["relation"] == "control_flow"
-        }
-        for source_id, target_id in zip(expected_node_ids, expected_node_ids[1:]):
-            if (source_id, target_id) not in control_edges:
-                raise ValueError("missing consecutive control_flow edge")
-
     data_edges = {
         (edge["source"], edge["target"])
         for edge in graph["edges"]
@@ -294,5 +291,51 @@ def validate_graph_artifact(graph: dict[str, Any]) -> None:
     for node in graph["nodes"]:
         if node["node_type"] == "pseudo" and node.get("pseudo_kind") != "mem_ref":
             raise ValueError("Phase A only supports mem_ref pseudo nodes")
+
+    observed_instruction_order: dict[str, list[int]] = defaultdict(list)
+    for node in graph["nodes"]:
+        if node["node_type"] == "instruction":
+            observed_instruction_order[str(node["warp_id"])].append(node["trace_index"])
+    for warp_id, trace_indices in observed_instruction_order.items():
+        if trace_indices != sorted(trace_indices):
+            raise ValueError(f"ordering violation in warp {warp_id}")
+        expected_instruction_node_ids = [
+            node["node_id"]
+            for node in graph["nodes"]
+            if node["node_type"] == "instruction" and str(node["warp_id"]) == warp_id
+        ]
+        partition_node_ids = graph["warp_partitions"].get(warp_id, [])
+        unknown_partition_node_ids = [
+            node_id for node_id in partition_node_ids if node_id not in node_by_id
+        ]
+        if unknown_partition_node_ids:
+            raise ValueError("warp_partitions reference unknown node")
+        partition_instruction_node_ids = [
+            node_id
+            for node_id in partition_node_ids
+            if node_by_id[node_id]["node_type"] == "instruction"
+        ]
+        if partition_instruction_node_ids != expected_instruction_node_ids:
+            raise ValueError("warp_partitions must preserve instruction node order")
+        partition_node_set = set(partition_node_ids)
+        expected_warp_node_ids = {
+            node["node_id"]
+            for node in graph["nodes"]
+            if str(node.get("warp_id")) == warp_id
+        }
+        if partition_node_set != expected_warp_node_ids:
+            raise ValueError("warp_partitions must include all nodes for each warp")
+        control_edges = {
+            (edge["source"], edge["target"])
+            for edge in graph["edges"]
+            if edge["relation"] == "control_flow"
+        }
+        for source_id, target_id in zip(
+            expected_instruction_node_ids,
+            expected_instruction_node_ids[1:],
+        ):
+            if (source_id, target_id) not in control_edges:
+                raise ValueError("missing consecutive control_flow edge")
+
     if graph["graph_hash"] != hash_without(graph, *GRAPH_HASH_EXCLUDED_FIELDS):
         raise ValueError("graph_hash is not reproducible")

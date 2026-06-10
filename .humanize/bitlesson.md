@@ -261,3 +261,13 @@ Solution: Require generic fallback timing artifacts to declare a matching `workl
 Constraints: Per-workload `frontend_timing_breakdown_<workload_id>.json` files remain trusted by filename; the identity check applies to the generic single-run fallback file.
 Validation Evidence: `pytest -q tests/test_complete_flow_burden_ratio_calc.py`; `python3 -m py_compile artifacts/gpu_trace_frontend_difftest_necessity/complete_flow_burden_ratio_calc.py tests/test_complete_flow_burden_ratio_calc.py`.
 Source Rounds: 42
+
+## Lesson: phase-a-partitioned-readout-contract
+Lesson ID: BL-20260610-phase-a-partitioned-readout-contract
+Scope: experiments/gcl_phase_a/graph_builder.py, experiments/gcl_phase_a/embedding_export.py, tests/gcl_phase_a/test_graph_builder.py, tests/gcl_phase_a/test_embedding_export.py
+Problem Description: Phase A partitioned contrastive training can silently train on instruction-only warp subgraphs while selector export later emits embeddings from a different readout path.
+Root Cause: `warp_partitions` contained only instruction node IDs, so partitioned encoding dropped variable/pseudo data-flow nodes and local data-flow edges; embedding export ignored the checkpoint's `partitioned_encoding` manifest and always called `encode_kernel()`.
+Solution: Assign variable nodes to their warp, make `warp_partitions` contain every same-warp instruction, variable, and pseudo node while preserving instruction order, and call `encode_kernel_partitioned()` during export when the checkpoint manifest says partitioned encoding was trained.
+Constraints: Canonical graph artifacts remain non-augmented selector inputs; partition validation must fail on unknown partition node IDs and keep memory pseudo-node validation semantic rather than leaking `KeyError`.
+Validation Evidence: `pytest -q tests/gcl_phase_a/test_graph_builder.py::test_warp_partitions_include_data_flow_nodes_for_partitioned_training tests/gcl_phase_a/test_embedding_export.py::test_embedding_export_uses_partitioned_readout_when_checkpoint_was_partitioned`; `pytest -q tests/gcl_phase_a/test_graph_builder.py tests/gcl_phase_a/test_tensorizer.py tests/gcl_phase_a/test_rgcn_training.py tests/gcl_phase_a/test_embedding_export.py`; `python3 -m py_compile experiments/gcl_phase_a/graph_builder.py experiments/gcl_phase_a/embedding_export.py tests/gcl_phase_a/test_graph_builder.py tests/gcl_phase_a/test_embedding_export.py`.
+Source Rounds: 55

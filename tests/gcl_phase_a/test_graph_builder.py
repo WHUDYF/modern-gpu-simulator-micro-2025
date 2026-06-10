@@ -130,6 +130,18 @@ def test_mem_ref_is_data_flow_only():
     )
 
 
+def test_warp_partitions_include_data_flow_nodes_for_partitioned_training():
+    graph = build_canonical_graphs(build_controlled_trace_fixture())[0]
+    node_by_id = {node["node_id"]: node for node in graph["nodes"]}
+
+    for warp_id, node_ids in graph["warp_partitions"].items():
+        node_types = {node_by_id[node_id]["node_type"] for node_id in node_ids}
+        assert "instruction" in node_types
+        assert "register_version" in node_types
+        assert "pseudo" in node_types
+        assert all(str(node_by_id[node_id].get("warp_id")) == warp_id for node_id in node_ids)
+
+
 def test_raw_register_reuse_creates_distinct_register_versions():
     graph = build_canonical_graph(
         _raw_record(

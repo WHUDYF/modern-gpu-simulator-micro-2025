@@ -67,3 +67,32 @@ def test_embedding_export_rejects_augmented_tensor(trained_artifacts):
 
     with pytest.raises(ValueError, match="canonical non-augmented"):
         export_embedding_table(tensors, report["encoder"], report["checkpoint_manifest"])
+
+
+def test_embedding_export_uses_partitioned_readout_when_checkpoint_was_partitioned(trained_artifacts):
+    tensors, report = trained_artifacts
+
+    class SpyEncoder:
+        def __init__(self, wrapped):
+            self.wrapped = wrapped
+            self.partitioned_calls = 0
+            self.unpartitioned_calls = 0
+
+        def eval(self):
+            self.wrapped.eval()
+            return self
+
+        def encode_kernel_partitioned(self, tensor):
+            self.partitioned_calls += 1
+            return self.wrapped.encode_kernel_partitioned(tensor)
+
+        def encode_kernel(self, tensor):
+            self.unpartitioned_calls += 1
+            return self.wrapped.encode_kernel(tensor)
+
+    encoder = SpyEncoder(report["encoder"])
+    table = export_embedding_table(tensors, encoder, report["checkpoint_manifest"])
+
+    validate_embedding_table(table)
+    assert encoder.partitioned_calls == len(tensors)
+    assert encoder.unpartitioned_calls == 0

@@ -36,7 +36,15 @@ def export_embedding_table(
             if "augmentation_manifest" in tensor:
                 raise ValueError("selector embedding must come from canonical non-augmented graph")
             validate_tensor_artifact(tensor)
-            kernel_embedding = encoder.encode_kernel(tensor).detach().cpu().numpy()
+            if encoder_manifest.get("partitioned_encoding") and hasattr(
+                encoder,
+                "encode_kernel_partitioned",
+            ):
+                kernel_embedding = (
+                    encoder.encode_kernel_partitioned(tensor).detach().cpu().numpy()
+                )
+            else:
+                kernel_embedding = encoder.encode_kernel(tensor).detach().cpu().numpy()
             row = _embedding_row(
                 index=index,
                 tensor=tensor,

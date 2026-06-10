@@ -61,11 +61,11 @@ for entry in "${repos[@]}"; do
       continue
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+    status="exists"
     if [[ -n "${sparse_roots[$name]:-}" ]]; then
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$status_path" "$url" >> "$STATUS"
-    else
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "exists" "$commit" "$status_path" "$url" >> "$STATUS"
+      status="sparse_partial"
     fi
+    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "$status" "$commit" "$status_path" "$url" >> "$STATUS"
     continue
   fi
 
@@ -89,11 +89,11 @@ for entry in "${repos[@]}"; do
       fi
     fi
     commit="$(git -C "$target" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+    status="cloned"
     if [[ -n "${sparse_roots[$name]:-}" ]]; then
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "sparse_partial" "$commit" "$status_path" "$url" >> "$STATUS"
-    else
-      printf "%s\t%s\t%s\t%s\t%s\n" "$name" "cloned" "$commit" "$status_path" "$url" >> "$STATUS"
+      status="sparse_partial"
     fi
+    printf "%s\t%s\t%s\t%s\t%s\n" "$name" "$status" "$commit" "$status_path" "$url" >> "$STATUS"
   else
     code="$?"
     printf "%s\t%s\t%s\t%s\t%s\n" "$name" "failed:$code" "-" "$status_path" "$url" >> "$STATUS"

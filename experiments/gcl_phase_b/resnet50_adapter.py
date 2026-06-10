@@ -238,16 +238,17 @@ def build_resnet50_artifact_shape_trace_adapter_bundle(root: Path) -> dict[str, 
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))
     enhanced_execution_info = read_json(root / "enhanced_execution_info.json")
+    scheduler_metadata = read_json(root / "scheduler_metadata.json")
     sources = ResNet50TraceSources(
         dynamic_trace=_load_dynamic_trace_pb(root / "dynamic_trace.pb"),
         threadblocks=_load_threadblocks_from_scheduler(
             root,
             enhanced_execution_info,
-            scheduler_metadata=read_json(root / "scheduler_metadata.json"),
+            scheduler_metadata=scheduler_metadata,
             representative_sm_only=False,
         ),
         enhanced_execution_info=enhanced_execution_info,
-        scheduler_metadata=read_json(root / "scheduler_metadata.json"),
+        scheduler_metadata=scheduler_metadata,
         stats_rows=stats_rows,
         gate0_manifest={},
     )

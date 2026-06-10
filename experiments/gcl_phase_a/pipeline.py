@@ -41,6 +41,19 @@ def _jsonable_training_report(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def load_checkpoint_weights_only(checkpoint_path: Path) -> dict[str, Any]:
+    torch = require_torch()
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    except TypeError as exc:  # pragma: no cover - only exercised on old torch builds.
+        raise RuntimeError(
+            "safe checkpoint replay requires torch.load(weights_only=True)"
+        ) from exc
+    if not isinstance(checkpoint, dict):
+        raise ValueError("checkpoint payload must be a state dictionary bundle")
+    return checkpoint
+
+
 def run_pipeline(out_dir: Path, seed: int = 20260602) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -164,8 +177,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path) -> dict[str, Any]:
     if checkpoint_manifest.get("source_tensor_hashes") != source_tensor_hashes:
         raise ValueError("checkpoint manifest source_tensor_hashes do not match tensor bundle")
 
-    torch = require_torch()
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint = load_checkpoint_weights_only(checkpoint_path)
     encoder = MinimalRGCNEncoder()
     encoder.load_state_dict(checkpoint["encoder"])
     embedding_table = export_embedding_table(tensors, encoder, checkpoint_manifest)

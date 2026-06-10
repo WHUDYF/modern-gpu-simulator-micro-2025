@@ -31,7 +31,8 @@ from .tuning import generate_gate8_tuning_vectors
 from .trace_scope import build_phase_b_trace_records
 from .utils import hash_without, read_json, stable_hash, write_json
 from experiments.gcl_phase_a.train import train_minimal_contrastive
-from experiments.gcl_phase_a.rgcn import MinimalRGCNEncoder, ProjectionHead, require_torch
+from experiments.gcl_phase_a.rgcn import MinimalRGCNEncoder, ProjectionHead
+from experiments.gcl_phase_a.pipeline import load_checkpoint_weights_only
 
 GATE1_7_PIPELINE_MANIFEST_FILENAME = "gate1_7_pipeline_manifest.json"
 GATE1_PLUS_OUTPUT_FILENAMES = {
@@ -854,8 +855,7 @@ def _load_existing_gate5_training(
         return None
     if not training_manifest_path.exists():
         return None
-    torch = require_torch()
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint = load_checkpoint_weights_only(checkpoint_path)
     checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
     progress_path = out_dir / GATE5_EXPORT_PROGRESS_FILENAME
     progress = read_json(progress_path) if progress_path.exists() else {}

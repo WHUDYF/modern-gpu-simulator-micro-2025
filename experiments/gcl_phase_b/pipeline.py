@@ -10,6 +10,7 @@ from experiments.gcl_phase_a.train import train_minimal_contrastive
 from experiments.gcl_phase_a.tensorizer import TENSORIZER_VERSION as PHASE_A_TENSORIZER_VERSION
 from experiments.gcl_phase_a.tensorizer import _tensor_hash as phase_a_tensor_hash
 
+from .training import create_augmented_training_views
 from .graph_audit import build_graph_size_audit, validate_graph_size_audit
 from .graph_builder import build_phase_b_graphs, validate_phase_b_graph_artifact
 from .embedding_export import (
@@ -28,7 +29,6 @@ from .tensorizer import (
     tensorize_phase_b_graphs,
     validate_phase_b_tensor_artifact,
 )
-from .training import create_augmented_training_views
 from .trace_scope import (
     build_phase_b_trace_records,
     build_scope_audit,
@@ -336,6 +336,19 @@ def create_augmentation_manifest_bundle(tensors: list[dict[str, Any]], seed: int
         bundle, "augmentation_manifest_bundle_hash"
     )
     return bundle
+
+
+def _expected_augmentation_manifests(tensors: list[dict[str, Any]], seed: int) -> list[dict[str, Any]]:
+    expected = []
+    for index, tensor in enumerate(tensors):
+        view_a, view_b = create_augmented_training_views(tensor, seed=seed + index * 2)
+        expected.extend(
+            [
+                view_a["phase_b_augmentation_manifest"],
+                view_b["phase_b_augmentation_manifest"],
+            ]
+        )
+    return expected
 
 
 def build_readout_manifest_bundle(tensors: list[dict[str, Any]], encoder) -> dict[str, Any]:
@@ -1285,6 +1298,11 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     )
     if pipeline_manifest.get("paths") != _paths(out_dir):
         raise ValueError("pipeline_manifest paths mismatch")
+    expected_pipeline_hash = stable_hash(
+        {key: value for key, value in pipeline_manifest.items() if key != "pipeline_manifest_hash"}
+    )
+    if pipeline_manifest.get("pipeline_manifest_hash") != expected_pipeline_hash:
+        raise ValueError("pipeline_manifest_hash is not reproducible")
     trace_manifest = read_json(
         require_pipeline_artifact(out_dir / ARTIFACT_FILENAMES["trace_manifest"], "trace manifest")
     )
@@ -1371,6 +1389,10 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
     if len(augmentation_manifests) != expected_augmentation_count:
         raise ValueError("augmentation manifest count mismatch")
     augmentation_hashes = []
+    expected_augmentation_manifests = _expected_augmentation_manifests(
+        tensors,
+        pipeline_manifest["seed"],
+    )
     for index, manifest in enumerate(augmentation_manifests):
         if manifest.get("augmentation_manifest_hash") != hash_without(
             manifest, "augmentation_manifest_hash"
@@ -1380,6 +1402,9 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         tensor = tensors[tensor_index]
         if manifest.get("input_graph_hash") != tensor["input_graph_hash"]:
             raise ValueError("augmentation manifest source tensor mismatch")
+        expected_manifest = expected_augmentation_manifests[index]
+        if manifest != expected_manifest:
+            raise ValueError("augmentation manifest view provenance mismatch")
         augmentation_hashes.append(manifest["augmentation_manifest_hash"])
     if pipeline_manifest["hashes"].get("augmentation_manifest_hashes") != augmentation_hashes:
         raise ValueError("pipeline manifest augmentation_manifest_hashes mismatch")
@@ -1391,12 +1416,6 @@ def validate_phase_b_replay_from_disk(out_dir: Path) -> dict[str, Any]:
         "augmentation_manifest_bundle_hash"
     ]:
         raise ValueError("pipeline manifest augmentation_manifest_bundle_hash mismatch")
-
-    expected_pipeline_hash = stable_hash(
-        {key: value for key, value in pipeline_manifest.items() if key != "pipeline_manifest_hash"}
-    )
-    if pipeline_manifest.get("pipeline_manifest_hash") != expected_pipeline_hash:
-        raise ValueError("pipeline_manifest_hash is not reproducible")
 
     resource_status = read_json(
         require_pipeline_artifact(

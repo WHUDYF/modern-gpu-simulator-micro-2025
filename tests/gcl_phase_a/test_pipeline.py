@@ -2,6 +2,7 @@ import subprocess
 import sys
 from shutil import copytree
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -69,6 +70,24 @@ def test_embedding_export_stage_from_disk_recreates_embedding_table(tmp_path, pi
     assert (out_dir / ARTIFACT_FILENAMES["embedding_table"]).exists()
     assert table["row_count"] == 12
     assert table["embedding_table_hash"] == original_table["embedding_table_hash"]
+
+
+def test_embedding_export_stage_from_disk_loads_checkpoint_weights_only(tmp_path, pipeline_out_dir):
+    out_dir = copytree(pipeline_out_dir, tmp_path / "weights_only_checkpoint")
+    import experiments.gcl_phase_a.pipeline as pipeline_module
+
+    original_load = pipeline_module.require_torch().load
+    load_calls = []
+
+    def spy_load(*args, **kwargs):
+        load_calls.append(kwargs)
+        return original_load(*args, **kwargs)
+
+    with patch.object(pipeline_module.require_torch(), "load", side_effect=spy_load):
+        run_embedding_export_stage_from_disk(out_dir)
+
+    assert load_calls
+    assert all(call.get("weights_only") is True for call in load_calls)
 
 
 def test_embedding_export_stage_from_disk_invalidates_existing_selector_artifacts(tmp_path, pipeline_out_dir):

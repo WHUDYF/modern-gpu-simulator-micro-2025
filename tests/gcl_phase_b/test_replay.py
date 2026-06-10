@@ -478,6 +478,49 @@ def test_phase_b_replay_rejects_swapped_augmentation_manifests_after_hash_refres
         validate_phase_b_replay_from_disk(out_dir)
 
 
+def test_phase_b_replay_rejects_rewritten_augmentation_view_provenance_after_hash_refresh(tmp_path):
+    manifest_path = tmp_path / "trace_manifest.json"
+    write_json(manifest_path, build_representative_sm_trace_manifest())
+    out_dir = tmp_path / "rewritten_augmentation_view"
+    run_pipeline(manifest_path, out_dir, seed=42)
+
+    augmentation_path = out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]
+    augmentation_bundle = json.loads(augmentation_path.read_text())
+    first_manifest = augmentation_bundle["manifests"][0]
+    first_manifest["random_seed"] = first_manifest["random_seed"] + 1000
+    first_manifest["view_id"] = "B"
+    first_manifest["view_hash"] = stable_hash(
+        {
+            "tampered": True,
+            "input_graph_hash": first_manifest["input_graph_hash"],
+            "random_seed": first_manifest["random_seed"],
+            "view_id": first_manifest["view_id"],
+        }
+    )
+    first_manifest["augmentation_manifest_hash"] = hash_without(
+        first_manifest, "augmentation_manifest_hash"
+    )
+    augmentation_bundle["augmentation_manifest_bundle_hash"] = hash_without(
+        augmentation_bundle, "augmentation_manifest_bundle_hash"
+    )
+    augmentation_path.write_text(json.dumps(augmentation_bundle, sort_keys=True))
+    _refresh_pipeline_manifest_hashes(
+        out_dir,
+        {
+            "augmentation_manifest_hashes": [
+                manifest["augmentation_manifest_hash"]
+                for manifest in augmentation_bundle["manifests"]
+            ],
+            "augmentation_manifest_bundle_hash": augmentation_bundle[
+                "augmentation_manifest_bundle_hash"
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="augmentation manifest view provenance"):
+        validate_phase_b_replay_from_disk(out_dir)
+
+
 def test_phase_b_replay_rejects_scope_audit_before_count_drift_after_hash_refresh(tmp_path):
     manifest_path = tmp_path / "trace_manifest.json"
     write_json(manifest_path, build_representative_sm_trace_manifest())

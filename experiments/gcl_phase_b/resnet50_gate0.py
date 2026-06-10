@@ -239,6 +239,12 @@ def load_gate0_trace_acquisition_manifest(root: Path) -> dict[str, Any]:
     return manifest
 
 
+def validate_gate0_source_artifacts_match_manifest(root: Path, manifest: dict[str, Any]) -> None:
+    current_hashes = _source_artifact_hashes(Path(root))
+    if manifest.get("source_artifact_hashes") != current_hashes:
+        raise ValueError("Gate0 source artifact hashes mismatch")
+
+
 def _load_nvbit_collection_evidence(root: Path) -> dict[str, Any]:
     path = root / NVBIT_COLLECTION_EVIDENCE_FILENAME
     if not path.exists():
@@ -562,6 +568,7 @@ def _validate_scheduler_metadata_records(scheduler_metadata: dict[str, Any]) -> 
 
 
 def _source_artifact_hashes(root: Path) -> dict[str, str]:
+    _validate_protobuf_source_artifacts(root)
     hashes = {}
     for name, kind in FORMAL_SOURCE_ARTIFACTS.items():
         path = _resolve_gate0_artifact_path(root, name)
@@ -576,6 +583,22 @@ def _source_artifact_hashes(root: Path) -> dict[str, str]:
         else:
             raise ValueError(f"unsupported source artifact kind: {kind}")
     return hashes
+
+
+def _validate_protobuf_source_artifacts(root: Path) -> None:
+    try:
+        from experiments.baseline_diagnosis.proto_gen import threadblock_pb2, trace_pb2
+
+        trace = trace_pb2.Trace()
+        trace.ParseFromString((root / "dynamic_trace.pb").read_bytes())
+    except Exception as exc:
+        raise ValueError("dynamic_trace.pb is not a readable protobuf") from exc
+    for pb_path in sorted((root / "threadblocks").rglob("*.pb")):
+        try:
+            block = threadblock_pb2.threadblock()
+            block.ParseFromString(pb_path.read_bytes())
+        except Exception as exc:
+            raise ValueError(f"threadblock protobuf is not readable: {pb_path}") from exc
 
 
 def _available_gate0_artifacts(root: Path) -> list[str]:

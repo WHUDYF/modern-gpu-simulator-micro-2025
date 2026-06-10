@@ -11,7 +11,14 @@ from experiments.gcl_phase_b.resnet50_adapter import (
     mark_resnet50_fixture_debug_not_formal,
     validate_resnet50_trace_adapter_bundle,
 )
+from experiments.gcl_phase_b.resnet50_gate0 import record_resnet50_gate0_trace_acquisition
+from experiments.gcl_phase_b.resnet50_gate0 import _source_artifact_hashes
 from experiments.gcl_phase_b.utils import hash_without
+from gcl_resnet50.test_gate0_trace_acquisition import (
+    _write_collector_bound_gate0_evidence,
+    _write_minimal_real_dynamic_trace_pb,
+    _write_real_gate0_contract_artifacts,
+)
 from gcl_resnet50.formal_fixture import write_minimal_artifact_shape_resnet50_root
 from gcl_resnet50.real_chain import FORMAL_ROOT, require_formal_root
 
@@ -40,13 +47,7 @@ def _write_formal_gate0_manifest(root):
         "input_scope": "full_resnet50_inference_trace",
         "scheduler_metadata_source": "real_nvbit_smid",
         "nvbit_collection_evidence_hash": "unit-test-evidence-hash",
-        "source_artifact_hashes": {
-            "dynamic_trace.pb": "unit-test-dynamic-hash",
-            "threadblocks/": "unit-test-threadblocks-hash",
-            "enhanced_execution_info.json": "unit-test-info-hash",
-            "scheduler_metadata.json": "unit-test-scheduler-hash",
-            "stats.csv": "unit-test-stats-hash",
-        },
+        "source_artifact_hashes": _source_artifact_hashes(root),
     }
     manifest["gate0_manifest_hash"] = hash_without(manifest, "gate0_manifest_hash")
     (root / "gate0_trace_acquisition_manifest.json").write_text(
@@ -59,6 +60,20 @@ def test_gate1_requires_real_gate0_manifest_before_formal_adapter(tmp_path):
     root = _fixture_backed_root(tmp_path)
 
     with pytest.raises(ValueError, match="Gate0 formal acquisition manifest"):
+        build_resnet50_trace_adapter_bundle(root)
+
+
+def test_gate1_rejects_formal_root_when_source_hashes_changed_after_gate0(tmp_path):
+    root = tmp_path / "mutated_formal_root"
+    _write_real_gate0_contract_artifacts(root)
+    _write_collector_bound_gate0_evidence(root, "external-collector-session")
+    record_resnet50_gate0_trace_acquisition(root)
+    _write_minimal_real_dynamic_trace_pb(
+        root / "dynamic_trace.pb",
+        trace_name="mutated_after_gate0",
+    )
+
+    with pytest.raises(ValueError, match="Gate0 source artifact hashes mismatch"):
         build_resnet50_trace_adapter_bundle(root)
 
 
@@ -170,6 +185,7 @@ def test_gate1_invocation_limit_does_not_widen_repeated_kernel_fallback_schedule
     for invocation in scheduler["kernel_invocations"]:
         invocation.pop("launch_order", None)
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
 
     bundle = build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
 
@@ -190,6 +206,7 @@ def test_gate1_invocation_limit_filters_reordered_scheduler_by_selected_invocati
     scheduler = json.loads(scheduler_path.read_text())
     scheduler["kernel_invocations"] = list(reversed(scheduler["kernel_invocations"]))
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
 
     bundle = build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
 

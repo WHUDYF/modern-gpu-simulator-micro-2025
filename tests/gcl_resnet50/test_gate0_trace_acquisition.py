@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from experiments.baseline_diagnosis.proto_gen import threadblock_pb2, trace_pb2
 from experiments.gcl_phase_b.resnet50_gate0 import (
     COLLECTOR_PRODUCER,
     ResNet50NvbitAcquisitionConfig,
@@ -42,10 +43,10 @@ def _fixture_backed_root(tmp_path):
 
 def _write_real_gate0_contract_artifacts(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+    _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
     threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
     threadblocks.mkdir(parents=True, exist_ok=True)
-    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+    _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
     extra_info = root / "extra_info"
     extra_info.mkdir(exist_ok=True)
     write_json(
@@ -82,6 +83,35 @@ def _write_real_gate0_contract_artifacts(root: Path) -> None:
         "0, 0, kernel-1.trace, real_kernel\n",
         encoding="utf-8",
     )
+
+
+def _write_minimal_real_dynamic_trace_pb(
+    path: Path,
+    *,
+    trace_name: str = "real_resnet50_trace",
+) -> None:
+    trace = trace_pb2.Trace()
+    trace.name = trace_name
+    trace.nvbit_version = "real-nvbit"
+    kernel = trace.gpu_device[0].streams[0].kernels.add()
+    kernel.id = 1
+    kernel.name = "real_resnet50_conv2d_kernel"
+    kernel.function_unique_id = 9999
+    kernel.grid_dim.x = 1
+    kernel.grid_dim.y = 1
+    kernel.grid_dim.z = 1
+    kernel.block_dim.x = 32
+    kernel.block_dim.y = 1
+    kernel.block_dim.z = 1
+    path.write_bytes(trace.SerializeToString())
+
+
+def _write_minimal_real_threadblock_pb(path: Path) -> None:
+    block = threadblock_pb2.threadblock()
+    block.block_id.x = 0
+    block.block_id.y = 0
+    block.block_id.z = 0
+    path.write_bytes(block.SerializeToString())
 
 
 def _write_collector_bound_gate0_evidence(root: Path, session_id: str) -> None:
@@ -302,10 +332,10 @@ def test_gate0_acquisition_runner_records_evidence_from_real_artifact_contract(t
 
     def runner(command, *, cwd, env):
         root.mkdir(parents=True, exist_ok=True)
-        (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+        _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
         threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
         threadblocks.mkdir(parents=True)
-        (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+        _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
         extra_info = root / "extra_info"
         extra_info.mkdir()
         write_json(
@@ -428,10 +458,10 @@ def test_gate0_acquisition_rejects_missing_collector_evidence_even_when_artifact
 
     def runner(command, *, cwd, env):
         root.mkdir(parents=True, exist_ok=True)
-        (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+        _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
         threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
         threadblocks.mkdir(parents=True)
-        (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+        _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
         extra_info = root / "extra_info"
         extra_info.mkdir()
         write_json(
@@ -535,10 +565,10 @@ def test_gate0_acquisition_retry_rebinds_existing_evidence_to_current_session(tm
     def runner(command, *, cwd, env):
         session_ids.append(env["GCL_RESNET50_COLLECTOR_SESSION_ID"])
         root.mkdir(parents=True, exist_ok=True)
-        (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+        _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
         threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
         threadblocks.mkdir(parents=True, exist_ok=True)
-        (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+        _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
         extra_info = root / "extra_info"
         extra_info.mkdir(exist_ok=True)
         write_json(
@@ -620,10 +650,10 @@ def test_gate0_recording_accepts_persisted_collector_attestation_after_restart(t
 
     def runner(command, *, cwd, env):
         root.mkdir(parents=True, exist_ok=True)
-        (root / "dynamic_trace.pb").write_bytes(b"real-nvbit-dynamic-trace")
+        _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
         threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
         threadblocks.mkdir(parents=True)
-        (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"real-threadblock")
+        _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
         write_json(
             root / "enhanced_execution_info.json",
             {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
@@ -705,6 +735,31 @@ def test_gate0_recording_accepts_first_time_external_collector_trace_root(tmp_pa
 
     assert manifest["formal_input_eligible"] is True
     assert (root / "gate0_trace_acquisition_manifest.json").exists()
+
+
+def test_gate0_rejects_unreadable_dynamic_trace_before_formal_manifest(tmp_path):
+    root = tmp_path / "unreadable_dynamic_trace"
+    _write_real_gate0_contract_artifacts(root)
+    _write_collector_bound_gate0_evidence(root, "external-collector-session")
+    (root / "dynamic_trace.pb").write_bytes(b"not-a-protobuf")
+
+    with pytest.raises(ValueError, match="dynamic_trace.pb"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
+
+
+def test_gate0_rejects_unreadable_threadblock_before_formal_manifest(tmp_path):
+    root = tmp_path / "unreadable_threadblock"
+    _write_real_gate0_contract_artifacts(root)
+    _write_collector_bound_gate0_evidence(root, "external-collector-session")
+    threadblock_path = next((root / "threadblocks").rglob("*.pb"))
+    threadblock_path.write_bytes(b"not-a-threadblock")
+
+    with pytest.raises(ValueError, match="threadblock protobuf"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
 def test_gate0_rejects_synthetic_helper_even_if_scope_claims_real_collection(tmp_path):
@@ -876,10 +931,10 @@ def test_gate0_rejects_self_authenticated_real_shaped_root_without_runner_sessio
 ):
     root = tmp_path / "self_authenticated_real_shape"
     root.mkdir()
-    (root / "dynamic_trace.pb").write_bytes(b"looks-like-real-nvbit-dynamic-trace")
+    _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
     threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
     threadblocks.mkdir(parents=True)
-    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"looks-like-real-threadblock")
+    _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
     write_json(
         root / "enhanced_execution_info.json",
         {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
@@ -989,10 +1044,10 @@ def test_gate0_restart_rejects_self_authenticated_triplet_without_existing_manif
 ):
     root = tmp_path / "restart_self_authenticated_real_shape"
     root.mkdir()
-    (root / "dynamic_trace.pb").write_bytes(b"looks-like-real-nvbit-dynamic-trace")
+    _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
     threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
     threadblocks.mkdir(parents=True)
-    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"looks-like-real-threadblock")
+    _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
     write_json(
         root / "enhanced_execution_info.json",
         {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},
@@ -1090,10 +1145,10 @@ def test_gate0_rejects_self_authenticated_triplet_with_forged_session_hash(
 ):
     root = tmp_path / "self_authenticated_forged_session_hash"
     root.mkdir()
-    (root / "dynamic_trace.pb").write_bytes(b"looks-like-real-nvbit-dynamic-trace")
+    _write_minimal_real_dynamic_trace_pb(root / "dynamic_trace.pb")
     threadblocks = root / "threadblocks" / "device_0" / "stream_0" / "kernel_1"
     threadblocks.mkdir(parents=True)
-    (threadblocks / "d_0_s_0_k_1_0,0,0.pb").write_bytes(b"looks-like-real-threadblock")
+    _write_minimal_real_threadblock_pb(threadblocks / "d_0_s_0_k_1_0,0,0.pb")
     write_json(
         root / "enhanced_execution_info.json",
         {"artifact_type": "real_nvbit_enhanced_execution_info", "instructions": []},

@@ -9,7 +9,10 @@ from typing import Any
 
 from experiments.baseline_diagnosis.proto_gen import threadblock_pb2, trace_pb2
 
-from .resnet50_gate0 import load_gate0_trace_acquisition_manifest
+from .resnet50_gate0 import (
+    load_gate0_trace_acquisition_manifest,
+    validate_gate0_source_artifacts_match_manifest,
+)
 from .sm_selection import select_representative_sm
 from .utils import hash_without, read_json, write_json
 
@@ -36,6 +39,7 @@ def load_resnet50_trace_sources(
     if invocation_limit is not None and invocation_limit <= 0:
         raise ValueError("invocation_limit must be positive")
     gate0_manifest = load_gate0_trace_acquisition_manifest(root)
+    validate_gate0_source_artifacts_match_manifest(root, gate0_manifest)
     stats_path = root / "stats.csv"
     with stats_path.open(newline="", encoding="utf-8") as handle:
         stats_rows = list(csv.DictReader(handle))

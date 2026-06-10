@@ -732,6 +732,8 @@ def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
     checkpoint_path = out_dir / "rgcn_checkpoint.pt"
     assert embedding_path.exists()
     assert checkpoint_path.exists()
+    original_checkpoint_bytes = checkpoint_path.read_bytes()
+    original_embedding_table = json.loads(embedding_path.read_text())
 
     def fail_selector(*args, **kwargs):
         raise pipeline_module.PhaseBResourceError("simulated selector memory exhaustion")
@@ -743,15 +745,25 @@ def test_from_disk_embedding_stage_selector_failure_preserves_gate5_outputs(
     )
 
     with pytest.raises(pipeline_module.PhaseBResourceError):
-        run_embedding_export_stage_from_disk(out_dir)
+        run_embedding_export_stage_from_disk(out_dir, seed=43)
 
     blocked = json.loads((out_dir / ARTIFACT_FILENAMES["pipeline_manifest"]).read_text())
     resource = json.loads((out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"]).read_text())
     assert blocked["resource_blocked"] is True
     assert resource["failed_stage"] == "selector"
     table = json.loads(embedding_path.read_text())
+    checkpoint_manifest = json.loads(
+        (out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]).read_text()
+    )
     readout_manifest = json.loads(
         (out_dir / ARTIFACT_FILENAMES["readout_manifest"]).read_text()
+    )
+    assert checkpoint_path.read_bytes() != original_checkpoint_bytes
+    assert table["kernel_embedding_table_hash"] != original_embedding_table[
+        "kernel_embedding_table_hash"
+    ]
+    assert checkpoint_manifest["checkpoint_hash"] == hash_without(
+        {"checkpoint_bytes": checkpoint_path.read_bytes().hex()}
     )
     assert blocked["hashes"]["embedding_table_hash"] == table[
         "kernel_embedding_table_hash"

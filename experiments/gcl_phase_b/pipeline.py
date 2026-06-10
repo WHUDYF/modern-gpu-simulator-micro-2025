@@ -1061,13 +1061,59 @@ def _mark_selector_stage_resource_blocked(out_dir: Path, failed_stage: str, exc:
     graph_size_audits = audit_bundle.get("audits", [])
     blocked = _resource_blocked_artifact(graphs, graph_size_audits, failed_stage, exc)
     write_json(out_dir / ARTIFACT_FILENAMES["resource_blocked_artifact"], blocked)
+    hash_updates: dict[str, Any] = {
+        "resource_blocked_hash": blocked["resource_blocked_hash"],
+        "selector_manifest_hash": None,
+    }
+    augmentation_path = out_dir / ARTIFACT_FILENAMES["augmentation_manifests"]
+    if augmentation_path.exists():
+        augmentation_bundle = read_json(augmentation_path)
+        hash_updates.update(
+            {
+                "augmentation_manifest_hashes": [
+                    manifest["augmentation_manifest_hash"]
+                    for manifest in augmentation_bundle.get("manifests", [])
+                ],
+                "augmentation_manifest_bundle_hash": augmentation_bundle.get(
+                    "augmentation_manifest_bundle_hash"
+                ),
+            }
+        )
+    checkpoint_manifest_path = out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"]
+    if checkpoint_manifest_path.exists():
+        checkpoint_manifest = read_json(checkpoint_manifest_path)
+        hash_updates["encoder_manifest_hash"] = checkpoint_manifest.get(
+            "encoder_manifest_hash"
+        )
+    readout_path = out_dir / ARTIFACT_FILENAMES["readout_manifest"]
+    if readout_path.exists():
+        readout_bundle = read_json(readout_path)
+        hash_updates.update(
+            {
+                "readout_manifest_hashes": [
+                    manifest["readout_manifest_hash"]
+                    for manifest in readout_bundle.get("manifests", [])
+                ],
+                "readout_manifest_bundle_hash": readout_bundle.get(
+                    "readout_manifest_bundle_hash"
+                ),
+            }
+        )
+    embedding_path = out_dir / ARTIFACT_FILENAMES["embedding_table"]
+    if embedding_path.exists():
+        embedding_table = read_json(embedding_path)
+        hash_updates["embedding_table_hash"] = _embedding_table_hash(embedding_table)
     _refresh_pipeline_manifest_hashes_if_present(
         out_dir,
-        {
-            "resource_blocked_hash": blocked["resource_blocked_hash"],
-            "selector_manifest_hash": None,
+        hash_updates,
+        top_level_updates={
+            "resource_blocked": True,
+            **(
+                {"seed": checkpoint_manifest["seed"]}
+                if checkpoint_manifest_path.exists() and "seed" in checkpoint_manifest
+                else {}
+            ),
         },
-        top_level_updates={"resource_blocked": True},
     )
 
 
@@ -1122,6 +1168,10 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
         augmentation_bundle,
         resolved_seed,
     )
+    write_json(out_dir / ARTIFACT_FILENAMES["training_report"], _jsonable_training_report(training_report))
+    write_json(out_dir / ARTIFACT_FILENAMES["checkpoint_manifest"], training_report["checkpoint_manifest"])
+    write_json(out_dir / ARTIFACT_FILENAMES["embedding_table"], table)
+    write_json(out_dir / ARTIFACT_FILENAMES["augmentation_manifests"], augmentation_bundle)
     try:
         selector_artifacts = _select_phase_b_representatives_for_artifact_status(
             table, seed=resolved_seed, out_dir=out_dir
@@ -1158,7 +1208,7 @@ def run_embedding_export_stage_from_disk(out_dir: Path, seed: int | None = None)
             "selector_manifest_hash": selector_artifacts["selector_manifest_hash"],
             "resource_blocked_hash": resource_status["resource_blocked_hash"],
         },
-        top_level_updates={"resource_blocked": False},
+        top_level_updates={"resource_blocked": False, "seed": resolved_seed},
     )
     return table
 

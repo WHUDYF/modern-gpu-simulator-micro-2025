@@ -247,6 +247,24 @@ def test_gate1_invocation_limit_filters_reordered_scheduler_by_selected_invocati
     assert len(bundle["per_warp_trace_records"]) == 2
 
 
+def test_gate1_invocation_limit_rejects_reordered_legacy_scheduler_without_identity(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "formal_limit_reordered_legacy_scheduler"
+    )
+    _write_formal_gate0_manifest(root)
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for invocation in scheduler["kernel_invocations"]:
+        invocation.pop("launch_order", None)
+        invocation.pop("kernel_invocation_id", None)
+    scheduler["kernel_invocations"] = list(reversed(scheduler["kernel_invocations"]))
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    with pytest.raises(ValueError, match="legacy scheduler metadata lacks stable invocation identity"):
+        build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
+
+
 def test_gate1_legacy_invocation_alias_selects_single_repeated_launch(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_legacy_alias")
     _write_formal_gate0_manifest(root)

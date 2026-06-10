@@ -39,6 +39,7 @@ apply_sparse_checkout() {
       git -C "$target" sparse-checkout init --cone
       git -C "$target" sparse-checkout set ${sparse_roots[$name]}
     } >>"$log" 2>&1
+    return $?
   fi
   return 0
 }

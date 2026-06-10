@@ -522,10 +522,13 @@ def _limit_scheduler_metadata_invocations(
     scheduler_metadata: dict[str, Any],
     invocation_count: int,
 ) -> dict[str, Any]:
-    filtered = dict(scheduler_metadata)
-    filtered["kernel_invocations"] = list(
+    selected_invocations = list(
         scheduler_metadata.get("kernel_invocations", [])[:invocation_count]
     )
+    for index, invocation in enumerate(selected_invocations):
+        _validate_legacy_scheduler_position_identity(invocation, index)
+    filtered = dict(scheduler_metadata)
+    filtered["kernel_invocations"] = selected_invocations
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
     return filtered
@@ -542,11 +545,48 @@ def _filter_legacy_scheduler_metadata_by_launch_orders(
     filtered["kernel_invocations"] = [
         invocation
         for index, invocation in enumerate(scheduler_invocations)
-        if index in launch_orders
+        if _legacy_scheduler_position_matches_launch_order(invocation, index, launch_orders)
     ]
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_ids selected no scheduler metadata")
     return filtered
+
+
+def _legacy_scheduler_position_matches_launch_order(
+    invocation: dict[str, Any],
+    index: int,
+    launch_orders: set[int],
+) -> bool:
+    if index not in launch_orders:
+        return False
+    _validate_legacy_scheduler_position_identity(invocation, index)
+    return True
+
+
+def _validate_legacy_scheduler_position_identity(invocation: dict[str, Any], index: int) -> None:
+    observed_launch_order = _infer_scheduler_threadblock_launch_order(invocation)
+    if observed_launch_order is None:
+        return
+    if observed_launch_order != index:
+        raise ValueError("legacy scheduler metadata lacks stable invocation identity")
+
+
+def _infer_scheduler_threadblock_launch_order(invocation: dict[str, Any]) -> int | None:
+    launch_orders = set()
+    for cta in invocation.get("cta_records", []):
+        relative = cta.get("threadblock_pb")
+        if not relative:
+            continue
+        parts = Path(str(relative)).parts
+        for part in parts:
+            if part.startswith("kernel_"):
+                suffix = part.removeprefix("kernel_")
+                if suffix.isdigit():
+                    launch_orders.add(int(suffix))
+                break
+    if len(launch_orders) > 1:
+        raise ValueError("legacy scheduler metadata has inconsistent threadblock launch identity")
+    return next(iter(launch_orders)) if launch_orders else None
 
 
 def _launch_order_invocation_id(launch_order: int) -> str:

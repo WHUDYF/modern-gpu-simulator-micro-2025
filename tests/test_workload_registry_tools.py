@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ from scripts.generate_source_registry import (
     parse_clone_status,
 )
 from scripts.generate_workload_registry import (
+    CURATED_WORKLOAD_PATHS,
     build_workload_registry,
     discover_workloads_for_source,
     slugify_workload_part,
@@ -68,6 +70,39 @@ def test_infer_clone_mode_keeps_non_sparse_promisor_clone_available(tmp_path):
 
     assert infer_clone_mode(repo) == "shallow_or_full"
     assert infer_availability(repo) == "source_available"
+
+
+def test_clone_workload_sources_records_sparse_checkout_failure(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_git = fake_bin / "git"
+    fake_git.write_text(
+        "#!/usr/bin/env bash\n"
+        "case \"$*\" in\n"
+        "  *'rev-parse --is-inside-work-tree'*) exit 0 ;;\n"
+        "  *'rev-parse --short HEAD'*) printf 'abc123\\n'; exit 0 ;;\n"
+        "  *'sparse-checkout'*) exit 42 ;;\n"
+        "  *) exit 0 ;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    fake_git.chmod(0o755)
+    root = tmp_path / "workloads"
+    env = {"PATH": f"{fake_bin}:{os.environ['PATH']}"}
+
+    subprocess.run(
+        ["bash", str(REPO_ROOT / "scripts" / "clone_workload_sources.sh"), str(root)],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        text=True,
+    )
+
+    status = (root / "clone_status.tsv").read_text(encoding="utf-8")
+    assert "mlperf-inference\tfailed:sparse:42\t-\tsources/mlperf-inference" in status
+    assert "hecbench\tfailed:sparse:42\t-\tsources/hecbench" in status
+    assert "mlperf-inference\tsparse_partial" not in status
+    assert "hecbench\tsparse_partial" not in status
 
 
 def test_build_source_registry_uses_local_git_commit(tmp_path):
@@ -336,10 +371,8 @@ def test_discover_workloads_for_curated_sources_uses_per_workload_paths(tmp_path
             "gunrock_bfs": "examples/algorithms/bfs",
             "gunrock_sssp": "examples/algorithms/sssp",
             "gunrock_pagerank": "examples/algorithms/pr",
-            "gunrock_connected-components": "examples/algorithms/connected-components",
         },
         "pannotia": {
-            "pannotia_bfs": "graph_app/bfs",
             "pannotia_sssp": "graph_app/sssp",
             "pannotia_coloring": "graph_app/color",
             "pannotia_pagerank": "graph_app/prk",
@@ -551,8 +584,6 @@ def test_build_workload_registry_keeps_expected_graph_suite_candidate_ids(tmp_pa
     (gunrock_root / "examples" / "algorithms" / "bfs").mkdir(parents=True)
     (gunrock_root / "examples" / "algorithms" / "sssp").mkdir(parents=True)
     (gunrock_root / "examples" / "algorithms" / "pr").mkdir(parents=True)
-    (gunrock_root / "examples" / "algorithms" / "connected-components").mkdir(parents=True)
-    (pannotia_root / "graph_app" / "bfs").mkdir(parents=True)
     (pannotia_root / "graph_app" / "sssp").mkdir(parents=True)
     (pannotia_root / "graph_app" / "color").mkdir(parents=True)
     (pannotia_root / "graph_app" / "prk").mkdir(parents=True)
@@ -581,9 +612,17 @@ def test_build_workload_registry_keeps_expected_graph_suite_candidate_ids(tmp_pa
     registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
 
     workload_ids = {row["workload_id"] for row in registry["workloads"]}
-    assert "gunrock_connected-components" in workload_ids
+    assert "gunrock_connected-components" not in workload_ids
     assert "gunrock_coloring" not in workload_ids
-    assert "pannotia_bfs" in workload_ids
+    assert "pannotia_bfs" not in workload_ids
+
+
+def test_curated_graph_suite_paths_exclude_known_missing_upstream_dirs():
+    gunrock_paths = CURATED_WORKLOAD_PATHS["gunrock"]
+    pannotia_paths = CURATED_WORKLOAD_PATHS["pannotia"]
+
+    assert "examples/algorithms/connected-components" not in set(gunrock_paths.values())
+    assert "graph_app/bfs" not in set(pannotia_paths.values())
 
 
 def test_build_workload_registry_skips_sparse_available_sources(tmp_path):

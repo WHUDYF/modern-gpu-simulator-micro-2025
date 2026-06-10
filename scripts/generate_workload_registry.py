@@ -38,10 +38,8 @@ CURATED_WORKLOADS = {
         ("bfs", "irregular_graph", "medium", "medium", "high"),
         ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
-        ("connected-components", "irregular_graph", "medium", "medium", "high"),
     ],
     "pannotia": [
-        ("bfs", "irregular_graph", "medium", "medium", "high"),
         ("sssp", "irregular_graph", "medium", "medium", "high"),
         ("coloring", "irregular_graph", "medium", "medium", "high"),
         ("pagerank", "irregular_graph", "medium", "medium", "high"),
@@ -78,10 +76,8 @@ CURATED_WORKLOAD_PATHS = {
         "bfs": "examples/algorithms/bfs",
         "sssp": "examples/algorithms/sssp",
         "pagerank": "examples/algorithms/pr",
-        "connected-components": "examples/algorithms/connected-components",
     },
     "pannotia": {
-        "bfs": "graph_app/bfs",
         "sssp": "graph_app/sssp",
         "coloring": "graph_app/color",
         "pagerank": "graph_app/prk",

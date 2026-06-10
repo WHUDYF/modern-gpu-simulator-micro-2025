@@ -50,17 +50,24 @@ def load_resnet50_trace_sources(
     if invocation_limit is not None:
         dynamic_trace = _limit_dynamic_trace_invocations(dynamic_trace, invocation_limit)
     if invocation_limit is not None or invocation_ids is not None:
-        if invocation_limit is not None and invocation_ids is None:
+        kept_invocation_ids = {
+            row["source_kernel_invocation_id"]
+            for row in dynamic_trace["kernel_invocations"]
+            if row.get("source_kernel_invocation_id")
+        }
+        scheduler_has_only_legacy_ids = _scheduler_metadata_has_only_legacy_ids(
+            scheduler_metadata
+        )
+        if (
+            invocation_limit is not None
+            and invocation_ids is None
+            and scheduler_has_only_legacy_ids
+        ):
             scheduler_metadata = _limit_scheduler_metadata_invocations(
                 scheduler_metadata,
                 len(dynamic_trace["kernel_invocations"]),
             )
         else:
-            kept_invocation_ids = {
-                row["source_kernel_invocation_id"]
-                for row in dynamic_trace["kernel_invocations"]
-                if row.get("source_kernel_invocation_id")
-            }
             kept_invocation_ids.update(
                 _legacy_scheduler_invocation_ids(dynamic_trace["kernel_invocations"])
             )
@@ -491,6 +498,14 @@ def _filter_scheduler_metadata_by_invocation_ids(
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
     return filtered
+
+
+def _scheduler_metadata_has_only_legacy_ids(scheduler_metadata: dict[str, Any]) -> bool:
+    invocations = scheduler_metadata.get("kernel_invocations", [])
+    return bool(invocations) and all(
+        not invocation.get("kernel_invocation_id") and "launch_order" not in invocation
+        for invocation in invocations
+    )
 
 
 def _limit_scheduler_metadata_invocations(

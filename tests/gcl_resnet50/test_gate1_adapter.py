@@ -183,6 +183,26 @@ def test_gate1_invocation_limit_does_not_widen_repeated_kernel_fallback_schedule
     assert len(bundle["per_warp_trace_records"]) == 2
 
 
+def test_gate1_invocation_limit_filters_reordered_scheduler_by_selected_invocation_id(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_limit_reordered_scheduler")
+    _write_formal_gate0_manifest(root)
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    scheduler["kernel_invocations"] = list(reversed(scheduler["kernel_invocations"]))
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
+
+    invocation_ids = {row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]}
+    scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
+    trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
+    assert invocation_ids == {"resnet50_k00000"}
+    assert scheduler_ids == {"resnet50_k00000"}
+    assert trace_ids == {"resnet50_k00000"}
+    assert len(bundle["cta_scheduler_records"]) == 2
+    assert len(bundle["per_warp_trace_records"]) == 2
+
+
 def test_gate1_legacy_invocation_alias_selects_single_repeated_launch(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_legacy_alias")
     _write_formal_gate0_manifest(root)

@@ -109,6 +109,21 @@ def _classify(exit_code: int | None, stderr: str, csv_path: Path, timed_out: boo
     return "malformed_ncu_csv", False, "missing_or_empty_csv"
 
 
+def _metric_resolution_block_reason(metric_records: list[dict[str, Any]]) -> str | None:
+    selected_feature_rows = [row for row in metric_records if row.get("selected_for_ncu_metrics")]
+    if not selected_feature_rows:
+        return "selected_metrics_empty"
+    unresolved_feature_rows = [
+        row
+        for row in metric_records
+        if row.get("resolution_status") != "launch_metadata"
+        and not row.get("selected_for_ncu_metrics")
+    ]
+    if unresolved_feature_rows:
+        return "required_feature_metrics_incomplete"
+    return None
+
+
 def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     metric_records = _write_query_artifacts()
     records = json.loads(RESOLUTION_PATH.read_text()) if RESOLUTION_PATH.exists() else []
@@ -121,7 +136,7 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
     attempts: list[dict[str, Any]] = []
     gaps: list[dict[str, Any]] = []
     metrics = selected_ncu_metrics(metric_records)
-    has_selected_feature_metric = any(row.get("selected_for_ncu_metrics") for row in metric_records)
+    metric_block_reason = _metric_resolution_block_reason(metric_records)
     for index, rows in enumerate(grouped.values()):
         first = rows[0]
         token = sanitize_token(first.get("workload_id", "workload"))
@@ -148,11 +163,11 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
             *first["resolved_run_command"],
         ]
         timed_out = False
-        if not has_selected_feature_metric:
+        if metric_block_reason is not None:
             stdout = ""
-            stderr = "No NCU metrics resolved from query artifact"
+            stderr = f"NCU metric resolution blocked: {metric_block_reason}"
             exit_code = None
-            status, eligible, reason = "metric_resolution_blocked", False, "selected_metrics_empty"
+            status, eligible, reason = "metric_resolution_blocked", False, metric_block_reason
         elif dry_run:
             stdout = ""
             stderr = "dry-run capture skipped"

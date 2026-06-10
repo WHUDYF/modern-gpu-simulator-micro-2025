@@ -365,8 +365,7 @@ def build_workload_registry(
         if not source_root.exists():
             continue
         for workload in discover_workloads_for_source(source_id, source_root):
-            should_validate_path = availability_status == "source_sparse_available"
-            if should_validate_path and not workload_path_exists(source_root, workload):
+            if not workload_path_exists(source_root, workload):
                 continue
             append_unique_workload(workloads, workload, seen_ids)
     return {

@@ -120,3 +120,42 @@ def test_gate2_blocks_empty_metric_resolution(monkeypatch, tmp_path):
     assert attempts[0]["capture_status"] == "metric_resolution_blocked"
     assert attempts[0]["gate3_eligible"] is False
     assert gaps[0]["gap_reason"] == "selected_metrics_empty"
+
+
+def test_gate2_blocks_partial_required_metric_resolution(monkeypatch, tmp_path):
+    resolution_path = tmp_path / "resolution.json"
+    resolution_path.write_text(json.dumps([
+        {
+            "manifest_entry_id": "L1_A",
+            "resolution_status": "resolved",
+            "workload_id": "w",
+            "kernel_or_case": "ka",
+            "resolved_run_command": [sys.executable, "-c", "print(1)"],
+            "working_directory": str(tmp_path),
+            "capture_timeout_seconds": 5,
+        }
+    ]))
+    partial_metric_rows = selected_metric_records()
+    selected_once = False
+    for row in partial_metric_rows:
+        if row["selected_for_ncu_metrics"] and not selected_once:
+            selected_once = True
+            continue
+        if row["selected_for_ncu_metrics"]:
+            row["resolution_status"] = "unsupported"
+            row["selected_for_ncu_metrics"] = False
+
+    monkeypatch.setattr(dispatcher, "RESOLUTION_PATH", resolution_path)
+    monkeypatch.setattr(dispatcher, "ATTEMPTS_PATH", tmp_path / "attempts.json")
+    monkeypatch.setattr(dispatcher, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(dispatcher, "QUERY_PATH", tmp_path / "query.json")
+    monkeypatch.setattr(dispatcher, "RESOLUTION_TABLE_PATH", tmp_path / "resolution_table.json")
+    monkeypatch.setattr(dispatcher, "RESULTS_DIR", tmp_path / "results")
+    monkeypatch.setattr(dispatcher, "_write_query_artifacts", lambda: partial_metric_rows)
+
+    attempts, gaps = dispatcher.dispatch(dry_run=True)
+
+    assert attempts[0]["capture_status"] == "metric_resolution_blocked"
+    assert attempts[0]["gate3_eligible"] is False
+    assert attempts[0]["gap_reason"] == "required_feature_metrics_incomplete"
+    assert gaps[0]["gap_reason"] == "required_feature_metrics_incomplete"

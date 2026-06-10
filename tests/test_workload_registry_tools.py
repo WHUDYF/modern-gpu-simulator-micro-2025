@@ -433,6 +433,8 @@ def test_build_workload_registry_keeps_curated_available_sources_from_table(tmp_
     root = tmp_path / "deepbench"
     (root / "code" / "nvidia").mkdir(parents=True)
     (root / "code" / "nvidia" / "gemm_bench.cu").write_text("fixture")
+    (root / "code" / "nvidia" / "rnn_bench.cu").write_text("fixture")
+    (root / "code" / "nvidia" / "conv_bench.cu").write_text("fixture")
     source_registry = tmp_path / "source_registry.json"
     source_registry.write_text(
         json.dumps(
@@ -514,11 +516,44 @@ def test_build_workload_registry_skips_source_available_when_local_root_is_missi
     assert registry["workloads"] == []
 
 
+def test_build_workload_registry_filters_curated_source_available_by_local_path(tmp_path):
+    root = tmp_path / "pannotia"
+    (root / "graph_app" / "sssp").mkdir(parents=True)
+    source_registry = tmp_path / "source_registry.json"
+    source_registry.write_text(
+        json.dumps(
+            {
+                "schema_version": "source_registry_v1",
+                "generated_at": "2026-05-11T00:00:00+00:00",
+                "sources": [
+                    {
+                        "source_id": "pannotia",
+                        "local_path": str(root),
+                        "availability_status": "source_available",
+                    }
+                ],
+            }
+        )
+    )
+
+    registry = build_workload_registry(source_registry, generated_at="2026-05-11T00:00:00+00:00")
+
+    workload_ids = {row["workload_id"] for row in registry["workloads"]}
+    assert "pannotia_sssp" in workload_ids
+    assert "pannotia_bfs" not in workload_ids
+
+
 def test_build_workload_registry_keeps_expected_graph_suite_candidate_ids(tmp_path):
     gunrock_root = tmp_path / "gunrock"
     pannotia_root = tmp_path / "pannotia"
-    gunrock_root.mkdir()
-    pannotia_root.mkdir()
+    (gunrock_root / "examples" / "algorithms" / "bfs").mkdir(parents=True)
+    (gunrock_root / "examples" / "algorithms" / "sssp").mkdir(parents=True)
+    (gunrock_root / "examples" / "algorithms" / "pr").mkdir(parents=True)
+    (gunrock_root / "examples" / "algorithms" / "connected-components").mkdir(parents=True)
+    (pannotia_root / "graph_app" / "bfs").mkdir(parents=True)
+    (pannotia_root / "graph_app" / "sssp").mkdir(parents=True)
+    (pannotia_root / "graph_app" / "color").mkdir(parents=True)
+    (pannotia_root / "graph_app" / "prk").mkdir(parents=True)
     source_registry = tmp_path / "source_registry.json"
     source_registry.write_text(
         json.dumps(

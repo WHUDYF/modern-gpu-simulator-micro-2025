@@ -593,12 +593,18 @@ def _validate_protobuf_source_artifacts(root: Path) -> None:
         trace.ParseFromString((root / "dynamic_trace.pb").read_bytes())
     except Exception as exc:
         raise ValueError("dynamic_trace.pb is not a readable protobuf") from exc
+    if not any(stream.kernels for device in trace.gpu_device.values() for stream in device.streams.values()):
+        raise ValueError("dynamic_trace.pb contains no kernel invocations")
     for pb_path in sorted((root / "threadblocks").rglob("*.pb")):
         try:
             block = threadblock_pb2.threadblock()
             block.ParseFromString(pb_path.read_bytes())
         except Exception as exc:
             raise ValueError(f"threadblock protobuf is not readable: {pb_path}") from exc
+        if not block.warps:
+            raise ValueError(f"threadblock protobuf contains no warp records: {pb_path}")
+        if not any(warp.instructions for warp in block.warps.values()):
+            raise ValueError(f"threadblock protobuf contains no instruction records: {pb_path}")
 
 
 def _available_gate0_artifacts(root: Path) -> list[str]:

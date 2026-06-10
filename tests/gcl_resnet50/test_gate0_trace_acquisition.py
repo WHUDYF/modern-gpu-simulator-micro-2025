@@ -111,6 +111,13 @@ def _write_minimal_real_threadblock_pb(path: Path) -> None:
     block.block_id.x = 0
     block.block_id.y = 0
     block.block_id.z = 0
+    warp = block.warps[0]
+    warp.id = 0
+    instruction = warp.instructions.add()
+    instruction.pc = 4096
+    instruction.function_unique_id = 9999
+    instruction.active_mask = 0xFFFFFFFF
+    instruction.predicate_mask = 0xFFFFFFFF
     path.write_bytes(block.SerializeToString())
 
 
@@ -749,12 +756,37 @@ def test_gate0_rejects_unreadable_dynamic_trace_before_formal_manifest(tmp_path)
     assert not (root / "gate0_trace_acquisition_manifest.json").exists()
 
 
+def test_gate0_rejects_empty_dynamic_trace_before_formal_manifest(tmp_path):
+    root = tmp_path / "empty_dynamic_trace"
+    _write_real_gate0_contract_artifacts(root)
+    _write_collector_bound_gate0_evidence(root, "external-collector-session")
+    (root / "dynamic_trace.pb").write_bytes(b"")
+
+    with pytest.raises(ValueError, match="dynamic_trace.pb"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
+
+
 def test_gate0_rejects_unreadable_threadblock_before_formal_manifest(tmp_path):
     root = tmp_path / "unreadable_threadblock"
     _write_real_gate0_contract_artifacts(root)
     _write_collector_bound_gate0_evidence(root, "external-collector-session")
     threadblock_path = next((root / "threadblocks").rglob("*.pb"))
     threadblock_path.write_bytes(b"not-a-threadblock")
+
+    with pytest.raises(ValueError, match="threadblock protobuf"):
+        record_resnet50_gate0_trace_acquisition(root)
+
+    assert not (root / "gate0_trace_acquisition_manifest.json").exists()
+
+
+def test_gate0_rejects_empty_threadblock_before_formal_manifest(tmp_path):
+    root = tmp_path / "empty_threadblock"
+    _write_real_gate0_contract_artifacts(root)
+    _write_collector_bound_gate0_evidence(root, "external-collector-session")
+    threadblock_path = next((root / "threadblocks").rglob("*.pb"))
+    threadblock_path.write_bytes(b"")
 
     with pytest.raises(ValueError, match="threadblock protobuf"):
         record_resnet50_gate0_trace_acquisition(root)

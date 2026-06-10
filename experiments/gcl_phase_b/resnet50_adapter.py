@@ -54,9 +54,10 @@ def load_resnet50_trace_sources(
     if invocation_limit is not None:
         dynamic_trace = _limit_dynamic_trace_invocations(dynamic_trace, invocation_limit)
     if invocation_limit is not None or invocation_ids is not None:
+        kept_invocations = list(dynamic_trace["kernel_invocations"])
         kept_invocation_ids = {
             row["source_kernel_invocation_id"]
-            for row in dynamic_trace["kernel_invocations"]
+            for row in kept_invocations
             if row.get("source_kernel_invocation_id")
         }
         scheduler_has_only_legacy_ids = _scheduler_metadata_has_only_legacy_ids(
@@ -69,11 +70,16 @@ def load_resnet50_trace_sources(
         ):
             scheduler_metadata = _limit_scheduler_metadata_invocations(
                 scheduler_metadata,
-                len(dynamic_trace["kernel_invocations"]),
+                len(kept_invocations),
+            )
+        elif scheduler_has_only_legacy_ids:
+            scheduler_metadata = _filter_legacy_scheduler_metadata_by_launch_orders(
+                scheduler_metadata,
+                {int(row["launch_order"]) for row in kept_invocations},
             )
         else:
             kept_invocation_ids.update(
-                _legacy_scheduler_invocation_ids(dynamic_trace["kernel_invocations"])
+                _legacy_scheduler_invocation_ids(kept_invocations)
             )
             scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
                 scheduler_metadata,
@@ -522,6 +528,24 @@ def _limit_scheduler_metadata_invocations(
     )
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
+    return filtered
+
+
+def _filter_legacy_scheduler_metadata_by_launch_orders(
+    scheduler_metadata: dict[str, Any],
+    launch_orders: set[int],
+) -> dict[str, Any]:
+    if not launch_orders:
+        raise ValueError("invocation_ids selected no scheduler launch orders")
+    filtered = dict(scheduler_metadata)
+    scheduler_invocations = scheduler_metadata.get("kernel_invocations", [])
+    filtered["kernel_invocations"] = [
+        invocation
+        for index, invocation in enumerate(scheduler_invocations)
+        if index in launch_orders
+    ]
+    if not filtered["kernel_invocations"]:
+        raise ValueError("invocation_ids selected no scheduler metadata")
     return filtered
 
 

@@ -177,6 +177,33 @@ def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(t
     assert bundle["kernel_invocation_table"][0]["launch_order"] == 1
 
 
+def test_gate1_canonical_invocation_ids_filter_legacy_scheduler_repeated_kernel(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "formal_canonical_id_legacy_scheduler"
+    )
+    _write_formal_gate0_manifest(root)
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for invocation in scheduler["kernel_invocations"]:
+        invocation.pop("launch_order", None)
+        invocation.pop("kernel_invocation_id", None)
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
+
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
+    trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
+    assert invocation_ids == ["resnet50_k00001"]
+    assert scheduler_ids == {"resnet50_k00001"}
+    assert trace_ids == {"resnet50_k00001"}
+    assert {record["cta_id"] for record in bundle["cta_scheduler_records"]} == {
+        "0,0,0",
+        "1,0,0",
+    }
+
+
 def test_gate1_invocation_limit_does_not_widen_repeated_kernel_fallback_scheduler(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_limit_fallback")
     _write_formal_gate0_manifest(root)

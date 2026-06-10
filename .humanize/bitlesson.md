@@ -46,11 +46,11 @@ Source Rounds: 2, 40, 45, 49, 52
 Lesson ID: BL-20260606-scheduler-trace-reconciliation
 Scope: experiments/gcl_phase_b/resnet50_adapter.py
 Problem Description: A trace adapter can emit a passed bundle even when CTA scheduler metadata and per-warp trace records disagree.
-Root Cause: Validation only checked that each invocation had some scheduler and trace records, not that each `(kernel_invocation_id, cta_id)` had matching CTA presence, warp IDs, trace entry counts, and scheduler ordering.
-Solution: Aggregate per-warp trace records by `(kernel_invocation_id, cta_id)` and validate CTA set equality, warp ID equality, exact trace-entry count equality, positive counts, and `first_seen_order <= last_seen_order`.
+Root Cause: Validation only checked that each invocation had some scheduler and trace records, not that each `(kernel_invocation_id, cta_id)` had matching CTA presence, warp IDs, trace entry counts, and scheduler ordering; later Phase B trace scope validation checked missing expected warps but not unexpected observed warps.
+Solution: Aggregate per-warp trace records by `(kernel_invocation_id, cta_id)` and validate CTA set equality, warp ID equality, exact trace-entry count equality, positive counts, and `first_seen_order <= last_seen_order`; Phase B selected-SM scope validation must reject both missing expected warps and unexpected observed warps not declared in `warp_ids_by_cta`.
 Constraints: Fixture scheduler metadata must include only CTAs with corresponding trace records; debug/proxy scheduler records cannot enter formal Gate 1 bundles.
-Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py`; `pytest -q tests/gcl_phase_a tests/gcl_phase_b` passed in Round 3.
-Source Rounds: 3
+Validation Evidence: `pytest -q tests/gcl_phase_b/test_resnet50_adapter.py tests/gcl_phase_b/test_resnet50_manifest.py`; `pytest -q tests/gcl_phase_b/test_trace_scope.py`; `pytest -q tests/gcl_phase_b/test_resnet50_manifest.py tests/gcl_phase_b/test_graph_builder.py tests/gcl_phase_b/test_tensorizer.py`; `pytest -q tests/gcl_phase_a tests/gcl_phase_b` passed in Round 3.
+Source Rounds: 3, 54
 
 ## Lesson: final-state-artifacts-mutually-exclusive
 Lesson ID: BL-20260609-final-state-artifacts-mutually-exclusive

@@ -159,6 +159,26 @@ def test_trace_manifest_rejects_included_cta_without_expected_warp_entries():
         validate_phase_b_trace_manifest(missing_warp_entries)
 
 
+def test_trace_manifest_rejects_selected_cta_with_unexpected_warp_entries():
+    manifest = build_representative_sm_trace_manifest()
+    unexpected_warp_entries = copy.deepcopy(manifest)
+    invocation = unexpected_warp_entries["kernel_invocations"][0]
+    selected_sm = str(invocation["selected_sm"])
+    invocation["scheduler_metadata_by_sm"][selected_sm]["warp_ids_by_cta"]["cta_3"] = [0]
+    scoped_entries = [
+        entry for entry in invocation["all_trace_entries"] if entry["cta_id"] in invocation["included_cta_ids"]
+    ]
+    invocation["instruction_count"] = len(scoped_entries)
+    invocation["warp_count"] = len({(entry["cta_id"], entry["warp_id"]) for entry in scoped_entries})
+    invocation["trace_hash"] = hash_without(invocation, "trace_hash")
+    unexpected_warp_entries["trace_manifest_hash"] = hash_without(
+        unexpected_warp_entries, "trace_manifest_hash"
+    )
+
+    with pytest.raises(ValueError, match="unexpected warp trace entries"):
+        validate_phase_b_trace_manifest(unexpected_warp_entries)
+
+
 def test_trace_manifest_rejects_stale_top_level_hash_after_invocation_rehash():
     manifest = build_representative_sm_trace_manifest()
     manifest["kernel_invocations"][0]["selected_sm_reason"] = "tampered_reason"

@@ -96,11 +96,19 @@ def _validate_selected_sm_trace_entry_coverage(
     if not isinstance(warp_ids_by_cta, dict):
         raise ValueError("selected SM scheduler metadata must define warp_ids_by_cta")
     for cta_id in sorted(included_ctas):
+        if cta_id not in warp_ids_by_cta:
+            raise ValueError(f"selected SM scheduler metadata missing warp_ids for CTA {cta_id}")
         expected_warps = {int(warp_id) for warp_id in warp_ids_by_cta.get(cta_id, [])}
-        missing_warps = sorted(expected_warps.difference(observed_warps_by_cta.get(cta_id, set())))
+        observed_warps = observed_warps_by_cta.get(cta_id, set())
+        missing_warps = sorted(expected_warps.difference(observed_warps))
         if missing_warps:
             raise ValueError(
                 f"warp trace entries missing for selected SM CTA {cta_id}: {missing_warps}"
+            )
+        unexpected_warps = sorted(observed_warps.difference(expected_warps))
+        if unexpected_warps:
+            raise ValueError(
+                f"unexpected warp trace entries for selected SM CTA {cta_id}: {unexpected_warps}"
             )
 
 

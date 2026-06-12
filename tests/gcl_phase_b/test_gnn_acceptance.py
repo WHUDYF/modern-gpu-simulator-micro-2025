@@ -3,6 +3,7 @@ import json
 import pytest
 
 from experiments.gcl_phase_b.trustworthiness import (
+    render_gnn_acceptance_markdown,
     evaluate_gnn_acceptance,
     validate_gnn_acceptance_manifest,
     write_gnn_acceptance_artifacts,
@@ -268,6 +269,20 @@ def test_full_rgcn_must_not_pass_when_no_edge_baseline_matches():
     assert report["gnn_acceptance_status"] == "rejected_no_graph_signal"
 
 
+def test_incomplete_baseline_report_cannot_pass():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            baseline_ablation_report={
+                "artifact_type": "gcl_gnn_baseline_ablation_report",
+                "full_rgcn": {"silhouette": 0.8, "inter_intra_ratio": 3.0},
+            }
+        )
+    )
+
+    assert report["acceptance_items"]["baseline_ablation"]["status"] == "FAIL"
+    assert report["gnn_acceptance_status"] == "rejected_no_graph_signal"
+
+
 def test_single_run_stability_is_not_available():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
@@ -316,6 +331,28 @@ def test_multi_seed_stability_rejects_under_seeded_reports():
     assert report["acceptance_items"]["multi_seed_stability"]["status"] == "FAIL"
 
 
+def test_multi_seed_stability_rejects_unstable_metric_values():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            gate7_manifest=_gate7_manifest(
+                stability_report={
+                    "stability_status": "multi_seed_evaluated",
+                    "training_seed_count": 3,
+                    "kmeans_seed_count": 5,
+                    "assignment_stability_ari": 0.01,
+                    "assignment_stability_nmi": 0.02,
+                    "centroid_drift": 999.0,
+                    "k_stability": 0.0,
+                    "representative_stability_rate": 0.0,
+                }
+            )
+        )
+    )
+
+    assert report["acceptance_items"]["multi_seed_stability"]["status"] == "FAIL"
+    assert report["gnn_acceptance_status"] == "rejected_unstable_embedding"
+
+
 def test_coarse_resnet50_label_keeps_semantic_correctness_unproven():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
@@ -349,6 +386,74 @@ def test_downstream_claim_requires_error_metrics():
     )
 
 
+def test_downstream_metrics_without_provenance_cannot_pass():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            gate7_manifest=_gate7_manifest(
+                metric_error_report={
+                    "metric_claim_status": "reported",
+                    "cluster_weighted_mape": {"0": 0.1},
+                    "global_weighted_mape": 0.1,
+                    "global_p95_relative_error": 0.2,
+                },
+                representative_quality_metrics={
+                    "representative_quality_status": "reported",
+                    "cluster_reports": [
+                        {
+                            "cluster_id": 0,
+                            "mean_distance_to_representative": 0.1,
+                            "p95_distance_to_representative": 0.2,
+                            "max_distance_to_representative": 0.3,
+                            "representative_rank_to_centroid": 1,
+                            "outlier_member_ratio": 0.0,
+                        }
+                    ],
+                },
+            )
+        )
+    )
+
+    assert (
+        report["acceptance_items"]["downstream_representative_usefulness"]["status"]
+        == "FAIL"
+    )
+
+
+def test_downstream_metrics_reject_unusable_error_values():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            gate7_manifest=_gate7_manifest(
+                metric_source_manifest_hash="metric-source-hash",
+                metric_error_report={
+                    "metric_claim_status": "reported",
+                    "cluster_weighted_mape": {"0": 9999.0},
+                    "global_weighted_mape": 9999.0,
+                    "global_p95_relative_error": 9999.0,
+                },
+                representative_quality_metrics={
+                    "representative_quality_status": "reported",
+                    "cluster_reports": [
+                        {
+                            "cluster_id": 0,
+                            "mean_distance_to_representative": 0.1,
+                            "p95_distance_to_representative": 0.2,
+                            "max_distance_to_representative": 0.3,
+                            "representative_rank_to_centroid": 1,
+                            "outlier_member_ratio": 0.0,
+                        }
+                    ],
+                },
+            )
+        )
+    )
+
+    assert (
+        report["acceptance_items"]["downstream_representative_usefulness"]["status"]
+        == "FAIL"
+    )
+    assert report["gnn_acceptance_status"] == "rejected_downstream_unproven"
+
+
 def test_current_resnet50_run_keeps_quantified_no_correctness_claim():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
@@ -377,6 +482,76 @@ def test_claim_status_cannot_upgrade_with_any_blocking_gap():
     assert report["gnn_acceptance_status"] != "accepted"
 
 
+def test_claim_status_uses_intermediate_ladder_when_evidence_layers_pass():
+    training = _training_manifest(
+        train_graph_count=128,
+        epoch_count=3,
+        positive_pair_count=128,
+        negative_pair_count=512,
+        loss_curve=[1.2, 0.8, 0.5],
+        optimizer_config={
+            "optimizer": "Adam",
+            "learning_rate": 0.005,
+            "optimizer_step_count": 100,
+        },
+    )
+    baseline = {
+        "artifact_type": "gcl_gnn_baseline_ablation_report",
+        "full_rgcn": {"silhouette": 0.8, "inter_intra_ratio": 3.0},
+        "no_edge_baseline": {"silhouette": 0.2, "inter_intra_ratio": 1.1},
+        "random_embedding_baseline": {"silhouette": 0.1, "inter_intra_ratio": 1.0},
+        "opcode_histogram_baseline": {"silhouette": 0.15, "inter_intra_ratio": 1.2},
+        "control_flow_only_rgcn": {"silhouette": 0.3, "inter_intra_ratio": 1.3},
+        "data_flow_only_rgcn": {"silhouette": 0.35, "inter_intra_ratio": 1.4},
+    }
+    gate7 = _gate7_manifest(
+        stability_report={
+            "stability_status": "multi_seed_evaluated",
+            "training_seed_count": 3,
+            "kmeans_seed_count": 5,
+            "assignment_stability_ari": 0.91,
+            "assignment_stability_nmi": 0.93,
+            "centroid_drift": 0.04,
+            "k_stability": 1.0,
+            "representative_stability_rate": 0.9,
+        }
+    )
+
+    stable_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=training,
+            gate7_manifest=gate7,
+            baseline_ablation_report=baseline,
+        )
+    )
+
+    assert stable_report["claim_status"] == "cluster_stability_supported"
+
+    semantic_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=training,
+            baseline_ablation_report=baseline,
+            gate7_manifest=_gate7_manifest(
+                stability_report=gate7["stability_report"],
+                family_alignment_metrics={
+                    "family_evidence_status": "available",
+                    "family_alignment_claim_status": "reported",
+                    "cluster_purity": 0.9,
+                    "weighted_purity": 0.9,
+                    "ari": 0.8,
+                    "nmi": 0.82,
+                    "homogeneity": 0.84,
+                    "completeness": 0.83,
+                    "v_measure": 0.835,
+                    "family_to_cluster_coverage": {"conv": {}, "activation": {}},
+                },
+            ),
+        )
+    )
+
+    assert semantic_report["claim_status"] == "semantic_cluster_supported"
+
+
 def test_acceptance_artifacts_written_with_hashes(tmp_path):
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
@@ -402,3 +577,48 @@ def test_acceptance_manifest_rejects_missing_hash_or_report_mismatch(tmp_path):
     manifest.pop("report_hash")
     with pytest.raises(ValueError, match="report_hash"):
         validate_gnn_acceptance_manifest(manifest, summary=summary, markdown="changed")
+
+
+def test_acceptance_manifest_rejects_missing_individual_source_hash(tmp_path):
+    report = evaluate_gnn_acceptance(**_minimal_inputs())
+    write_gnn_acceptance_artifacts(tmp_path, report)
+    manifest = json.loads((tmp_path / "gnn_acceptance_manifest.json").read_text())
+    summary = json.loads((tmp_path / "gnn_acceptance_summary.json").read_text())
+    markdown = (tmp_path / "gnn_acceptance_report.md").read_text()
+    manifest["input_artifact_hashes"]["selector_manifest_hash"] = None
+
+    with pytest.raises(ValueError, match="selector_manifest_hash"):
+        validate_gnn_acceptance_manifest(manifest, summary=summary, markdown=markdown)
+
+
+def test_acceptance_manifest_rejects_stale_summary_hash(tmp_path):
+    report = evaluate_gnn_acceptance(**_minimal_inputs())
+    write_gnn_acceptance_artifacts(tmp_path, report)
+    manifest = json.loads((tmp_path / "gnn_acceptance_manifest.json").read_text())
+    summary = json.loads((tmp_path / "gnn_acceptance_summary.json").read_text())
+    markdown = (tmp_path / "gnn_acceptance_report.md").read_text()
+    summary["manifest_hash"] = "stale"
+
+    with pytest.raises(ValueError, match="manifest_hash"):
+        validate_gnn_acceptance_manifest(manifest, summary=summary, markdown=markdown)
+
+
+def test_acceptance_manifest_rejects_tampered_manifest_hash(tmp_path):
+    report = evaluate_gnn_acceptance(**_minimal_inputs())
+    write_gnn_acceptance_artifacts(tmp_path, report)
+    manifest = json.loads((tmp_path / "gnn_acceptance_manifest.json").read_text())
+    summary = json.loads((tmp_path / "gnn_acceptance_summary.json").read_text())
+    markdown = (tmp_path / "gnn_acceptance_report.md").read_text()
+    manifest["claim_status"] = "gnn_trustworthiness_accepted"
+
+    with pytest.raises(ValueError, match="manifest_hash"):
+        validate_gnn_acceptance_manifest(manifest, summary=summary, markdown=markdown)
+
+
+def test_rendered_markdown_hash_changes_when_status_changes():
+    report = evaluate_gnn_acceptance(**_minimal_inputs())
+    original = render_gnn_acceptance_markdown(report)
+    changed = dict(report)
+    changed["claim_status"] = "gnn_trustworthiness_accepted"
+
+    assert render_gnn_acceptance_markdown(changed) != original

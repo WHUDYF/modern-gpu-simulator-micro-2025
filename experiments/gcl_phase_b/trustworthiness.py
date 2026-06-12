@@ -16,6 +16,17 @@ CLAIM_NO_CORRECTNESS = "quantified_no_correctness_claim"
 STATUS_WEAK = "weak_acceptance_structure_valid_but_correctness_unproven"
 STATUS_MISSING = "not_evaluable_missing_artifacts"
 STATUS_NO_GRAPH_SIGNAL = "rejected_no_graph_signal"
+STATUS_TRAINING_INSUFFICIENT = "rejected_training_insufficient"
+STATUS_UNSTABLE = "rejected_unstable_embedding"
+STATUS_DOWNSTREAM_UNPROVEN = "rejected_downstream_unproven"
+
+MIN_ASSIGNMENT_STABILITY_ARI = 0.8
+MIN_ASSIGNMENT_STABILITY_NMI = 0.8
+MIN_K_STABILITY = 0.8
+MIN_REPRESENTATIVE_STABILITY_RATE = 0.8
+MAX_CENTROID_DRIFT = 0.25
+MAX_GLOBAL_WEIGHTED_MAPE = 1.0
+MAX_GLOBAL_P95_RELATIVE_ERROR = 2.0
 
 
 def evaluate_gnn_acceptance(
@@ -158,10 +169,32 @@ def validate_gnn_acceptance_manifest(
 ) -> None:
     if manifest.get("artifact_type") != "gcl_gnn_acceptance_manifest":
         raise ValueError("GNN acceptance manifest has invalid artifact_type")
-    if not manifest.get("input_artifact_hashes"):
+    hashes = manifest.get("input_artifact_hashes")
+    if not hashes:
         raise ValueError("GNN acceptance manifest requires input_artifact_hashes")
+    required_hashes = [
+        "full_trace_manifest_hash",
+        "training_run_manifest_hash",
+        "selector_manifest_hash",
+        "gate7_cluster_correctness_manifest_hash",
+    ]
+    for key in required_hashes:
+        if not hashes.get(key):
+            raise ValueError(f"GNN acceptance manifest requires {key}")
     if not manifest.get("report_hash"):
         raise ValueError("GNN acceptance manifest requires report_hash")
+    supplied_manifest_hash = manifest.get("gnn_acceptance_manifest_hash")
+    if not supplied_manifest_hash:
+        raise ValueError("GNN acceptance manifest requires gnn_acceptance_manifest_hash")
+    computed_manifest_hash = stable_hash(
+        {
+            key: value
+            for key, value in manifest.items()
+            if key != "gnn_acceptance_manifest_hash"
+        }
+    )
+    if supplied_manifest_hash != computed_manifest_hash:
+        raise ValueError("GNN acceptance manifest_hash does not match manifest content")
     if markdown is not None and stable_hash({"markdown": markdown}) != manifest["report_hash"]:
         raise ValueError("GNN acceptance report_hash does not match markdown")
     if summary is not None:
@@ -169,6 +202,18 @@ def validate_gnn_acceptance_manifest(
             raise ValueError("GNN acceptance summary status does not match manifest")
         if summary.get("claim_status") != manifest.get("claim_status"):
             raise ValueError("GNN acceptance summary claim_status does not match manifest")
+        if summary.get("manifest_hash") != supplied_manifest_hash:
+            raise ValueError("GNN acceptance summary manifest_hash does not match manifest")
+        if summary.get("report_hash") != manifest.get("report_hash"):
+            raise ValueError("GNN acceptance summary report_hash does not match manifest")
+        supplied_summary_hash = summary.get("summary_hash")
+        if not supplied_summary_hash:
+            raise ValueError("GNN acceptance summary requires summary_hash")
+        computed_summary_hash = stable_hash(
+            {key: value for key, value in summary.items() if key != "summary_hash"}
+        )
+        if supplied_summary_hash != computed_summary_hash:
+            raise ValueError("GNN acceptance summary_hash does not match summary content")
 
 
 def render_gnn_acceptance_markdown(report: dict[str, Any]) -> str:
@@ -280,20 +325,38 @@ def _evaluate_selector_result(selector: dict[str, Any]) -> dict[str, Any]:
 def _evaluate_baseline_ablation(report: dict[str, Any] | None) -> dict[str, Any]:
     if not report:
         return _item("NOT_AVAILABLE", "baseline ablation report is missing")
-    full = report.get("full_rgcn", {})
-    no_edge = report.get("no_edge_baseline", {})
-    random = report.get("random_embedding_baseline", {})
-    histogram = report.get("opcode_histogram_baseline", {})
+    required = [
+        "full_rgcn",
+        "no_edge_baseline",
+        "random_embedding_baseline",
+        "opcode_histogram_baseline",
+        "control_flow_only_rgcn",
+        "data_flow_only_rgcn",
+    ]
+    for key in required:
+        metrics = report.get(key)
+        if not isinstance(metrics, dict):
+            return _item("FAIL", f"baseline ablation missing {key}")
+        if _number(metrics.get("silhouette")) is None:
+            return _item("FAIL", f"baseline ablation missing {key}.silhouette")
+    full = report["full_rgcn"]
     full_silhouette = _number(full.get("silhouette"))
-    if full_silhouette is None:
-        return _item("FAIL", "full RGCN baseline metrics are missing")
+    full_ratio = _number(full.get("inter_intra_ratio"))
     competitor_scores = [
-        _number(no_edge.get("silhouette")),
-        _number(random.get("silhouette")),
-        _number(histogram.get("silhouette")),
+        _number(report[key].get("silhouette"))
+        for key in required
+        if key != "full_rgcn"
     ]
     if any(score is not None and full_silhouette <= score for score in competitor_scores):
         return _item("FAIL", "full RGCN does not beat simpler baselines")
+    if full_ratio is not None:
+        competitor_ratios = [
+            _number(report[key].get("inter_intra_ratio"))
+            for key in required
+            if key != "full_rgcn"
+        ]
+        if any(ratio is not None and full_ratio <= ratio for ratio in competitor_ratios):
+            return _item("FAIL", "full RGCN inter/intra ratio does not beat baselines")
     return _item("PASS", "full RGCN beats required simple baselines")
 
 
@@ -312,6 +375,12 @@ def _evaluate_multi_seed_stability(gate7: dict[str, Any]) -> dict[str, Any]:
         stability.get("training_seed_count", 0) >= 3
         and stability.get("kmeans_seed_count", 0) >= 5
         and all(stability.get(name) is not None for name in required)
+        and float(stability["assignment_stability_ari"]) >= MIN_ASSIGNMENT_STABILITY_ARI
+        and float(stability["assignment_stability_nmi"]) >= MIN_ASSIGNMENT_STABILITY_NMI
+        and float(stability["centroid_drift"]) <= MAX_CENTROID_DRIFT
+        and float(stability["k_stability"]) >= MIN_K_STABILITY
+        and float(stability["representative_stability_rate"])
+        >= MIN_REPRESENTATIVE_STABILITY_RATE
     )
     if ok:
         return _item("PASS", "multi-seed stability meets minimum seed counts")
@@ -344,7 +413,20 @@ def _evaluate_downstream_usefulness(gate7: dict[str, Any]) -> dict[str, Any]:
         "status"
     ) == "not_provided":
         return _item("NOT_AVAILABLE", "downstream metric rows were not provided")
+    if not gate7.get("metric_source_manifest_hash"):
+        return _item("FAIL", "downstream metric source provenance is missing")
+    if not _representative_quality_complete(gate7.get("representative_quality_metrics", {})):
+        return _item("FAIL", "representative quality evidence is missing")
     if all(metric_report.get(name) is not None for name in required):
+        global_mape = _number(metric_report.get("global_weighted_mape"))
+        p95_error = _number(metric_report.get("global_p95_relative_error"))
+        if (
+            global_mape is None
+            or p95_error is None
+            or global_mape > MAX_GLOBAL_WEIGHTED_MAPE
+            or p95_error > MAX_GLOBAL_P95_RELATIVE_ERROR
+        ):
+            return _item("FAIL", "downstream representative error is too high")
         return _item("PASS", "representative downstream error metrics are available")
     return _item("NOT_AVAILABLE", "downstream representative error metrics are incomplete")
 
@@ -371,6 +453,16 @@ def _overall_status(items: dict[str, dict[str, Any]]) -> str:
         return STATUS_NO_GRAPH_SIGNAL
     if items.get("input_provenance", {}).get("status") == "FAIL":
         return STATUS_MISSING
+    if items.get("multi_seed_stability", {}).get("status") == "FAIL":
+        return STATUS_UNSTABLE
+    if items.get("downstream_representative_usefulness", {}).get("status") == "FAIL":
+        return STATUS_DOWNSTREAM_UNPROVEN
+    if (
+        items.get("training_adequacy", {}).get("status") == "FAIL"
+        and items.get("baseline_ablation", {}).get("status") == "PASS"
+        and items.get("multi_seed_stability", {}).get("status") == "PASS"
+    ):
+        return STATUS_TRAINING_INSUFFICIENT
     if all(item.get("status") == "PASS" for item in items.values()):
         return "accepted"
     return STATUS_WEAK
@@ -379,6 +471,25 @@ def _overall_status(items: dict[str, dict[str, Any]]) -> str:
 def _claim_status_for(status: str, items: dict[str, dict[str, Any]]) -> str:
     if status == "accepted" and all(item.get("status") == "PASS" for item in items.values()):
         return "gnn_trustworthiness_accepted"
+    if (
+        items.get("input_provenance", {}).get("status") == "PASS"
+        and items.get("rgcn_structure", {}).get("status") == "PASS"
+        and items.get("embedding_geometry_signal", {}).get("status") == "WEAK_PASS"
+        and items.get("training_adequacy", {}).get("status") == "PASS"
+    ):
+        if (
+            items.get("baseline_ablation", {}).get("status") == "PASS"
+            and items.get("multi_seed_stability", {}).get("status") == "PASS"
+        ):
+            if items.get("semantic_cluster_correctness", {}).get("status") == "PASS":
+                if (
+                    items.get("downstream_representative_usefulness", {}).get("status")
+                    == "PASS"
+                ):
+                    return "representative_downstream_supported"
+                return "semantic_cluster_supported"
+            return "cluster_stability_supported"
+        return "structure_valid_embedding_signal_only"
     return CLAIM_NO_CORRECTNESS
 
 
@@ -409,6 +520,20 @@ def _number(value: Any) -> float | None:
     if isinstance(value, int | float):
         return float(value)
     return None
+
+
+def _representative_quality_complete(report: dict[str, Any]) -> bool:
+    clusters = report.get("cluster_reports")
+    if not isinstance(clusters, list) or not clusters:
+        return False
+    required = [
+        "mean_distance_to_representative",
+        "p95_distance_to_representative",
+        "max_distance_to_representative",
+        "representative_rank_to_centroid",
+        "outlier_member_ratio",
+    ]
+    return all(all(cluster.get(name) is not None for name in required) for cluster in clusters)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

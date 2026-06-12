@@ -732,6 +732,57 @@ def test_acceptance_stage_rejects_missing_gate5_gate6_gate7_inputs(tmp_path, mon
     assert "rgcn_training_run_manifest.json" in manifest["missing_artifacts"]
 
 
+def test_acceptance_only_stage_preserves_existing_gate_artifacts(tmp_path):
+    out_dir = tmp_path / "existing"
+    out_dir.mkdir()
+    full_manifest = {
+        "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
+        "artifact_version": "full_trace_reproduction_manifest_v1",
+        "run_scope": "real_resnet50_full_trace",
+        "formal_full_trace_run": True,
+        "input_kernel_invocation_count": 265,
+        "input_cta_record_count": 124876,
+        "final_gate": "gate9_report_only",
+    }
+    full_manifest["full_trace_reproduction_manifest_hash"] = hash_without(
+        full_manifest,
+        "full_trace_reproduction_manifest_hash",
+    )
+    (out_dir / "resnet50_full_trace_reproduction_manifest.json").write_text(
+        json.dumps(full_manifest),
+        encoding="utf-8",
+    )
+    _write_gnn_acceptance_required_inputs(out_dir)
+    (out_dir / "kernel_embedding_table.json").write_text(
+        json.dumps({"kernel_embedding_table_hash": "embedding-hash"}),
+        encoding="utf-8",
+    )
+    protected_files = [
+        "kernel_embedding_table.json",
+        "selector_artifacts.json",
+        "gate7_cluster_correctness_manifest.json",
+    ]
+    before = {
+        name: (
+            (out_dir / name).read_bytes(),
+            (out_dir / name).stat().st_mtime_ns,
+        )
+        for name in protected_files
+    }
+
+    result = run_resnet50_full_trace_gcl.append_gnn_acceptance_report(out_dir)
+
+    assert result["gnn_acceptance_status"] == (
+        "weak_acceptance_structure_valid_but_correctness_unproven"
+    )
+    for name, (content, mtime_ns) in before.items():
+        assert (out_dir / name).read_bytes() == content
+        assert (out_dir / name).stat().st_mtime_ns == mtime_ns
+    assert (out_dir / "gnn_acceptance_manifest.json").exists()
+    assert (out_dir / "gnn_acceptance_summary.json").exists()
+    assert (out_dir / "gnn_acceptance_report.md").exists()
+
+
 def test_full_trace_runner_resume_rejects_gate4_from_different_gate0_root(
     tmp_path,
     monkeypatch,

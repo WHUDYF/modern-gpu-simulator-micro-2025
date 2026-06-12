@@ -254,6 +254,14 @@ def _write_gnn_acceptance(out_dir: Path) -> dict[str, Any]:
     return _read_json(out_dir / "gnn_acceptance_manifest.json")
 
 
+def append_gnn_acceptance_report(out_dir: Path) -> dict[str, Any]:
+    out_dir = Path(out_dir)
+    manifest_path = out_dir / FULL_TRACE_MANIFEST
+    if not manifest_path.exists():
+        raise ValueError(f"missing full trace manifest for GNN acceptance: {manifest_path}")
+    return _write_gnn_acceptance(out_dir)
+
+
 def run_full_trace_reproduction(
     *,
     input_root: Path,

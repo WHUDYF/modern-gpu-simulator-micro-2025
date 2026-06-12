@@ -325,6 +325,7 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
         raise FileNotFoundError("dynamic_trace.pb is required for formal Gate1")
     trace = trace_pb2.Trace()
     trace.ParseFromString(path.read_bytes())
+    _reject_unordered_multi_stream_trace(trace)
     invocations = []
     launch_order = 0
     for device_id, device in sorted(trace.gpu_device.items()):
@@ -390,9 +391,18 @@ def _load_threadblocks_from_scheduler(
     selected_sm_by_invocation = (
         _selected_sm_by_invocation(scheduler_metadata) if representative_sm_only else {}
     )
+    scheduler_invocations = scheduler_metadata.get("kernel_invocations", [])
+    use_legacy_scheduler_order = (
+        len(scheduler_invocations) > 1
+        and all(
+            "launch_order" not in invocation and not invocation.get("kernel_invocation_id")
+            for invocation in scheduler_invocations
+        )
+    )
     records = []
-    for invocation in scheduler_metadata.get("kernel_invocations", []):
+    for scheduler_order, invocation in enumerate(scheduler_invocations):
         selected_sm = selected_sm_by_invocation.get(_scheduler_invocation_id(invocation))
+        legacy_scheduler_order = scheduler_order if use_legacy_scheduler_order else None
         for cta in invocation.get("cta_records", []):
             if selected_sm is not None and int(cta["sm_id"]) != selected_sm:
                 continue
@@ -406,6 +416,7 @@ def _load_threadblocks_from_scheduler(
                     kernel_id=int(invocation["kernel_id"]),
                     kernel_invocation_id=_scheduler_canonical_invocation_id(invocation),
                     launch_order=invocation.get("launch_order"),
+                    legacy_scheduler_order=legacy_scheduler_order,
                     cta_id=str(cta["cta_id"]),
                     static_instruction_index=static_instruction_index,
                 )
@@ -725,6 +736,7 @@ def _threadblock_records_from_pb(
     kernel_id: int,
     kernel_invocation_id: str,
     launch_order: int | None,
+    legacy_scheduler_order: int | None,
     cta_id: str,
     static_instruction_index: dict[tuple[int, int], dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -763,6 +775,11 @@ def _threadblock_records_from_pb(
                 "kernel_invocation_id": kernel_invocation_id,
                 "kernel_id": kernel_id,
                 **({"launch_order": int(launch_order)} if launch_order is not None else {}),
+                **(
+                    {"legacy_scheduler_order": int(legacy_scheduler_order)}
+                    if legacy_scheduler_order is not None
+                    else {}
+                ),
                 "cta_id": cta_id,
                 "warp_id": int(warp_id),
                 "entries": entries,
@@ -852,17 +869,39 @@ def _invocation_lookup(kernel_invocation_table: list[dict[str, Any]]) -> dict[st
         "by_launch_order": by_launch_order,
         "by_kernel_id": by_kernel_id,
         "by_legacy_id": by_legacy_id,
+        "legacy_candidates": legacy_candidates,
+        "legacy_kernel_offsets": {},
     }
+
+
+def _legacy_resolution_lookup(lookup: dict[str, Any]) -> dict[str, Any]:
+    copied = dict(lookup)
+    copied["legacy_kernel_offsets"] = {}
+    return copied
 
 
 def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]) -> str:
     explicit = record.get("kernel_invocation_id")
     if explicit is not None:
         if explicit not in lookup["by_id"]:
+            if "legacy_scheduler_order" in record:
+                return _resolve_kernel_invocation_id_by_legacy_scheduler_order(
+                    record,
+                    lookup,
+                )
             if "launch_order" in record:
                 return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
             if explicit in lookup["by_legacy_id"]:
                 row = lookup["by_legacy_id"][explicit]
+                _validate_record_identity_consistency(record, row)
+                return row["kernel_invocation_id"]
+            legacy_candidates = lookup["legacy_candidates"].get(str(explicit), [])
+            if legacy_candidates:
+                row = _consume_legacy_kernel_candidate(
+                    int(record["kernel_id"]),
+                    legacy_candidates,
+                    lookup,
+                )
                 _validate_record_identity_consistency(record, row)
                 return row["kernel_invocation_id"]
             raise ValueError("raw record references unknown kernel_invocation_id")
@@ -870,13 +909,31 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
         return explicit
     if "launch_order" in record:
         return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
+    if "legacy_scheduler_order" in record:
+        return _resolve_kernel_invocation_id_by_legacy_scheduler_order(record, lookup)
     kernel_id = int(record["kernel_id"])
     candidates = lookup["by_kernel_id"].get(kernel_id, [])
     if len(candidates) == 1:
         return candidates[0]["kernel_invocation_id"]
-    raise ValueError(
-        "raw record for repeated kernel_id requires kernel_invocation_id or launch_order"
-    )
+    if not candidates:
+        raise ValueError(
+            "raw record for repeated kernel_id requires kernel_invocation_id or launch_order"
+        )
+    return _consume_legacy_kernel_candidate(kernel_id, candidates, lookup)[
+        "kernel_invocation_id"
+    ]
+
+
+def _consume_legacy_kernel_candidate(
+    kernel_id: int,
+    candidates: list[dict[str, Any]],
+    lookup: dict[str, Any],
+) -> dict[str, Any]:
+    offset = lookup["legacy_kernel_offsets"].get(kernel_id, 0)
+    if offset < len(candidates):
+        lookup["legacy_kernel_offsets"][kernel_id] = offset + 1
+        return candidates[offset]
+    raise ValueError("legacy scheduler repeated kernel_id has more records than dynamic trace")
 
 
 def _resolve_kernel_invocation_id_by_launch_order(
@@ -887,6 +944,18 @@ def _resolve_kernel_invocation_id_by_launch_order(
     if launch_order not in lookup["by_launch_order"]:
         raise ValueError("raw record references unknown launch_order")
     row = lookup["by_launch_order"][launch_order]
+    _validate_record_identity_consistency(record, row)
+    return row["kernel_invocation_id"]
+
+
+def _resolve_kernel_invocation_id_by_legacy_scheduler_order(
+    record: dict[str, Any],
+    lookup: dict[str, Any],
+) -> str:
+    scheduler_order = int(record["legacy_scheduler_order"])
+    if scheduler_order not in lookup["by_launch_order"]:
+        raise ValueError("legacy scheduler record order exceeds dynamic trace")
+    row = lookup["by_launch_order"][scheduler_order]
     _validate_record_identity_consistency(record, row)
     return row["kernel_invocation_id"]
 
@@ -903,9 +972,10 @@ def _cta_scheduler_records(
     invocation_lookup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     records = []
+    lookup = _legacy_resolution_lookup(invocation_lookup)
     for invocation in scheduler_metadata.get("kernel_invocations", []):
         kernel_id = invocation["kernel_id"]
-        kernel_invocation_id = _resolve_kernel_invocation_id(invocation, invocation_lookup)
+        kernel_invocation_id = _resolve_kernel_invocation_id(invocation, lookup)
         for cta in invocation.get("cta_records", []):
             records.append(
                 {
@@ -922,8 +992,9 @@ def _per_warp_trace_records(
     invocation_lookup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     records = []
+    lookup = _legacy_resolution_lookup(invocation_lookup)
     for record in threadblocks.get("threadblocks", []):
-        kernel_invocation_id = _resolve_kernel_invocation_id(record, invocation_lookup)
+        kernel_invocation_id = _resolve_kernel_invocation_id(record, lookup)
         records.append(
             {
                 **record,

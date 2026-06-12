@@ -136,7 +136,7 @@ def test_gate1_artifact_shape_adapter_reads_dynamic_trace_pb_and_threadblock_dir
     ]
 
 
-def test_gate1_accepts_scheduler_backed_multi_stream_pb(tmp_path):
+def test_gate1_rejects_unordered_multi_stream_pb(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "multi_stream_trace")
     trace = trace_pb2.Trace()
     trace.name = "multi_stream_without_global_order"
@@ -168,11 +168,8 @@ def test_gate1_accepts_scheduler_backed_multi_stream_pb(tmp_path):
     scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
     _write_formal_gate0_manifest(root)
 
-    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
-
-    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
-    assert invocation_ids == ["resnet50_k00001"]
-    assert bundle["kernel_invocation_table"][0]["stream_id"] == 1
+    with pytest.raises(ValueError, match="multi-stream dynamic_trace.pb lacks global launch order"):
+        build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
 
 
 def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(tmp_path):
@@ -277,6 +274,32 @@ def test_gate1_invocation_limit_rejects_reordered_legacy_scheduler_without_ident
 
     with pytest.raises(ValueError, match="legacy scheduler metadata lacks stable invocation identity"):
         build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
+
+
+def test_gate1_full_legacy_scheduler_preserves_repeated_kernel_order(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "formal_full_legacy_scheduler"
+    )
+    _write_formal_gate0_manifest(root)
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for invocation in scheduler["kernel_invocations"]:
+        invocation.pop("launch_order", None)
+        invocation.pop("kernel_invocation_id", None)
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root)
+
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    scheduler_ids = [row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]]
+    assert invocation_ids == ["resnet50_k00000", "resnet50_k00001"]
+    assert scheduler_ids == [
+        "resnet50_k00000",
+        "resnet50_k00000",
+        "resnet50_k00001",
+        "resnet50_k00001",
+    ]
 
 
 def test_gate1_legacy_invocation_alias_rejects_repeated_kernel_ambiguity(tmp_path):

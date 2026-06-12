@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pickle
 from pathlib import Path
 from typing import Any
 
@@ -738,17 +739,23 @@ def _load_existing_gate5_embedding_table(
     training_manifest_path = out_dir / "rgcn_training_run_manifest.json"
     if not training_manifest_path.exists():
         return None
-    training_manifest = read_json(training_manifest_path)
+    try:
+        training_manifest = read_json(training_manifest_path)
+        embedding_table = read_json(embedding_path)
+    except (OSError, json.JSONDecodeError):
+        return None
     if training_manifest.get("random_seed") != seed:
         return None
-    embedding_table = read_json(embedding_path)
     if embedding_table.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
         "graph_tensor_bundle_hash"
     ]:
         return None
     from .embedding_export import validate_phase_b_embedding_table
 
-    validate_phase_b_embedding_table(embedding_table)
+    try:
+        validate_phase_b_embedding_table(embedding_table)
+    except ValueError:
+        return None
     if not _gate5_side_artifacts_match_embedding_table(out_dir, embedding_table):
         return None
     (out_dir / GATE5_EXPORT_PROGRESS_FILENAME).unlink(missing_ok=True)
@@ -855,26 +862,35 @@ def _load_existing_gate5_training(
         return None
     if not training_manifest_path.exists():
         return None
-    checkpoint = load_checkpoint_weights_only(checkpoint_path)
-    checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    try:
+        checkpoint = load_checkpoint_weights_only(checkpoint_path)
+        checkpoint_hash = hash_without({"checkpoint_bytes": checkpoint_path.read_bytes().hex()})
+    except (OSError, RuntimeError, ValueError, KeyError, pickle.UnpicklingError):
+        return None
     progress_path = out_dir / GATE5_EXPORT_PROGRESS_FILENAME
-    progress = read_json(progress_path) if progress_path.exists() else {}
-    training_manifest = read_json(training_manifest_path)
+    try:
+        progress = read_json(progress_path) if progress_path.exists() else {}
+        training_manifest = read_json(training_manifest_path)
+    except (OSError, json.JSONDecodeError):
+        return None
     if training_manifest.get("source_graph_tensor_bundle_hash") != graph_tensor_bundle[
         "graph_tensor_bundle_hash"
     ]:
         return None
     if training_manifest.get("random_seed") != seed:
         return None
-    checkpoint_manifest = (
-        read_json(checkpoint_manifest_path)
-        if checkpoint_manifest_path.exists()
-        else {
-            "encoder_architecture": checkpoint["model_config"],
-            "encoder_manifest_hash": progress.get("encoder_manifest_hash"),
-            "checkpoint_hash": checkpoint_hash,
-        }
-    )
+    try:
+        checkpoint_manifest = (
+            read_json(checkpoint_manifest_path)
+            if checkpoint_manifest_path.exists()
+            else {
+                "encoder_architecture": checkpoint["model_config"],
+                "encoder_manifest_hash": progress.get("encoder_manifest_hash"),
+                "checkpoint_hash": checkpoint_hash,
+            }
+        )
+    except (OSError, json.JSONDecodeError, KeyError):
+        return None
     if checkpoint_manifest.get("checkpoint_hash") != checkpoint_hash:
         return None
     if checkpoint_manifest.get("encoder_manifest_hash") != hash_without(
@@ -898,9 +914,12 @@ def _load_existing_gate5_training(
     if checkpoint.get("seed") != seed:
         return None
     encoder = MinimalRGCNEncoder()
-    encoder.load_state_dict(checkpoint["encoder"])
-    projection_head = ProjectionHead()
-    projection_head.load_state_dict(checkpoint["projection_head"])
+    try:
+        encoder.load_state_dict(checkpoint["encoder"])
+        projection_head = ProjectionHead()
+        projection_head.load_state_dict(checkpoint["projection_head"])
+    except (RuntimeError, KeyError, TypeError):
+        return None
     phase_a_manifest = {
         "encoder_name": "minimal_phase_a_rgcn",
         "encoder_version": 1,

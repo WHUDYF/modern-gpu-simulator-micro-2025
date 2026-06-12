@@ -36,6 +36,27 @@ def _blocked_gate0_root(tmp_path):
     return root
 
 
+def _small_gate5_inputs(seed=20260607):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    manifest = build_representative_sm_trace_manifest()
+    records = build_phase_b_trace_records(manifest)
+    graphs = build_phase_b_graphs(records)
+    tensors = tensorize_phase_b_graphs(graphs)
+    graph_tensor_bundle = {
+        "artifact_type": "gcl_resnet50_graph_tensor_bundle",
+        "artifact_version": "gate4_graph_tensor_bundle_v1",
+        "source_canonical_graph_bundle_hash": "graph-bundle-hash",
+        "graph_tensor_bundle_hash": "tensor-bundle-hash",
+        "tensors": [],
+    }
+    augmentation_bundle = pipeline_module.create_augmentation_manifest_bundle(
+        tensors,
+        seed=seed,
+    )
+    return tensors, graph_tensor_bundle, augmentation_bundle
+
+
 def test_resnet50_gate_pipeline_stops_at_gate0_blocker(tmp_path):
     out_dir = tmp_path / "gate0_blocked"
 
@@ -788,6 +809,49 @@ def test_resnet50_gate5_reexports_when_cached_table_lacks_side_artifacts(
     assert (tmp_path / "embedding_export_report.json").exists()
 
 
+def test_resnet50_gate5_treats_invalid_cached_embedding_table_as_cache_miss(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    tensors, graph_tensor_bundle, augmentation_bundle = _small_gate5_inputs()
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+    write_json(
+        tmp_path / "kernel_embedding_table.json",
+        {
+            "artifact_type": "gcl_resnet50_kernel_embedding_table",
+            "source_graph_tensor_bundle_hash": graph_tensor_bundle[
+                "graph_tensor_bundle_hash"
+            ],
+        },
+    )
+
+    def fail_if_retrained(*args, **kwargs):
+        raise AssertionError("Gate5 should reuse checkpoint when only table cache is bad")
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", fail_if_retrained)
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    assert len(embedding_table["embeddings"]) == len(tensors)
+    assert embedding_table["kernel_embedding_table_hash"] == json.loads(
+        (tmp_path / "kernel_embedding_table.json").read_text()
+    )["kernel_embedding_table_hash"]
+
+
 def test_resnet50_gate5_retrains_when_cached_checkpoint_hash_mismatches_manifest(
     tmp_path,
     monkeypatch,
@@ -845,6 +909,50 @@ def test_resnet50_gate5_retrains_when_cached_checkpoint_hash_mismatches_manifest
 
     assert retrain_calls["count"] == 1
     assert len(embedding_table["embeddings"]) == len(tensors)
+
+
+def test_resnet50_gate5_retrains_when_cached_checkpoint_is_unreadable(
+    tmp_path,
+    monkeypatch,
+):
+    import experiments.gcl_phase_b.resnet50_gate_pipeline as pipeline_module
+
+    tensors, graph_tensor_bundle, augmentation_bundle = _small_gate5_inputs()
+    pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+    (tmp_path / "rgcn_checkpoint.pt").write_bytes(b"not-a-valid-checkpoint")
+    for filename in [
+        "kernel_embedding_table.json",
+        "embedding_export_report.json",
+        "gate5_lineage_bundle.json",
+        "readout_manifest.json",
+    ]:
+        (tmp_path / filename).unlink()
+    retrain_calls = {"count": 0}
+    original_train = pipeline_module.train_minimal_contrastive
+
+    def spy_train(*args, **kwargs):
+        retrain_calls["count"] += 1
+        return original_train(*args, **kwargs)
+
+    monkeypatch.setattr(pipeline_module, "train_minimal_contrastive", spy_train)
+
+    embedding_table = pipeline_module._run_gate5_training_and_export(
+        tensors=tensors,
+        graph_tensor_bundle=graph_tensor_bundle,
+        augmentation_bundle=augmentation_bundle,
+        out_dir=tmp_path,
+        seed=20260607,
+    )
+
+    assert retrain_calls["count"] == 1
+    assert len(embedding_table["embeddings"]) == len(tensors)
+    assert (tmp_path / "rgcn_checkpoint.pt").read_bytes() != b"not-a-valid-checkpoint"
 
 
 def test_resnet50_gate5_retrains_when_checkpoint_training_manifest_missing(

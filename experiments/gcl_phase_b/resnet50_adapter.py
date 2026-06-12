@@ -325,7 +325,6 @@ def _load_dynamic_trace_pb(path: Path) -> dict[str, Any]:
         raise FileNotFoundError("dynamic_trace.pb is required for formal Gate1")
     trace = trace_pb2.Trace()
     trace.ParseFromString(path.read_bytes())
-    _reject_unordered_multi_stream_trace(trace)
     invocations = []
     launch_order = 0
     for device_id, device in sorted(trace.gpu_device.items()):
@@ -679,11 +678,11 @@ def _threadblock_relative_path(invocation: dict[str, Any], cta: dict[str, Any]) 
         return str(cta["threadblock_pb"])
     device_id = int(invocation.get("device_id", 0))
     stream_id = int(invocation.get("stream_id", 0))
-    kernel_id = int(invocation["kernel_id"])
+    kernel_directory_id = int(invocation.get("launch_order", invocation["kernel_id"]))
     cta_id = str(cta["cta_id"])
     return (
-        f"device_{device_id}/stream_{stream_id}/kernel_{kernel_id}/"
-        f"d_{device_id}_s_{stream_id}_k_{kernel_id}_{cta_id}.pb"
+        f"device_{device_id}/stream_{stream_id}/kernel_{kernel_directory_id}/"
+        f"d_{device_id}_s_{stream_id}_k_{kernel_directory_id}_{cta_id}.pb"
     )
 
 

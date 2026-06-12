@@ -136,19 +136,21 @@ def test_gate1_artifact_shape_adapter_reads_dynamic_trace_pb_and_threadblock_dir
     ]
 
 
-def test_gate1_rejects_multi_stream_pb_without_global_launch_order(tmp_path):
+def test_gate1_accepts_scheduler_backed_multi_stream_pb(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "multi_stream_trace")
     trace = trace_pb2.Trace()
     trace.name = "multi_stream_without_global_order"
     device = trace.gpu_device[0]
     device.id = 0
-    for stream_id, kernel_id in [(0, 101), (1, 202)]:
+    for launch_order, (stream_id, kernel_id, function_unique_id) in enumerate(
+        [(0, 101, 1701), (1, 202, 1702)]
+    ):
         stream = device.streams[stream_id]
         stream.id = stream_id
         kernel = stream.kernels.add()
         kernel.id = kernel_id
         kernel.name = f"stream_{stream_id}_kernel"
-        kernel.function_unique_id = 9000 + stream_id
+        kernel.function_unique_id = function_unique_id
         kernel.grid_dim.x = 1
         kernel.grid_dim.y = 1
         kernel.grid_dim.z = 1
@@ -156,9 +158,21 @@ def test_gate1_rejects_multi_stream_pb_without_global_launch_order(tmp_path):
         kernel.block_dim.y = 1
         kernel.block_dim.z = 1
     (root / "dynamic_trace.pb").write_bytes(trace.SerializeToString())
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for launch_order, invocation in enumerate(scheduler["kernel_invocations"]):
+        invocation["kernel_id"] = 101 if launch_order == 0 else 202
+        invocation["stream_id"] = 0 if launch_order == 0 else 1
+        invocation["device_id"] = 0
+        invocation["launch_order"] = launch_order
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
 
-    with pytest.raises(ValueError, match="multi-stream dynamic_trace.pb lacks global launch order"):
-        build_resnet50_artifact_shape_trace_adapter_bundle(root)
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
+
+    invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
+    assert invocation_ids == ["resnet50_k00001"]
+    assert bundle["kernel_invocation_table"][0]["stream_id"] == 1
 
 
 def test_gate1_formal_pb_uses_launch_order_invocation_ids_for_reused_kernel_id(tmp_path):
@@ -295,6 +309,32 @@ def test_gate1_legacy_invocation_alias_selects_unique_launch(tmp_path):
     assert invocation_ids == ["resnet50_k00001"]
     assert scheduler_ids == {"resnet50_k00001"}
     assert trace_ids == {"resnet50_k00001"}
+
+
+def test_gate1_threadblock_fallback_path_uses_launch_order_not_kernel_id(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_threadblock_fallback")
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for invocation in scheduler["kernel_invocations"]:
+        invocation["device_id"] = 0
+        invocation["stream_id"] = 0
+        for cta in invocation["cta_records"]:
+            cta.pop("threadblock_pb", None)
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
+
+    assert {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]} == {
+        "resnet50_k00001"
+    }
+    assert {row["function_unique_id"] for row in bundle["kernel_invocation_table"]} == {1702}
+    assert [entry["pc"] for entry in bundle["per_warp_trace_records"][0]["entries"]] == [
+        5120,
+        5124,
+        5128,
+        5132,
+    ]
 
 
 def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):

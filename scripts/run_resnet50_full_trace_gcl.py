@@ -33,6 +33,11 @@ FULL_TRACE_MANIFEST = "resnet50_full_trace_reproduction_manifest.json"
 FULL_TRACE_BLOCKER = "resnet50_full_trace_reproduction_blocker_report.json"
 ADAPTER_BUNDLE = "resnet50_trace_adapter_bundle.json"
 DEFAULT_DEADLINE_SECONDS = 2400
+GNN_ACCEPTANCE_ARTIFACTS = [
+    "gnn_acceptance_manifest.json",
+    "gnn_acceptance_summary.json",
+    "gnn_acceptance_report.md",
+]
 GATE4_RESUME_REQUIRED_ARTIFACTS = [
     ADAPTER_BUNDLE,
     "representative_sm_trace_manifest.json",
@@ -151,6 +156,11 @@ def _clear_gate1_plus_artifacts(out_dir: Path) -> None:
         (out_dir / filename).unlink(missing_ok=True)
 
 
+def _clear_gnn_acceptance_artifacts(out_dir: Path) -> None:
+    for filename in GNN_ACCEPTANCE_ARTIFACTS:
+        (out_dir / filename).unlink(missing_ok=True)
+
+
 def _has_complete_gate4_resume_artifact_set(out_dir: Path) -> bool:
     return all((out_dir / filename).exists() for filename in GATE4_RESUME_REQUIRED_ARTIFACTS)
 
@@ -230,6 +240,7 @@ def _write_blocker(
     deadline_seconds: int | None,
 ) -> dict[str, Any]:
     (out_dir / FULL_TRACE_MANIFEST).unlink(missing_ok=True)
+    _clear_gnn_acceptance_artifacts(out_dir)
     blocker = {
         "artifact_type": "gcl_resnet50_full_trace_reproduction_blocker_report",
         "artifact_version": "full_trace_reproduction_blocker_report_v1",
@@ -254,12 +265,35 @@ def _write_gnn_acceptance(out_dir: Path) -> dict[str, Any]:
     return _read_json(out_dir / "gnn_acceptance_manifest.json")
 
 
+def _attach_gnn_acceptance_to_full_manifest(
+    manifest: dict[str, Any],
+    acceptance_report: dict[str, Any],
+    out_dir: Path,
+) -> dict[str, Any]:
+    updated = dict(manifest)
+    updated["pre_gnn_acceptance_manifest_hash"] = updated[
+        "full_trace_reproduction_manifest_hash"
+    ]
+    updated["gnn_acceptance_status"] = acceptance_report["gnn_acceptance_status"]
+    updated["gnn_acceptance_claim_status"] = acceptance_report["claim_status"]
+    updated["gnn_acceptance_manifest_hash"] = acceptance_report[
+        "gnn_acceptance_manifest_hash"
+    ]
+    updated["artifact_presence"] = _artifact_presence(out_dir)
+    updated["full_trace_reproduction_manifest_hash"] = stable_hash(updated)
+    _write_json(out_dir / FULL_TRACE_MANIFEST, updated)
+    return updated
+
+
 def append_gnn_acceptance_report(out_dir: Path) -> dict[str, Any]:
     out_dir = Path(out_dir)
     manifest_path = out_dir / FULL_TRACE_MANIFEST
     if not manifest_path.exists():
         raise ValueError(f"missing full trace manifest for GNN acceptance: {manifest_path}")
-    return _write_gnn_acceptance(out_dir)
+    manifest = _read_json(manifest_path)
+    acceptance_report = _write_gnn_acceptance(out_dir)
+    _attach_gnn_acceptance_to_full_manifest(manifest, acceptance_report, out_dir)
+    return acceptance_report
 
 
 def run_full_trace_reproduction(
@@ -350,18 +384,7 @@ def run_full_trace_reproduction(
     (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)
     _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
     acceptance_report = _write_gnn_acceptance(out_dir)
-    manifest["pre_gnn_acceptance_manifest_hash"] = manifest[
-        "full_trace_reproduction_manifest_hash"
-    ]
-    manifest["gnn_acceptance_status"] = acceptance_report["gnn_acceptance_status"]
-    manifest["gnn_acceptance_claim_status"] = acceptance_report["claim_status"]
-    manifest["gnn_acceptance_manifest_hash"] = acceptance_report[
-        "gnn_acceptance_manifest_hash"
-    ]
-    manifest["artifact_presence"] = _artifact_presence(out_dir)
-    manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
-    _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
-    return manifest
+    return _attach_gnn_acceptance_to_full_manifest(manifest, acceptance_report, out_dir)
 
 
 def main_args(argv: list[str] | None = None) -> None:

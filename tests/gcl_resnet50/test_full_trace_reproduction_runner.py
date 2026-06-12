@@ -196,6 +196,25 @@ def _write_success_manifest(out_dir):
     )
 
 
+def _write_stale_gnn_acceptance_artifacts(out_dir):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for name in [
+        "gnn_acceptance_manifest.json",
+        "gnn_acceptance_summary.json",
+        "gnn_acceptance_report.md",
+    ]:
+        (out_dir / name).write_text("stale", encoding="utf-8")
+
+
+def _assert_no_gnn_acceptance_artifacts(out_dir):
+    for name in [
+        "gnn_acceptance_manifest.json",
+        "gnn_acceptance_summary.json",
+        "gnn_acceptance_report.md",
+    ]:
+        assert not (out_dir / name).exists()
+
+
 def _write_gnn_acceptance_required_inputs(out_dir):
     (out_dir / "rgcn_training_run_manifest.json").write_text(
         json.dumps(
@@ -570,6 +589,7 @@ def test_full_trace_runner_preflight_failure_writes_blocker_and_removes_stale_su
     _write_gate0_manifest(root, bad_hash=True)
     out_dir = tmp_path / "out"
     _write_success_manifest(out_dir)
+    _write_stale_gnn_acceptance_artifacts(out_dir)
 
     with pytest.raises(ValueError, match="gate0_manifest_hash"):
         run_resnet50_full_trace_gcl.run_full_trace_reproduction(
@@ -585,6 +605,7 @@ def test_full_trace_runner_preflight_failure_writes_blocker_and_removes_stale_su
     assert blocker["blocker_reason"] == "ValueError"
     assert blocker["resource_status"] == "blocked"
     assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+    _assert_no_gnn_acceptance_artifacts(out_dir)
     assert calls == {}
 
 
@@ -781,6 +802,17 @@ def test_acceptance_only_stage_preserves_existing_gate_artifacts(tmp_path):
     assert (out_dir / "gnn_acceptance_manifest.json").exists()
     assert (out_dir / "gnn_acceptance_summary.json").exists()
     assert (out_dir / "gnn_acceptance_report.md").exists()
+    updated_manifest = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_manifest.json").read_text()
+    )
+    assert updated_manifest["pre_gnn_acceptance_manifest_hash"] == result[
+        "input_artifact_hashes"
+    ]["full_trace_manifest_hash"]
+    assert updated_manifest["gnn_acceptance_status"] == result["gnn_acceptance_status"]
+    assert updated_manifest["gnn_acceptance_claim_status"] == result["claim_status"]
+    assert updated_manifest["gnn_acceptance_manifest_hash"] == result[
+        "gnn_acceptance_manifest_hash"
+    ]
 
 
 def test_full_trace_runner_resume_rejects_gate4_from_different_gate0_root(

@@ -78,8 +78,18 @@ def load_resnet50_trace_sources(
                 {int(row["launch_order"]) for row in kept_invocations},
             )
         else:
+            scheduler_metadata = _annotate_scheduler_metadata_with_dynamic_launch_orders(
+                scheduler_metadata,
+                kept_invocations,
+            )
             kept_invocation_ids.update(
                 _legacy_scheduler_invocation_ids(kept_invocations)
+            )
+            kept_invocation_ids.update(
+                _scheduler_invocation_ids_by_dynamic_launch_order(
+                    scheduler_metadata,
+                    kept_invocations,
+                )
             )
             scheduler_metadata = _filter_scheduler_metadata_by_invocation_ids(
                 scheduler_metadata,
@@ -401,7 +411,13 @@ def _load_threadblocks_from_scheduler(
     )
     records = []
     for scheduler_order, invocation in enumerate(scheduler_invocations):
-        selected_sm = selected_sm_by_invocation.get(_scheduler_invocation_id(invocation))
+        selected_sm = selected_sm_by_invocation.get(
+            _scheduler_selection_key(
+                invocation,
+                scheduler_order=scheduler_order,
+                use_legacy_scheduler_order=use_legacy_scheduler_order,
+            )
+        )
         legacy_scheduler_order = scheduler_order if use_legacy_scheduler_order else None
         for cta in invocation.get("cta_records", []):
             if selected_sm is not None and int(cta["sm_id"]) != selected_sm:
@@ -415,7 +431,10 @@ def _load_threadblocks_from_scheduler(
                     pb_path=pb_path,
                     kernel_id=int(invocation["kernel_id"]),
                     kernel_invocation_id=_scheduler_canonical_invocation_id(invocation),
-                    launch_order=invocation.get("launch_order"),
+                    launch_order=invocation.get(
+                        "launch_order",
+                        invocation.get("dynamic_launch_order"),
+                    ),
                     legacy_scheduler_order=legacy_scheduler_order,
                     cta_id=str(cta["cta_id"]),
                     static_instruction_index=static_instruction_index,
@@ -525,6 +544,48 @@ def _filter_scheduler_metadata_by_invocation_ids(
     if not filtered["kernel_invocations"]:
         raise ValueError("invocation_limit selected no scheduler metadata")
     return filtered
+
+
+def _scheduler_invocation_ids_by_dynamic_launch_order(
+    scheduler_metadata: dict[str, Any],
+    kept_invocations: list[dict[str, Any]],
+) -> set[str]:
+    scheduler_invocations = scheduler_metadata.get("kernel_invocations", [])
+    ids = set()
+    for invocation in kept_invocations:
+        launch_order = invocation.get("launch_order")
+        if launch_order is None:
+            continue
+        index = int(launch_order)
+        if index >= len(scheduler_invocations):
+            continue
+        scheduler_invocation = scheduler_invocations[index]
+        if "launch_order" in scheduler_invocation:
+            continue
+        ids.add(_scheduler_invocation_id(scheduler_invocation))
+        ids.add(_scheduler_canonical_invocation_id(scheduler_invocation))
+    return ids
+
+
+def _annotate_scheduler_metadata_with_dynamic_launch_orders(
+    scheduler_metadata: dict[str, Any],
+    kept_invocations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    annotated = dict(scheduler_metadata)
+    scheduler_invocations = list(scheduler_metadata.get("kernel_invocations", []))
+    kept_orders = {
+        int(invocation["launch_order"])
+        for invocation in kept_invocations
+        if invocation.get("launch_order") is not None
+    }
+    for index, invocation in enumerate(scheduler_invocations):
+        if index in kept_orders and "launch_order" not in invocation:
+            scheduler_invocations[index] = {
+                **invocation,
+                "dynamic_launch_order": index,
+            }
+    annotated["kernel_invocations"] = scheduler_invocations
+    return annotated
 
 
 def _scheduler_metadata_has_only_legacy_ids(scheduler_metadata: dict[str, Any]) -> bool:
@@ -699,7 +760,15 @@ def _threadblock_relative_path(invocation: dict[str, Any], cta: dict[str, Any]) 
 
 def _selected_sm_by_invocation(scheduler_metadata: dict[str, Any]) -> dict[str, int]:
     selected = {}
-    for invocation in scheduler_metadata.get("kernel_invocations", []):
+    scheduler_invocations = scheduler_metadata.get("kernel_invocations", [])
+    use_legacy_scheduler_order = (
+        len(scheduler_invocations) > 1
+        and all(
+            "launch_order" not in invocation and not invocation.get("kernel_invocation_id")
+            for invocation in scheduler_invocations
+        )
+    )
+    for scheduler_order, invocation in enumerate(scheduler_invocations):
         scheduler_by_sm: dict[str, dict[str, Any]] = {}
         for cta in invocation.get("cta_records", []):
             sm_id = str(cta["sm_id"])
@@ -720,14 +789,28 @@ def _selected_sm_by_invocation(scheduler_metadata: dict[str, Any]) -> dict[str, 
             metadata["trace_entry_count_by_cta"][cta_id] = int(cta["trace_entry_count"])
             metadata["cta_start_order"][cta_id] = int(cta["first_seen_order"])
             metadata["cta_end_order"][cta_id] = int(cta["last_seen_order"])
+        selection_key = _scheduler_selection_key(
+            invocation,
+            scheduler_order=scheduler_order,
+            use_legacy_scheduler_order=use_legacy_scheduler_order,
+        )
         selection_input = {
-            "kernel_invocation_id": _scheduler_invocation_id(invocation),
+            "kernel_invocation_id": selection_key,
             "scheduler_metadata_by_sm": scheduler_by_sm,
         }
-        selected[_scheduler_invocation_id(invocation)] = int(
-            select_representative_sm(selection_input)["selected_sm"]
-        )
+        selected[selection_key] = int(select_representative_sm(selection_input)["selected_sm"])
     return selected
+
+
+def _scheduler_selection_key(
+    invocation: dict[str, Any],
+    *,
+    scheduler_order: int,
+    use_legacy_scheduler_order: bool,
+) -> str:
+    if use_legacy_scheduler_order:
+        return _launch_order_invocation_id(scheduler_order)
+    return _scheduler_invocation_id(invocation)
 
 
 def _threadblock_records_from_pb(
@@ -889,6 +972,8 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
                     record,
                     lookup,
                 )
+            if "dynamic_launch_order" in record:
+                return _resolve_kernel_invocation_id_by_dynamic_launch_order(record, lookup)
             if "launch_order" in record:
                 return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
             if explicit in lookup["by_legacy_id"]:
@@ -909,6 +994,8 @@ def _resolve_kernel_invocation_id(record: dict[str, Any], lookup: dict[str, Any]
         return explicit
     if "launch_order" in record:
         return _resolve_kernel_invocation_id_by_launch_order(record, lookup)
+    if "dynamic_launch_order" in record:
+        return _resolve_kernel_invocation_id_by_dynamic_launch_order(record, lookup)
     if "legacy_scheduler_order" in record:
         return _resolve_kernel_invocation_id_by_legacy_scheduler_order(record, lookup)
     kernel_id = int(record["kernel_id"])
@@ -948,16 +1035,29 @@ def _resolve_kernel_invocation_id_by_launch_order(
     return row["kernel_invocation_id"]
 
 
+def _resolve_kernel_invocation_id_by_dynamic_launch_order(
+    record: dict[str, Any],
+    lookup: dict[str, Any],
+) -> str:
+    row = _row_by_launch_order(int(record["dynamic_launch_order"]), lookup)
+    _validate_record_identity_consistency(record, row)
+    return row["kernel_invocation_id"]
+
+
 def _resolve_kernel_invocation_id_by_legacy_scheduler_order(
     record: dict[str, Any],
     lookup: dict[str, Any],
 ) -> str:
     scheduler_order = int(record["legacy_scheduler_order"])
-    if scheduler_order not in lookup["by_launch_order"]:
-        raise ValueError("legacy scheduler record order exceeds dynamic trace")
-    row = lookup["by_launch_order"][scheduler_order]
+    row = _row_by_launch_order(scheduler_order, lookup)
     _validate_record_identity_consistency(record, row)
     return row["kernel_invocation_id"]
+
+
+def _row_by_launch_order(launch_order: int, lookup: dict[str, Any]) -> dict[str, Any]:
+    if launch_order not in lookup["by_launch_order"]:
+        raise ValueError("legacy scheduler record order exceeds dynamic trace")
+    return lookup["by_launch_order"][launch_order]
 
 
 def _validate_record_identity_consistency(record: dict[str, Any], row: dict[str, Any]) -> None:

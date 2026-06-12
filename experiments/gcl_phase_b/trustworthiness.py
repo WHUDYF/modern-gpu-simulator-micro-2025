@@ -490,7 +490,7 @@ def _overall_status(items: dict[str, dict[str, Any]]) -> str:
         and items.get("multi_seed_stability", {}).get("status") == "PASS"
     ):
         return STATUS_TRAINING_INSUFFICIENT
-    if all(item.get("status") == "PASS" for item in items.values()):
+    if _full_acceptance_surface_pass(items):
         return "accepted"
     return STATUS_WEAK
 
@@ -499,6 +499,7 @@ def _claim_status_for(status: str, items: dict[str, dict[str, Any]]) -> str:
     structure_tier = (
         items.get("input_provenance", {}).get("status") == "PASS"
         and items.get("rgcn_structure", {}).get("status") == "PASS"
+        and items.get("training_adequacy", {}).get("status") == "PASS"
         and items.get("embedding_geometry_signal", {}).get("status")
         in {"WEAK_PASS", "PASS"}
         and items.get("selector_cluster_result", {}).get("status")
@@ -518,7 +519,7 @@ def _claim_status_for(status: str, items: dict[str, dict[str, Any]]) -> str:
     if (
         downstream_tier
         and status == "accepted"
-        and all(item.get("status") == "PASS" for item in items.values())
+        and _full_acceptance_surface_pass(items)
     ):
         return "gnn_trustworthiness_accepted"
     if downstream_tier:
@@ -530,6 +531,23 @@ def _claim_status_for(status: str, items: dict[str, dict[str, Any]]) -> str:
     if structure_tier:
         return "structure_valid_embedding_signal_only"
     return CLAIM_NO_CORRECTNESS
+
+
+def _full_acceptance_surface_pass(items: dict[str, dict[str, Any]]) -> bool:
+    required_pass = [
+        "input_provenance",
+        "rgcn_structure",
+        "training_adequacy",
+        "baseline_ablation",
+        "multi_seed_stability",
+        "semantic_cluster_correctness",
+        "downstream_representative_usefulness",
+    ]
+    positive_signal = ["embedding_geometry_signal", "selector_cluster_result"]
+    return all(items.get(name, {}).get("status") == "PASS" for name in required_pass) and all(
+        items.get(name, {}).get("status") in {"WEAK_PASS", "PASS"}
+        for name in positive_signal
+    )
 
 
 def _recommended_next_gates(items: dict[str, dict[str, Any]]) -> list[str]:

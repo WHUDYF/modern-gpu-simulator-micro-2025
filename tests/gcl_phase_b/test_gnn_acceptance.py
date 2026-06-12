@@ -371,7 +371,7 @@ def test_embedding_geometry_cannot_be_final_pass_without_baseline_ablation():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert report["acceptance_items"]["embedding_geometry_signal"]["status"] != "PASS"
-    assert report["claim_status"] == "structure_valid_embedding_signal_only"
+    assert report["claim_status"] == "quantified_no_correctness_claim"
 
 
 def test_missing_baseline_ablation_is_not_available():
@@ -555,7 +555,7 @@ def test_purity_alone_cannot_upgrade_semantic_claim():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert report["acceptance_items"]["semantic_cluster_correctness"]["status"] != "PASS"
-    assert report["claim_status"] == "structure_valid_embedding_signal_only"
+    assert report["claim_status"] == "quantified_no_correctness_claim"
 
 
 def test_missing_metric_rows_keep_downstream_usefulness_not_available():
@@ -646,17 +646,17 @@ def test_downstream_metrics_reject_unusable_error_values():
     assert report["gnn_acceptance_status"] == "rejected_downstream_unproven"
 
 
-def test_current_resnet50_run_keeps_structure_only_claim():
+def test_current_resnet50_run_keeps_quantified_no_correctness_claim():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert (
         report["gnn_acceptance_status"]
         == "weak_acceptance_structure_valid_but_correctness_unproven"
     )
-    assert report["claim_status"] == "structure_valid_embedding_signal_only"
+    assert report["claim_status"] == "quantified_no_correctness_claim"
 
 
-def test_claim_status_keeps_structure_tier_when_later_evidence_is_blocked():
+def test_claim_status_cannot_upgrade_with_any_blocking_gap():
     report = evaluate_gnn_acceptance(
         **_minimal_inputs(
             baseline_ablation_report={
@@ -670,7 +670,7 @@ def test_claim_status_keeps_structure_tier_when_later_evidence_is_blocked():
     )
 
     assert report["acceptance_items"]["training_adequacy"]["status"] == "FAIL"
-    assert report["claim_status"] == "structure_valid_embedding_signal_only"
+    assert report["claim_status"] == "quantified_no_correctness_claim"
     assert report["gnn_acceptance_status"] != "accepted"
 
 
@@ -739,6 +739,42 @@ def test_downstream_pass_cannot_skip_missing_semantic_tier():
     )
     assert report["acceptance_items"]["semantic_cluster_correctness"]["status"] != "PASS"
     assert report["claim_status"] == "cluster_stability_supported"
+
+
+def test_claim_status_reaches_final_acceptance_only_after_all_tiers_pass():
+    structure_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+        )
+    )
+    stable_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=_stable_gate7_manifest(),
+        )
+    )
+    semantic_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=_semantic_gate7_manifest(),
+        )
+    )
+    downstream_report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=_downstream_gate7_manifest(),
+        )
+    )
+
+    assert structure_report["claim_status"] == "structure_valid_embedding_signal_only"
+    assert stable_report["claim_status"] == "cluster_stability_supported"
+    assert semantic_report["claim_status"] == "semantic_cluster_supported"
+    assert downstream_report["claim_status"] == "gnn_trustworthiness_accepted"
+    assert downstream_report["gnn_acceptance_status"] == "accepted"
 
 
 def test_acceptance_artifacts_written_with_hashes(tmp_path):

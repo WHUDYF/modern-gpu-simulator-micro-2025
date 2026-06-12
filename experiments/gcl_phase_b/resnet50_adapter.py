@@ -485,6 +485,12 @@ def _resolve_requested_dynamic_invocation_ids(
             continue
         legacy_matches = legacy_aliases.get(requested_id, [])
         if legacy_matches:
+            if len(legacy_matches) > 1:
+                raise ValueError(
+                    "ambiguous legacy invocation_id "
+                    f"{requested_id}; use canonical invocation ids: "
+                    f"{sorted(legacy_matches)}"
+                )
             resolved.add(legacy_matches[0])
             continue
         missing.append(requested_id)

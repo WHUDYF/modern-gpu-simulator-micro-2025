@@ -265,18 +265,36 @@ def test_gate1_invocation_limit_rejects_reordered_legacy_scheduler_without_ident
         build_resnet50_trace_adapter_bundle(root, invocation_limit=1)
 
 
-def test_gate1_legacy_invocation_alias_selects_single_repeated_launch(tmp_path):
-    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_legacy_alias")
+def test_gate1_legacy_invocation_alias_rejects_repeated_kernel_ambiguity(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "formal_ambiguous_legacy_alias"
+    )
     _write_formal_gate0_manifest(root)
 
-    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["d_0_s_0_k_17"])
+    with pytest.raises(ValueError, match="ambiguous legacy invocation_id"):
+        build_resnet50_trace_adapter_bundle(root, invocation_ids=["d_0_s_0_k_17"])
+
+
+def test_gate1_legacy_invocation_alias_selects_unique_launch(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_legacy_alias")
+    trace = trace_pb2.Trace()
+    trace.ParseFromString((root / "dynamic_trace.pb").read_bytes())
+    trace.gpu_device[0].streams[0].kernels[1].id = 18
+    (root / "dynamic_trace.pb").write_bytes(trace.SerializeToString())
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    scheduler["kernel_invocations"][1]["kernel_id"] = 18
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    bundle = build_resnet50_trace_adapter_bundle(root, invocation_ids=["d_0_s_0_k_18"])
 
     invocation_ids = [row["kernel_invocation_id"] for row in bundle["kernel_invocation_table"]]
     scheduler_ids = {row["kernel_invocation_id"] for row in bundle["cta_scheduler_records"]}
     trace_ids = {row["kernel_invocation_id"] for row in bundle["per_warp_trace_records"]}
-    assert invocation_ids == ["resnet50_k00000"]
-    assert scheduler_ids == {"resnet50_k00000"}
-    assert trace_ids == {"resnet50_k00000"}
+    assert invocation_ids == ["resnet50_k00001"]
+    assert scheduler_ids == {"resnet50_k00001"}
+    assert trace_ids == {"resnet50_k00001"}
 
 
 def test_gate1_artifact_shape_adapter_rejects_missing_threadblock_pb_from_scheduler_metadata(tmp_path):

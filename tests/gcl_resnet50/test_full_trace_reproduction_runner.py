@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -729,6 +730,42 @@ def test_full_trace_runner_can_append_gnn_acceptance_report(tmp_path, monkeypatc
     ] == "selector-hash"
 
 
+def test_full_trace_runner_writes_blocker_when_acceptance_stage_fails(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+
+    def fail_acceptance(_out_dir):
+        raise RuntimeError("acceptance failed")
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "_write_gnn_acceptance", fail_acceptance)
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+
+    with pytest.raises(RuntimeError, match="acceptance failed"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+        )
+
+    blocker = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").read_text()
+    )
+    assert blocker["blocker_reason"] == "RuntimeError"
+    assert blocker["resource_status"] == "blocked"
+    assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+    _assert_no_gnn_acceptance_artifacts(out_dir)
+
+
 def test_acceptance_stage_rejects_missing_gate5_gate6_gate7_inputs(tmp_path, monkeypatch):
     calls = {}
     monkeypatch.setattr(
@@ -971,6 +1008,47 @@ def test_full_trace_runner_writes_blocker_report_on_deadline(tmp_path, monkeypat
     )
     assert blocker["blocker_reason"] == "TimeoutError"
     assert blocker["resource_status"] == "blocked"
+    assert blocker["deadline_seconds"] == 1
+    assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
+
+
+def test_full_trace_runner_deadline_covers_gnn_acceptance_stage(
+    tmp_path,
+    monkeypatch,
+):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+
+    def slow_acceptance(_out_dir):
+        time.sleep(2)
+        return {
+            "gnn_acceptance_status": "weak_acceptance_structure_valid_but_correctness_unproven",
+            "claim_status": "quantified_no_correctness_claim",
+            "gnn_acceptance_manifest_hash": "acceptance-hash",
+        }
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "_write_gnn_acceptance", slow_acceptance)
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+
+    with pytest.raises(TimeoutError, match="exceeded"):
+        run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+            input_root=root,
+            out_dir=out_dir,
+            seed=20260608,
+            baseline_artifacts=None,
+            deadline_seconds=1,
+        )
+
+    blocker = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_blocker_report.json").read_text()
+    )
+    assert blocker["blocker_reason"] == "TimeoutError"
     assert blocker["deadline_seconds"] == 1
     assert not (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
 

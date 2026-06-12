@@ -339,6 +339,39 @@ def run_full_trace_reproduction(
                     baseline_artifacts=baseline_artifacts,
                 )
             )
+
+        manifest = {
+            "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
+            "artifact_version": "full_trace_reproduction_manifest_v1",
+            "run_scope": "real_resnet50_full_trace",
+            "formal_full_trace_run": pipeline_manifest["final_gate"] != "gate0_blocked",
+            "seed": seed,
+            "input_root": str(input_root),
+            "source_gate0_manifest_hash": (
+                gate0_manifest.get("gate0_manifest_hash") if gate0_manifest else None
+            ),
+            "input_kernel_invocation_count": pipeline_manifest.get(
+                "input_kernel_invocation_count"
+            ),
+            "input_cta_record_count": input_cta_record_count,
+            "invocation_limit": None,
+            "invocation_ids": None,
+            "baseline_artifacts_path": str(baseline_artifacts) if baseline_artifacts else None,
+            "deadline_seconds": deadline_seconds,
+            "final_gate": pipeline_manifest["final_gate"],
+            "pipeline_manifest_hash": pipeline_manifest["pipeline_manifest_hash"],
+            "pipeline_hashes": pipeline_manifest["hashes"],
+            "artifact_presence": _artifact_presence(out_dir),
+            "elapsed_seconds": round(time.monotonic() - started, 6),
+            "resource_status": (
+                "blocked" if pipeline_manifest["final_gate"] == "gate0_blocked" else "completed"
+            ),
+        }
+        manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
+        (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)
+        _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
+        acceptance_report = _write_gnn_acceptance(out_dir)
+        return _attach_gnn_acceptance_to_full_manifest(manifest, acceptance_report, out_dir)
     except Exception as exc:
         _write_blocker(
             out_dir=out_dir,
@@ -354,37 +387,6 @@ def run_full_trace_reproduction(
             signal.alarm(0)
             if previous_handler is not None:
                 signal.signal(signal.SIGALRM, previous_handler)
-
-    manifest = {
-        "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
-        "artifact_version": "full_trace_reproduction_manifest_v1",
-        "run_scope": "real_resnet50_full_trace",
-        "formal_full_trace_run": pipeline_manifest["final_gate"] != "gate0_blocked",
-        "seed": seed,
-        "input_root": str(input_root),
-        "source_gate0_manifest_hash": (
-            gate0_manifest.get("gate0_manifest_hash") if gate0_manifest else None
-        ),
-        "input_kernel_invocation_count": pipeline_manifest.get("input_kernel_invocation_count"),
-        "input_cta_record_count": input_cta_record_count,
-        "invocation_limit": None,
-        "invocation_ids": None,
-        "baseline_artifacts_path": str(baseline_artifacts) if baseline_artifacts else None,
-        "deadline_seconds": deadline_seconds,
-        "final_gate": pipeline_manifest["final_gate"],
-        "pipeline_manifest_hash": pipeline_manifest["pipeline_manifest_hash"],
-        "pipeline_hashes": pipeline_manifest["hashes"],
-        "artifact_presence": _artifact_presence(out_dir),
-        "elapsed_seconds": round(time.monotonic() - started, 6),
-        "resource_status": (
-            "blocked" if pipeline_manifest["final_gate"] == "gate0_blocked" else "completed"
-        ),
-    }
-    manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
-    (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)
-    _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
-    acceptance_report = _write_gnn_acceptance(out_dir)
-    return _attach_gnn_acceptance_to_full_manifest(manifest, acceptance_report, out_dir)
 
 
 def main_args(argv: list[str] | None = None) -> None:

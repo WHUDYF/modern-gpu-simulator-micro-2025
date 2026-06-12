@@ -694,7 +694,7 @@ def test_full_trace_runner_can_append_gnn_acceptance_report(tmp_path, monkeypatc
     full_manifest = json.loads(
         (out_dir / "resnet50_full_trace_reproduction_manifest.json").read_text()
     )
-    assert manifest["claim_status"] == "quantified_no_correctness_claim"
+    assert manifest["claim_status"] == "structure_valid_embedding_signal_only"
     assert result["gnn_acceptance_manifest_hash"] == manifest[
         "gnn_acceptance_manifest_hash"
     ]

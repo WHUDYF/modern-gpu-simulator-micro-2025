@@ -325,38 +325,65 @@ def _evaluate_selector_result(selector: dict[str, Any]) -> dict[str, Any]:
 def _evaluate_baseline_ablation(report: dict[str, Any] | None) -> dict[str, Any]:
     if not report:
         return _item("NOT_AVAILABLE", "baseline ablation report is missing")
+    normalized = dict(report)
+    legacy_no_edge_key = False
+    if (
+        "node_feature_pooling_no_edge_baseline" not in normalized
+        and "no_edge_baseline" in normalized
+    ):
+        normalized["node_feature_pooling_no_edge_baseline"] = normalized["no_edge_baseline"]
+        legacy_no_edge_key = True
     required = [
         "full_rgcn",
-        "no_edge_baseline",
         "random_embedding_baseline",
         "opcode_histogram_baseline",
+        "node_feature_pooling_no_edge_baseline",
         "control_flow_only_rgcn",
         "data_flow_only_rgcn",
     ]
-    for key in required:
-        metrics = report.get(key)
-        if not isinstance(metrics, dict):
-            return _item("FAIL", f"baseline ablation missing {key}")
-        if _number(metrics.get("silhouette")) is None:
-            return _item("FAIL", f"baseline ablation missing {key}.silhouette")
-    full = report["full_rgcn"]
-    full_silhouette = _number(full.get("silhouette"))
-    full_ratio = _number(full.get("inter_intra_ratio"))
-    competitor_scores = [
-        _number(report[key].get("silhouette"))
-        for key in required
-        if key != "full_rgcn"
+    metrics = [
+        "silhouette",
+        "davies_bouldin",
+        "inter_intra_ratio",
+        "assignment_stability_ari",
+        "representative_metric_error",
     ]
-    if any(score is not None and full_silhouette <= score for score in competitor_scores):
-        return _item("FAIL", "full RGCN does not beat simpler baselines")
-    if full_ratio is not None:
-        competitor_ratios = [
-            _number(report[key].get("inter_intra_ratio"))
-            for key in required
-            if key != "full_rgcn"
-        ]
-        if any(ratio is not None and full_ratio <= ratio for ratio in competitor_ratios):
-            return _item("FAIL", "full RGCN inter/intra ratio does not beat baselines")
+    for key in required:
+        row = normalized.get(key)
+        if not isinstance(row, dict):
+            return _item("FAIL", f"baseline ablation missing {key}")
+        for metric in metrics:
+            if _number(row.get(metric)) is None:
+                return _item("FAIL", f"baseline ablation missing {key}.{metric}")
+    full = normalized["full_rgcn"]
+    higher_is_better = [
+        "silhouette",
+        "inter_intra_ratio",
+        "assignment_stability_ari",
+    ]
+    lower_is_better = ["davies_bouldin", "representative_metric_error"]
+    for key in required:
+        if key == "full_rgcn":
+            continue
+        competitor = normalized[key]
+        for metric in higher_is_better:
+            if _number(full[metric]) <= _number(competitor[metric]):
+                return _item(
+                    "FAIL",
+                    f"full RGCN does not beat {key} on {metric}",
+                )
+        for metric in lower_is_better:
+            if _number(full[metric]) >= _number(competitor[metric]):
+                return _item(
+                    "FAIL",
+                    f"full RGCN does not beat {key} on {metric}",
+                )
+    if legacy_no_edge_key:
+        return _item(
+            "PASS",
+            "full RGCN beats required simple baselines; "
+            "legacy no_edge_baseline normalized to canonical key",
+        )
     return _item("PASS", "full RGCN beats required simple baselines")
 
 
@@ -469,26 +496,38 @@ def _overall_status(items: dict[str, dict[str, Any]]) -> str:
 
 
 def _claim_status_for(status: str, items: dict[str, dict[str, Any]]) -> str:
-    if status == "accepted" and all(item.get("status") == "PASS" for item in items.values()):
-        return "gnn_trustworthiness_accepted"
-    if (
+    structure_tier = (
         items.get("input_provenance", {}).get("status") == "PASS"
         and items.get("rgcn_structure", {}).get("status") == "PASS"
-        and items.get("embedding_geometry_signal", {}).get("status") == "WEAK_PASS"
-        and items.get("training_adequacy", {}).get("status") == "PASS"
+        and items.get("embedding_geometry_signal", {}).get("status")
+        in {"WEAK_PASS", "PASS"}
+        and items.get("selector_cluster_result", {}).get("status")
+        in {"WEAK_PASS", "PASS"}
+    )
+    stability_tier = (
+        structure_tier and items.get("multi_seed_stability", {}).get("status") == "PASS"
+    )
+    semantic_tier = (
+        stability_tier
+        and items.get("semantic_cluster_correctness", {}).get("status") == "PASS"
+    )
+    downstream_tier = (
+        semantic_tier
+        and items.get("downstream_representative_usefulness", {}).get("status") == "PASS"
+    )
+    if (
+        downstream_tier
+        and status == "accepted"
+        and all(item.get("status") == "PASS" for item in items.values())
     ):
-        if (
-            items.get("baseline_ablation", {}).get("status") == "PASS"
-            and items.get("multi_seed_stability", {}).get("status") == "PASS"
-        ):
-            if items.get("semantic_cluster_correctness", {}).get("status") == "PASS":
-                if (
-                    items.get("downstream_representative_usefulness", {}).get("status")
-                    == "PASS"
-                ):
-                    return "representative_downstream_supported"
-                return "semantic_cluster_supported"
-            return "cluster_stability_supported"
+        return "gnn_trustworthiness_accepted"
+    if downstream_tier:
+        return "representative_downstream_supported"
+    if semantic_tier:
+        return "semantic_cluster_supported"
+    if stability_tier:
+        return "cluster_stability_supported"
+    if structure_tier:
         return "structure_valid_embedding_signal_only"
     return CLAIM_NO_CORRECTNESS
 

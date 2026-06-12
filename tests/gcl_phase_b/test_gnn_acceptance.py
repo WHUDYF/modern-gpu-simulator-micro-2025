@@ -163,6 +163,134 @@ def _minimal_inputs(**overrides):
     return values
 
 
+def _complete_baseline_report(**overrides):
+    report = {
+        "artifact_type": "gcl_gnn_baseline_ablation_report",
+        "full_rgcn": {
+            "silhouette": 0.8,
+            "davies_bouldin": 0.4,
+            "inter_intra_ratio": 3.0,
+            "assignment_stability_ari": 0.9,
+            "representative_metric_error": 0.1,
+        },
+        "random_embedding_baseline": {
+            "silhouette": 0.1,
+            "davies_bouldin": 2.0,
+            "inter_intra_ratio": 1.0,
+            "assignment_stability_ari": 0.2,
+            "representative_metric_error": 0.8,
+        },
+        "opcode_histogram_baseline": {
+            "silhouette": 0.15,
+            "davies_bouldin": 1.8,
+            "inter_intra_ratio": 1.2,
+            "assignment_stability_ari": 0.3,
+            "representative_metric_error": 0.7,
+        },
+        "node_feature_pooling_no_edge_baseline": {
+            "silhouette": 0.2,
+            "davies_bouldin": 1.5,
+            "inter_intra_ratio": 1.1,
+            "assignment_stability_ari": 0.35,
+            "representative_metric_error": 0.6,
+        },
+        "control_flow_only_rgcn": {
+            "silhouette": 0.3,
+            "davies_bouldin": 1.2,
+            "inter_intra_ratio": 1.3,
+            "assignment_stability_ari": 0.45,
+            "representative_metric_error": 0.5,
+        },
+        "data_flow_only_rgcn": {
+            "silhouette": 0.35,
+            "davies_bouldin": 1.1,
+            "inter_intra_ratio": 1.4,
+            "assignment_stability_ari": 0.5,
+            "representative_metric_error": 0.45,
+        },
+    }
+    report.update(overrides)
+    return report
+
+
+def _adequate_training_manifest():
+    return _training_manifest(
+        train_graph_count=128,
+        epoch_count=3,
+        positive_pair_count=128,
+        negative_pair_count=512,
+        loss_curve=[1.2, 0.8, 0.5],
+        optimizer_config={
+            "optimizer": "Adam",
+            "learning_rate": 0.005,
+            "optimizer_step_count": 100,
+        },
+    )
+
+
+def _stable_gate7_manifest(**overrides):
+    gate7 = _gate7_manifest(
+        stability_report={
+            "stability_status": "multi_seed_evaluated",
+            "training_seed_count": 3,
+            "kmeans_seed_count": 5,
+            "assignment_stability_ari": 0.91,
+            "assignment_stability_nmi": 0.93,
+            "centroid_drift": 0.04,
+            "k_stability": 1.0,
+            "representative_stability_rate": 0.9,
+        }
+    )
+    gate7.update(overrides)
+    return gate7
+
+
+def _semantic_gate7_manifest(**overrides):
+    gate7 = _stable_gate7_manifest(
+        family_alignment_metrics={
+            "family_evidence_status": "available",
+            "family_alignment_claim_status": "reported",
+            "cluster_purity": 0.9,
+            "weighted_purity": 0.9,
+            "ari": 0.8,
+            "nmi": 0.82,
+            "homogeneity": 0.84,
+            "completeness": 0.83,
+            "v_measure": 0.835,
+            "family_to_cluster_coverage": {"conv": {}, "activation": {}},
+        }
+    )
+    gate7.update(overrides)
+    return gate7
+
+
+def _downstream_gate7_manifest(**overrides):
+    gate7 = _semantic_gate7_manifest(
+        metric_source_manifest_hash="metric-source-hash",
+        metric_error_report={
+            "metric_claim_status": "reported",
+            "cluster_weighted_mape": {"0": 0.1},
+            "global_weighted_mape": 0.1,
+            "global_p95_relative_error": 0.2,
+        },
+        representative_quality_metrics={
+            "representative_quality_status": "reported",
+            "cluster_reports": [
+                {
+                    "cluster_id": 0,
+                    "mean_distance_to_representative": 0.1,
+                    "p95_distance_to_representative": 0.2,
+                    "max_distance_to_representative": 0.3,
+                    "representative_rank_to_centroid": 1,
+                    "outlier_member_ratio": 0.0,
+                }
+            ],
+        },
+    )
+    gate7.update(overrides)
+    return gate7
+
+
 def test_acceptance_evaluator_accepts_real_resnet50_full_trace_artifacts():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
@@ -243,7 +371,7 @@ def test_embedding_geometry_cannot_be_final_pass_without_baseline_ablation():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert report["acceptance_items"]["embedding_geometry_signal"]["status"] != "PASS"
-    assert report["claim_status"] == "quantified_no_correctness_claim"
+    assert report["claim_status"] == "structure_valid_embedding_signal_only"
 
 
 def test_missing_baseline_ablation_is_not_available():
@@ -252,16 +380,26 @@ def test_missing_baseline_ablation_is_not_available():
     assert report["acceptance_items"]["baseline_ablation"]["status"] == "NOT_AVAILABLE"
 
 
+def test_baseline_ablation_accepts_spec_no_edge_key_when_full_rgcn_beats_all_metrics():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(baseline_ablation_report=_complete_baseline_report())
+    )
+
+    assert report["acceptance_items"]["baseline_ablation"]["status"] == "PASS"
+
+
 def test_full_rgcn_must_not_pass_when_no_edge_baseline_matches():
     report = evaluate_gnn_acceptance(
         **_minimal_inputs(
-            baseline_ablation_report={
-                "artifact_type": "gcl_gnn_baseline_ablation_report",
-                "full_rgcn": {"silhouette": 0.5, "inter_intra_ratio": 2.0},
-                "no_edge_baseline": {"silhouette": 0.5, "inter_intra_ratio": 2.0},
-                "random_embedding_baseline": {"silhouette": 0.6},
-                "opcode_histogram_baseline": {"silhouette": 0.55},
-            }
+            baseline_ablation_report=_complete_baseline_report(
+                node_feature_pooling_no_edge_baseline={
+                    "silhouette": 0.8,
+                    "davies_bouldin": 0.4,
+                    "inter_intra_ratio": 3.0,
+                    "assignment_stability_ari": 0.9,
+                    "representative_metric_error": 0.1,
+                }
+            )
         )
     )
 
@@ -281,6 +419,60 @@ def test_incomplete_baseline_report_cannot_pass():
 
     assert report["acceptance_items"]["baseline_ablation"]["status"] == "FAIL"
     assert report["gnn_acceptance_status"] == "rejected_no_graph_signal"
+
+
+def test_baseline_ablation_rejects_when_full_rgcn_loses_on_davies_bouldin():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            baseline_ablation_report=_complete_baseline_report(
+                node_feature_pooling_no_edge_baseline={
+                    "silhouette": 0.2,
+                    "davies_bouldin": 0.3,
+                    "inter_intra_ratio": 1.1,
+                    "assignment_stability_ari": 0.35,
+                    "representative_metric_error": 0.6,
+                }
+            )
+        )
+    )
+
+    assert report["acceptance_items"]["baseline_ablation"]["status"] == "FAIL"
+
+
+def test_baseline_ablation_rejects_when_full_rgcn_loses_on_assignment_stability():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            baseline_ablation_report=_complete_baseline_report(
+                data_flow_only_rgcn={
+                    "silhouette": 0.35,
+                    "davies_bouldin": 1.1,
+                    "inter_intra_ratio": 1.4,
+                    "assignment_stability_ari": 0.95,
+                    "representative_metric_error": 0.45,
+                }
+            )
+        )
+    )
+
+    assert report["acceptance_items"]["baseline_ablation"]["status"] == "FAIL"
+
+
+def test_baseline_ablation_rejects_when_full_rgcn_loses_on_representative_error():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            baseline_ablation_report=_complete_baseline_report(
+                control_flow_only_rgcn={
+                    "silhouette": 0.3,
+                    "davies_bouldin": 1.2,
+                    "inter_intra_ratio": 1.3,
+                    "assignment_stability_ari": 0.45,
+                    "representative_metric_error": 0.05,
+                }
+            )
+        )
+    )
+
+    assert report["acceptance_items"]["baseline_ablation"]["status"] == "FAIL"
 
 
 def test_single_run_stability_is_not_available():
@@ -363,7 +555,7 @@ def test_purity_alone_cannot_upgrade_semantic_claim():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert report["acceptance_items"]["semantic_cluster_correctness"]["status"] != "PASS"
-    assert report["claim_status"] == "quantified_no_correctness_claim"
+    assert report["claim_status"] == "structure_valid_embedding_signal_only"
 
 
 def test_missing_metric_rows_keep_downstream_usefulness_not_available():
@@ -454,17 +646,17 @@ def test_downstream_metrics_reject_unusable_error_values():
     assert report["gnn_acceptance_status"] == "rejected_downstream_unproven"
 
 
-def test_current_resnet50_run_keeps_quantified_no_correctness_claim():
+def test_current_resnet50_run_keeps_structure_only_claim():
     report = evaluate_gnn_acceptance(**_minimal_inputs())
 
     assert (
         report["gnn_acceptance_status"]
         == "weak_acceptance_structure_valid_but_correctness_unproven"
     )
-    assert report["claim_status"] == "quantified_no_correctness_claim"
+    assert report["claim_status"] == "structure_valid_embedding_signal_only"
 
 
-def test_claim_status_cannot_upgrade_with_any_blocking_gap():
+def test_claim_status_keeps_structure_tier_when_later_evidence_is_blocked():
     report = evaluate_gnn_acceptance(
         **_minimal_inputs(
             baseline_ablation_report={
@@ -478,50 +670,16 @@ def test_claim_status_cannot_upgrade_with_any_blocking_gap():
     )
 
     assert report["acceptance_items"]["training_adequacy"]["status"] == "FAIL"
-    assert report["claim_status"] == "quantified_no_correctness_claim"
+    assert report["claim_status"] == "structure_valid_embedding_signal_only"
     assert report["gnn_acceptance_status"] != "accepted"
 
 
 def test_claim_status_uses_intermediate_ladder_when_evidence_layers_pass():
-    training = _training_manifest(
-        train_graph_count=128,
-        epoch_count=3,
-        positive_pair_count=128,
-        negative_pair_count=512,
-        loss_curve=[1.2, 0.8, 0.5],
-        optimizer_config={
-            "optimizer": "Adam",
-            "learning_rate": 0.005,
-            "optimizer_step_count": 100,
-        },
-    )
-    baseline = {
-        "artifact_type": "gcl_gnn_baseline_ablation_report",
-        "full_rgcn": {"silhouette": 0.8, "inter_intra_ratio": 3.0},
-        "no_edge_baseline": {"silhouette": 0.2, "inter_intra_ratio": 1.1},
-        "random_embedding_baseline": {"silhouette": 0.1, "inter_intra_ratio": 1.0},
-        "opcode_histogram_baseline": {"silhouette": 0.15, "inter_intra_ratio": 1.2},
-        "control_flow_only_rgcn": {"silhouette": 0.3, "inter_intra_ratio": 1.3},
-        "data_flow_only_rgcn": {"silhouette": 0.35, "inter_intra_ratio": 1.4},
-    }
-    gate7 = _gate7_manifest(
-        stability_report={
-            "stability_status": "multi_seed_evaluated",
-            "training_seed_count": 3,
-            "kmeans_seed_count": 5,
-            "assignment_stability_ari": 0.91,
-            "assignment_stability_nmi": 0.93,
-            "centroid_drift": 0.04,
-            "k_stability": 1.0,
-            "representative_stability_rate": 0.9,
-        }
-    )
-
     stable_report = evaluate_gnn_acceptance(
         **_minimal_inputs(
-            training_manifest=training,
-            gate7_manifest=gate7,
-            baseline_ablation_report=baseline,
+            training_manifest=_adequate_training_manifest(),
+            gate7_manifest=_stable_gate7_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
         )
     )
 
@@ -529,27 +687,58 @@ def test_claim_status_uses_intermediate_ladder_when_evidence_layers_pass():
 
     semantic_report = evaluate_gnn_acceptance(
         **_minimal_inputs(
-            training_manifest=training,
-            baseline_ablation_report=baseline,
-            gate7_manifest=_gate7_manifest(
-                stability_report=gate7["stability_report"],
-                family_alignment_metrics={
-                    "family_evidence_status": "available",
-                    "family_alignment_claim_status": "reported",
-                    "cluster_purity": 0.9,
-                    "weighted_purity": 0.9,
-                    "ari": 0.8,
-                    "nmi": 0.82,
-                    "homogeneity": 0.84,
-                    "completeness": 0.83,
-                    "v_measure": 0.835,
-                    "family_to_cluster_coverage": {"conv": {}, "activation": {}},
-                },
-            ),
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=_semantic_gate7_manifest(),
         )
     )
 
     assert semantic_report["claim_status"] == "semantic_cluster_supported"
+
+
+def test_claim_status_does_not_upgrade_beyond_stability_without_semantic_pass():
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=_stable_gate7_manifest(),
+        )
+    )
+
+    assert report["acceptance_items"]["multi_seed_stability"]["status"] == "PASS"
+    assert report["acceptance_items"]["semantic_cluster_correctness"]["status"] != "PASS"
+    assert report["claim_status"] == "cluster_stability_supported"
+
+
+def test_downstream_pass_cannot_skip_missing_semantic_tier():
+    downstream_without_semantics = _downstream_gate7_manifest(
+        family_alignment_metrics={
+            "family_evidence_status": "available",
+            "family_alignment_claim_status": "reported",
+            "cluster_purity": 1.0,
+            "weighted_purity": 1.0,
+            "ari": 0.0,
+            "nmi": 0.0,
+            "homogeneity": 1.0,
+            "completeness": 0.0,
+            "v_measure": 0.0,
+            "family_to_cluster_coverage": {"resnet50_real_trace": {}},
+        }
+    )
+    report = evaluate_gnn_acceptance(
+        **_minimal_inputs(
+            training_manifest=_adequate_training_manifest(),
+            baseline_ablation_report=_complete_baseline_report(),
+            gate7_manifest=downstream_without_semantics,
+        )
+    )
+
+    assert (
+        report["acceptance_items"]["downstream_representative_usefulness"]["status"]
+        == "PASS"
+    )
+    assert report["acceptance_items"]["semantic_cluster_correctness"]["status"] != "PASS"
+    assert report["claim_status"] == "cluster_stability_supported"
 
 
 def test_acceptance_artifacts_written_with_hashes(tmp_path):

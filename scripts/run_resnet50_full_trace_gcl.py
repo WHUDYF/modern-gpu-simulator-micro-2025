@@ -22,6 +22,10 @@ from experiments.gcl_phase_b.resnet50_gate_pipeline import (
     resume_resnet50_gate5_to_gate9_from_disk,
     run_resnet50_gate1_to_gate7,
 )
+from experiments.gcl_phase_b.trustworthiness import (
+    evaluate_gnn_acceptance_from_dir,
+    write_gnn_acceptance_artifacts,
+)
 from experiments.gcl_phase_b.utils import stable_hash
 
 
@@ -70,6 +74,9 @@ GATE1_PLUS_ARTIFACTS = [
     "gate9_simulator_evaluation_manifest.json",
     "gate9_sampled_vs_full_evaluation.json",
     "gate1_7_pipeline_manifest.json",
+    "gnn_acceptance_manifest.json",
+    "gnn_acceptance_summary.json",
+    "gnn_acceptance_report.md",
 ]
 
 
@@ -106,6 +113,9 @@ def _artifact_presence(out_dir: Path) -> dict[str, bool]:
         "selector_artifacts.json",
         "gate7_cluster_correctness_manifest.json",
         "gate1_7_pipeline_manifest.json",
+        "gnn_acceptance_manifest.json",
+        "gnn_acceptance_summary.json",
+        "gnn_acceptance_report.md",
     ]
     return {filename: (out_dir / filename).exists() for filename in filenames}
 
@@ -238,6 +248,12 @@ def _write_blocker(
     return blocker
 
 
+def _write_gnn_acceptance(out_dir: Path) -> dict[str, Any]:
+    report = evaluate_gnn_acceptance_from_dir(out_dir)
+    write_gnn_acceptance_artifacts(out_dir, report)
+    return _read_json(out_dir / "gnn_acceptance_manifest.json")
+
+
 def run_full_trace_reproduction(
     *,
     input_root: Path,
@@ -324,6 +340,18 @@ def run_full_trace_reproduction(
     }
     manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
     (out_dir / FULL_TRACE_BLOCKER).unlink(missing_ok=True)
+    _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
+    acceptance_report = _write_gnn_acceptance(out_dir)
+    manifest["pre_gnn_acceptance_manifest_hash"] = manifest[
+        "full_trace_reproduction_manifest_hash"
+    ]
+    manifest["gnn_acceptance_status"] = acceptance_report["gnn_acceptance_status"]
+    manifest["gnn_acceptance_claim_status"] = acceptance_report["claim_status"]
+    manifest["gnn_acceptance_manifest_hash"] = acceptance_report[
+        "gnn_acceptance_manifest_hash"
+    ]
+    manifest["artifact_presence"] = _artifact_presence(out_dir)
+    manifest["full_trace_reproduction_manifest_hash"] = stable_hash(manifest)
     _write_json(out_dir / FULL_TRACE_MANIFEST, manifest)
     return manifest
 

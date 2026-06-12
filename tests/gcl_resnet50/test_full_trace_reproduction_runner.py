@@ -102,6 +102,10 @@ def _fake_success_pipeline(calls):
         return {
             "artifact_type": "gcl_resnet50_gate1_7_pipeline_manifest",
             "final_gate": "gate9_report_only",
+            "run_scope": "real_resnet50_full_trace",
+            "invocation_limit": None,
+            "invocation_ids": None,
+            "input_kernel_invocation_count": 265,
             "hashes": {
                 "embedding_table_hash": "embedding-hash",
                 "selector_manifest_hash": "selector-hash",
@@ -186,6 +190,86 @@ def _write_success_manifest(out_dir):
                 "artifact_type": "gcl_resnet50_full_trace_reproduction_manifest",
                 "resource_status": "completed",
                 "formal_full_trace_run": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_gnn_acceptance_required_inputs(out_dir):
+    (out_dir / "rgcn_training_run_manifest.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "gcl_resnet50_rgcn_training_run_manifest",
+                "artifact_version": "gate5_rgcn_training_run_manifest_v1",
+                "training_status": "formal_gate5_complete",
+                "train_graph_count": 4,
+                "export_graph_count": 265,
+                "optimizer_config": {"optimizer_step_count": 1},
+                "model_architecture": {
+                    "layers": 3,
+                    "input_dim": 64,
+                    "hidden_dim": 128,
+                    "kernel_embedding_dim": 256,
+                    "projection_hidden_dim": 128,
+                    "projection_output_dim": 64,
+                    "relation_count": 3,
+                },
+                "edge_relation_schema": {
+                    "control_flow": 0,
+                    "data_source": 1,
+                    "data_destination": 2,
+                },
+                "readout_hierarchy": "node_to_warp_to_cta_to_selected_sm_to_kernel",
+                "training_run_manifest_hash": "training-hash",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out_dir / "selector_artifacts.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "gcl_resnet50_gate6_selector_artifacts",
+                "artifact_version": "gate6_selector_artifacts_v1",
+                "selector_manifest_hash": "selector-hash",
+                "source_embedding_table_hash": "embedding-hash",
+                "k_selection_report": {"mode": "silhouette_k", "selected_k": 2},
+                "kmeans_cluster_assignment_table": {
+                    "assignments": [
+                        {"record_id": "gcl_embedding:0000", "cluster_id": 0},
+                        {"record_id": "gcl_embedding:0001", "cluster_id": 1},
+                    ]
+                },
+                "representative_anchor_table": {"anchors": []},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out_dir / "gate7_cluster_correctness_manifest.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "gcl_resnet50_gate7_cluster_correctness_manifest",
+                "artifact_version": "gate7_cluster_correctness_manifest_v1",
+                "claim_status": "quantified_no_correctness_claim",
+                "gate7_cluster_correctness_manifest_hash": "gate7-hash",
+                "embedding_geometry_metrics": {
+                    "silhouette": 0.48186617,
+                    "davies_bouldin": 0.78974237,
+                    "inter_intra_ratio": 2.01633922,
+                },
+                "family_alignment_metrics": {
+                    "cluster_purity": 1.0,
+                    "weighted_purity": 1.0,
+                    "ari": 0.0,
+                    "nmi": 0.0,
+                    "completeness": 0.0,
+                    "family_to_cluster_coverage": {"resnet50_real_trace": {}},
+                },
+                "metric_error_report": {
+                    "metric_claim_status": "unavailable",
+                    "status": "not_provided",
+                },
+                "stability_report": {"stability_status": "single_run_not_evaluated"},
             }
         ),
         encoding="utf-8",
@@ -567,6 +651,85 @@ def test_full_trace_runner_removes_stale_blocker_report_on_success(tmp_path, mon
 
     assert (out_dir / "resnet50_full_trace_reproduction_manifest.json").exists()
     assert not blocker_path.exists()
+
+
+def test_full_trace_runner_can_append_gnn_acceptance_report(tmp_path, monkeypatch):
+    calls = {}
+
+    def fake_pipeline(
+        root,
+        out_dir,
+        seed,
+        baseline_artifacts_path=None,
+        invocation_limit=None,
+        invocation_ids=None,
+    ):
+        result = _fake_success_pipeline(calls)(
+            root,
+            out_dir,
+            seed,
+            baseline_artifacts_path=baseline_artifacts_path,
+            invocation_limit=invocation_limit,
+            invocation_ids=invocation_ids,
+        )
+        _write_gnn_acceptance_required_inputs(out_dir)
+        return result
+
+    monkeypatch.setattr(run_resnet50_full_trace_gcl, "run_resnet50_gate1_to_gate7", fake_pipeline)
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    assert result["gnn_acceptance_status"] == (
+        "weak_acceptance_structure_valid_but_correctness_unproven"
+    )
+    manifest = json.loads((out_dir / "gnn_acceptance_manifest.json").read_text())
+    full_manifest = json.loads(
+        (out_dir / "resnet50_full_trace_reproduction_manifest.json").read_text()
+    )
+    assert manifest["claim_status"] == "quantified_no_correctness_claim"
+    assert result["gnn_acceptance_manifest_hash"] == manifest[
+        "gnn_acceptance_manifest_hash"
+    ]
+    assert manifest["input_artifact_hashes"]["full_trace_manifest_hash"] == full_manifest[
+        "pre_gnn_acceptance_manifest_hash"
+    ]
+    assert (out_dir / "gnn_acceptance_summary.json").exists()
+    assert (out_dir / "gnn_acceptance_report.md").exists()
+    assert json.loads((out_dir / "selector_artifacts.json").read_text())[
+        "selector_manifest_hash"
+    ] == "selector-hash"
+
+
+def test_acceptance_stage_rejects_missing_gate5_gate6_gate7_inputs(tmp_path, monkeypatch):
+    calls = {}
+    monkeypatch.setattr(
+        run_resnet50_full_trace_gcl,
+        "run_resnet50_gate1_to_gate7",
+        _fake_success_pipeline(calls),
+    )
+    root = tmp_path / "root"
+    _write_gate0_manifest(root)
+    out_dir = tmp_path / "out"
+
+    result = run_resnet50_full_trace_gcl.run_full_trace_reproduction(
+        input_root=root,
+        out_dir=out_dir,
+        seed=20260608,
+        baseline_artifacts=None,
+    )
+
+    manifest = json.loads((out_dir / "gnn_acceptance_manifest.json").read_text())
+    assert result["gnn_acceptance_status"] == "not_evaluable_missing_artifacts"
+    assert manifest["artifact_type"] == "gcl_gnn_acceptance_blocker_report"
+    assert "rgcn_training_run_manifest.json" in manifest["missing_artifacts"]
 
 
 def test_full_trace_runner_resume_rejects_gate4_from_different_gate0_root(

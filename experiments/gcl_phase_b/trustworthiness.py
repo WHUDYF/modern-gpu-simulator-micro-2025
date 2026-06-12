@@ -11,6 +11,28 @@ from .utils import stable_hash
 ACCEPTANCE_MANIFEST = "gnn_acceptance_manifest.json"
 ACCEPTANCE_SUMMARY = "gnn_acceptance_summary.json"
 ACCEPTANCE_REPORT = "gnn_acceptance_report.md"
+ACCEPTANCE_INPUTS = {
+    "full_trace_manifest": (
+        "resnet50_full_trace_reproduction_manifest.json",
+        "full_trace_manifest_hash",
+        "full_trace_reproduction_manifest_hash",
+    ),
+    "training_manifest": (
+        "rgcn_training_run_manifest.json",
+        "training_run_manifest_hash",
+        "training_run_manifest_hash",
+    ),
+    "selector_artifacts": (
+        "selector_artifacts.json",
+        "selector_manifest_hash",
+        "selector_manifest_hash",
+    ),
+    "gate7_manifest": (
+        "gate7_cluster_correctness_manifest.json",
+        "gate7_cluster_correctness_manifest_hash",
+        "gate7_cluster_correctness_manifest_hash",
+    ),
+}
 
 CLAIM_NO_CORRECTNESS = "quantified_no_correctness_claim"
 STATUS_WEAK = "weak_acceptance_structure_valid_but_correctness_unproven"
@@ -82,41 +104,16 @@ def evaluate_gnn_acceptance(
 
 def evaluate_gnn_acceptance_from_dir(root: Path) -> dict[str, Any]:
     root = Path(root)
-    required = {
-        "full_trace_manifest": "resnet50_full_trace_reproduction_manifest.json",
-        "training_manifest": "rgcn_training_run_manifest.json",
-        "selector_artifacts": "selector_artifacts.json",
-        "gate7_manifest": "gate7_cluster_correctness_manifest.json",
-    }
     loaded: dict[str, dict[str, Any]] = {}
     missing = []
-    for key, filename in required.items():
+    for key, (filename, _, _) in ACCEPTANCE_INPUTS.items():
         path = root / filename
         if not path.exists():
             missing.append(filename)
             continue
         loaded[key] = _read_json(path)
     if missing:
-        input_hashes = {
-            "full_trace_manifest_hash": loaded.get("full_trace_manifest", {}).get(
-                "full_trace_reproduction_manifest_hash"
-            )
-            or "missing:resnet50_full_trace_reproduction_manifest.json",
-            "training_run_manifest_hash": loaded.get("training_manifest", {}).get(
-                "training_run_manifest_hash"
-            )
-            or "missing:rgcn_training_run_manifest.json",
-            "selector_manifest_hash": loaded.get("selector_artifacts", {}).get(
-                "selector_manifest_hash"
-            )
-            or "missing:selector_artifacts.json",
-            "gate7_cluster_correctness_manifest_hash": (
-                loaded.get("gate7_manifest", {}).get(
-                    "gate7_cluster_correctness_manifest_hash"
-                )
-                or "missing:gate7_cluster_correctness_manifest.json"
-            ),
-        }
+        input_hashes = _acceptance_input_hashes_or_missing(loaded)
         blocker = {
             "artifact_type": "gcl_gnn_acceptance_manifest",
             "artifact_version": "gnn_acceptance_manifest_v1",
@@ -192,13 +189,7 @@ def validate_gnn_acceptance_manifest(
     hashes = manifest.get("input_artifact_hashes")
     if not hashes:
         raise ValueError("GNN acceptance manifest requires input_artifact_hashes")
-    required_hashes = [
-        "full_trace_manifest_hash",
-        "training_run_manifest_hash",
-        "selector_manifest_hash",
-        "gate7_cluster_correctness_manifest_hash",
-    ]
-    for key in required_hashes:
+    for key in _acceptance_input_hash_keys():
         if not hashes.get(key):
             raise ValueError(f"GNN acceptance manifest requires {key}")
     if not manifest.get("report_hash"):
@@ -587,6 +578,21 @@ def _recommended_next_gates(items: dict[str, dict[str, Any]]) -> list[str]:
 
 def _item(status: str, reason: str) -> dict[str, str]:
     return {"status": status, "reason": reason}
+
+
+def _acceptance_input_hashes_or_missing(
+    loaded: dict[str, dict[str, Any]],
+) -> dict[str, str]:
+    hashes = {}
+    for key, (filename, output_hash_key, source_hash_key) in ACCEPTANCE_INPUTS.items():
+        hashes[output_hash_key] = (
+            loaded.get(key, {}).get(source_hash_key) or f"missing:{filename}"
+        )
+    return hashes
+
+
+def _acceptance_input_hash_keys() -> list[str]:
+    return [output_hash_key for _, output_hash_key, _ in ACCEPTANCE_INPUTS.values()]
 
 
 def _positive_int(value: Any) -> bool:

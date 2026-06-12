@@ -309,7 +309,8 @@ def has_ncu_csv_header(path: Path) -> bool:
         for row in reader:
             if not row:
                 continue
-            return row[0].strip() == "ID" or any(col.strip() == "Metric Name" for col in row)
+            if row[0].strip() == "ID" or any(col.strip() == "Metric Name" for col in row):
+                return True
     return False
 
 

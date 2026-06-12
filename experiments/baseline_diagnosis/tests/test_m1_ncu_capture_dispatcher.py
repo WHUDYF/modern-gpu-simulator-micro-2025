@@ -58,6 +58,52 @@ def test_gate2_dedups_commands_and_never_uses_set_full(monkeypatch, tmp_path):
         assert key in env_doc
 
 
+def test_gate2_does_not_dedup_same_command_across_working_directories(monkeypatch, tmp_path):
+    work_a = tmp_path / "work_a"
+    work_b = tmp_path / "work_b"
+    work_a.mkdir()
+    work_b.mkdir()
+    resolution_path = tmp_path / "resolution.json"
+    command = [sys.executable, "-c", "print(1)"]
+    resolution_path.write_text(json.dumps([
+        {
+            "manifest_entry_id": "L1_A",
+            "resolution_status": "resolved",
+            "workload_id": "w",
+            "kernel_or_case": "ka",
+            "resolved_run_command": command,
+            "working_directory": str(work_a),
+            "capture_timeout_seconds": 5,
+        },
+        {
+            "manifest_entry_id": "L1_B",
+            "resolution_status": "resolved",
+            "workload_id": "w",
+            "kernel_or_case": "kb",
+            "resolved_run_command": command,
+            "working_directory": str(work_b),
+            "capture_timeout_seconds": 7,
+        },
+    ]))
+    monkeypatch.setattr(dispatcher, "RESOLUTION_PATH", resolution_path)
+    monkeypatch.setattr(dispatcher, "ATTEMPTS_PATH", tmp_path / "attempts.json")
+    monkeypatch.setattr(dispatcher, "GAP_PATH", tmp_path / "gaps.json")
+    monkeypatch.setattr(dispatcher, "QUERY_PATH", tmp_path / "query.json")
+    monkeypatch.setattr(dispatcher, "RESOLUTION_TABLE_PATH", tmp_path / "resolution_table.json")
+    monkeypatch.setattr(dispatcher, "RESULTS_DIR", tmp_path / "results")
+    monkeypatch.setattr(dispatcher, "_write_query_artifacts", lambda: selected_metric_records())
+
+    attempts, _ = dispatcher.dispatch(dry_run=True)
+
+    assert len(attempts) == 2
+    assert {row["working_directory"] for row in attempts} == {str(work_a), str(work_b)}
+    assert {row["capture_timeout_seconds"] for row in attempts} == {5, 7}
+    assert sorted(row["consuming_manifest_entry_ids"] for row in attempts) == [
+        ["L1_A"],
+        ["L1_B"],
+    ]
+
+
 def test_gate2_selected_metrics_include_timing_metrics_for_gate4_weights():
     selected = selected_metric_records()
     metrics = dispatcher.selected_ncu_metrics(selected)
@@ -82,6 +128,22 @@ def test_gate2_timeout_with_valid_csv_remains_gate3_eligible(tmp_path):
     assert status == "ncu_capture_timeout"
     assert eligible is True
     assert reason == "timeout_with_partial_csv"
+
+
+def test_gate2_accepts_ncu_csv_after_profiler_banner(tmp_path):
+    csv_path = tmp_path / "capture.csv"
+    csv_path.write_text(
+        "==PROF== Connected to process 123\n"
+        "==PROF== Profiling \"kernel\"\n"
+        "ID,Kernel Name,Grid Size,Metric Name,Metric Value\n"
+        "0,kernel,\"(1,1,1)\",gpu__time_duration.sum,1.0\n"
+    )
+
+    status, eligible, reason = dispatcher._classify(0, "", csv_path)
+
+    assert status == "captured"
+    assert eligible is True
+    assert reason is None
 
 
 def test_gate2_classifies_permission_blocker(tmp_path):

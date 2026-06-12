@@ -130,7 +130,11 @@ def dispatch(dry_run: bool = False) -> tuple[list[dict[str, Any]], list[dict[str
     resolved = [row for row in records if row.get("resolution_status") == "resolved"]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in resolved:
-        key = stable_hash(row.get("resolved_run_command", []))
+        key = stable_hash({
+            "resolved_run_command": row.get("resolved_run_command", []),
+            "working_directory": row.get("working_directory"),
+            "capture_timeout_seconds": row.get("capture_timeout_seconds", 120),
+        })
         grouped.setdefault(key, []).append(row)
 
     attempts: list[dict[str, Any]] = []

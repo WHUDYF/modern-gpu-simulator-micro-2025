@@ -97,9 +97,20 @@ def evaluate_gnn_acceptance_from_dir(root: Path) -> dict[str, Any]:
             continue
         loaded[key] = _read_json(path)
     if missing:
+        input_hashes = {
+            "full_trace_manifest_hash": loaded.get("full_trace_manifest", {}).get(
+                "full_trace_reproduction_manifest_hash"
+            )
+            or "missing:resnet50_full_trace_reproduction_manifest.json",
+            "training_run_manifest_hash": "missing:rgcn_training_run_manifest.json",
+            "selector_manifest_hash": "missing:selector_artifacts.json",
+            "gate7_cluster_correctness_manifest_hash": (
+                "missing:gate7_cluster_correctness_manifest.json"
+            ),
+        }
         blocker = {
-            "artifact_type": "gcl_gnn_acceptance_blocker_report",
-            "artifact_version": "gnn_acceptance_blocker_report_v1",
+            "artifact_type": "gcl_gnn_acceptance_manifest",
+            "artifact_version": "gnn_acceptance_manifest_v1",
             "workload_id": "resnet50",
             "gnn_acceptance_status": STATUS_MISSING,
             "claim_status": CLAIM_NO_CORRECTNESS,
@@ -108,7 +119,7 @@ def evaluate_gnn_acceptance_from_dir(root: Path) -> dict[str, Any]:
                 "missing required acceptance input artifacts: " + ", ".join(missing)
             ],
             "acceptance_items": {},
-            "input_artifact_hashes": {},
+            "input_artifact_hashes": input_hashes,
             "recommended_next_gates": ["rerun upstream formal gates before acceptance"],
         }
         blocker["gnn_acceptance_manifest_hash"] = stable_hash(blocker)

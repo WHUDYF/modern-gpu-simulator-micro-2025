@@ -62,7 +62,9 @@ def clone_status_failed(status: str) -> bool:
 
 
 def infer_clone_mode(path: Path, status: str = "") -> str:
-    if clone_status_failed(status):
+    if clone_status_failed(status) and not (
+        status.startswith("failed:sparse:") and is_git_checkout(path)
+    ):
         return "unavailable"
     if not is_git_checkout(path):
         return "unavailable"
@@ -72,7 +74,9 @@ def infer_clone_mode(path: Path, status: str = "") -> str:
 
 
 def infer_availability(path: Path, status: str = "") -> str:
-    if clone_status_failed(status):
+    if clone_status_failed(status) and not (
+        status.startswith("failed:sparse:") and is_git_checkout(path)
+    ):
         return "source_unavailable"
     if not is_git_checkout(path):
         return "source_unavailable"

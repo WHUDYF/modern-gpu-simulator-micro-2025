@@ -72,6 +72,14 @@ def test_infer_clone_mode_keeps_non_sparse_promisor_clone_available(tmp_path):
     assert infer_availability(repo) == "source_available"
 
 
+def test_sparse_checkout_failure_preserves_existing_git_checkout_availability(tmp_path):
+    repo = tmp_path / "repo"
+    init_git_repo(repo)
+
+    assert infer_clone_mode(repo, "failed:sparse:42") == "shallow_or_full"
+    assert infer_availability(repo, "failed:sparse:42") == "source_available"
+
+
 def test_clone_workload_sources_records_sparse_checkout_failure(tmp_path):
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()

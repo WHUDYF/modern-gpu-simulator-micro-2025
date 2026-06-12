@@ -5,6 +5,7 @@ import pytest
 from experiments.gcl_phase_b.trustworthiness import (
     render_gnn_acceptance_markdown,
     evaluate_gnn_acceptance,
+    evaluate_gnn_acceptance_from_dir,
     validate_gnn_acceptance_manifest,
     write_gnn_acceptance_artifacts,
 )
@@ -802,6 +803,24 @@ def test_acceptance_manifest_rejects_missing_hash_or_report_mismatch(tmp_path):
     manifest.pop("report_hash")
     with pytest.raises(ValueError, match="report_hash"):
         validate_gnn_acceptance_manifest(manifest, summary=summary, markdown="changed")
+
+
+def test_missing_artifact_acceptance_manifest_is_validator_compatible(tmp_path):
+    full_manifest = _full_trace_manifest()
+    full_manifest["full_trace_reproduction_manifest_hash"] = "full-trace-hash"
+    (tmp_path / "resnet50_full_trace_reproduction_manifest.json").write_text(
+        json.dumps(full_manifest),
+        encoding="utf-8",
+    )
+
+    report = evaluate_gnn_acceptance_from_dir(tmp_path)
+    write_gnn_acceptance_artifacts(tmp_path, report)
+
+    manifest = json.loads((tmp_path / "gnn_acceptance_manifest.json").read_text())
+    summary = json.loads((tmp_path / "gnn_acceptance_summary.json").read_text())
+    markdown = (tmp_path / "gnn_acceptance_report.md").read_text()
+    assert manifest["gnn_acceptance_status"] == "not_evaluable_missing_artifacts"
+    validate_gnn_acceptance_manifest(manifest, summary=summary, markdown=markdown)
 
 
 def test_acceptance_manifest_rejects_missing_individual_source_hash(tmp_path):

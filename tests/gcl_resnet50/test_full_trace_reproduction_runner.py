@@ -749,7 +749,7 @@ def test_acceptance_stage_rejects_missing_gate5_gate6_gate7_inputs(tmp_path, mon
 
     manifest = json.loads((out_dir / "gnn_acceptance_manifest.json").read_text())
     assert result["gnn_acceptance_status"] == "not_evaluable_missing_artifacts"
-    assert manifest["artifact_type"] == "gcl_gnn_acceptance_blocker_report"
+    assert manifest["artifact_type"] == "gcl_gnn_acceptance_manifest"
     assert "rgcn_training_run_manifest.json" in manifest["missing_artifacts"]
 
 

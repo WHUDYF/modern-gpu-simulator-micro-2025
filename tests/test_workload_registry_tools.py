@@ -248,6 +248,17 @@ def test_generate_source_registry_default_root_is_portable():
     assert str(DEFAULT_ROOT) == "workloads/trace-compressions-industrial-codex-workload"
 
 
+def test_checked_in_source_registry_points_to_repo_local_workload_root():
+    registry_path = REPO_ROOT / "registry" / "source_registry.json"
+    registry = json.loads(registry_path.read_text())
+    source_root = Path(registry["source_root"])
+
+    assert not source_root.is_absolute()
+    assert (registry_path.parent / source_root).resolve() == (
+        REPO_ROOT / "workloads" / "trace-compressions-industrial-codex-workload"
+    ).resolve()
+
+
 def test_cli_generated_at_makes_artifacts_deterministic(tmp_path):
     source = tmp_path / "sources" / "gpu-rodinia"
     init_git_repo(source)

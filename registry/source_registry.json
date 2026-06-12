@@ -1,7 +1,7 @@
 {
   "schema_version": "source_registry_v1",
   "generated_at": "2026-05-11T00:00:00+00:00",
-  "source_root": "../../../workloads/trace-compressions-industrial-codex-workload",
+  "source_root": "../workloads/trace-compressions-industrial-codex-workload",
   "sources": [
     {
       "source_id": "gpu-rodinia",

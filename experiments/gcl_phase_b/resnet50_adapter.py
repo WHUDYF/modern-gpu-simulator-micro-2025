@@ -573,6 +573,11 @@ def _annotate_scheduler_metadata_with_dynamic_launch_orders(
 ) -> dict[str, Any]:
     annotated = dict(scheduler_metadata)
     scheduler_invocations = list(scheduler_metadata.get("kernel_invocations", []))
+    dynamic_invocations_by_order = {
+        int(invocation["launch_order"]): invocation
+        for invocation in kept_invocations
+        if invocation.get("launch_order") is not None
+    }
     kept_orders = {
         int(invocation["launch_order"])
         for invocation in kept_invocations
@@ -580,12 +585,39 @@ def _annotate_scheduler_metadata_with_dynamic_launch_orders(
     }
     for index, invocation in enumerate(scheduler_invocations):
         if index in kept_orders and "launch_order" not in invocation:
+            _validate_explicit_scheduler_position_for_dynamic_launch_order(
+                invocation,
+                dynamic_launch_order=index,
+                dynamic_invocation=dynamic_invocations_by_order[index],
+            )
             scheduler_invocations[index] = {
                 **invocation,
                 "dynamic_launch_order": index,
             }
     annotated["kernel_invocations"] = scheduler_invocations
     return annotated
+
+
+def _validate_explicit_scheduler_position_for_dynamic_launch_order(
+    invocation: dict[str, Any],
+    *,
+    dynamic_launch_order: int,
+    dynamic_invocation: dict[str, Any],
+) -> None:
+    explicit_id = invocation.get("kernel_invocation_id")
+    if not explicit_id:
+        return
+    dynamic_identity_ids = {
+        str(dynamic_invocation.get("source_kernel_invocation_id")),
+        _legacy_scheduler_invocation_id(dynamic_invocation),
+    }
+    if str(explicit_id) in dynamic_identity_ids:
+        return
+    if int(invocation["kernel_id"]) != int(dynamic_invocation["kernel_id"]):
+        raise ValueError("explicit scheduler metadata without launch_order cannot be mapped")
+    observed_launch_order = _infer_scheduler_threadblock_launch_order(invocation)
+    if observed_launch_order is None or observed_launch_order != dynamic_launch_order:
+        raise ValueError("explicit scheduler metadata without launch_order cannot be mapped")
 
 
 def _scheduler_metadata_has_only_legacy_ids(scheduler_metadata: dict[str, Any]) -> bool:

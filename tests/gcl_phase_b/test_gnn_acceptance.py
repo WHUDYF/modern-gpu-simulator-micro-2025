@@ -823,6 +823,31 @@ def test_missing_artifact_acceptance_manifest_is_validator_compatible(tmp_path):
     validate_gnn_acceptance_manifest(manifest, summary=summary, markdown=markdown)
 
 
+def test_missing_artifact_acceptance_manifest_preserves_present_input_hashes(tmp_path):
+    full_manifest = _full_trace_manifest()
+    full_manifest["full_trace_reproduction_manifest_hash"] = "full-trace-hash"
+    training_manifest = _training_manifest()
+    training_manifest["training_run_manifest_hash"] = "training-present-hash"
+    (tmp_path / "resnet50_full_trace_reproduction_manifest.json").write_text(
+        json.dumps(full_manifest),
+        encoding="utf-8",
+    )
+    (tmp_path / "rgcn_training_run_manifest.json").write_text(
+        json.dumps(training_manifest),
+        encoding="utf-8",
+    )
+
+    report = evaluate_gnn_acceptance_from_dir(tmp_path)
+
+    assert report["input_artifact_hashes"]["full_trace_manifest_hash"] == "full-trace-hash"
+    assert report["input_artifact_hashes"]["training_run_manifest_hash"] == (
+        "training-present-hash"
+    )
+    assert report["input_artifact_hashes"]["selector_manifest_hash"] == (
+        "missing:selector_artifacts.json"
+    )
+
+
 def test_acceptance_manifest_rejects_missing_individual_source_hash(tmp_path):
     report = evaluate_gnn_acceptance(**_minimal_inputs())
     write_gnn_acceptance_artifacts(tmp_path, report)

@@ -102,10 +102,19 @@ def evaluate_gnn_acceptance_from_dir(root: Path) -> dict[str, Any]:
                 "full_trace_reproduction_manifest_hash"
             )
             or "missing:resnet50_full_trace_reproduction_manifest.json",
-            "training_run_manifest_hash": "missing:rgcn_training_run_manifest.json",
-            "selector_manifest_hash": "missing:selector_artifacts.json",
+            "training_run_manifest_hash": loaded.get("training_manifest", {}).get(
+                "training_run_manifest_hash"
+            )
+            or "missing:rgcn_training_run_manifest.json",
+            "selector_manifest_hash": loaded.get("selector_artifacts", {}).get(
+                "selector_manifest_hash"
+            )
+            or "missing:selector_artifacts.json",
             "gate7_cluster_correctness_manifest_hash": (
-                "missing:gate7_cluster_correctness_manifest.json"
+                loaded.get("gate7_manifest", {}).get(
+                    "gate7_cluster_correctness_manifest_hash"
+                )
+                or "missing:gate7_cluster_correctness_manifest.json"
             ),
         }
         blocker = {

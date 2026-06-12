@@ -263,6 +263,24 @@ def test_gate1_invocation_ids_preserve_explicit_scheduler_ids_without_launch_ord
     }
 
 
+def test_gate1_rejects_reordered_explicit_scheduler_ids_without_launch_order(tmp_path):
+    root = write_minimal_artifact_shape_resnet50_root(
+        tmp_path / "formal_reordered_explicit_scheduler_without_launch_order"
+    )
+    _write_formal_gate0_manifest(root)
+    scheduler_path = root / "scheduler_metadata.json"
+    scheduler = json.loads(scheduler_path.read_text())
+    for index, invocation in enumerate(scheduler["kernel_invocations"]):
+        invocation.pop("launch_order", None)
+        invocation["kernel_invocation_id"] = f"scheduler-explicit-{index}"
+    scheduler["kernel_invocations"] = list(reversed(scheduler["kernel_invocations"]))
+    scheduler_path.write_text(json.dumps(scheduler), encoding="utf-8")
+    _write_formal_gate0_manifest(root)
+
+    with pytest.raises(ValueError, match="explicit scheduler metadata without launch_order"):
+        build_resnet50_trace_adapter_bundle(root, invocation_ids=["resnet50_k00001"])
+
+
 def test_gate1_invocation_limit_filters_reordered_scheduler_by_selected_invocation_id(tmp_path):
     root = write_minimal_artifact_shape_resnet50_root(tmp_path / "formal_limit_reordered_scheduler")
     _write_formal_gate0_manifest(root)

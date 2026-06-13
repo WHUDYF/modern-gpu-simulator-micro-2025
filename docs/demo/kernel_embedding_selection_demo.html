@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>如何用 256D embedding 挑选 representative kernel</title>
+  <style>
+:root{--bg:#f8fafc;--panel:#fff;--ink:#111827;--muted:#475569;--line:#cbd5e1;--blue:#2563eb;--blue-dark:#1e3a8a;--blue-soft:#dbeafe;--green:#0f766e;--green-soft:#dcfce7;--red:#b91c1c;--red-soft:#fee2e2;--amber:#b45309;--amber-soft:#fef3c7;--purple:#6d28d9;--purple-soft:#ede9fe;--soft:#e2e8f0}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}header{padding:22px 28px 14px;background:var(--panel);border-bottom:1px solid var(--line)}h1{margin:0;font-size:24px;line-height:1.25}.subtitle{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.55}.topline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-family:Consolas,"Courier New",monospace;font-size:13px;color:var(--blue-dark)}.chip{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--blue-soft);white-space:nowrap}main{display:grid;grid-template-columns:330px minmax(560px,1fr)390px;gap:16px;padding:16px;min-height:calc(100vh - 128px)}section{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.panel-title{padding:14px 16px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}.panel-body{padding:14px 16px}.card-list{display:grid;gap:10px}.card{padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.card strong{display:block;margin-bottom:6px;font-size:14px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}.note{margin-top:14px;padding:11px;border:1px solid var(--red);border-radius:8px;background:var(--red-soft);color:var(--red);font-size:13px;line-height:1.5}.visual{height:calc(100% - 50px);min-height:560px;padding:14px;position:relative}svg{display:block;width:100%;height:100%}.detail-card{padding:12px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#fff}.detail-title{margin-bottom:8px;font-size:15px;font-weight:700}pre{margin:0;padding:10px;overflow:auto;max-height:270px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.45;white-space:pre-wrap}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:700}.mono{font-family:Consolas,"Courier New",monospace}.formula{margin-top:10px;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;white-space:pre-wrap}.next{position:fixed;right:18px;bottom:14px;display:flex;gap:8px}.next a{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue-dark);font-size:13px;text-decoration:none}.next a:hover{border-color:var(--blue);background:var(--blue-soft)}@media(max-width:1120px){main{grid-template-columns:1fr}.visual{height:620px}.next{position:static;padding:0 16px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>如何用 256D embedding 挑选 representative kernel</h1>
+  <div class="subtitle">解释训练后如何导出每个 kernel 的 256D 表示，并在 Gate6 中聚类选择代表 kernel。</div>
+  <div class="topline"><span class="chip">embedding table</span>
+<span class="chip">256D</span>
+<span class="chip">silhouette-K</span>
+<span class="chip">KMeans</span>
+<span class="chip">anchor</span></div>
+</header>
+<main>
+  <section><div class="panel-title">1. 256D 信息从哪里来</div><div class="panel-body"><div class="card-list"><div class="card"><strong>导出阶段</strong><p>训练后用 canonical non-augmented graph 重新跑 encoder 和 readout。</p></div>
+<div class="card"><strong>一行一个 kernel</strong><p>每个 kernel invocation 生成一条 embedding table row。</p></div>
+<div class="card"><strong>Selector 输入</strong><p>Gate6 使用 256D kernel embedding 做 normalization、聚类和 anchor selection。</p></div></div><div class="note">不要把 projection head 的 64D output 当成 selector embedding；那只是训练 loss 的空间。</div></div></section>
+  <section><div class="panel-title">2. 图示</div><div class="visual"><svg viewBox="0 0 900 620" aria-label="kernel selection">
+<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker></defs>
+<rect x="55" y="92" width="190" height="90" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="150" y="128" text-anchor="middle" font-size="16" font-weight="700">embedding table</text><text x="150" y="154" text-anchor="middle" font-family="Consolas" font-size="13">265 rows × 256D</text>
+<rect x="330" y="92" width="180" height="90" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="420" y="128" text-anchor="middle" font-size="16" font-weight="700">z-score normalize</text><text x="420" y="154" text-anchor="middle" font-size="13">equalize dimensions</text>
+<rect x="595" y="92" width="190" height="90" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="690" y="128" text-anchor="middle" font-size="16" font-weight="700">silhouette-K</text><text x="690" y="154" text-anchor="middle" font-size="13">choose cluster count</text>
+<rect x="210" y="320" width="190" height="90" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="305" y="356" text-anchor="middle" font-size="16" font-weight="700">KMeans</text><text x="305" y="382" text-anchor="middle" font-size="13">cluster embedding rows</text>
+<rect x="500" y="320" width="210" height="90" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="605" y="356" text-anchor="middle" font-size="16" font-weight="700">representative anchor</text><text x="605" y="382" text-anchor="middle" font-size="13">nearest to cluster center</text>
+<path d="M245,137 C280,137 295,137 330,137" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M510,137 C545,137 560,137 595,137" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M690,182 C690,270 305,250 305,320" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M400,365 C435,365 465,365 500,365" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/>
+<circle cx="250" cy="515" r="8" fill="#2563eb"/><circle cx="285" cy="500" r="8" fill="#2563eb"/><circle cx="320" cy="520" r="8" fill="#2563eb"/><circle cx="590" cy="500" r="8" fill="#0f766e"/><circle cx="625" cy="525" r="8" fill="#0f766e"/><circle cx="660" cy="505" r="8" fill="#0f766e"/><circle cx="285" cy="500" r="18" fill="none" stroke="#b91c1c" stroke-width="3"/><circle cx="625" cy="525" r="18" fill="none" stroke="#b91c1c" stroke-width="3"/><text x="382" y="524" font-size="14" fill="#475569">红圈就是每个 cluster 的代表 kernel</text></svg></div></section>
+  <section><div class="panel-title">3. 伪代码与关键参数</div><div class="panel-body"><div class="detail-card"><div class="detail-title">Gate6 selector 输入</div><pre>{
+  "artifact_type": "gcl_resnet50_kernel_embedding_table",
+  "embedding_dim": 256,
+  "representation_mode": "gcl_resnet50_rgcn_selected_sm_kernel_embedding",
+  "selector_steps": [
+    "z-score normalization",
+    "silhouette-K",
+    "KMeans",
+    "representative anchor selection"
+  ]
+}</pre></div><div class="detail-card"><div class="detail-title">关键参数</div><table><thead><tr><th>field</th><th>value</th></tr></thead><tbody><tr><td class="mono">row</td><td>record_id + kernel_invocation_id + kernel_embedding[256]</td></tr>
+<tr><td class="mono">normalization</td><td>z-score per dimension</td></tr>
+<tr><td class="mono">anchor</td><td>cluster center nearest row</td></tr></tbody></table></div><div class="detail-card"><div class="detail-title">一句话公式</div><div class="formula">for each kernel:
+  z = encoder_readout(canonical_graph)  # 256D
+normalize all z
+choose K by silhouette
+cluster by KMeans
+anchor = nearest row to centroid</div></div></div></section>
+</main><div class="next"><a href="infonce_demo.html">上一页</a><a href="gnn_training_pipeline_demo.html">训练总览</a></div>
+</body>
+</html>

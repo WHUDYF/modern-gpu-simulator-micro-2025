@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>双视角训练过程</title>
+  <style>
+:root{--bg:#f8fafc;--panel:#fff;--ink:#111827;--muted:#475569;--line:#cbd5e1;--blue:#2563eb;--blue-dark:#1e3a8a;--blue-soft:#dbeafe;--green:#0f766e;--green-soft:#dcfce7;--red:#b91c1c;--red-soft:#fee2e2;--amber:#b45309;--amber-soft:#fef3c7;--purple:#6d28d9;--purple-soft:#ede9fe;--soft:#e2e8f0}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}header{padding:22px 28px 14px;background:var(--panel);border-bottom:1px solid var(--line)}h1{margin:0;font-size:24px;line-height:1.25}.subtitle{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.55}.topline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-family:Consolas,"Courier New",monospace;font-size:13px;color:var(--blue-dark)}.chip{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--blue-soft);white-space:nowrap}main{display:grid;grid-template-columns:330px minmax(560px,1fr)390px;gap:16px;padding:16px;min-height:calc(100vh - 128px)}section{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.panel-title{padding:14px 16px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}.panel-body{padding:14px 16px}.card-list{display:grid;gap:10px}.card{padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.card strong{display:block;margin-bottom:6px;font-size:14px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}.note{margin-top:14px;padding:11px;border:1px solid var(--red);border-radius:8px;background:var(--red-soft);color:var(--red);font-size:13px;line-height:1.5}.visual{height:calc(100% - 50px);min-height:560px;padding:14px;position:relative}svg{display:block;width:100%;height:100%}.detail-card{padding:12px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#fff}.detail-title{margin-bottom:8px;font-size:15px;font-weight:700}pre{margin:0;padding:10px;overflow:auto;max-height:270px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.45;white-space:pre-wrap}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:700}.mono{font-family:Consolas,"Courier New",monospace}.formula{margin-top:10px;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;white-space:pre-wrap}.next{position:fixed;right:18px;bottom:14px;display:flex;gap:8px}.next a{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue-dark);font-size:13px;text-decoration:none}.next a:hover{border-color:var(--blue);background:var(--blue-soft)}@media(max-width:1120px){main{grid-template-columns:1fr}.visual{height:620px}.next{position:static;padding:0 16px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>双视角训练过程</h1>
+  <div class="subtitle">解释为什么同一个 graph 要生成两个 view，以及 node dropping、edge dropping、feature noise 在训练中起什么作用。</div>
+  <div class="topline"><span class="chip">view A</span>
+<span class="chip">view B</span>
+<span class="chip">node_drop=0.15</span>
+<span class="chip">edge_drop=0.15</span>
+<span class="chip">noise=0.01</span></div>
+</header>
+<main>
+  <section><div class="panel-title">1. 两种视角怎么生成</div><div class="panel-body"><div class="card-list"><div class="card"><strong>View A / View B</strong><p>同一个 canonical graph 用不同 seed 生成两个扰动图。</p></div>
+<div class="card"><strong>扰动内容</strong><p>随机丢非 instruction 节点、随机丢边，并给 feature 加小噪声。</p></div>
+<div class="card"><strong>训练目标</strong><p>两个 view 来自同一个 graph，所以它们的表示应该靠近。</p></div></div><div class="note">augmentation 只用于训练；正式导出 selector embedding 时必须回到 canonical non-augmented graph。</div></div></section>
+  <section><div class="panel-title">2. 图示</div><div class="visual"><svg viewBox="0 0 900 620" aria-label="two views">
+<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker></defs>
+<rect x="70" y="66" width="190" height="86" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="165" y="102" text-anchor="middle" font-size="16" font-weight="700">canonical graph</text><text x="165" y="128" text-anchor="middle" font-size="13">完整 graph tensor</text>
+<rect x="355" y="36" width="190" height="86" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="450" y="72" text-anchor="middle" font-size="16" font-weight="700">view A</text><text x="450" y="98" text-anchor="middle" font-size="13">drop nodes / edges</text>
+<rect x="355" y="164" width="190" height="86" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="450" y="200" text-anchor="middle" font-size="16" font-weight="700">view B</text><text x="450" y="226" text-anchor="middle" font-size="13">noise + different seed</text>
+<rect x="655" y="100" width="180" height="86" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="745" y="136" text-anchor="middle" font-size="16" font-weight="700">shared RGCN</text><text x="745" y="162" text-anchor="middle" font-size="13">same encoder weights</text>
+<path d="M260,109 C300,90 315,79 355,79" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M260,109 C300,150 315,207 355,207" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M545,79 C600,79 600,143 655,143" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M545,207 C600,207 600,143 655,143" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/>
+<rect x="130" y="350" width="270" height="86" rx="8" fill="#fff" stroke="#cbd5e1"/><text x="265" y="386" text-anchor="middle" font-size="16" font-weight="700">positive pair</text><text x="265" y="412" text-anchor="middle" font-family="Consolas" font-size="13">same graph: A_i ↔ B_i</text>
+<rect x="500" y="350" width="270" height="86" rx="8" fill="#fee2e2" stroke="#b91c1c"/><text x="635" y="386" text-anchor="middle" font-size="16" font-weight="700">negative pairs</text><text x="635" y="412" text-anchor="middle" font-family="Consolas" font-size="13">different graphs: A_i ↔ B_j</text></svg></div></section>
+  <section><div class="panel-title">3. 伪代码与关键参数</div><div class="panel-body"><div class="detail-card"><div class="detail-title">augmentation manifest</div><pre>{
+  "augmentation_types": [
+    "node_dropping",
+    "edge_dropping",
+    "feature_noise_injection"
+  ],
+  "rates": {
+    "node_drop_rate": 0.15,
+    "edge_drop_rate": 0.15
+  },
+  "feature_noise_std": 0.01,
+  "positive_pair": "same graph view A and view B"
+}</pre></div><div class="detail-card"><div class="detail-title">关键参数</div><table><thead><tr><th>field</th><th>value</th></tr></thead><tbody><tr><td class="mono">retry</td><td>如果某个 warp partition 被删空会 retry</td></tr>
+<tr><td class="mono">encoder</td><td>两个 view 共享同一个 RGCN</td></tr>
+<tr><td class="mono">selector</td><td>不消费 augmented view</td></tr></tbody></table></div><div class="detail-card"><div class="detail-title">一句话公式</div><div class="formula">view_a = augment(graph, seed)
+view_b = augment(graph, seed + 1)
+positive_pair = (view_a, view_b)</div></div></div></section>
+</main><div class="next"><a href="rgcn_layers_demo.html">上一页</a><a href="gnn_training_pipeline_demo.html">训练总览</a><a href="readout_demo.html">下一页</a></div>
+</body>
+</html>

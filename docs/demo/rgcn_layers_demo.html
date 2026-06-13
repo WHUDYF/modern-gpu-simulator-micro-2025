@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3 层 RGCN 的具体结构</title>
+  <style>
+:root{--bg:#f8fafc;--panel:#fff;--ink:#111827;--muted:#475569;--line:#cbd5e1;--blue:#2563eb;--blue-dark:#1e3a8a;--blue-soft:#dbeafe;--green:#0f766e;--green-soft:#dcfce7;--red:#b91c1c;--red-soft:#fee2e2;--amber:#b45309;--amber-soft:#fef3c7;--purple:#6d28d9;--purple-soft:#ede9fe;--soft:#e2e8f0}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}header{padding:22px 28px 14px;background:var(--panel);border-bottom:1px solid var(--line)}h1{margin:0;font-size:24px;line-height:1.25}.subtitle{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.55}.topline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-family:Consolas,"Courier New",monospace;font-size:13px;color:var(--blue-dark)}.chip{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--blue-soft);white-space:nowrap}main{display:grid;grid-template-columns:330px minmax(560px,1fr)390px;gap:16px;padding:16px;min-height:calc(100vh - 128px)}section{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.panel-title{padding:14px 16px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}.panel-body{padding:14px 16px}.card-list{display:grid;gap:10px}.card{padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.card strong{display:block;margin-bottom:6px;font-size:14px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}.note{margin-top:14px;padding:11px;border:1px solid var(--red);border-radius:8px;background:var(--red-soft);color:var(--red);font-size:13px;line-height:1.5}.visual{height:calc(100% - 50px);min-height:560px;padding:14px;position:relative}svg{display:block;width:100%;height:100%}.detail-card{padding:12px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#fff}.detail-title{margin-bottom:8px;font-size:15px;font-weight:700}pre{margin:0;padding:10px;overflow:auto;max-height:270px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.45;white-space:pre-wrap}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:700}.mono{font-family:Consolas,"Courier New",monospace}.formula{margin-top:10px;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;white-space:pre-wrap}.next{position:fixed;right:18px;bottom:14px;display:flex;gap:8px}.next a{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue-dark);font-size:13px;text-decoration:none}.next a:hover{border-color:var(--blue);background:var(--blue-soft)}@media(max-width:1120px){main{grid-template-columns:1fr}.visual{height:620px}.next{position:static;padding:0 16px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>3 层 RGCN 的具体结构</h1>
+  <div class="subtitle">解释当前 GCL encoder 如何按 relation type 做 message passing，以及 64 维 node feature 如何变成 256 维 node embedding。</div>
+  <div class="topline"><span class="chip">input 64D</span>
+<span class="chip">hidden 128D</span>
+<span class="chip">output 256D</span>
+<span class="chip">relation_count=3</span></div>
+</header>
+<main>
+  <section><div class="panel-title">1. RGCN 一层内部做什么</div><div class="panel-body"><div class="card-list"><div class="card"><strong>自身信息</strong><p>self_linear 处理当前节点自己的特征，避免节点只依赖邻居。</p></div>
+<div class="card"><strong>关系消息</strong><p>control_flow、data_source、data_destination 三种边各有独立 relation_linear。</p></div>
+<div class="card"><strong>聚合更新</strong><p>源节点经过对应关系矩阵变换后，加到目标节点表示上，再做 LayerNorm 和 ReLU。</p></div></div><div class="note">注意：3 层 RGCN 输出的是 node embedding，还不是 kernel embedding。kernel 级表示要经过 readout。</div></div></section>
+  <section><div class="panel-title">2. 图示</div><div class="visual"><svg viewBox="0 0 900 620" aria-label="RGCN layers">
+<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker></defs>
+<rect x="40" y="72" width="160" height="74" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="120" y="106" text-anchor="middle" font-size="16" font-weight="700">x: node features</text><text x="120" y="130" text-anchor="middle" font-family="Consolas" font-size="13">[N, 64]</text>
+<rect x="280" y="52" width="170" height="114" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="365" y="88" text-anchor="middle" font-size="16" font-weight="700">RGCN Layer 1</text><text x="365" y="114" text-anchor="middle" font-family="Consolas" font-size="13">64 → 128</text><text x="365" y="140" text-anchor="middle" font-size="13">self + relation messages</text>
+<rect x="520" y="52" width="170" height="114" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="605" y="88" text-anchor="middle" font-size="16" font-weight="700">RGCN Layer 2</text><text x="605" y="114" text-anchor="middle" font-family="Consolas" font-size="13">128 → 128</text><text x="605" y="140" text-anchor="middle" font-size="13">relation-aware update</text>
+<rect x="280" y="264" width="170" height="114" rx="8" fill="#dcfce7" stroke="#0f766e" stroke-width="2"/><text x="365" y="300" text-anchor="middle" font-size="16" font-weight="700">RGCN Layer 3</text><text x="365" y="326" text-anchor="middle" font-family="Consolas" font-size="13">128 → 256</text><text x="365" y="352" text-anchor="middle" font-size="13">node embedding output</text>
+<rect x="520" y="264" width="170" height="114" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/><text x="605" y="300" text-anchor="middle" font-size="16" font-weight="700">h_node</text><text x="605" y="326" text-anchor="middle" font-family="Consolas" font-size="13">[N, 256]</text><text x="605" y="352" text-anchor="middle" font-size="13">进入 readout</text>
+<path d="M200,109 C230,109 250,109 280,109" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M450,109 C480,109 490,109 520,109" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M605,166 C605,220 365,210 365,264" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M450,321 C480,321 490,321 520,321" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/>
+<rect x="62" y="464" width="760" height="86" rx="8" fill="#fff" stroke="#cbd5e1"/><text x="86" y="496" font-size="16" font-weight="700">每层内部</text><text x="86" y="526" font-family="Consolas" font-size="14">output = self_linear(h) + Σ relation_linear_r(h_source) aggregated at target</text></svg></div></section>
+  <section><div class="panel-title">3. 伪代码与关键参数</div><div class="panel-body"><div class="detail-card"><div class="detail-title">RGCN layer 伪代码</div><pre>{
+  "layer_rule": "h_next[target] = self_linear(h[target]) + relation_linear_r(h[source])",
+  "layers": [
+    "64->128",
+    "128->128",
+    "128->256"
+  ],
+  "relations": [
+    "control_flow",
+    "data_source",
+    "data_destination"
+  ]
+}</pre></div><div class="detail-card"><div class="detail-title">关键参数</div><table><thead><tr><th>field</th><th>value</th></tr></thead><tbody><tr><td class="mono">dropout</td><td>前两层 0.1，最后一层 0</td></tr>
+<tr><td class="mono">normalization</td><td>LayerNorm</td></tr>
+<tr><td class="mono">activation</td><td>ReLU</td></tr></tbody></table></div><div class="detail-card"><div class="detail-title">一句话公式</div><div class="formula">for each relation r:
+  messages = W_r(h_source)
+  h_target += aggregate(messages)
+h_next = ReLU(LayerNorm(h_target))</div></div></div></section>
+</main><div class="next"><a href="gnn_training_pipeline_demo.html">训练总览</a><a href="two_view_training_demo.html">下一页</a></div>
+</body>
+</html>

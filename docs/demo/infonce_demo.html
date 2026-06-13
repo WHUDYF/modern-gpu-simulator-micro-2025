@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InfoNCE 的具体思想</title>
+  <style>
+:root{--bg:#f8fafc;--panel:#fff;--ink:#111827;--muted:#475569;--line:#cbd5e1;--blue:#2563eb;--blue-dark:#1e3a8a;--blue-soft:#dbeafe;--green:#0f766e;--green-soft:#dcfce7;--red:#b91c1c;--red-soft:#fee2e2;--amber:#b45309;--amber-soft:#fef3c7;--purple:#6d28d9;--purple-soft:#ede9fe;--soft:#e2e8f0}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif}header{padding:22px 28px 14px;background:var(--panel);border-bottom:1px solid var(--line)}h1{margin:0;font-size:24px;line-height:1.25}.subtitle{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.55}.topline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-family:Consolas,"Courier New",monospace;font-size:13px;color:var(--blue-dark)}.chip{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--blue-soft);white-space:nowrap}main{display:grid;grid-template-columns:330px minmax(560px,1fr)390px;gap:16px;padding:16px;min-height:calc(100vh - 128px)}section{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.panel-title{padding:14px 16px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700}.panel-body{padding:14px 16px}.card-list{display:grid;gap:10px}.card{padding:11px;border:1px solid var(--line);border-radius:8px;background:#fff}.card strong{display:block;margin-bottom:6px;font-size:14px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}.note{margin-top:14px;padding:11px;border:1px solid var(--red);border-radius:8px;background:var(--red-soft);color:var(--red);font-size:13px;line-height:1.5}.visual{height:calc(100% - 50px);min-height:560px;padding:14px;position:relative}svg{display:block;width:100%;height:100%}.detail-card{padding:12px;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;background:#fff}.detail-title{margin-bottom:8px;font-size:15px;font-weight:700}pre{margin:0;padding:10px;overflow:auto;max-height:270px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.45;white-space:pre-wrap}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--muted);font-weight:700}.mono{font-family:Consolas,"Courier New",monospace}.formula{margin-top:10px;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;white-space:pre-wrap}.next{position:fixed;right:18px;bottom:14px;display:flex;gap:8px}.next a{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--blue-dark);font-size:13px;text-decoration:none}.next a:hover{border-color:var(--blue);background:var(--blue-soft)}@media(max-width:1120px){main{grid-template-columns:1fr}.visual{height:620px}.next{position:static;padding:0 16px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>InfoNCE 的具体思想</h1>
+  <div class="subtitle">解释对比学习 loss 如何利用同 graph 的两个 view 做正样本，用 batch 内其他 graph 做负样本。</div>
+  <div class="topline"><span class="chip">positive pair</span>
+<span class="chip">negative pairs</span>
+<span class="chip">temperature=0.2</span>
+<span class="chip">cross entropy</span></div>
+</header>
+<main>
+  <section><div class="panel-title">1. InfoNCE 在拉近什么</div><div class="panel-body"><div class="card-list"><div class="card"><strong>正样本</strong><p>同一个 graph 的 view A 和 view B 是正样本对。</p></div>
+<div class="card"><strong>负样本</strong><p>batch 里其他 graph 的 view 是负样本。</p></div>
+<div class="card"><strong>目标</strong><p>正样本相似度要高，负样本相似度相对低。</p></div></div><div class="note">InfoNCE 训练的是 projection output；projection head 之后的 64D 不进入 selector。</div></div></section>
+  <section><div class="panel-title">2. 图示</div><div class="visual"><svg viewBox="0 0 900 620" aria-label="InfoNCE">
+<defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker></defs>
+<rect x="60" y="80" width="150" height="70" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="135" y="122" text-anchor="middle" font-size="15" font-weight="700">projection A</text>
+<rect x="60" y="210" width="150" height="70" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="2"/><text x="135" y="252" text-anchor="middle" font-size="15" font-weight="700">projection B</text>
+<rect x="330" y="95" width="250" height="190" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="2"/><text x="455" y="128" text-anchor="middle" font-size="16" font-weight="700">similarity matrix</text><g font-family="Consolas" font-size="13" text-anchor="middle"><rect x="380" y="155" width="42" height="34" fill="#dcfce7" stroke="#0f766e"/><text x="401" y="177">+</text><rect x="430" y="155" width="42" height="34" fill="#fee2e2" stroke="#b91c1c"/><text x="451" y="177">-</text><rect x="480" y="155" width="42" height="34" fill="#fee2e2" stroke="#b91c1c"/><text x="501" y="177">-</text><rect x="380" y="198" width="42" height="34" fill="#fee2e2" stroke="#b91c1c"/><text x="401" y="220">-</text><rect x="430" y="198" width="42" height="34" fill="#dcfce7" stroke="#0f766e"/><text x="451" y="220">+</text><rect x="480" y="198" width="42" height="34" fill="#fee2e2" stroke="#b91c1c"/><text x="501" y="220">-</text></g>
+<rect x="670" y="140" width="160" height="92" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/><text x="750" y="178" text-anchor="middle" font-size="16" font-weight="700">Cross entropy</text><text x="750" y="204" text-anchor="middle" font-size="13">label_i = i</text>
+<path d="M210,115 C260,115 280,150 330,170" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M210,245 C260,245 280,220 330,210" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/><path d="M580,190 C620,190 635,186 670,186" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arr)"/>
+<rect x="100" y="390" width="700" height="86" rx="8" fill="#fff" stroke="#cbd5e1"/><text x="126" y="424" font-size="16" font-weight="700">直觉</text><text x="126" y="454" font-size="14" fill="#475569">对角线是同一个 graph 的两个 view，需要相似；非对角线是不同 graph，需要相对不相似。</text></svg></div></section>
+  <section><div class="panel-title">3. 伪代码与关键参数</div><div class="panel-body"><div class="detail-card"><div class="detail-title">InfoNCE 伪代码</div><pre>{
+  "normalize": "L2 normalize projections",
+  "logits": "a @ b.T / temperature",
+  "labels": "diagonal index",
+  "loss": "CE(logits, labels) + CE(logits.T, labels)"
+}</pre></div><div class="detail-card"><div class="detail-title">关键参数</div><table><thead><tr><th>field</th><th>value</th></tr></thead><tbody><tr><td class="mono">temperature</td><td>0.2</td></tr>
+<tr><td class="mono">projection_output</td><td>64D</td></tr>
+<tr><td class="mono">optimizer</td><td>Adam(lr=0.005)</td></tr></tbody></table></div><div class="detail-card"><div class="detail-title">一句话公式</div><div class="formula">a = normalize(proj(view_a))
+b = normalize(proj(view_b))
+logits = a @ b.T / T
+labels = arange(batch_size)
+loss = (CE(logits, labels)+CE(logits.T, labels))/2</div></div></div></section>
+</main><div class="next"><a href="readout_demo.html">上一页</a><a href="gnn_training_pipeline_demo.html">训练总览</a><a href="kernel_embedding_selection_demo.html">下一页</a></div>
+</body>
+</html>

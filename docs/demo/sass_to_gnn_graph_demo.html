@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SASS to GNN Graph Demo</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #475569;
+      --soft: #e2e8f0;
+      --line: #cbd5e1;
+      --blue: #2563eb;
+      --blue-dark: #1e3a8a;
+      --blue-soft: #dbeafe;
+      --green: #0f766e;
+      --green-soft: #dcfce7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --purple: #6d28d9;
+      --purple-soft: #ede9fe;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    header {
+      padding: 22px 28px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pipeline {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+      color: var(--blue-dark);
+      font-size: 14px;
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--blue-soft);
+      white-space: nowrap;
+    }
+
+    .arrow {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 330px minmax(520px, 1fr) 380px;
+      gap: 16px;
+      padding: 16px;
+      height: calc(100vh - 130px);
+      min-height: 620px;
+    }
+
+    section {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .panel-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .panel-body {
+      padding: 14px 16px;
+    }
+
+    .sass-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .instruction-row {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      background: #ffffff;
+    }
+
+    .instruction-row:hover,
+    .instruction-row.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .pc {
+      display: inline-block;
+      width: 34px;
+      color: var(--muted);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    .opcode {
+      display: inline-block;
+      width: 92px;
+      color: var(--ink);
+      font-family: Consolas, "Courier New", monospace;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .operands {
+      color: var(--blue-dark);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 14px;
+    }
+
+    .rule-box {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .graph-wrap {
+      height: calc(100% - 50px);
+      position: relative;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .node {
+      cursor: pointer;
+    }
+
+    .node rect,
+    .node circle {
+      stroke-width: 2;
+    }
+
+    .node.active rect,
+    .node.active circle {
+      stroke: var(--red);
+      stroke-width: 4;
+    }
+
+    .edge {
+      cursor: pointer;
+    }
+
+    .edge.active line,
+    .edge.active path {
+      stroke: var(--red);
+      stroke-width: 4;
+    }
+
+    .legend {
+      position: absolute;
+      left: 14px;
+      bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid var(--line);
+    }
+
+    .detail-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .detail-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      max-height: 236px;
+    }
+
+    .tensor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .tensor-table th,
+    .tensor-table td {
+      border-bottom: 1px solid var(--line);
+      padding: 7px 5px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .tensor-table th {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    @media (max-width: 1100px) {
+      main {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .graph-wrap {
+        height: 620px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>短 SASS 指令如何转成 GNN 图</h1>
+    <div class="subtitle">这个 demo 对应 GCL graph builder 的核心规则：instruction node、register version node、mem_ref pseudo node，以及三类关系边。</div>
+    <div class="pipeline" aria-label="pipeline">
+      <span class="pill">SASS trace</span>
+      <span class="arrow">→</span>
+      <span class="pill">canonical graph</span>
+      <span class="arrow">→</span>
+      <span class="pill">GNN tensor: x / edge_index / edge_type</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="panel-title">1. 输入：4 条短 SASS</div>
+      <div class="panel-body">
+        <div class="sass-list" id="sassList"></div>
+        <div class="rule-box">
+          <strong>构图直觉</strong><br>
+          每条指令是一个 instruction node；寄存器每次被写入都会产生新版本；load/store 的地址会先连到紫色 pseudo node，即 mem_ref，再连到 memory instruction。
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="panel-title">2. Canonical graph：节点和边</div>
+      <div class="graph-wrap">
+        <svg id="graphSvg" viewBox="0 0 900 620" role="img" aria-label="SASS to graph visualization"></svg>
+        <div class="legend">
+          <span class="legend-item"><span class="swatch" style="background:#dbeafe"></span>instruction</span>
+          <span class="legend-item"><span class="swatch" style="background:#dcfce7"></span>register_version</span>
+          <span class="legend-item"><span class="swatch" style="background:#fef3c7"></span>input_variable</span>
+          <span class="legend-item"><span class="swatch" style="background:#ede9fe"></span>pseudo: mem_ref</span>
+          <span class="legend-item mono">blue: control</span>
+          <span class="legend-item mono">green: source</span>
+          <span class="legend-item mono">purple: destination</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="panel-title">3. 点击查看 JSON 与 GNN 输入</div>
+      <div class="panel-body">
+        <div class="detail-card">
+          <div class="detail-title" id="selectedTitle">已选择：graph summary</div>
+          <pre id="jsonView"></pre>
+        </div>
+        <div class="detail-card">
+          <div class="detail-title">GNN tensor preview</div>
+          <table class="tensor-table">
+            <thead>
+              <tr>
+                <th>field</th>
+                <th>含义</th>
+                <th>demo value</th>
+              </tr>
+            </thead>
+            <tbody id="tensorPreview"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const instructions = [
+      {
+        trace_index: 0,
+        pc: "0x1000",
+        opcode: "MOV",
+        destination_operands: ["R4"],
+        source_operands: ["input:a"]
+      },
+      {
+        trace_index: 1,
+        pc: "0x1008",
+        opcode: "FADD",
+        destination_operands: ["R5"],
+        source_operands: ["R4", "input:b"]
+      },
+      {
+        trace_index: 2,
+        pc: "0x1010",
+        opcode: "FADD",
+        destination_operands: ["R4"],
+        source_operands: ["R5", "input:c"]
+      },
+      {
+        trace_index: 3,
+        pc: "0x1018",
+        opcode: "STG.E.64",
+        destination_operands: [],
+        source_operands: ["[R20]", "R4"]
+      }
+    ];
+
+    const nodes = [
+      { id: "input:a.wp0_0", label: "input:a", type: "input_variable", x: 120, y: 88 },
+      { id: "input:b.wp0_0", label: "input:b", type: "input_variable", x: 118, y: 220 },
+      { id: "input:c.wp0_0", label: "input:c", type: "input_variable", x: 118, y: 352 },
+      { id: "R20.v0.w0", label: "R20.v0", type: "register_version", x: 120, y: 498 },
+      { id: "i:t0", label: "MOV t0", type: "instruction", x: 300, y: 88, opcode: "MOV", trace_index: 0 },
+      { id: "i:t1", label: "FADD t1", type: "instruction", x: 300, y: 220, opcode: "FADD", trace_index: 1 },
+      { id: "i:t2", label: "FADD t2", type: "instruction", x: 300, y: 352, opcode: "FADD", trace_index: 2 },
+      { id: "i:t3", label: "STG t3", type: "instruction", x: 300, y: 498, opcode: "STG.E.64", trace_index: 3 },
+      { id: "R4.v1.w0", label: "R4.v1", type: "register_version", x: 520, y: 88 },
+      { id: "R5.v1.w0", label: "R5.v1", type: "register_version", x: 520, y: 220 },
+      { id: "R4.v2.w0", label: "R4.v2", type: "register_version", x: 520, y: 352 },
+      { id: "mem_ref:t3", label: "pseudo\nmem_ref", type: "pseudo", pseudo_kind: "mem_ref", x: 520, y: 498 }
+    ];
+
+    const edges = [
+      { id: "e0", source: "i:t0", target: "i:t1", relation: "control_flow" },
+      { id: "e1", source: "i:t1", target: "i:t2", relation: "control_flow" },
+      { id: "e2", source: "i:t2", target: "i:t3", relation: "control_flow" },
+      { id: "e3", source: "input:a.wp0_0", target: "i:t0", relation: "data_source" },
+      { id: "e4", source: "i:t0", target: "R4.v1.w0", relation: "data_destination" },
+      { id: "e5", source: "R4.v1.w0", target: "i:t1", relation: "data_source" },
+      { id: "e6", source: "input:b.wp0_0", target: "i:t1", relation: "data_source" },
+      { id: "e7", source: "i:t1", target: "R5.v1.w0", relation: "data_destination" },
+      { id: "e8", source: "R5.v1.w0", target: "i:t2", relation: "data_source" },
+      { id: "e9", source: "input:c.wp0_0", target: "i:t2", relation: "data_source" },
+      { id: "e10", source: "i:t2", target: "R4.v2.w0", relation: "data_destination" },
+      { id: "e11", source: "R20.v0.w0", target: "mem_ref:t3", relation: "data_source" },
+      { id: "e12", source: "mem_ref:t3", target: "i:t3", relation: "data_source" },
+      { id: "e13", source: "R4.v2.w0", target: "i:t3", relation: "data_source" }
+    ];
+
+    const relationSchema = {
+      control_flow: 0,
+      data_source: 1,
+      data_destination: 2
+    };
+
+    const nodeTypeToFeature = {
+      instruction: [1, 0, 0, 0],
+      register_version: [0, 1, 0, 0],
+      input_variable: [0, 0, 1, 0],
+      pseudo: [0, 0, 0, 1]
+    };
+
+    const nodeById = new Map(nodes.map((node, index) => [node.id, { ...node, index }]));
+    let selectedKind = "summary";
+    let selectedId = null;
+
+    function renderSassList() {
+      const root = document.getElementById("sassList");
+      root.innerHTML = "";
+      for (const ins of instructions) {
+        const row = document.createElement("div");
+        row.className = "instruction-row";
+        row.dataset.traceIndex = String(ins.trace_index);
+        row.innerHTML = `
+          <span class="pc">${ins.trace_index}:</span>
+          <span class="opcode">${ins.opcode}</span>
+          <span class="operands">${[...ins.destination_operands, ...ins.source_operands].join(", ")}</span>
+        `;
+        row.addEventListener("click", () => selectInstruction(ins.trace_index));
+        root.appendChild(row);
+      }
+    }
+
+    function edgeColor(relation) {
+      if (relation === "control_flow") return "#2563eb";
+      if (relation === "data_destination") return "#6d28d9";
+      return "#0f766e";
+    }
+
+    function nodeFill(type) {
+      if (type === "instruction") return "#dbeafe";
+      if (type === "register_version") return "#dcfce7";
+      if (type === "input_variable") return "#fef3c7";
+      return "#ede9fe";
+    }
+
+    function nodeStroke(type) {
+      if (type === "instruction") return "#2563eb";
+      if (type === "register_version") return "#0f766e";
+      if (type === "input_variable") return "#b45309";
+      return "#6d28d9";
+    }
+
+    function renderGraph() {
+      const svg = document.getElementById("graphSvg");
+      svg.innerHTML = `
+        <defs>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"></path>
+          </marker>
+          <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"></path>
+          </marker>
+          <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#6d28d9"></path>
+          </marker>
+        </defs>
+      `;
+
+      for (const edge of edges) {
+        const source = nodeById.get(edge.source);
+        const target = nodeById.get(edge.target);
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", "edge");
+        group.dataset.edgeId = edge.id;
+        const color = edgeColor(edge.relation);
+        const marker = edge.relation === "control_flow" ? "arrow-blue" : edge.relation === "data_destination" ? "arrow-purple" : "arrow-green";
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const midX = (source.x + target.x) / 2;
+        const bend = Math.abs(source.y - target.y) > 80 ? 44 : 0;
+        path.setAttribute("d", `M${source.x},${source.y} C${midX + bend},${source.y} ${midX - bend},${target.y} ${target.x},${target.y}`);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", edge.relation === "control_flow" ? "2.5" : "2");
+        path.setAttribute("marker-end", `url(#${marker})`);
+        path.setAttribute("opacity", edge.relation === "control_flow" ? "0.9" : "0.78");
+        group.appendChild(path);
+        group.addEventListener("click", () => selectEdge(edge.id));
+        svg.appendChild(group);
+      }
+
+      for (const node of nodes) {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", "node");
+        group.dataset.nodeId = node.id;
+        if (node.type === "instruction") {
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", node.x - 58);
+          rect.setAttribute("y", node.y - 24);
+          rect.setAttribute("width", 116);
+          rect.setAttribute("height", 48);
+          rect.setAttribute("rx", 8);
+          rect.setAttribute("fill", nodeFill(node.type));
+          rect.setAttribute("stroke", nodeStroke(node.type));
+          group.appendChild(rect);
+        } else {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", node.x);
+          circle.setAttribute("cy", node.y);
+          circle.setAttribute("r", node.type === "pseudo" ? 34 : 32);
+          circle.setAttribute("fill", nodeFill(node.type));
+          circle.setAttribute("stroke", nodeStroke(node.type));
+          group.appendChild(circle);
+        }
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", node.x);
+        text.setAttribute("y", node.label.includes("\n") ? node.y - 4 : node.y + 5);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-family", "Consolas, Courier New, monospace");
+        text.setAttribute("font-size", node.label.length > 8 ? "12" : "13");
+        text.setAttribute("font-weight", "700");
+        text.setAttribute("fill", "#111827");
+        if (node.label.includes("\n")) {
+          const parts = node.label.split("\n");
+          parts.forEach((part, index) => {
+            const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+            tspan.setAttribute("x", node.x);
+            tspan.setAttribute("dy", index === 0 ? "0" : "16");
+            tspan.textContent = part;
+            text.appendChild(tspan);
+          });
+        } else {
+          text.textContent = node.label;
+        }
+        group.appendChild(text);
+        if (node.type === "pseudo") {
+          const callout = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          callout.setAttribute("x", node.x + 54);
+          callout.setAttribute("y", node.y - 28);
+          callout.setAttribute("font-family", "Microsoft YaHei, PingFang SC, Arial, sans-serif");
+          callout.setAttribute("font-size", "13");
+          callout.setAttribute("font-weight", "700");
+          callout.setAttribute("fill", "#6d28d9");
+          callout.textContent = "memory access 的中间节点";
+          group.appendChild(callout);
+          const guide = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          guide.setAttribute("d", `M${node.x + 30},${node.y - 18} L${node.x + 50},${node.y - 24}`);
+          guide.setAttribute("fill", "none");
+          guide.setAttribute("stroke", "#6d28d9");
+          guide.setAttribute("stroke-width", "2");
+          guide.setAttribute("stroke-dasharray", "4 4");
+          group.appendChild(guide);
+        }
+        group.addEventListener("click", () => selectNode(node.id));
+        svg.appendChild(group);
+      }
+    }
+
+    function graphSummary() {
+      const counts = nodes.reduce((acc, node) => {
+        acc[node.type] = (acc[node.type] || 0) + 1;
+        return acc;
+      }, {});
+      const edgeCounts = edges.reduce((acc, edge) => {
+        acc[edge.relation] = (acc[edge.relation] || 0) + 1;
+        return acc;
+      }, {});
+      return {
+        artifact_type: "demo_canonical_graph",
+        collection_scope: "single_warp_fixture",
+        node_count: nodes.length,
+        edge_count: edges.length,
+        node_type_counts: counts,
+        edge_type_counts: edgeCounts,
+        edge_relation_schema: relationSchema
+      };
+    }
+
+    function tensorPreviewRows() {
+      const edgeIndex = edges.map(edge => [
+        nodeById.get(edge.source).index,
+        nodeById.get(edge.target).index
+      ]);
+      const edgeType = edges.map(edge => relationSchema[edge.relation]);
+      const x = nodes.map(node => nodeTypeToFeature[node.type]);
+      return [
+        ["x", "节点特征矩阵，这里用 node_type one-hot 示意", JSON.stringify(x.slice(0, 4)) + " ..."],
+        ["edge_index", "边的 source/target 节点编号", JSON.stringify(edgeIndex.slice(0, 5)) + " ..."],
+        ["edge_type", "关系类型编号：control/source/destination", JSON.stringify(edgeType)],
+        ["node_index", "浏览器图节点顺序就是 tensor 节点顺序", nodes.map((node, i) => `${i}:${node.id}`).slice(0, 5).join(" | ") + " ..."]
+      ];
+    }
+
+    function renderTensorPreview() {
+      const tbody = document.getElementById("tensorPreview");
+      tbody.innerHTML = "";
+      for (const [field, meaning, value] of tensorPreviewRows()) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td class="mono">${field}</td><td>${meaning}</td><td class="mono">${value}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function setDetail(title, object) {
+      document.getElementById("selectedTitle").textContent = title;
+      document.getElementById("jsonView").textContent = JSON.stringify(object, null, 2);
+    }
+
+    function clearActive() {
+      document.querySelectorAll(".node.active, .edge.active, .instruction-row.active").forEach(el => el.classList.remove("active"));
+    }
+
+    function selectNode(id) {
+      selectedKind = "node";
+      selectedId = id;
+      clearActive();
+      document.querySelector(`[data-node-id="${CSS.escape(id)}"]`)?.classList.add("active");
+      const node = nodeById.get(id);
+      setDetail(`已选择：node ${id}`, {
+        node_id: id,
+        node_type: node.type,
+        label: node.label,
+        tensor_node_index: node.index,
+        feature_vector: nodeTypeToFeature[node.type],
+        metadata: {
+          opcode: node.opcode,
+          trace_index: node.trace_index,
+          pseudo_kind: node.pseudo_kind,
+          warp_id: 0
+        }
+      });
+    }
+
+    function selectEdge(id) {
+      selectedKind = "edge";
+      selectedId = id;
+      clearActive();
+      document.querySelector(`[data-edge-id="${CSS.escape(id)}"]`)?.classList.add("active");
+      const edge = edges.find(item => item.id === id);
+      setDetail(`已选择：edge ${id}`, {
+        edge_id: id,
+        source: edge.source,
+        target: edge.target,
+        relation: edge.relation,
+        edge_type: relationSchema[edge.relation],
+        edge_index_pair: [
+          nodeById.get(edge.source).index,
+          nodeById.get(edge.target).index
+        ]
+      });
+    }
+
+    function selectInstruction(traceIndex) {
+      clearActive();
+      document.querySelector(`[data-trace-index="${traceIndex}"]`)?.classList.add("active");
+      const instructionNode = nodes.find(node => node.type === "instruction" && node.trace_index === traceIndex);
+      if (instructionNode) {
+        selectNode(instructionNode.id);
+        document.querySelector(`[data-trace-index="${traceIndex}"]`)?.classList.add("active");
+      }
+    }
+
+    function boot() {
+      renderSassList();
+      renderGraph();
+      renderTensorPreview();
+      setDetail("已选择：graph summary", graphSummary());
+    }
+
+    boot();
+  </script>
+</body>
+</html>

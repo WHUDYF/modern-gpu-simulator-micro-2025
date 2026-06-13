@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GNN Training Pipeline Demo</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --soft: #e2e8f0;
+      --blue: #2563eb;
+      --blue-dark: #1e3a8a;
+      --blue-soft: #dbeafe;
+      --green: #0f766e;
+      --green-soft: #dcfce7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --purple: #6d28d9;
+      --purple-soft: #ede9fe;
+      --slate: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+    }
+
+    header {
+      padding: 22px 28px 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .topline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      color: var(--blue-dark);
+    }
+
+    .chip {
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--blue-soft);
+      white-space: nowrap;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 300px minmax(560px, 1fr) 390px;
+      gap: 16px;
+      padding: 16px;
+      min-height: calc(100vh - 128px);
+      height: auto;
+      min-height: 650px;
+    }
+
+    .deep-dive {
+      grid-column: 1 / -1;
+      overflow: visible;
+    }
+
+    .deep-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      padding: 14px 16px 16px;
+    }
+
+    .explain-card {
+      min-height: 220px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .explain-title {
+      margin-bottom: 10px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .explain-text {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .formula {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .step-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .step-list li {
+      margin-bottom: 5px;
+    }
+
+    section {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .panel-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .panel-body {
+      padding: 14px 16px;
+    }
+
+    .stage-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .stage {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    .stage:hover,
+    .stage.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .stage .name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .stage .desc {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .warning-box {
+      margin-top: 14px;
+      padding: 11px;
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      background: var(--red-soft);
+      color: var(--red);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .flow-wrap {
+      position: relative;
+      height: calc(100% - 50px);
+      padding: 14px;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .block {
+      cursor: pointer;
+    }
+
+    .block.active rect,
+    .block.active path {
+      stroke: var(--red);
+      stroke-width: 4;
+    }
+
+    .detail-card {
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .detail-title {
+      margin-bottom: 8px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      max-height: 250px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 7px 4px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+    }
+
+    .legend {
+      position: absolute;
+      left: 26px;
+      bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.93);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+
+    @media (max-width: 1120px) {
+      main {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .flow-wrap {
+        height: 720px;
+      }
+
+      .deep-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GNN 后面的训练是怎么进行的</h1>
+    <div class="subtitle">
+      这个 demo 接着上一页的 canonical graph，展示当前 GCL Phase B 的训练链路：graph tensor 先做 augmentation，进入 RGCN encoder，再通过 projection head 做 contrastive loss；最终 selector 使用的是 256D kernel embedding，不是 64D projection output。
+    </div>
+    <div class="topline">
+      <span class="chip">node_features: [N, 64]</span>
+      <span class="chip">edge_index: [2, E]</span>
+      <span class="chip">edge_type: [E]</span>
+      <span class="chip">RGCN: 3 layers</span>
+      <span class="chip">kernel embedding: 256D</span>
+      <span class="chip">projection output: 64D</span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="panel-title">1. 点击训练阶段</div>
+      <div class="panel-body">
+        <div class="stage-list" id="stageList"></div>
+        <div class="warning-box">
+          关键边界：projection head 只用于 InfoNCE 训练；后续 clustering / selector 必须消费 projection head 之前的 256D kernel embedding。
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="panel-title">2. 训练与导出流程图</div>
+      <div class="flow-wrap">
+        <svg id="flowSvg" viewBox="0 0 940 700" aria-label="GNN training pipeline"></svg>
+        <div class="legend">
+          <span><span class="swatch" style="background:#dbeafe"></span>artifact</span>
+          <span><span class="swatch" style="background:#dcfce7"></span>model</span>
+          <span><span class="swatch" style="background:#fef3c7"></span>training only</span>
+          <span><span class="swatch" style="background:#ede9fe"></span>selector input</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="panel-title">3. 细节与张量形状</div>
+      <div class="panel-body">
+        <div class="detail-card">
+          <div class="detail-title" id="selectedTitle">已选择：overview</div>
+          <pre id="jsonView"></pre>
+        </div>
+        <div class="detail-card">
+          <div class="detail-title">核心参数</div>
+          <table>
+            <thead>
+              <tr>
+                <th>field</th>
+                <th>value</th>
+              </tr>
+            </thead>
+            <tbody id="paramTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="deep-dive">
+      <div class="panel-title">4. 深入解释：结构、训练目标、readout 与 selector 输入</div>
+      <div class="deep-grid">
+        <div class="explain-card">
+          <div class="explain-title" id="deepTitleA">结构直觉</div>
+          <div class="explain-text" id="deepTextA"></div>
+          <div class="formula" id="deepFormulaA"></div>
+        </div>
+        <div class="explain-card">
+          <div class="explain-title" id="deepTitleB">训练过程</div>
+          <ol class="step-list" id="deepSteps"></ol>
+        </div>
+        <div class="explain-card">
+          <div class="explain-title" id="deepTitleC">最后产物</div>
+          <div class="explain-text" id="deepTextC"></div>
+          <div class="formula" id="deepFormulaC"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const stages = [
+      {
+        id: "tensor",
+        name: "Graph tensor",
+        short: "把 graph 转成 x / edge_index / edge_type",
+        detail: {
+          artifact: "phase_b_graph_tensor",
+          node_features: "[N, 64]",
+          edge_index: "[2, E]",
+          edge_type: "[E]",
+          relation_schema: {
+            control_flow: 0,
+            data_source: 1,
+            data_destination: 2
+          },
+          node_feature_policy: [
+            "instruction: opcode token embedding + normalized PC",
+            "variable: token embedding + dynamic value statistics",
+            "pseudo: pseudo_kind token embedding"
+          ]
+        }
+      },
+      {
+        id: "augment",
+        name: "Two augmented views",
+        short: "同一个 graph 生成 view A / view B",
+        detail: {
+          augmentation_types: [
+            "node_dropping",
+            "edge_dropping",
+            "feature_noise_injection"
+          ],
+          node_drop_rate: 0.15,
+          edge_drop_rate: 0.15,
+          feature_noise_std: 0.01,
+          purpose: "让同一个 kernel graph 的两个扰动视图在 embedding space 中靠近"
+        }
+      },
+      {
+        id: "rgcn",
+        name: "RGCN encoder",
+        short: "按 relation type 做 message passing",
+        detail: {
+          layers: 3,
+          input_dim: 64,
+          hidden_dim: 128,
+          output_dim: 256,
+          relation_count: 3,
+          message_rule: "每种 edge_type 使用独立 relation linear，再聚合到 target node"
+        }
+      },
+      {
+        id: "readout",
+        name: "Hierarchical readout",
+        short: "node → warp → CTA → selected SM → kernel",
+        detail: {
+          hierarchy: "node_to_warp_to_cta_to_selected_sm_to_kernel",
+          node_to_warp: "mean pooling",
+          warp_to_cta: "average pooling",
+          cta_to_selected_sm: "average pooling",
+          selected_sm_to_kernel: "identity",
+          output: "256D kernel embedding"
+        }
+      },
+      {
+        id: "projection",
+        name: "Projection head",
+        short: "256D → 64D，只服务训练 loss",
+        detail: {
+          input_dim: 256,
+          hidden_dim: 128,
+          output_dim: 64,
+          used_by: "InfoNCE contrastive loss",
+          not_used_by: "Gate6 selector / clustering"
+        }
+      },
+      {
+        id: "loss",
+        name: "InfoNCE loss",
+        short: "拉近同 graph 的两个 view，拉开不同 graph",
+        detail: {
+          positive_pair: "same kernel graph: view A vs view B",
+          negatives: "other graphs in the batch",
+          temperature: 0.2,
+          optimizer: "Adam(lr=0.005)",
+          current_smoke_run: {
+            optimizer_step_count: 1,
+            training_mode: "minimal_rgcn_contrastive_smoke"
+          }
+        }
+      },
+      {
+        id: "export",
+        name: "Embedding export",
+        short: "导出 canonical non-augmented graph 的 256D embedding",
+        detail: {
+          artifact_type: "gcl_resnet50_kernel_embedding_table",
+          artifact_version: "gate5_kernel_embedding_table_v1",
+          representation_mode: "gcl_resnet50_rgcn_selected_sm_kernel_embedding",
+          embedding_dim: 256,
+          selector_rule: "Gate6 consumes kernel_embedding, not projection output"
+        }
+      }
+    ];
+
+    const blocks = [
+      { id: "tensor", label: "Graph tensor\nx / edge_index / edge_type", x: 70, y: 80, w: 190, h: 82, fill: "#dbeafe", stroke: "#2563eb" },
+      { id: "augment", label: "Augment\nview A / view B", x: 70, y: 246, w: 190, h: 82, fill: "#fef3c7", stroke: "#b45309" },
+      { id: "rgcn", label: "Shared RGCN encoder\n3 layers", x: 348, y: 246, w: 200, h: 82, fill: "#dcfce7", stroke: "#0f766e" },
+      { id: "readout", label: "Readout\nnode→warp→CTA→kernel", x: 636, y: 168, w: 220, h: 82, fill: "#dcfce7", stroke: "#0f766e" },
+      { id: "projection", label: "Projection head\n256D→64D", x: 636, y: 334, w: 220, h: 82, fill: "#fef3c7", stroke: "#b45309" },
+      { id: "loss", label: "InfoNCE loss\npositive vs negatives", x: 348, y: 470, w: 200, h: 82, fill: "#fef3c7", stroke: "#b45309" },
+      { id: "export", label: "Kernel embedding table\n256D selector input", x: 636, y: 520, w: 220, h: 82, fill: "#ede9fe", stroke: "#6d28d9" }
+    ];
+
+    const arrows = [
+      { from: "tensor", to: "augment", label: "training path" },
+      { from: "augment", to: "rgcn", label: "view A / B" },
+      { from: "rgcn", to: "projection", label: "kernel z" },
+      { from: "projection", to: "loss", label: "projection z′" },
+      { from: "tensor", to: "rgcn", label: "canonical export", dashed: true },
+      { from: "rgcn", to: "readout", label: "node embeddings" },
+      { from: "readout", to: "export", label: "256D kernel embedding" }
+    ];
+
+    const params = [
+      ["input_dim", "64"],
+      ["hidden_dim", "128"],
+      ["kernel_embedding_dim", "256"],
+      ["projection_output_dim", "64"],
+      ["relation_count", "3"],
+      ["layers", "3"],
+      ["readout", "node→warp→CTA→selected SM→kernel"],
+      ["selector input", "256D kernel embedding"]
+    ];
+
+    const deepExplanations = {
+      overview: {
+        titleA: "整体直觉",
+        textA: "训练不是直接给 kernel 一个人工标签，而是让同一个 graph 的两个扰动视角在表示空间中靠近，让不同 graph 的表示相互区分。训练完成后，使用 canonical non-augmented graph 重新导出 256D kernel embedding。",
+        formulaA: "canonical graph\n  -> tensor x, edge_index, edge_type\n  -> two views for training\n  -> RGCN encoder\n  -> 256D kernel embedding",
+        steps: [
+          "先把 graph tensor 化，得到节点特征和关系边。",
+          "对同一个 graph 生成 view A 和 view B。",
+          "共享 RGCN encoder 分别编码两个 view。",
+          "projection head 把 256D 投到 64D，只用于 contrastive loss。",
+          "训练后用 canonical graph 导出 256D embedding 给 selector。"
+        ],
+        textC: "最终 selector 看到的是每个 kernel invocation 一行 256D embedding。它不需要知道训练时的 projection output，也不应读取 kernel name 或人工 family 标签。",
+        formulaC: "embedding_table row:\nrecord_id\nkernel_invocation_id\nsource_graph_hash\nsource_tensor_hash\nkernel_embedding[256]"
+      },
+      tensor: {
+        titleA: "Graph tensor 是 GNN 的输入格式",
+        textA: "canonical graph 里的节点和边不能直接送进神经网络，需要转成数值张量。当前实现用 64 维 node feature 表示节点，用 edge_index 表示边的连接，用 edge_type 表示 control_flow、data_source、data_destination 三种关系。",
+        formulaA: "x: [N, 64]\nedge_index: [2, E]\nedge_type: [E]\nrelation_count = 3",
+        steps: [
+          "instruction node：opcode token embedding 加 normalized PC。",
+          "variable node：token embedding 加 dynamic value statistics。",
+          "pseudo node：pseudo_kind token embedding，例如 mem_ref。",
+          "edge_type 把三类边编码为 0、1、2。",
+          "warp_partitions 记录哪些节点属于同一个 warp。"
+        ],
+        textC: "tensor 不只是数组。它还保存 input_graph_hash、tensor_hash、warp_partition_tensors 和 provenance，这样后续 embedding 能回溯到原始 graph。",
+        formulaC: "tensor_hash = hash(node_features,\n                   edge_index,\n                   edge_type,\n                   metadata)"
+      },
+      augment: {
+        titleA: "双视角训练是什么",
+        textA: "双视角训练就是对同一个 kernel graph 生成两个略有扰动但语义应保持一致的 view。模型被训练成把这两个 view 的 embedding 拉近，因为它们来自同一个 kernel。",
+        formulaA: "view A = augment(graph, seed)\nview B = augment(graph, seed + 1)\npositive pair = (A, B)",
+        steps: [
+          "随机丢弃少量非 instruction 节点，默认 node_drop_rate = 0.15。",
+          "随机丢弃少量边，默认 edge_drop_rate = 0.15。",
+          "给 node_features 加小噪声，默认 feature_noise_std = 0.01。",
+          "如果某个 warp partition 被删空，会 retry。",
+          "view A 和 view B 共享同一个 RGCN encoder。"
+        ],
+        textC: "augmentation 只用于训练。正式导出 selector embedding 时，必须回到 canonical non-augmented graph，避免 selector 消费训练扰动视图。",
+        formulaC: "training: augmented views\nselector: canonical graph embedding"
+      },
+      rgcn: {
+        titleA: "3 层 RGCN 的具体结构",
+        textA: "当前 encoder 是 3 个 relation-aware GCN layer。每一层都有 self_linear 处理节点自身特征，并为每一种 relation type 配一个 relation_linear，把源节点消息变换后加到目标节点上。",
+        formulaA: "Layer 1: 64  -> 128\nLayer 2: 128 -> 128\nLayer 3: 128 -> 256\nrelations = {control, source, destination}",
+        steps: [
+          "先计算 self_linear(x)，保留节点自己的信息。",
+          "按 edge_type 分组，不同关系用不同 relation_linear。",
+          "把 source node 的 message 加到 target node。",
+          "经过 LayerNorm 和 ReLU。",
+          "前两层有 dropout，最后一层输出 256D node embedding。"
+        ],
+        textC: "RGCN 的关键价值是让三种边有不同参数。control_flow、data_source、data_destination 不再被模型当成同一种连接。",
+        formulaC: "h_target += W_relation[type](h_source)\nh_next = ReLU(LayerNorm(self + messages))"
+      },
+      readout: {
+        titleA: "Readout 为什么要分层",
+        textA: "GCL 不应该把所有节点直接平均成一个 kernel embedding。当前 Phase B 对齐了 node→warp→CTA→selected SM→kernel 的层级聚合，让 embedding 保留 warp partition 的边界。",
+        formulaA: "node embeddings\n  mean -> warp embedding\n  average -> CTA embedding\n  average -> selected SM embedding\n  identity -> kernel embedding",
+        steps: [
+          "每个 warp partition 内，对该 warp 的 node embeddings 做 mean pooling。",
+          "同一个 CTA 下的 warp embeddings 做 average pooling。",
+          "selected SM 内的 CTA embeddings 再做 average pooling。",
+          "selected SM embedding 直接作为 kernel embedding。",
+          "readout_manifest 记录每一级用了多少节点、warp 和 CTA。"
+        ],
+        textC: "最终得到的是 256D kernel-level representation。它不是单个 node 的向量，也不是 projection head 的输出。",
+        formulaC: "z_kernel ∈ R^256\nsource = selected_sm_embedding"
+      },
+      projection: {
+        titleA: "Projection head 的角色",
+        textA: "projection head 是训练用的小 MLP，把 256D kernel embedding 映射成 64D projection output。这样 contrastive loss 在 projection space 中优化，而保留 256D encoder representation 给后续 selector。",
+        formulaA: "z = RGCN_readout(graph)      # 256D\np = MLP(z)                   # 64D\nloss uses p, selector uses z",
+        steps: [
+          "输入是 RGCN readout 产生的 256D kernel embedding。",
+          "先经过 Linear(256, 128) 和 ReLU。",
+          "再经过 Linear(128, 64)。",
+          "InfoNCE 使用 64D projection output。",
+          "Gate6 不使用 projection output。"
+        ],
+        textC: "这个边界非常重要。如果 selector 使用 64D projection output，就会违反当前 spec：selector embedding 必须来自 canonical non-augmented graph 的 256D kernel embedding。",
+        formulaC: "for selector:\nuse z_kernel[256]\ndo not use p_projection[64]"
+      },
+      loss: {
+        titleA: "InfoNCE 的具体思想",
+        textA: "InfoNCE 是对比学习损失。对于一个 batch，每个 graph 有 view A 和 view B。A_i 与 B_i 是正样本对；A_i 与其他 B_j 是负样本。模型要让正样本相似度更高，让负样本相似度更低。",
+        formulaA: "sim(a, b) = normalize(a) · normalize(b)\nlogits = sim(A, B) / temperature\nlabel_i = i",
+        steps: [
+          "RGCN 分别编码 view A 和 view B。",
+          "projection head 得到 projections_a 和 projections_b。",
+          "对 projection 做 L2 normalize。",
+          "计算 A 与所有 B 的相似度矩阵。",
+          "用 cross entropy 让第 i 个 A 匹配第 i 个 B。"
+        ],
+        textC: "当前实现还做对称 loss：A→B 和 B→A 两个方向各算一次 cross entropy，再取平均。temperature 当前是 0.2。",
+        formulaC: "loss = (CE(A @ B.T / T, labels)\n      + CE(B @ A.T / T, labels)) / 2"
+      },
+      export: {
+        titleA: "怎么得到每个 kernel 的 256D 信息",
+        textA: "训练完成后，保存 RGCN checkpoint。导出阶段把 canonical non-augmented graph tensor 输入 encoder，通过 readout 得到 256D kernel embedding，并为每个 kernel invocation 写一行 embedding table。",
+        formulaA: "canonical tensor\n  -> trained RGCN encoder\n  -> hierarchical readout\n  -> kernel_embedding[256]\n  -> embedding table row",
+        steps: [
+          "加载训练后的 RGCN encoder。",
+          "对每个 canonical graph tensor 编码，不使用 augmentation view。",
+          "通过 node→warp→CTA→selected SM→kernel readout 得到 256D embedding。",
+          "写入 record_id、kernel_invocation_id、source hashes 和 kernel_embedding。",
+          "Gate6 对这些 256D embeddings 做 normalization、silhouette-K 和 representative anchor selection。"
+        ],
+        textC: "因此“挑选 kernel”不是直接从原始 SASS 里挑，而是在 256D kernel embedding space 里聚类，再选离 cluster center 最近或最具代表性的 anchor。",
+        formulaC: "Gate6:\nnormalize embeddings\nchoose K by silhouette\nKMeans cluster\nselect representative anchor"
+      }
+    };
+
+    const blockById = new Map(blocks.map(block => [block.id, block]));
+
+    function renderStageList() {
+      const root = document.getElementById("stageList");
+      root.innerHTML = "";
+      for (const stage of stages) {
+        const el = document.createElement("div");
+        el.className = "stage";
+        el.dataset.stageId = stage.id;
+        el.innerHTML = `<div class="name">${stage.name}</div><div class="desc">${stage.short}</div>`;
+        el.addEventListener("click", () => selectStage(stage.id));
+        root.appendChild(el);
+      }
+    }
+
+    function center(block) {
+      return { x: block.x + block.w / 2, y: block.y + block.h / 2 };
+    }
+
+    function edgePoint(from, to) {
+      const a = center(from);
+      const b = center(to);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const sx = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? from.x + from.w : from.x) : a.x;
+      const sy = Math.abs(dx) > Math.abs(dy) ? a.y : (dy > 0 ? from.y + from.h : from.y);
+      const tx = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? to.x : to.x + to.w) : b.x;
+      const ty = Math.abs(dx) > Math.abs(dy) ? b.y : (dy > 0 ? to.y : to.y + to.h);
+      return { sx, sy, tx, ty };
+    }
+
+    function svgEl(name) {
+      return document.createElementNS("http://www.w3.org/2000/svg", name);
+    }
+
+    function renderFlow() {
+      const svg = document.getElementById("flowSvg");
+      svg.innerHTML = `
+        <defs>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"></path>
+          </marker>
+        </defs>
+      `;
+
+      for (const arrow of arrows) {
+        const from = blockById.get(arrow.from);
+        const to = blockById.get(arrow.to);
+        const p = edgePoint(from, to);
+        const line = svgEl("path");
+        const mx = (p.sx + p.tx) / 2;
+        line.setAttribute("d", `M${p.sx},${p.sy} C${mx},${p.sy} ${mx},${p.ty} ${p.tx},${p.ty}`);
+        line.setAttribute("fill", "none");
+        line.setAttribute("stroke", "#2563eb");
+        line.setAttribute("stroke-width", "2.4");
+        line.setAttribute("marker-end", "url(#arrow-blue)");
+        if (arrow.dashed) line.setAttribute("stroke-dasharray", "6 6");
+        svg.appendChild(line);
+
+        const label = svgEl("text");
+        label.setAttribute("x", mx + 6);
+        label.setAttribute("y", (p.sy + p.ty) / 2 - 6);
+        label.setAttribute("font-family", "Consolas, Courier New, monospace");
+        label.setAttribute("font-size", "12");
+        label.setAttribute("fill", "#475569");
+        label.textContent = arrow.label;
+        svg.appendChild(label);
+      }
+
+      for (const block of blocks) {
+        const group = svgEl("g");
+        group.setAttribute("class", "block");
+        group.dataset.stageId = block.id;
+        const rect = svgEl("rect");
+        rect.setAttribute("x", block.x);
+        rect.setAttribute("y", block.y);
+        rect.setAttribute("width", block.w);
+        rect.setAttribute("height", block.h);
+        rect.setAttribute("rx", "8");
+        rect.setAttribute("fill", block.fill);
+        rect.setAttribute("stroke", block.stroke);
+        rect.setAttribute("stroke-width", "2");
+        group.appendChild(rect);
+
+        const parts = block.label.split("\n");
+        const text = svgEl("text");
+        text.setAttribute("x", block.x + block.w / 2);
+        text.setAttribute("y", block.y + 32);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-family", "Microsoft YaHei, PingFang SC, Arial, sans-serif");
+        text.setAttribute("font-size", "15");
+        text.setAttribute("font-weight", "700");
+        text.setAttribute("fill", "#111827");
+        parts.forEach((part, index) => {
+          const tspan = svgEl("tspan");
+          tspan.setAttribute("x", block.x + block.w / 2);
+          tspan.setAttribute("dy", index === 0 ? "0" : "22");
+          tspan.textContent = part;
+          text.appendChild(tspan);
+        });
+        group.appendChild(text);
+        group.addEventListener("click", () => selectStage(block.id));
+        svg.appendChild(group);
+      }
+    }
+
+    function renderParams() {
+      const body = document.getElementById("paramTable");
+      body.innerHTML = "";
+      for (const [key, value] of params) {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td class="mono">${key}</td><td>${value}</td>`;
+        body.appendChild(row);
+      }
+    }
+
+    function overview() {
+      return {
+        training_chain: [
+          "tensorize graph into x / edge_index / edge_type",
+          "create two augmented views per graph",
+          "encode both views with shared 3-layer RGCN",
+          "read out 256D kernel embeddings",
+          "project to 64D only for InfoNCE loss",
+          "export canonical non-augmented 256D embeddings for Gate6 selector"
+        ],
+        key_boundary: "selector uses 256D kernel embedding before projection head"
+      };
+    }
+
+    function renderDeepDive(id) {
+      const item = deepExplanations[id] || deepExplanations.overview;
+      document.getElementById("deepTitleA").textContent = item.titleA;
+      document.getElementById("deepTextA").textContent = item.textA;
+      document.getElementById("deepFormulaA").textContent = item.formulaA;
+      document.getElementById("deepTitleB").textContent = "训练 / 处理步骤";
+      const steps = document.getElementById("deepSteps");
+      steps.innerHTML = "";
+      for (const step of item.steps) {
+        const li = document.createElement("li");
+        li.textContent = step;
+        steps.appendChild(li);
+      }
+      document.getElementById("deepTitleC").textContent = "和下一阶段的关系";
+      document.getElementById("deepTextC").textContent = item.textC;
+      document.getElementById("deepFormulaC").textContent = item.formulaC;
+    }
+
+    function clearActive() {
+      document.querySelectorAll(".stage.active, .block.active").forEach(el => el.classList.remove("active"));
+    }
+
+    function selectStage(id) {
+      clearActive();
+      document.querySelectorAll(`[data-stage-id="${CSS.escape(id)}"]`).forEach(el => el.classList.add("active"));
+      const stage = stages.find(item => item.id === id);
+      document.getElementById("selectedTitle").textContent = `已选择：${stage.name}`;
+      document.getElementById("jsonView").textContent = JSON.stringify(stage.detail, null, 2);
+      renderDeepDive(id);
+    }
+
+    function boot() {
+      renderStageList();
+      renderFlow();
+      renderParams();
+      document.getElementById("jsonView").textContent = JSON.stringify(overview(), null, 2);
+      renderDeepDive("overview");
+    }
+
+    boot();
+  </script>
+</body>
+</html>

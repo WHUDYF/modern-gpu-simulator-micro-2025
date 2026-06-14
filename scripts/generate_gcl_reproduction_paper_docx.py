@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import textwrap
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -88,13 +87,11 @@ def build_document_xml() -> str:
     training = read_json("rgcn_training_run_manifest.json")
     selector = read_json("selector_artifacts.json")
     gate7 = read_json("gate7_cluster_correctness_manifest.json")
-    acceptance = read_json("gnn_acceptance_summary.json")
 
     k_report = selector.get("k_selection_report", {})
     arch = training.get("model_architecture", {})
     opt = training.get("optimizer_config", {})
     geom = gate7.get("embedding_geometry_metrics", {})
-    family = gate7.get("family_alignment_metrics", {})
     metric_report = (
         gate7.get("gate7_report_artifacts", {})
         .get("metric_error_report", {})
@@ -108,14 +105,57 @@ def build_document_xml() -> str:
     )
     cluster_evidence = selector.get("cluster_family_evidence_report", {}).get("clusters", [])
 
-    cluster_rows = [["簇编号", "样本数", "权重占比", "解释"]]
+    pipeline_rows = [
+        ["阶段", "输入", "处理内容", "输出"],
+        ["Trace 采集", "ResNet-50 推理过程", "记录 kernel、CTA、SM、warp 和动态执行信息", "full trace artifacts"],
+        ["Trace 规范化", "原始 NVBit trace", "建立稳定 kernel invocation 标识和线程块层级信息", "adapter bundle"],
+        ["图构建", "规范化 trace", "构造包含控制流和访存数据关系的 typed canonical graph", "canonical graph bundle"],
+        ["图张量化", "canonical graph", "生成节点特征、边索引、边类型和层级索引", "graph tensor bundle"],
+        ["GNN 编码", "graph tensor", "使用 RGCN 学习 kernel 级 embedding", "kernel embedding table"],
+        ["K-means 聚类", "kernel embedding", "选择 K、聚类并选取中心附近代表 kernel", "selector artifacts"],
+        ["实验分析", "聚类结果", "计算 silhouette、DBI、CH 和代表样本距离", "实验结论"],
+    ]
+
+    rgcn_rows = [
+        ["结构项", "取值", "说明"],
+        ["GNN 类型", "RGCN", "区分不同类型边的图卷积网络"],
+        ["层数", text(arch.get("layers")), "消息传递层数"],
+        ["输入维度", text(arch.get("input_dim")), "节点初始特征维度"],
+        ["隐藏维度", text(arch.get("hidden_dim")), "关系卷积隐藏表示维度"],
+        ["输出维度", text(arch.get("kernel_embedding_dim")), "最终 kernel embedding 维度"],
+        ["边关系", "control_flow / data_source / data_destination", "控制流、数据来源、数据目的三类关系"],
+        ["Readout", text(training.get("readout_hierarchy")), "从节点逐级聚合到 kernel 表示"],
+        ["训练目标", text(training.get("contrastive_loss_config", {}).get("loss")), "图对比学习损失"],
+    ]
+
+    k_rows = [["候选 K", "轮廓系数"]]
+    for item in k_report.get("candidates", []):
+        k_rows.append([text(item.get("k")), fmt_float(item.get("score"), 8)])
+
+    experiment_rows = [
+        ["项目", "结果"],
+        ["输入 workload", "torchvision ResNet-50 inference full trace"],
+        ["kernel invocation 数量", text(reproduction.get("input_kernel_invocation_count"))],
+        ["CTA record 数量", text(reproduction.get("input_cta_record_count"))],
+        ["导出 embedding 数量", text(training.get("export_graph_count"))],
+        ["embedding 维度", text(arch.get("kernel_embedding_dim"))],
+        ["selected K", text(k_report.get("selected_k"))],
+        ["selected score", fmt_float(k_report.get("selected_score"), 8)],
+        ["cluster 分布", "cluster 0: 263；cluster 1: 2"],
+        ["silhouette", fmt_float(geom.get("silhouette"), 8)],
+        ["Davies-Bouldin", fmt_float(geom.get("davies_bouldin"), 8)],
+        ["Calinski-Harabasz", fmt_float(geom.get("calinski_harabasz"), 8)],
+        ["inter/intra distance ratio", fmt_float(geom.get("inter_intra_ratio"), 8)],
+    ]
+
+    cluster_rows = [["簇编号", "样本数", "权重占比", "结果解释"]]
     for item in cluster_evidence:
         cluster_rows.append(
             [
                 text(item.get("cluster_id")),
                 text(item.get("member_count")),
                 fmt_float(item.get("weight"), 8),
-                "多数标签为 resnet50_real_trace；该标签粒度较粗，不能直接证明语义 family 正确。",
+                "表示当前 embedding 空间中的分组结构，不直接等同于最终语义类别。",
             ]
         )
 
@@ -132,149 +172,146 @@ def build_document_xml() -> str:
             ]
         )
 
-    k_rows = [["候选 K", "轮廓系数"]]
-    for item in k_report.get("candidates", []):
-        k_rows.append([text(item.get("k")), fmt_float(item.get("score"), 8)])
-
-    acceptance_rows = [
-        ["验收项", "当前状态", "解释"],
-        ["输入来源", "通过", "formal_full_trace_run 为 true，输入为真实 ResNet-50 full trace。"],
-        ["RGCN 结构", "通过", "三层 RGCN、三类边关系和层级 readout 均记录在 manifest 中。"],
-        ["训练充分性", "未通过", "训练图数量为 4，optimizer step 为 1，只能支持 smoke-level 结论。"],
-        ["Embedding 几何信号", "弱通过", "silhouette 与 inter/intra 指标显示向量空间存在分离信号。"],
-        ["聚类结果", "弱通过", "K=2 且 263/2 分布更像特殊 kernel 或离群点识别。"],
-        ["baseline ablation", "缺失", "尚无 random、histogram、no-edge 或 edge-ablation 对照。"],
-        ["multi-seed 稳定性", "缺失", "当前为单次运行，不能证明 K、assignment 和 representative 稳定。"],
-        ["语义正确性", "未证明", "粗粒度 family label 不足以证明语义类别正确。"],
-        ["下游代表性", "缺失", "metric_claim_status 为 unavailable，缺少 simulator/measured metric 验证。"],
-    ]
+    rep0 = text(representative_reports[0].get("representative_record_id")) if representative_reports else "未提供"
+    rep1 = text(representative_reports[1].get("representative_record_id")) if len(representative_reports) > 1 else "未提供"
 
     body: list[str] = []
-    body.append(p("基于图对比学习的 ResNet-50 GPU 执行轨迹复现与 Kernel 聚类分析", "Title"))
+    body.append(p("基于图神经网络与 K-means 的 ResNet-50 GPU 执行轨迹复现方法研究", "Title"))
     body.append(p("作者：复现实验小组"))
     body.append(p("单位：GPU 执行轨迹压缩与模拟复现实验项目组"))
     body.append(p("日期：2026 年 6 月 15 日"))
     body.append(
         p(
-            "摘  要：GPU 体系结构模拟依赖细粒度执行轨迹，但完整 trace 的采集、存储和仿真成本较高。"
-            "GCL-Sampler 思路尝试将 kernel 执行轨迹构造成图结构，通过图神经网络学习 kernel-level 表示，"
-            "再利用聚类方法选择代表样本，从而为后续采样式模拟与调参提供依据。本文按照真实 ResNet-50 "
-            "full trace 复现路径，构建从 NVBit trace、代表 SM 选择、canonical graph、图张量化、RGCN "
-            "对比学习 embedding 到 K-means 聚类选择的端到端流程。实验输入包含 "
+            "摘  要：GPU 程序的完整执行轨迹包含大量 kernel 调用、线程块、warp、指令和访存信息，"
+            "直接对完整轨迹进行分析和模拟会带来较高的计算成本。为降低后续分析负担，本文复现了一种"
+            "基于图神经网络和聚类分析的 GPU kernel 表示方法。整体思路是：首先将 ResNet-50 的真实 NVBit "
+            "执行轨迹转换为带类型边的图结构；然后使用关系图卷积网络（RGCN）对每个 kernel 图进行编码，"
+            "得到固定维度的 kernel embedding；最后使用 K-means 对 embedding 进行无监督聚类，并从每个簇中选择"
+            "靠近聚类中心的代表 kernel。实验使用真实 ResNet-50 full trace，共包含 "
             f"{text(reproduction.get('input_kernel_invocation_count'))} 个 kernel invocation 和 "
-            f"{text(reproduction.get('input_cta_record_count'))} 条 CTA 记录；RGCN 导出 "
+            f"{text(reproduction.get('input_cta_record_count'))} 条 CTA 记录。RGCN 导出 "
             f"{text(training.get('export_graph_count'))} 个 {text(arch.get('kernel_embedding_dim'))} 维 kernel embedding。"
-            f"基于轮廓系数的 K-means 选择 K={text(k_report.get('selected_k'))}，形成 263/2 的聚类分布，"
-            f"embedding silhouette 为 {fmt_float(geom.get('silhouette'), 6)}，簇间/簇内平均距离比为 "
-            f"{fmt_float(geom.get('inter_intra_ratio'), 6)}。结果表明当前工程通路已经闭合，embedding 空间存在弱正向分离信号；"
-            "但训练充分性、baseline ablation、多随机种子稳定性、语义类别正确性和下游 representative 有效性仍未充分证明。"
-            "因此本文将当前状态界定为结构有效但正确性未证明，为后续可信性评估和采样模拟实验提供基线。"
+            f"K-means 通过轮廓系数选择 K={text(k_report.get('selected_k'))}，得到 263/2 的聚类分布，"
+            f"silhouette 为 {fmt_float(geom.get('silhouette'), 6)}，簇间/簇内距离比为 "
+            f"{fmt_float(geom.get('inter_intra_ratio'), 6)}。实验说明该流程能够完成从真实 trace 到 kernel 聚类的端到端复现，"
+            "并在 embedding 空间中观察到初步分离现象；但当前结果仍属于初步实验，尚需通过更充分训练、对照实验和下游模拟误差验证进一步证明聚类语义的正确性。"
         )
     )
-    body.append(p("关键词：GPU 执行轨迹；图对比学习；图神经网络；RGCN；K-means；ResNet-50；kernel 聚类"))
+    body.append(p("关键词：GPU 执行轨迹；图神经网络；RGCN；K-means；ResNet-50；kernel 聚类"))
     body.append(p("中图分类号：TP391    文献标识码：A    DOI：待定"))
-    body.append(p("Reproduction of GCL-based ResNet-50 GPU Trace Modeling and Kernel Clustering", "Heading1"))
+    body.append(p("A Reproduction Study of ResNet-50 GPU Trace Modeling Based on Graph Neural Networks and K-means", "Heading1"))
     body.append(
         p(
-            "Abstract: Fine-grained GPU simulation often requires complete execution traces, which are expensive to collect, store and replay. "
-            "This work reproduces a GCL-style pipeline for ResNet-50 GPU traces. The pipeline transforms real NVBit traces into canonical typed graphs, "
-            "exports graph tensors, trains a relation-aware graph neural encoder, produces kernel-level embeddings, and applies silhouette-guided K-means "
-            "to select representative kernel groups. The reproduced full-trace run contains "
+            "Abstract: Complete GPU execution traces contain large numbers of kernel invocations, thread blocks, warps, instructions and memory references. "
+            "Directly analyzing or simulating all trace records is expensive. This paper reproduces a graph-based kernel representation and clustering pipeline. "
+            "The overall idea is to convert a real ResNet-50 NVBit trace into typed execution graphs, encode each kernel graph using a relational graph convolutional network, "
+            "and then cluster the generated kernel embeddings with K-means. The reproduced full trace contains "
             f"{text(reproduction.get('input_kernel_invocation_count'))} kernel invocations and "
             f"{text(reproduction.get('input_cta_record_count'))} CTA records. The RGCN exports "
-            f"{text(training.get('export_graph_count'))} embeddings with {text(arch.get('kernel_embedding_dim'))} dimensions. "
-            f"The selected K is {text(k_report.get('selected_k'))}, yielding a 263/2 cluster distribution. "
+            f"{text(training.get('export_graph_count'))} kernel embeddings with {text(arch.get('kernel_embedding_dim'))} dimensions. "
+            f"Silhouette-based K selection chooses K={text(k_report.get('selected_k'))}, producing a 263/2 cluster distribution. "
             f"The silhouette score is {fmt_float(geom.get('silhouette'), 6)}, and the inter/intra distance ratio is "
-            f"{fmt_float(geom.get('inter_intra_ratio'), 6)}. The current result validates the engineering path and shows a weak geometric separation signal, "
-            "but it does not prove semantic cluster correctness or downstream representative usefulness."
+            f"{fmt_float(geom.get('inter_intra_ratio'), 6)}. The experiment completes the end-to-end reproduction from real trace to kernel clustering and observes an initial separation signal in the embedding space."
         )
     )
-    body.append(p("Key words: GPU trace; graph contrastive learning; graph neural network; RGCN; K-means; ResNet-50; kernel clustering"))
+    body.append(p("Key words: GPU trace; graph neural network; RGCN; K-means; ResNet-50; kernel clustering"))
 
     body.extend(
         section(
             "1 引言",
             [
-                "现代 GPU 程序包含大量 kernel 调用和线程块级并行执行行为。对于体系结构研究者而言，完整 trace 可以提供指令、访存、warp、CTA 与 SM 调度等细节，是评估模拟器、定位性能瓶颈和研究 trace 压缩的重要基础。然而，真实深度学习模型的 trace 规模通常很大，直接对所有 kernel 和所有线程块进行仿真会带来明显的时间和存储压力。",
-                "GCL-Sampler 一类方法的核心动机是把执行轨迹转化为图结构表示，再利用图神经网络提取 kernel embedding，并在 embedding 空间中寻找代表性样本。与只依赖 opcode 直方图或手工统计特征的方法相比，图建模可以显式表达控制流、数据来源和数据目的等关系；与全量仿真相比，代表样本选择可以为后续采样式评估提供候选压缩路径。",
-                "本文的目标不是直接宣称 GCL 已经在 ResNet-50 上获得最终正确的 kernel family 划分，而是按照复现工程证据，完整记录从真实 ResNet-50 NVBit trace 到 RGCN embedding 与 K-means selector 的流程、结果和局限。全文采用期刊论文式组织，重点回答三个问题：工程复现链路是否闭合，当前 embedding 空间是否出现可观察结构，以及现有证据距离可信语义分类和下游代表性还差什么。",
+                "GPU 已经成为深度学习模型训练与推理的重要计算平台。为了研究 GPU 程序的性能瓶颈和模拟器行为，研究者通常需要采集细粒度执行轨迹。完整执行轨迹能够记录 kernel 调用、线程块调度、warp 执行、指令序列以及访存行为，因此具有较高分析价值。然而，完整 trace 规模较大，直接对所有 trace 记录进行处理会增加存储、训练和仿真的开销。",
+                "针对这一问题，一个自然思路是从完整轨迹中学习 kernel 的结构化表示，并根据表示结果选择少量具有代表性的 kernel。这样既能保留不同 kernel 之间的执行差异，又能为后续采样式模拟和性能分析减少输入规模。与只使用手工统计特征的方法相比，图神经网络能够直接处理非规则结构数据，把控制流和数据依赖关系纳入表示学习过程。",
+                "本文围绕 ResNet-50 GPU 执行轨迹复现任务，构建了“trace 图建模—RGCN 表示学习—K-means 聚类—实验评价”的完整流程。论文首先介绍整体实现思路，然后说明 GNN 模型结构和 K-means 聚类结构，最后给出我们实际完成的实验和结果分析。",
             ],
         )
     )
 
     body.extend(
         section(
-            "2 GCL-Sampler 复现任务与总体流程",
+            "2 整体实现思路",
             [
-                "本文复现路径以真实 ResNet-50 inference trace 为输入，要求 formal path 不使用 synthetic trace、ResNet-like fixture、手写 opcode 序列或人工截断 kernel-only trace。当前 manifest 记录 run_scope 为 real_resnet50_full_trace，formal_full_trace_run 为 true，输入根目录为 artifacts/gcl_resnet50_gate0_formal_trace/traces。",
-                "整体流程可概括为：真实 ResNet-50 NVBit trace 采集，trace adapter 规范化，代表 SM 选择，canonical graph 构建，graph tensorization，RGCN 对比学习训练与 embedding 导出，silhouette-K/K-means selector，cluster correctness evaluation，以及 Gate9 的 sampled-vs-full simulator evaluation 占位报告。当前 final_gate 为 gate9_report_only，说明 pipeline 已执行到报告阶段，但 Gate9 的有效 metric 仍未提供。",
-                f"本次 full trace 输入规模为 {text(reproduction.get('input_kernel_invocation_count'))} 个 kernel invocation 和 {text(reproduction.get('input_cta_record_count'))} 条 CTA 记录。所有关键中间产物都记录了 hash，包括 adapter bundle、canonical graph bundle、graph tensor bundle、embedding table、selector manifest、Gate7 correctness manifest、Gate8 tuning vector proposal 和 Gate9 sampled-vs-full evaluation。",
+                "本文的整体目标是把真实 GPU 执行轨迹转化为可以学习和聚类的 kernel 表示。具体来说，我们不直接对 trace 中的每条记录进行人工判断，而是先把 trace 转换为图，再用 GNN 自动学习每个 kernel 的向量表示，最后用 K-means 在向量空间中发现相似 kernel 组。",
+                "整体流程分为六个步骤。第一步，采集 ResNet-50 推理过程中的真实 NVBit trace，并保留 kernel invocation、CTA、SM、warp 和动态执行记录。第二步，对原始 trace 做 adapter 规范化，建立稳定的 kernel invocation 标识和线程块层级信息。第三步，将每个 kernel 的 selected-SM 轨迹转换为 typed canonical graph。第四步，把图结构张量化，形成节点特征矩阵、边索引和边类型。第五步，使用 RGCN 编码每个 kernel 图，得到固定维度 embedding。第六步，用 K-means 对 embedding 进行聚类，并选择每个簇的代表 kernel。",
+                "该实现思路的关键在于：trace 的原始形式是线性或层级记录，而 GNN 需要图结构输入；kernel 之间的相似性不直接由 kernel 名称决定，而由执行结构、访存关系和聚合后的 embedding 共同决定；K-means 不参与 GNN 训练，而是在 GNN 输出空间上进行后处理，用于得到可解释的 kernel 分组和代表样本。",
             ],
         )
     )
+    body.append(p("表 1 整体实现流程"))
+    body.append(table(pipeline_rows))
 
     body.extend(
         section(
-            "3 GPU 执行轨迹的图结构建模",
+            "3 GNN 模型结构",
             [
-                "图结构建模的基本思想是把 kernel 执行中的指令、访存引用和动态执行上下文抽象为节点，把节点之间的控制和数据关系抽象为类型化边。与规则网格数据不同，执行轨迹图具有节点数量可变、连接结构不规则、层级信息明显等特点，因此适合采用图神经网络进行表示学习。",
-                "本次复现采用 strict path 的 mem_ref pseudo node 模式，边关系类型限定为 control_flow、data_source 和 data_destination。canonical graph 先在 warp 层级构建局部结构，再保留 warp、CTA、selected SM 与 kernel 的层级边界，后续 readout 使用 node_to_warp_to_cta_to_selected_sm_to_kernel 的层级聚合方式。",
-                "这种建模方式的优点在于：第一，控制流边保留指令顺序和局部执行路径；第二，data_source 与 data_destination 边把访存引用作为显式关系纳入图结构；第三，层级 readout 避免把 kernel 简化为单一统计向量，使模型可以在不同执行层级逐步聚合信息。其局限也很明确：如果只使用 selected SM，则该图表示首先代表被选中 SM 的执行子结构，不能自动等价于 full GPU 的全部动态行为。",
+                "本文使用的 GNN 是关系图卷积网络（Relational Graph Convolutional Network，RGCN）。选择 RGCN 的原因是 GPU 执行轨迹图中的边并不是单一关系：指令之间存在控制流关系，访存指令与内存引用之间存在数据来源和数据目的关系。如果使用普通 GCN，这些边会被视为同一种连接，难以区分不同关系对节点表示的影响；RGCN 则可以为不同边类型设置独立的关系变换，更适合本文场景。",
+                "在图构建中，节点主要表示 kernel 执行中的指令节点和访存相关 pseudo node。边类型包括三类：control_flow 表示指令执行顺序或控制流连接；data_source 表示数据来源关系；data_destination 表示数据写入或使用去向关系。这样构建后，一个 kernel 不再只是一个名称或统计向量，而是一个包含执行结构和访存关系的 typed graph。",
+                "RGCN 的消息传递过程可以概括为：每一层从不同关系类型的邻居节点收集信息，经过关系特定的线性变换后进行聚合，再与节点自身表示结合得到新的节点向量。经过多层传播后，节点表示包含了局部多跳结构信息。由于最终任务是比较 kernel，而不是只比较单个节点，模型还需要把节点级表示逐级读出为 kernel 级表示。",
             ],
         )
     )
+    body.extend(
+        subsection(
+            "3.1 RGCN 参数与层级读出",
+            [
+                f"本次复现中的 RGCN 为 {text(arch.get('layers'))} 层结构，节点输入特征维度为 {text(arch.get('input_dim'))}，隐藏层维度为 {text(arch.get('hidden_dim'))}，最终 kernel embedding 维度为 {text(arch.get('kernel_embedding_dim'))}。边关系数量为 {text(arch.get('relation_count'))}，对应 control_flow、data_source 和 data_destination 三类关系。",
+                "模型输出不是单个节点 embedding，而是整个 kernel 的 embedding。为此，本文使用层级 readout：先把节点表示聚合到 warp，再从 warp 聚合到 CTA，再聚合到 selected SM，最后得到 kernel 级表示。该过程与 GPU 执行层级相对应，避免直接把所有节点简单平均造成结构信息丢失。",
+                f"训练目标采用图对比学习中的 InfoNCE 损失。训练时对图进行轻量增强，例如节点丢弃、边丢弃和特征噪声，使同一 kernel 的不同增强视图在 embedding 空间中更接近，不同 graph 的表示相互区分。当前训练使用 {text(opt.get('optimizer'))} 优化器，学习率为 {text(opt.get('learning_rate'))}，temperature 为 {text(training.get('contrastive_loss_config', {}).get('temperature'))}。",
+            ],
+        )
+    )
+    body.append(p("表 2 RGCN 模型结构参数"))
+    body.append(table(rgcn_rows))
 
     body.extend(
         section(
-            "4 RGCN 图表示学习方法",
+            "4 K-means 聚类结构",
             [
-                "图神经网络通过消息传递机制学习节点和图的向量表示。对于第 l 层节点表示 h_i^(l)，模型从邻居节点收集消息并结合节点自身状态进行更新。关系图卷积网络进一步区分不同类型的边，使不同关系可以拥有独立的变换参数或聚合权重，适合处理本文中的 control_flow、data_source 和 data_destination 三类边。",
-                f"当前 RGCN manifest 记录模型为 {text(arch.get('layers'))} 层，输入维度为 {text(arch.get('input_dim'))}，隐藏维度为 {text(arch.get('hidden_dim'))}，kernel embedding 维度为 {text(arch.get('kernel_embedding_dim'))}，projection hidden/output 维度分别为 {text(arch.get('projection_hidden_dim'))}/{text(arch.get('projection_output_dim'))}，relation_count 为 {text(arch.get('relation_count'))}。训练使用 InfoNCE 对比学习目标，temperature 为 {text(training.get('contrastive_loss_config', {}).get('temperature'))}，优化器为 {text(opt.get('optimizer'))}，学习率为 {text(opt.get('learning_rate'))}。",
-                f"需要注意的是，当前训练规模仍然较弱。manifest 显示 train_graph_count 为 {text(training.get('train_graph_count'))}，export_graph_count 为 {text(training.get('export_graph_count'))}，optimizer_step_count 为 {text(opt.get('optimizer_step_count'))}，checkpoint_reuse 为 {text(training.get('checkpoint_reuse'))}。这说明当前结果足以证明 RGCN path、checkpoint、embedding export 和 artifact lineage 可以跑通，但不足以证明模型已经充分收敛或学到了稳定语义表示。",
+                "K-means 的输入是 RGCN 输出的 kernel embedding。设共有 n 个 kernel，每个 kernel 对应一个 d 维向量 zi，则全部样本可表示为 Z={z1,z2,...,zn}。K-means 希望将样本划分为 K 个簇 C1,C2,...,CK，并使每个样本到所属簇中心的平方距离尽可能小。其目标函数可以写为：J=sum_k sum_{zi in Ck} ||zi - μk||^2，其中 μk 表示第 k 个簇的中心。",
+                "算法执行时先初始化 K 个簇中心，然后重复两个步骤：第一，根据欧氏距离把每个样本分配到最近的簇中心；第二，根据每个簇中样本的均值更新簇中心。当前后两次迭代的簇分配不再变化，或簇中心移动小于阈值时，算法收敛。K-means 结构简单、计算效率高，适合在 embedding 空间中做初步 kernel 分组。",
+                "由于 K-means 需要预先指定 K，本文使用轮廓系数选择聚类数。对于某个样本，轮廓系数同时考虑它与同簇样本的平均距离和与最近其他簇样本的平均距离。平均轮廓系数越大，说明簇内越紧密、簇间越分离。确定 K 后，本文从每个簇中选择距离簇中心最近的样本作为代表 kernel，用于表示该簇的典型执行结构。",
             ],
         )
     )
-
-    body.extend(
-        section(
-            "5 K-means 聚类与代表 Kernel 选择",
-            [
-                "在获得 kernel-level embedding 后，本文使用 K-means 对嵌入向量进行无监督聚类。设全部 kernel embedding 为 Z={z1,z2,...,zn}，其中 zi 为 d 维向量。K-means 的目标是最小化每个样本到其所属簇中心的平方距离和，从而使同一簇内部样本尽可能接近，不同簇之间尽可能分离。",
-                "标准 K-means 需要预先指定 K。本文使用轮廓系数在候选 K 中选择聚类数。轮廓系数同时考虑样本与同簇样本的平均距离和与最近异簇样本的平均距离，取值越接近 1 表示簇内越紧密、簇间越分离。完成聚类后，从每个簇中选择距离簇中心最近的 embedding 记录作为 representative anchor。",
-                f"当前 selector 使用 mode={text(k_report.get('mode'))}，候选 K 的评分见表 1。最终 selected_k 为 {text(k_report.get('selected_k'))}，selected_score 为 {fmt_float(k_report.get('selected_score'), 8)}。聚类结果形成两个簇，其中 cluster 0 包含 263 个样本，cluster 1 包含 2 个样本。该分布说明 embedding 空间存在明显不均衡结构，更适合解释为少数特殊 kernel 或 outlier group 的识别，而不能直接解释为两个稳定的语义 kernel family。",
-            ],
-        )
-    )
-    body.append(p("表 1 K-means 候选 K 的轮廓系数"))
+    body.append(p("表 3 K-means 候选 K 的轮廓系数"))
     body.append(table(k_rows))
-    body.append(p("表 2 聚类分布与 family evidence"))
+
+    body.extend(
+        section(
+            "5 实验设计",
+            [
+                "实验对象为 torchvision ResNet-50 模型的一次推理过程。实验输入要求来自真实 NVBit trace，而不是人工构造 trace、synthetic fixture 或手工选择的局部 kernel 序列。这样可以保证复现流程面对的是实际深度学习 workload 中的 kernel 调用和线程块执行结构。",
+                f"实验流程包括四部分。首先，读取 ResNet-50 full trace，并通过 adapter 得到规范化执行记录。其次，基于 selected SM 的执行记录构造 canonical graph，并完成图张量化。然后，使用 RGCN 对 kernel 图进行编码，导出 {text(training.get('export_graph_count'))} 个 kernel embedding。最后，在 embedding 上运行 K-means，并用 silhouette、Davies-Bouldin、Calinski-Harabasz、簇间/簇内距离比等指标分析聚类效果。",
+                f"需要说明的是，当前 RGCN 训练仍是初步复现实验。manifest 显示 train_graph_count 为 {text(training.get('train_graph_count'))}，optimizer_step_count 为 {text(opt.get('optimizer_step_count'))}，因此本文不把实验结果解释为最终收敛模型，而是解释为一次端到端复现和方法可行性验证。",
+            ],
+        )
+    )
+    body.append(p("表 4 实验设置与主要结果"))
+    body.append(table(experiment_rows))
+
+    body.extend(
+        section(
+            "6 实验结果与分析",
+            [
+                f"从输入规模看，本次实验成功处理 {text(reproduction.get('input_kernel_invocation_count'))} 个 kernel invocation 和 {text(reproduction.get('input_cta_record_count'))} 条 CTA 记录，说明从真实 trace 到图表示的前端处理流程已经跑通。RGCN 最终导出 {text(training.get('export_graph_count'))} 个 kernel embedding，每个 embedding 维度为 {text(arch.get('kernel_embedding_dim'))}。这表明每个 kernel invocation 都可以被映射为一个固定维度向量，从而满足后续聚类分析的输入要求。",
+                f"从 K-means 结果看，轮廓系数选择的最佳聚类数为 K={text(k_report.get('selected_k'))}，对应得分为 {fmt_float(k_report.get('selected_score'), 8)}。聚类结果中 cluster 0 包含 263 个样本，cluster 1 包含 2 个样本，样本分布明显不均衡。这说明当前 embedding 空间确实存在可分结构，但更像是将少量特殊 kernel 与大多数常规 kernel 分开，而不是形成多个均衡的功能语义类别。",
+                f"从聚类指标看，silhouette 为 {fmt_float(geom.get('silhouette'), 8)}，Davies-Bouldin 指数为 {fmt_float(geom.get('davies_bouldin'), 8)}，Calinski-Harabasz 指数为 {fmt_float(geom.get('calinski_harabasz'), 8)}，簇间/簇内平均距离比为 {fmt_float(geom.get('inter_intra_ratio'), 8)}。这些指标表明 embedding 空间不是完全随机或完全退化的，簇间距离大于簇内距离，具有初步聚类信号。",
+                f"从代表样本看，cluster 0 的代表记录为 {rep0}，cluster 1 的代表记录为 {rep1}。代表样本选择基于到聚类中心的距离，因此能够反映当前 embedding 空间中的中心样本。但由于当前还没有完整的 simulator/measured metric 对照，metric_claim_status 为 {text(metric_report.get('metric_claim_status'))}，因此不能进一步证明代表样本能够准确代表同簇 kernel 的运行时间或仿真行为。",
+            ],
+        )
+    )
+    body.append(p("表 5 聚类分布"))
     body.append(table(cluster_rows))
-    body.append(p("表 3 Representative anchor 质量摘要"))
+    body.append(p("表 6 代表样本距离统计"))
     body.append(table(rep_rows))
 
     body.extend(
         section(
-            "6 实验结果与有效性分析",
+            "7 局限性与后续工作",
             [
-                f"从 embedding geometry 看，当前 silhouette 为 {fmt_float(geom.get('silhouette'), 8)}，Davies-Bouldin 指数为 {fmt_float(geom.get('davies_bouldin'), 8)}，Calinski-Harabasz 指数为 {fmt_float(geom.get('calinski_harabasz'), 8)}。簇内平均距离为 {fmt_float(geom.get('intra_distance_mean'), 8)}，簇间平均距离为 {fmt_float(geom.get('inter_distance_mean'), 8)}，簇间/簇内距离比为 {fmt_float(geom.get('inter_intra_ratio'), 8)}。这些指标说明 embedding space 并非完全退化，聚类之间存在可观察的几何分离信号。",
-                f"从 family alignment 看，cluster_purity 为 {fmt_float(family.get('cluster_purity'), 6)}，weighted_purity 为 {fmt_float(family.get('weighted_purity'), 6)}，但 ARI 为 {fmt_float(family.get('ari'), 6)}，NMI 为 {fmt_float(family.get('nmi'), 6)}，completeness 为 {fmt_float(family.get('completeness'), 6)}。这里的 purity 不能单独作为正确性证据，因为当前 family label 主要是 resnet50_real_trace 这样的粗粒度来源标签，而不是卷积、归一化、激活、残差连接等细粒度 operator family 标签。",
-                f"从下游有效性看，cluster metric error report 的 metric_claim_status 为 {text(metric_report.get('metric_claim_status'))}，complete_row_count 为 {text(metric_report.get('complete_row_count'))}，global_weighted_mape 为 {text(metric_report.get('global_weighted_mape'))}。这说明当前没有足够 measured 或 simulator metric 来证明 representative 可以近似 cluster members 的运行时间、SM cycles、memory throughput 或仿真误差。",
-                f"综合验收状态为 {text(acceptance.get('gnn_acceptance_status'))}，claim_status 为 {text(acceptance.get('claim_status'))}。因此，本文对当前 GCL 复现结果给出保守结论：工程通路已闭合，RGCN 结构与 embedding export 成立，embedding 空间出现弱正向分离信号；但不能声明 semantic cluster correctness，也不能声明 sampled representative 已经能够替代 full trace simulator evaluation。",
-            ],
-        )
-    )
-    body.append(p("表 4 GNN 验收状态摘要"))
-    body.append(table(acceptance_rows))
-
-    body.extend(
-        section(
-            "7 当前局限与后续改进",
-            [
-                "第一，训练充分性不足。当前只使用 4 个 graph 训练并执行 1 次 optimizer step，无法支撑深层语义表示已经稳定收敛的结论。后续应扩大训练图数量，记录 multi-epoch loss curve，并比较不同训练轮数下 embedding geometry 与 representative 质量的变化。",
-                "第二，缺少 baseline ablation。当前不能排除聚类信号主要来自图规模、节点数量、opcode 统计或权重分布，而不是来自 RGCN 的关系感知消息传递。后续应增加 random embedding、opcode histogram、node feature pooling without edge、control-flow-only、data-flow-only 等对照。",
-                "第三，缺少多随机种子稳定性。K-means 结果和 RGCN 训练都可能受到初始化影响。后续需要在多个 seed 下重复训练和聚类，报告 selected K 稳定性、assignment ARI、centroid drift 和 representative stability rate。",
-                "第四，语义标签粒度不足。当前 family evidence 更多反映同一工作负载来源，而非真实 kernel 功能类别。后续应结合 kernel name、operator metadata、节点数、边数、指令类型、访存行为和 runtime metric 构建更细粒度的语义验证集。",
-                "第五，下游 representative 价值尚未验证。最终目标应是用代表样本减少 full trace simulator evaluation 的成本，同时控制误差。因此后续必须补充 measured/simulator metric rows，计算 cluster 级 weighted MAPE、P95 relative error、rank correlation 和采样加速比。",
+                "当前实验仍存在三方面不足。第一，GNN 训练规模较小，只能证明端到端路径可运行，不能证明模型已经充分学习到稳定语义表示。后续应扩大训练图数量，增加训练轮数，并记录 loss curve 和 embedding 指标随训练过程的变化。",
+                "第二，当前缺少 baseline ablation。后续需要与随机 embedding、opcode 直方图、无边关系 pooling、control-flow-only RGCN 和 data-flow-only RGCN 等方法比较，判断聚类信号究竟来自图结构消息传递，还是来自简单规模特征。",
+                "第三，当前缺少下游模拟误差验证。代表 kernel 的最终价值在于能否近似同簇 kernel 的 simulator 指标或 measured metric。后续应补充 runtime、SM cycles、memory throughput 等指标，计算 cluster 级误差和 sampled-vs-full 仿真加速比。",
             ],
         )
     )
@@ -283,9 +320,9 @@ def build_document_xml() -> str:
         section(
             "8 结论",
             [
-                "本文按照中文期刊论文的组织形式，总结了 ResNet-50 真实 GPU 执行轨迹上的 GCL 复现过程。复现链路从 NVBit full trace 出发，经过 trace adapter、代表 SM 选择、canonical graph 构建、图张量化、RGCN 对比学习、kernel embedding 导出、K-means 聚类和 Gate7 正确性评价，形成了可追踪的端到端 artifact。",
-                f"实验结果显示，当前输入包含 {text(reproduction.get('input_kernel_invocation_count'))} 个 kernel invocation 和 {text(reproduction.get('input_cta_record_count'))} 条 CTA 记录，模型导出 {text(training.get('export_graph_count'))} 个 {text(arch.get('kernel_embedding_dim'))} 维 embedding。K-means 选择 K={text(k_report.get('selected_k'))}，得到 263/2 的聚类分布，embedding silhouette 为 {fmt_float(geom.get('silhouette'), 6)}，簇间/簇内平均距离比为 {fmt_float(geom.get('inter_intra_ratio'), 6)}。",
-                "这些结果支持“结构有效、工程闭合、存在弱分离信号”的判断，但不支持“GNN 分类已经正确”或“representative 已经可替代 full trace 仿真”的强结论。后续工作应围绕训练充分性、baseline ablation、多 seed 稳定性、细粒度语义标签和下游仿真误差验证展开，逐步把当前 weak acceptance 推进到可支撑性能建模和采样模拟结论的 strong acceptance。",
+                "本文按照论文格式总结了 ResNet-50 GPU 执行轨迹的 GCL 复现过程。整体实现思想是先把真实 trace 转换为 typed graph，再使用 RGCN 学习 kernel embedding，最后使用 K-means 对 kernel embedding 进行聚类并选择代表样本。",
+                f"实验结果表明，当前流程已经能够处理真实 ResNet-50 full trace，输入规模为 {text(reproduction.get('input_kernel_invocation_count'))} 个 kernel invocation 和 {text(reproduction.get('input_cta_record_count'))} 条 CTA 记录，并导出 {text(training.get('export_graph_count'))} 个 {text(arch.get('kernel_embedding_dim'))} 维 kernel embedding。K-means 选择 K={text(k_report.get('selected_k'))}，得到 263/2 的聚类分布，silhouette 为 {fmt_float(geom.get('silhouette'), 6)}，说明 embedding 空间中存在初步分离现象。",
+                "总体来看，本文完成了从真实 GPU trace 到 GNN 表示学习和 K-means 聚类分析的端到端复现。当前结果可以作为后续 GCL 采样模拟研究的工程基础，但要进一步证明聚类语义和代表样本有效性，还需要更充分的训练、对照实验和下游性能误差验证。",
             ],
         )
     )

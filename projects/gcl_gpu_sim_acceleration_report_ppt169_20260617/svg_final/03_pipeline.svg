@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#155E75" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">整体流程：从 GPU trace 到代表 kernel</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">METHOD OVERVIEW · 轨迹构图 — 图编码 — 聚类采样</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V162 A14,14 0 0 1 1210,176 H70 A14,14 0 0 1 56,162 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">每一步都有明确的中间产物，因此复现链路可以被审计、复跑和扩展。</text>
+  </g>
+  <g id="pipeline-frame">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M78,214 H1202 A22,22 0 0 1 1224,236 V524 A22,22 0 0 1 1202,546 H78 A22,22 0 0 1 56,524 V236 A22,22 0 0 1 78,214 Z" />
+    <line x1="135" y1="314" x2="1138" y2="314" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+  </g>
+  <g id="stage-trace">
+    <circle cx="155" cy="314" r="34" fill="#155E75" />
+    
+  <g transform="translate(139.0, 298.0) scale(1.3333333333333333)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0" />
+    <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
+    <path d="M4 12v6a8 3 0 0 0 16 0v-6" />
+  </g>
+    <text x="105" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">Trace 采集</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="105" y="424">ResNet-50 推理</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="105" y="448">NVBit full trace</text><path fill="#F7F9FC" stroke="#D8DEE9" d="M114,474 H224 A10,10 0 0 1 234,484 V498 A10,10 0 0 1 224,508 H114 A10,10 0 0 1 104,498 V484 A10,10 0 0 1 114,474 Z" />
+    <text x="169" y="496" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="13" fill="#155E75">raw trace</text>
+  </g>
+  <g id="stage-graph">
+    <circle cx="390" cy="314" r="34" fill="#2563EB" />
+    
+  <g transform="translate(374.0, 298.0) scale(1.3333333333333333)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M6 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 4a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M11 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M21 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M5.058 18.306l2.88 -4.606" />
+    <path d="M10.061 10.303l2.877 -4.604" />
+    <path d="M10.065 13.705l2.876 4.6" />
+    <path d="M15.063 5.7l2.881 4.61" />
+  </g>
+    <text x="330" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">关系图构建</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="330" y="424">指令节点 + 访存节点</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="330" y="448">三类 typed edge</text><path fill="#F7F9FC" stroke="#D8DEE9" d="M340,474 H466 A10,10 0 0 1 476,484 V498 A10,10 0 0 1 466,508 H340 A10,10 0 0 1 330,498 V484 A10,10 0 0 1 340,474 Z" />
+    <text x="403" y="496" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="13" fill="#2563EB">graph bundle</text>
+  </g>
+  <g id="stage-rgcn">
+    <circle cx="625" cy="314" r="34" fill="#2563EB" />
+    
+  <g transform="translate(609.0, 298.0) scale(1.3333333333333333)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M6 9a6 6 0 1 0 12 0a6 6 0 0 0 -12 0" />
+    <path d="M12 3c1.333 .333 2 2.333 2 6s-.667 5.667 -2 6" />
+    <path d="M12 3c-1.333 .333 -2 2.333 -2 6s.667 5.667 2 6" />
+    <path d="M6 9h12" />
+    <path d="M3 20h7" />
+    <path d="M14 20h7" />
+    <path d="M10 20a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+    <path d="M12 15v3" />
+  </g>
+    <text x="570" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">RGCN 编码</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="570" y="424">relation-aware message</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="570" y="448">node → kernel readout</text><path fill="#F7F9FC" stroke="#D8DEE9" d="M580,474 H710 A10,10 0 0 1 720,484 V498 A10,10 0 0 1 710,508 H580 A10,10 0 0 1 570,498 V484 A10,10 0 0 1 580,474 Z" />
+    <text x="645" y="496" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="13" fill="#2563EB">256-d vector</text>
+  </g>
+  <g id="stage-kmeans">
+    <circle cx="860" cy="314" r="34" fill="#22C55E" />
+    
+  <g transform="translate(844.0, 298.0) scale(1.3333333333333333)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M3 3v18h18" />
+    <path d="M8 15.015v.015" />
+    <path d="M16 16.015v.015" />
+    <path d="M8 7.03v.015" />
+    <path d="M12 11.03v.015" />
+    <path d="M19 11.03v.015" />
+  </g>
+    <text x="810" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">K-means 聚类</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="810" y="424">silhouette 选择 K</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="810" y="448">簇中心距离最小</text><path fill="#F7F9FC" stroke="#D8DEE9" d="M820,474 H922 A10,10 0 0 1 932,484 V498 A10,10 0 0 1 922,508 H820 A10,10 0 0 1 810,498 V484 A10,10 0 0 1 820,474 Z" />
+    <text x="871" y="496" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="13" fill="#22C55E">K=2</text>
+  </g>
+  <g id="stage-rep">
+    <circle cx="1095" cy="314" r="34" fill="#155E75" />
+    
+  <g transform="translate(1079.0, 298.0) scale(1.3333333333333333)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M12 7a5 5 0 1 0 5 5" />
+    <path d="M13 3.055a9 9 0 1 0 7.941 7.945" />
+    <path d="M15 6v3h3l3 -3h-3v-3l-3 3" />
+    <path d="M15 9l-3 3" />
+  </g>
+    <text x="1038" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">代表 kernel</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="1038" y="424">每簇选择中心样本</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="1038" y="448">减少后续模拟对象</text><path fill="#F7F9FC" stroke="#D8DEE9" d="M1048,474 H1154 A10,10 0 0 1 1164,484 V498 A10,10 0 0 1 1154,508 H1048 A10,10 0 0 1 1038,498 V484 A10,10 0 0 1 1048,474 Z" />
+    <text x="1101" y="496" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="13" fill="#155E75">anchors</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL-Sampler workflow; project reproduction design</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">03 / 12</text>
+  </g>
+</svg>

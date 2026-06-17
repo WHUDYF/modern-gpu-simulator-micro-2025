@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowPrimary" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#155E75" />
+    </marker>
+    <marker id="arrowAccent" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2563EB" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">将 kernel 执行轨迹转化为异构关系图</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">GRAPH CONSTRUCTION · 节点表示执行元素，边表示控制和数据关系</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V162 A14,14 0 0 1 1210,176 H70 A14,14 0 0 1 56,162 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">图结构让模型看到“谁依赖谁、数据从哪里来、结果写到哪里”，不只看指令数量。</text>
+  </g>
+  <g id="graph-panel">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M92,215 H748 A22,22 0 0 1 770,237 V583 A22,22 0 0 1 748,605 H92 A22,22 0 0 1 70,583 V237 A22,22 0 0 1 92,215 Z" />
+    <text x="104" y="258" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">Kernel relation graph</text>
+    <text x="104" y="286" font-family="Consolas, Courier New, monospace" font-size="13" fill="#5B6475">G_i = (V_i, E_i, X_i, R_i)</text>
+    <line x1="230" y1="360" x2="365" y2="320" stroke="#155E75" stroke-width="2.5" marker-end="url(#arrowPrimary)" />
+    <line x1="365" y1="320" x2="515" y2="360" stroke="#155E75" stroke-width="2.5" marker-end="url(#arrowPrimary)" />
+    <line x1="230" y1="450" x2="365" y2="410" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrowAccent)" />
+    <line x1="365" y1="410" x2="515" y2="450" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrowAccent)" />
+    <path d="M230 360 C250 300, 480 285, 515 360" fill="none" stroke="#22C55E" stroke-width="2.5" marker-end="url(#arrowPrimary)" />
+    <path d="M230 450 C250 520, 490 530, 515 450" fill="none" stroke="#22C55E" stroke-width="2.5" marker-end="url(#arrowPrimary)" />
+    <circle cx="230" cy="360" r="32" fill="#155E75" />
+    <circle cx="365" cy="320" r="32" fill="#155E75" />
+    <circle cx="515" cy="360" r="32" fill="#155E75" />
+    <circle cx="230" cy="450" r="32" fill="#2563EB" />
+    <circle cx="365" cy="410" r="32" fill="#2563EB" />
+    <circle cx="515" cy="450" r="32" fill="#2563EB" />
+    <path fill="#ECFDF5" stroke="#22C55E" d="M349,494 H413 A14,14 0 0 1 427,508 V526 A14,14 0 0 1 413,540 H349 A14,14 0 0 1 335,526 V508 A14,14 0 0 1 349,494 Z" />
+    <text x="230" y="367" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">LD</text>
+    <text x="365" y="327" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">FMA</text>
+    <text x="515" y="367" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">ST</text>
+    <text x="230" y="457" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">MEM</text>
+    <text x="365" y="417" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">REG</text>
+    <text x="515" y="457" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">MEM</text>
+    <text x="381" y="523" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#22C55E">pseudo node</text>
+    <text x="585" y="323" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#155E75">control_flow</text>
+    <text x="585" y="404" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#2563EB">data_source / destination</text>
+    <text x="585" y="486" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#22C55E">memory relation</text>
+  </g>
+  <g id="semantic-panel">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M842,215 H1202 A22,22 0 0 1 1224,237 V583 A22,22 0 0 1 1202,605 H842 A22,22 0 0 1 820,583 V237 A22,22 0 0 1 842,215 Z" />
+    
+  <g transform="translate(855.0, 250.0) scale(1.4166666666666667)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M6 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 4a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M11 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M21 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M5.058 18.306l2.88 -4.606" />
+    <path d="M10.061 10.303l2.877 -4.604" />
+    <path d="M10.065 13.705l2.876 4.6" />
+    <path d="M15.063 5.7l2.881 4.61" />
+  </g>
+    <text x="900" y="275" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">图中编码了什么？</text>
+    <g id="node-desc">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,316 H1160 A14,14 0 0 1 1174,330 V360 A14,14 0 0 1 1160,374 H868 A14,14 0 0 1 854,360 V330 A14,14 0 0 1 868,316 Z" />
+      <text x="878" y="340" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">节点 V</text>
+      <text x="878" y="362" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">指令、访存引用、寄存器或 memory pseudo node</text>
+    </g>
+    <g id="edge-desc">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,394 H1160 A14,14 0 0 1 1174,408 V456 A14,14 0 0 1 1160,470 H868 A14,14 0 0 1 854,456 V408 A14,14 0 0 1 868,394 Z" />
+      <text x="878" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">边 E / 关系 R</text>
+      <text x="878" y="444" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">control_flow, data_source, data_destination</text>
+    </g>
+    <g id="feature-desc">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,490 H1160 A14,14 0 0 1 1174,504 V534 A14,14 0 0 1 1160,548 H868 A14,14 0 0 1 854,534 V504 A14,14 0 0 1 868,490 Z" />
+      <text x="878" y="514" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">特征 X</text>
+      <text x="878" y="536" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">指令类型、访存类型、操作数相关信息</text>
+    </g>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL report, section 3.2 Kernel 执行轨迹图结构表示</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">04 / 12</text>
+  </g>
+</svg>

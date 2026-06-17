@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#155E75" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">RGCN 用不同关系矩阵保留边类型语义</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">RGCN ENCODER · control_flow / data_source / data_destination 分别参与消息传递</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V162 A14,14 0 0 1 1210,176 H70 A14,14 0 0 1 56,162 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">普通 GCN 会把边混成一种连接；RGCN 让三类关系在参数上可区分。</text>
+  </g>
+  <g id="architecture">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M92,215 H1188 A22,22 0 0 1 1210,237 V498 A22,22 0 0 1 1188,520 H92 A22,22 0 0 1 70,498 V237 A22,22 0 0 1 92,215 Z" />
+    <g id="input-layer">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M130,260 H344 A18,18 0 0 1 362,278 V452 A18,18 0 0 1 344,470 H130 A18,18 0 0 1 112,452 V278 A18,18 0 0 1 130,260 Z" />
+      
+  <g transform="translate(140.0, 290.0) scale(1.4166666666666667)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M6 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 4a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M11 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M21 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M5.058 18.306l2.88 -4.606" />
+    <path d="M10.061 10.303l2.877 -4.604" />
+    <path d="M10.065 13.705l2.876 4.6" />
+    <path d="M15.063 5.7l2.881 4.61" />
+  </g>
+      <text x="140" y="354" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">Typed Graph</text>
+      <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="140" y="388">节点特征 X</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="140" y="412">边索引 E</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="140" y="436">关系类型 R</text></g>
+    <line x1="382" y1="365" x2="458" y2="365" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+    <g id="rgcn-layer">
+      <path fill="#FFFFFF" stroke="#2563EB" stroke-width="2" d="M492,242 H790 A22,22 0 0 1 812,264 V466 A22,22 0 0 1 790,488 H492 A22,22 0 0 1 470,466 V264 A22,22 0 0 1 492,242 Z" />
+      
+  <g transform="translate(504.0, 278.0) scale(1.5833333333333333)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M6 9a6 6 0 1 0 12 0a6 6 0 0 0 -12 0" />
+    <path d="M12 3c1.333 .333 2 2.333 2 6s-.667 5.667 -2 6" />
+    <path d="M12 3c-1.333 .333 -2 2.333 -2 6s.667 5.667 2 6" />
+    <path d="M6 9h12" />
+    <path d="M3 20h7" />
+    <path d="M14 20h7" />
+    <path d="M10 20a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+    <path d="M12 15v3" />
+  </g>
+      <text x="560" y="303" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="24" font-weight="800" fill="#172033">3-layer RGCN</text>
+      <path fill="#EFF6FF" stroke="#D8DEE9" d="M520,342 H578 A12,12 0 0 1 590,354 V382 A12,12 0 0 1 578,394 H520 A12,12 0 0 1 508,382 V354 A12,12 0 0 1 520,342 Z" />
+      <path fill="#EFF6FF" stroke="#D8DEE9" d="M622,342 H680 A12,12 0 0 1 692,354 V382 A12,12 0 0 1 680,394 H622 A12,12 0 0 1 610,382 V354 A12,12 0 0 1 622,342 Z" />
+      <path fill="#EFF6FF" stroke="#D8DEE9" d="M724,342 H762 A12,12 0 0 1 774,354 V382 A12,12 0 0 1 762,394 H724 A12,12 0 0 1 712,382 V354 A12,12 0 0 1 724,342 Z" />
+      <text x="549" y="374" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="15" font-weight="700" fill="#2563EB">R1</text>
+      <text x="651" y="374" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="15" font-weight="700" fill="#2563EB">R2</text>
+      <text x="743" y="374" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="15" font-weight="700" fill="#2563EB">R3</text>
+      <text x="506" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">每种关系使用独立变换，聚合邻居消息并更新节点表示。</text>
+    </g>
+    <line x1="832" y1="365" x2="908" y2="365" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+    <g id="output-layer">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M938,260 H1152 A18,18 0 0 1 1170,278 V452 A18,18 0 0 1 1152,470 H938 A18,18 0 0 1 920,452 V278 A18,18 0 0 1 938,260 Z" />
+      
+  <g transform="translate(948.0, 290.0) scale(1.4166666666666667)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M19 8.268a2 2 0 0 1 1 1.732v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h3" />
+    <path d="M5 15.734a2 2 0 0 1 -1 -1.734v-8a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-3" />
+  </g>
+      <text x="948" y="354" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">Kernel Embedding</text>
+      <text x="948" y="400" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#155E75">256d</text>
+      <text x="948" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">固定维度向量表示</text>
+    </g>
+  </g>
+  <g id="parameter-row">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M126,558 H326 A16,16 0 0 1 342,574 V616 A16,16 0 0 1 326,632 H126 A16,16 0 0 1 110,616 V574 A16,16 0 0 1 126,558 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M386,558 H586 A16,16 0 0 1 602,574 V616 A16,16 0 0 1 586,632 H386 A16,16 0 0 1 370,616 V574 A16,16 0 0 1 386,558 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M646,558 H846 A16,16 0 0 1 862,574 V616 A16,16 0 0 1 846,632 H646 A16,16 0 0 1 630,616 V574 A16,16 0 0 1 646,558 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M906,558 H1106 A16,16 0 0 1 1122,574 V616 A16,16 0 0 1 1106,632 H906 A16,16 0 0 1 890,616 V574 A16,16 0 0 1 906,558 Z" />
+    <text x="132" y="588" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">input_dim</text>
+    <text x="132" y="617" font-family="Consolas, Courier New, monospace" font-size="26" font-weight="800" fill="#155E75">64</text>
+    <text x="392" y="588" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">hidden_dim</text>
+    <text x="392" y="617" font-family="Consolas, Courier New, monospace" font-size="26" font-weight="800" fill="#155E75">128</text>
+    <text x="652" y="588" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">relation_count</text>
+    <text x="652" y="617" font-family="Consolas, Courier New, monospace" font-size="26" font-weight="800" fill="#155E75">3</text>
+    <text x="912" y="588" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">loss</text>
+    <text x="912" y="617" font-family="Consolas, Courier New, monospace" font-size="26" font-weight="800" fill="#155E75">InfoNCE</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: RGCN training manifest; GCL report section 3.3-3.4</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">05 / 12</text>
+  </g>
+</svg>

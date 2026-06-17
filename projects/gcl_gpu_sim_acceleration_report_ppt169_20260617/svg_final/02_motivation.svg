@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">完整 trace 成本高，代表 kernel 是加速入口</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">MOTIVATION · 从逐 kernel 模拟转向结构相似性采样</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V166 A14,14 0 0 1 1210,180 H70 A14,14 0 0 1 56,166 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="159" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="700" fill="#155E75">核心判断：</text>
+    <text x="178" y="159" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#172033">GPU 仿真加速的关键不是丢弃 trace，而是找到能代表同类结构的 kernel。</text>
+  </g>
+  <g id="kpi-kernels">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M74,220 H388 A18,18 0 0 1 406,238 V462 A18,18 0 0 1 388,480 H74 A18,18 0 0 1 56,462 V238 A18,18 0 0 1 74,220 Z" />
+    
+  <g transform="translate(86.0, 252.0) scale(1.4166666666666667)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M5 6a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1l0 -12" />
+    <path d="M9 9h6v6h-6l0 -6" />
+    <path d="M3 10h2" />
+    <path d="M3 14h2" />
+    <path d="M10 3v2" />
+    <path d="M14 3v2" />
+    <path d="M21 10h-2" />
+    <path d="M21 14h-2" />
+    <path d="M14 21v-2" />
+    <path d="M10 21v-2" />
+  </g>
+    <text x="86" y="325" font-family="Consolas, Courier New, monospace" font-size="54" font-weight="800" fill="#172033">265</text>
+    <text x="86" y="360" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="700" fill="#172033">kernel invocation</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="86" y="394">ResNet-50 一次推理产生大量 kernel 调用，</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="86" y="418">逐个分析会放大模拟成本。</text></g>
+  <g id="kpi-trace">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M453,220 H767 A18,18 0 0 1 785,238 V462 A18,18 0 0 1 767,480 H453 A18,18 0 0 1 435,462 V238 A18,18 0 0 1 453,220 Z" />
+    
+  <g transform="translate(465.0, 252.0) scale(1.4166666666666667)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0" />
+    <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
+    <path d="M4 12v6a8 3 0 0 0 16 0v-6" />
+  </g>
+    <text x="465" y="325" font-family="Consolas, Courier New, monospace" font-size="54" font-weight="800" fill="#172033">124876</text>
+    <text x="465" y="360" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="700" fill="#172033">CTA records</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="465" y="394">完整轨迹包含 CTA、warp、指令与访存信息，</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="465" y="418">信息丰富但处理代价高。</text></g>
+  <g id="kpi-target">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M832,220 H1206 A18,18 0 0 1 1224,238 V462 A18,18 0 0 1 1206,480 H832 A18,18 0 0 1 814,462 V238 A18,18 0 0 1 832,220 Z" />
+    
+  <g transform="translate(844.0, 252.0) scale(1.4166666666666667)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+  </g>
+    <text x="844" y="325" font-family="Consolas, Courier New, monospace" font-size="54" font-weight="800" fill="#155E75">K=2</text>
+    <text x="844" y="360" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="700" fill="#172033">representative groups</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="844" y="394">通过 embedding 聚类，把 kernel 分成主体样本</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="844" y="418">与少量特殊样本，支撑后续采样模拟。</text></g>
+  <g id="bottom-logic">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M180,545 H1100 A20,20 0 0 1 1120,565 V603 A20,20 0 0 1 1100,623 H180 A20,20 0 0 1 160,603 V565 A20,20 0 0 1 180,545 Z" />
+    <text x="206" y="593" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="700" fill="#172033">完整 trace</text>
+    <path d="M326 585 H450" stroke="#8792A2" stroke-width="2.5" stroke-dasharray="8 6" />
+    <text x="482" y="593" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="700" fill="#172033">结构表示学习</text>
+    <path d="M646 585 H770" stroke="#8792A2" stroke-width="2.5" stroke-dasharray="8 6" />
+    <text x="805" y="593" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="700" fill="#22C55E">代表 kernel 选择</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL GPU simulation acceleration report; ResNet-50 reproduction artifacts</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">02 / 12</text>
+  </g>
+</svg>

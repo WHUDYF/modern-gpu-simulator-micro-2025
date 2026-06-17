@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <g id="background-grid">
+    <path d="M80 120 H1200 M80 220 H1200 M80 320 H1200 M80 420 H1200 M80 520 H1200 M80 620 H1200" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.35"/>
+    <path d="M160 80 V640 M320 80 V640 M480 80 V640 M640 80 V640 M800 80 V640 M960 80 V640 M1120 80 V640" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.25"/>
+  </g>
+  <g id="header">
+    <rect x="56" y="48" width="6" height="34" rx="3" fill="#155E75"/>
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">GCL 完成 kernel 表示学习与代表性压缩</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">FINAL CONCLUSION · 课程报告最终结论</text>
+  </g>
+  <g id="main-result">
+    <rect x="112" y="168" width="1056" height="178" rx="26" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="640" y="224" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="24" font-weight="800" fill="#172033">通过 GCL 聚类采样，我们将模拟对象规模压缩为原来的</text>
+    <text x="640" y="302" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="78" font-weight="800" fill="#22C55E">1 / 132.5</text>
+    <text x="640" y="328" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">等价表述：理论模拟加速约 132.5 倍</text>
+  </g>
+  <g id="method-chain">
+    <rect x="132" y="404" width="236" height="112" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/binary-tree" x="162" y="430" width="30" height="30" fill="#155E75" stroke-width="2"/>
+    <text x="210" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">GNN</text>
+    <text x="162" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">学习 kernel 图结构表示</text>
+    <path d="M385 458 H460" stroke="#8792A2" stroke-width="3" stroke-dasharray="8 7"/>
+    <rect x="482" y="404" width="236" height="112" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/bolt" x="512" y="430" width="30" height="30" fill="#2563EB" stroke-width="2"/>
+    <text x="560" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">GCL</text>
+    <text x="512" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">无标签学习结构相似性</text>
+    <path d="M735 458 H810" stroke="#8792A2" stroke-width="3" stroke-dasharray="8 7"/>
+    <rect x="832" y="404" width="316" height="112" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/target-arrow" x="862" y="430" width="30" height="30" fill="#22C55E" stroke-width="2"/>
+    <text x="910" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">K-means</text>
+    <text x="862" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">聚类并选择代表 kernel</text>
+  </g>
+  <g id="closing-statement">
+    <rect x="112" y="570" width="1056" height="62" rx="18" fill="#155E75"/>
+    <use data-icon="tabler-outline/check" x="144" y="586" width="28" height="28" fill="#FFFFFF" stroke-width="2"/>
+    <text x="190" y="608" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">最终结论：</text>
+    <text x="286" y="608" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#FFFFFF">本课程报告完成了从真实 trace 到代表 kernel 选择的端到端复现，并得到约 132.5 倍理论模拟加速。</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">GCL GPU simulation acceleration course report</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">12 / 12</text>
+  </g>
+</svg>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">从节点表示逐级读出 kernel embedding</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">READOUT HIERARCHY · node → warp → CTA → selected SM → kernel</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V162 A14,14 0 0 1 1210,176 H70 A14,14 0 0 1 56,162 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">层级读出贴合 GPU 执行结构，避免把所有节点简单平均后丢失执行上下文。</text>
+  </g>
+  <g id="hierarchy-visual">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M102,220 H748 A22,22 0 0 1 770,242 V584 A22,22 0 0 1 748,606 H102 A22,22 0 0 1 80,584 V242 A22,22 0 0 1 102,220 Z" />
+    <polygon points="185,262 665,262 620,322 230,322" fill="#EFF6FF" stroke="#D8DEE9" />
+    <polygon points="230,338 620,338 575,398 275,398" fill="#EAF7F2" stroke="#D8DEE9" />
+    <polygon points="275,414 575,414 530,474 320,474" fill="#EFF6FF" stroke="#D8DEE9" />
+    <polygon points="320,490 530,490 495,550 355,550" fill="#EAF7F2" stroke="#D8DEE9" />
+    <path fill="#155E75" d="M373,564 H477 A18,18 0 0 1 495,582 V588 A18,18 0 0 1 477,606 H373 A18,18 0 0 1 355,588 V582 A18,18 0 0 1 373,564 Z" />
+    <text x="425" y="296" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">node</text>
+    <text x="425" y="373" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">warp</text>
+    <text x="425" y="449" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">CTA</text>
+    <text x="425" y="525" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">selected SM</text>
+    <text x="425" y="592" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#FFFFFF">kernel</text>
+    <text x="566" y="296" font-family="Consolas, Courier New, monospace" font-size="15" fill="#2563EB">instruction / mem_ref</text>
+    <text x="580" y="373" font-family="Consolas, Courier New, monospace" font-size="15" fill="#22C55E">warp-level context</text>
+    <text x="548" y="449" font-family="Consolas, Courier New, monospace" font-size="15" fill="#2563EB">thread block</text>
+    <text x="520" y="525" font-family="Consolas, Courier New, monospace" font-size="15" fill="#22C55E">scheduler slice</text>
+  </g>
+  <g id="right-panel">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M842,220 H1202 A22,22 0 0 1 1224,242 V584 A22,22 0 0 1 1202,606 H842 A22,22 0 0 1 820,584 V242 A22,22 0 0 1 842,220 Z" />
+    
+  <g transform="translate(854.0, 256.0) scale(1.5)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M19 8.268a2 2 0 0 1 1 1.732v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h3" />
+    <path d="M5 15.734a2 2 0 0 1 -1 -1.734v-8a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-3" />
+  </g>
+    <text x="904" y="282" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">为什么分层读出？</text>
+    <g id="reason-1">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,326 H1160 A14,14 0 0 1 1174,340 V374 A14,14 0 0 1 1160,388 H868 A14,14 0 0 1 854,374 V340 A14,14 0 0 1 868,326 Z" />
+      <text x="878" y="352" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">保留 GPU 执行层级</text>
+      <text x="878" y="375" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">warp / CTA / SM 是真实调度单位</text>
+    </g>
+    <g id="reason-2">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,412 H1160 A14,14 0 0 1 1174,426 V460 A14,14 0 0 1 1160,474 H868 A14,14 0 0 1 854,460 V426 A14,14 0 0 1 868,412 Z" />
+      <text x="878" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">减少图规模噪声</text>
+      <text x="878" y="461" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">逐级聚合比全图平均更稳定</text>
+    </g>
+    <g id="reason-3">
+      <path fill="#F7F9FC" stroke="#D8DEE9" d="M868,498 H1160 A14,14 0 0 1 1174,512 V546 A14,14 0 0 1 1160,560 H868 A14,14 0 0 1 854,546 V512 A14,14 0 0 1 868,498 Z" />
+      <text x="878" y="524" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">输出固定维度表示</text>
+      <text x="878" y="547" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">每个 kernel 最终得到 256 维向量</text>
+    </g>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: RGCN training manifest: readout_hierarchy=node_to_warp_to_cta_to_selected_sm_to_kernel</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">06 / 12</text>
+  </g>
+</svg>

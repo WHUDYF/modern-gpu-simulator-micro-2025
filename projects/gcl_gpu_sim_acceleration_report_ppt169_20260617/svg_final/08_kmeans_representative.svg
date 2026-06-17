@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#155E75" />
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">K-means 在 embedding 空间中完成分组与代表选择</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">CLUSTERING · 从 265 个向量中选择中心附近代表样本</text>
+  </g>
+  <g id="takeaway">
+    <path fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9" d="M70,126 H1210 A14,14 0 0 1 1224,140 V162 A14,14 0 0 1 1210,176 H70 A14,14 0 0 1 56,162 V140 A14,14 0 0 1 70,126 Z" />
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">K-means 不训练 GNN，而是在 RGCN 输出的 256 维向量空间中做无监督后处理。</text>
+  </g>
+  <g id="flow">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M88,224 H302 A18,18 0 0 1 320,242 V396 A18,18 0 0 1 302,414 H88 A18,18 0 0 1 70,396 V242 A18,18 0 0 1 88,224 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M383,224 H597 A18,18 0 0 1 615,242 V396 A18,18 0 0 1 597,414 H383 A18,18 0 0 1 365,396 V242 A18,18 0 0 1 383,224 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M678,224 H892 A18,18 0 0 1 910,242 V396 A18,18 0 0 1 892,414 H678 A18,18 0 0 1 660,396 V242 A18,18 0 0 1 678,224 Z" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M973,224 H1187 A18,18 0 0 1 1205,242 V396 A18,18 0 0 1 1187,414 H973 A18,18 0 0 1 955,396 V242 A18,18 0 0 1 973,224 Z" />
+    <path d="M320 319 H353" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+    <path d="M615 319 H648" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+    <path d="M910 319 H943" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)" />
+    
+  <g transform="translate(96.0, 256.0) scale(1.4166666666666667)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M19 8.268a2 2 0 0 1 1 1.732v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h3" />
+    <path d="M5 15.734a2 2 0 0 1 -1 -1.734v-8a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-3" />
+  </g>
+    
+  <g transform="translate(391.0, 256.0) scale(1.4166666666666667)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M3 3v18h18" />
+    <path d="M8 15.015v.015" />
+    <path d="M16 16.015v.015" />
+    <path d="M8 7.03v.015" />
+    <path d="M12 11.03v.015" />
+    <path d="M19 11.03v.015" />
+  </g>
+    
+  <g transform="translate(686.0, 256.0) scale(1.4166666666666667)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M3 12h4l3 8l4 -16l3 8h4" />
+  </g>
+    
+  <g transform="translate(981.0, 256.0) scale(1.4166666666666667)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M12 7a5 5 0 1 0 5 5" />
+    <path d="M13 3.055a9 9 0 1 0 7.941 7.945" />
+    <path d="M15 6v3h3l3 -3h-3v-3l-3 3" />
+    <path d="M15 9l-3 3" />
+  </g>
+    <text x="96" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">1. 输入向量</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="96" y="356">265 个 kernel</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="96" y="379">每个 256 维 embedding</text><text x="391" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">2. 选择 K</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="391" y="356">使用 silhouette</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="391" y="379">评价候选聚类数</text><text x="686" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">3. 迭代聚类</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="686" y="356">分配最近中心</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="686" y="379">更新簇均值</text><text x="981" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">4. 代表 kernel</text>
+    <text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="981" y="356">选择距离簇中心</text><text fill="#5B6475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" x="981" y="379">最近的样本</text></g>
+  <g id="formula-row">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M130,480 H575 A20,20 0 0 1 595,500 V556 A20,20 0 0 1 575,576 H130 A20,20 0 0 1 110,556 V500 A20,20 0 0 1 130,480 Z" />
+    <text x="138" y="516" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">聚类目标</text>
+    <text x="138" y="550" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#155E75">J = sum ||zᵢ - μₖ||²</text>
+    <text x="360" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">最小化簇内距离</text>
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M705,480 H1150 A20,20 0 0 1 1170,500 V556 A20,20 0 0 1 1150,576 H705 A20,20 0 0 1 685,556 V500 A20,20 0 0 1 705,480 Z" />
+    <text x="713" y="516" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">代表样本准则</text>
+    <text x="713" y="550" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#22C55E">arg min ||zᵢ - μₖ||</text>
+    <text x="940" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">中心附近样本</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL report, section 2.1 and 3.5-3.6</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">08 / 12</text>
+  </g>
+</svg>

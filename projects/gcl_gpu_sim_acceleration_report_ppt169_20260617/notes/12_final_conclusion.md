@@ -1,0 +1,1 @@
+最后做一个总结。GNN 负责把 kernel 的执行轨迹编码成图结构表示，GCL 负责在无标签条件下学习 kernel 之间的结构相似性，K-means 负责在 embedding 空间中完成聚类并选择代表 kernel。通过这三个部分的结合，我们完成了从真实 trace 到代表 kernel 选择的端到端复现。最终结果是把 265 个 kernel invocation 压缩到 2 个代表 kernel，得到约 132.5 倍的理论模拟加速。以上就是我们的课程报告，谢谢大家。

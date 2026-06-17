@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="background-grid">
+    <path d="M80 120 H1200 M80 200 H1200 M80 280 H1200 M80 360 H1200 M80 440 H1200 M80 520 H1200 M80 600 H1200" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.45" />
+    <path d="M160 80 V640 M320 80 V640 M480 80 V640 M640 80 V640 M800 80 V640 M960 80 V640 M1120 80 V640" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.35" />
+    <circle cx="1050" cy="155" r="96" fill="#2563EB" fill-opacity="0.06" />
+    <circle cx="1140" cy="520" r="140" fill="#22C55E" fill-opacity="0.06" />
+  </g>
+  <g id="cover-header">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M75,54 H205 A17,17 0 0 1 222,71 V71 A17,17 0 0 1 205,88 H75 A17,17 0 0 1 58,71 V71 A17,17 0 0 1 75,54 Z" />
+    
+  <g transform="translate(75.0, 61.0) scale(0.8333333333333334)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M9 12v-4" />
+    <path d="M15 12v-2" />
+    <path d="M12 12v-1" />
+    <path d="M3 4h18" />
+    <path d="M4 4v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-10" />
+    <path d="M12 16v4" />
+    <path d="M9 20h6" />
+  </g>
+    <text x="105" y="77" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" font-weight="700" fill="#155E75">GCL REPRODUCTION</text>
+  </g>
+  <g id="title-block">
+    <text fill="#172033" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="62" font-weight="800" x="76" y="196">基于图对比学习的</text><text fill="#172033" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="62" font-weight="800" x="76" y="274">GPU 仿真加速技术</text><path fill="#155E75" d="M82,365 H698 A2,2 0 0 1 700,367 V367 A2,2 0 0 1 698,369 H82 A2,2 0 0 1 80,367 V367 A2,2 0 0 1 82,365 Z" />
+    <text x="80" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="24" font-weight="600" fill="#5B6475">
+      GCL + RGCN + K-means 的 ResNet-50 kernel 表示与聚类复现
+    </text>
+  </g>
+  <g id="pipeline-line">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M104,505 H910 A22,22 0 0 1 932,527 V565 A22,22 0 0 1 910,587 H104 A22,22 0 0 1 82,565 V527 A22,22 0 0 1 104,505 Z" />
+    <circle cx="136" cy="546" r="18" fill="#155E75" />
+    <circle cx="330" cy="546" r="18" fill="#2563EB" />
+    <circle cx="526" cy="546" r="18" fill="#2563EB" />
+    <circle cx="720" cy="546" r="18" fill="#22C55E" />
+    <path d="M154 546 H312 M348 546 H508 M544 546 H702" stroke="#8792A2" stroke-width="2.5" stroke-dasharray="8 7" />
+    <text x="136" y="553" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">1</text>
+    <text x="330" y="553" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">2</text>
+    <text x="526" y="553" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">3</text>
+    <text x="720" y="553" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="16" font-weight="700" fill="#FFFFFF">4</text>
+    <text x="112" y="582" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">Trace</text>
+    <text x="300" y="582" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">Graph</text>
+    <text x="495" y="582" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">RGCN</text>
+    <text x="688" y="582" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">K-means</text>
+  </g>
+  <g id="right-metric">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M1002,214 H1172 A22,22 0 0 1 1194,236 V402 A22,22 0 0 1 1172,424 H1002 A22,22 0 0 1 980,402 V236 A22,22 0 0 1 1002,214 Z" />
+    
+  <g transform="translate(1016.0, 248.0) scale(1.4166666666666667)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+  </g>
+    <text x="1016" y="336" font-family="Consolas, Courier New, monospace" font-size="56" font-weight="800" fill="#155E75">265</text>
+    <text x="1018" y="372" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700" fill="#172033">kernel invocation</text>
+    <text x="1018" y="400" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">ResNet-50 full trace</text>
+  </g>
+  <g id="footer">
+    <text x="80" y="670" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">丁逸夫 · 吴弘煜 · 付嘉琪</text>
+    <text x="1200" y="670" text-anchor="end" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">2026 · GPU trace compression</text>
+  </g>
+</svg>

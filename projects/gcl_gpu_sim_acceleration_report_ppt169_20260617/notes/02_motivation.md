@@ -1,0 +1,1 @@
+首先看研究动机。GPU kernel 是 GPU 程序执行和性能分析的基本单元。一个模型推理过程里可能会产生很多 kernel invocation，每个 kernel 又包含 CTA、warp、指令和访存行为。完整 trace 虽然信息最全，但直接分析全部 trace 会带来很高的存储和仿真成本。因此，我们希望用代表 kernel 替代全量 kernel。以本次 ResNet-50 trace 为例，原始输入有 265 个 kernel invocation，我们的目标就是把这些 kernel 变成少量结构上有代表性的样本，从而降低后续模拟规模。

@@ -1,0 +1,1 @@
+这一页汇总实验设置和主要结果。我们的输入 workload 是 torchvision ResNet-50 的一次推理 full trace，共包含 265 个 kernel invocation 和 124876 条 CTA 记录。RGCN 最终导出了 265 个 256 维 embedding。K-means 根据轮廓系数选择 K=2，silhouette 指标为 0.481866，簇间和簇内距离比为 2.016339。这些指标说明 embedding 空间中确实出现了初步分离现象，也说明从真实 trace 到 kernel 聚类的端到端流程已经跑通。

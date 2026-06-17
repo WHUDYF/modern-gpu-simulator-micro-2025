@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="background-grid">
+    <path d="M80 120 H1200 M80 220 H1200 M80 320 H1200 M80 420 H1200 M80 520 H1200 M80 620 H1200" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.35" />
+    <path d="M160 80 V640 M320 80 V640 M480 80 V640 M640 80 V640 M800 80 V640 M960 80 V640 M1120 80 V640" stroke="#D8DEE9" stroke-width="1" stroke-opacity="0.25" />
+  </g>
+  <g id="header">
+    <path fill="#155E75" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">GCL 完成 kernel 表示学习与代表性压缩</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">FINAL CONCLUSION · 课程报告最终结论</text>
+  </g>
+  <g id="main-result">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M138,168 H1142 A26,26 0 0 1 1168,194 V320 A26,26 0 0 1 1142,346 H138 A26,26 0 0 1 112,320 V194 A26,26 0 0 1 138,168 Z" />
+    <text x="640" y="224" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="24" font-weight="800" fill="#172033">通过 GCL 聚类采样，我们将模拟对象规模压缩为原来的</text>
+    <text x="640" y="302" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="78" font-weight="800" fill="#22C55E">1 / 132.5</text>
+    <text x="640" y="328" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">等价表述：理论模拟加速约 132.5 倍</text>
+  </g>
+  <g id="method-chain">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M150,404 H350 A18,18 0 0 1 368,422 V498 A18,18 0 0 1 350,516 H150 A18,18 0 0 1 132,498 V422 A18,18 0 0 1 150,404 Z" />
+    
+  <g transform="translate(162.0, 430.0) scale(1.25)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M6 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 4a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M16 20a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M11 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M21 12a2 2 0 1 0 -4 0a2 2 0 0 0 4 0" />
+    <path d="M5.058 18.306l2.88 -4.606" />
+    <path d="M10.061 10.303l2.877 -4.604" />
+    <path d="M10.065 13.705l2.876 4.6" />
+    <path d="M15.063 5.7l2.881 4.61" />
+  </g>
+    <text x="210" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">GNN</text>
+    <text x="162" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">学习 kernel 图结构表示</text>
+    <path d="M385 458 H460" stroke="#8792A2" stroke-width="3" stroke-dasharray="8 7" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M500,404 H700 A18,18 0 0 1 718,422 V498 A18,18 0 0 1 700,516 H500 A18,18 0 0 1 482,498 V422 A18,18 0 0 1 500,404 Z" />
+    
+  <g transform="translate(512.0, 430.0) scale(1.25)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+  </g>
+    <text x="560" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">GCL</text>
+    <text x="512" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">无标签学习结构相似性</text>
+    <path d="M735 458 H810" stroke="#8792A2" stroke-width="3" stroke-dasharray="8 7" />
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M850,404 H1130 A18,18 0 0 1 1148,422 V498 A18,18 0 0 1 1130,516 H850 A18,18 0 0 1 832,498 V422 A18,18 0 0 1 850,404 Z" />
+    
+  <g transform="translate(862.0, 430.0) scale(1.25)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M12 7a5 5 0 1 0 5 5" />
+    <path d="M13 3.055a9 9 0 1 0 7.941 7.945" />
+    <path d="M15 6v3h3l3 -3h-3v-3l-3 3" />
+    <path d="M15 9l-3 3" />
+  </g>
+    <text x="910" y="453" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">K-means</text>
+    <text x="862" y="488" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">聚类并选择代表 kernel</text>
+  </g>
+  <g id="closing-statement">
+    <path fill="#155E75" d="M130,570 H1150 A18,18 0 0 1 1168,588 V614 A18,18 0 0 1 1150,632 H130 A18,18 0 0 1 112,614 V588 A18,18 0 0 1 130,570 Z" />
+    
+  <g transform="translate(144.0, 586.0) scale(1.1666666666666667)" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <path d="M5 12l5 5l10 -10" />
+  </g>
+    <text x="190" y="608" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">最终结论：</text>
+    <text x="286" y="608" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#FFFFFF">本课程报告完成了从真实 trace 到代表 kernel 选择的端到端复现，并得到约 132.5 倍理论模拟加速。</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">GCL GPU simulation acceleration course report</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">12 / 12</text>
+  </g>
+</svg>

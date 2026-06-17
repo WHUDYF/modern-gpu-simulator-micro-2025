@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <g id="header">
+    <rect x="56" y="48" width="6" height="34" rx="3" fill="#155E75"/>
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">聚类结果更像“主体样本 + 少量特殊 kernel”</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">CLUSTER INTERPRETATION · 263 / 2 的不均衡分布需要谨慎解释</text>
+  </g>
+  <g id="takeaway">
+    <rect x="56" y="126" width="1168" height="50" rx="14" fill="#DC2626" fill-opacity="0.08" stroke="#D8DEE9"/>
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">当前不能直接说得到了两个功能语义类别；更稳妥的表述是识别出少量结构差异明显的 kernel。</text>
+  </g>
+  <g id="scatter-panel">
+    <rect x="70" y="215" width="720" height="390" rx="22" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="104" y="254" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="19" font-weight="800" fill="#172033">Kernel embedding space (schematic)</text>
+    <g id="chartArea">
+      <line x1="130" y1="545" x2="700" y2="545" stroke="#8792A2" stroke-width="2"/>
+      <line x1="130" y1="545" x2="130" y2="285" stroke="#8792A2" stroke-width="2"/>
+      <!-- chart-plot-area: 130,285,700,545 -->
+      <ellipse cx="330" cy="410" rx="190" ry="96" fill="#2563EB" fill-opacity="0.08" stroke="#2563EB" stroke-width="2" stroke-dasharray="8 6"/>
+      <circle cx="260" cy="395" r="7" fill="#2563EB"/>
+      <circle cx="298" cy="430" r="7" fill="#2563EB"/>
+      <circle cx="356" cy="385" r="7" fill="#2563EB"/>
+      <circle cx="392" cy="420" r="7" fill="#2563EB"/>
+      <circle cx="318" cy="360" r="7" fill="#2563EB"/>
+      <circle cx="436" cy="398" r="7" fill="#2563EB"/>
+      <circle cx="286" cy="465" r="7" fill="#2563EB"/>
+      <circle cx="372" cy="460" r="7" fill="#2563EB"/>
+      <circle cx="235" cy="435" r="7" fill="#2563EB"/>
+      <circle cx="465" cy="445" r="7" fill="#2563EB"/>
+      <circle cx="330" cy="410" r="13" fill="#FFFFFF" stroke="#155E75" stroke-width="3"/>
+      <text x="330" y="560" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">cluster 0 center</text>
+      <circle cx="630" cy="330" r="10" fill="#22C55E"/>
+      <circle cx="665" cy="355" r="10" fill="#22C55E"/>
+      <ellipse cx="648" cy="342" rx="55" ry="38" fill="#22C55E" fill-opacity="0.12" stroke="#22C55E" stroke-width="2" stroke-dasharray="6 5"/>
+      <text x="648" y="405" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#22C55E">cluster 1</text>
+    </g>
+    <text x="130" y="582" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#8792A2">注：示意图用于解释 263/2 分布，不表示真实二维投影坐标。</text>
+  </g>
+  <g id="insight-panel">
+    <rect x="835" y="215" width="389" height="390" rx="22" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/chart-scatter" x="870" y="250" width="34" height="34" fill="#155E75" stroke-width="2"/>
+    <text x="918" y="276" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="22" font-weight="800" fill="#172033">如何解读？</text>
+    <g id="cluster0">
+      <rect x="870" y="322" width="300" height="72" rx="16" fill="#EFF6FF" stroke="#D8DEE9"/>
+      <text x="895" y="350" font-family="Consolas, Courier New, monospace" font-size="28" font-weight="800" fill="#2563EB">263</text>
+      <text x="965" y="344" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">主体 kernel 群组</text>
+      <text x="965" y="370" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">大多数 kernel 在当前表示空间中接近</text>
+    </g>
+    <g id="cluster1">
+      <rect x="870" y="418" width="300" height="72" rx="16" fill="#ECFDF5" stroke="#D8DEE9"/>
+      <text x="895" y="446" font-family="Consolas, Courier New, monospace" font-size="28" font-weight="800" fill="#22C55E">2</text>
+      <text x="965" y="440" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">少量特殊 kernel</text>
+      <text x="965" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">可能来自图规模、访存或控制结构差异</text>
+    </g>
+    <g id="warning">
+      <use data-icon="tabler-outline/alert-triangle" x="874" y="526" width="30" height="30" fill="#DC2626" stroke-width="2"/>
+      <text x="918" y="546" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="800" fill="#DC2626">谨慎边界</text>
+      <text x="918" y="572" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">尚不能直接声明两个簇就是两个真实功能类别。</text>
+    </g>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: selector artifacts and cluster correctness report</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">10 / 12</text>
+  </g>
+</svg>

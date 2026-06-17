@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC" />
+  <g id="header">
+    <path fill="#22C55E" d="M59,48 H59 A3,3 0 0 1 62,51 V79 A3,3 0 0 1 59,82 H59 A3,3 0 0 1 56,79 V51 A3,3 0 0 1 59,48 Z" />
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">课程报告结论：代表 kernel 显著减少模拟对象</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">COURSE CONCLUSION · 从 265 个 kernel invocation 压缩到 2 个代表 kernel</text>
+  </g>
+  <g id="hero-speedup">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M78,136 H1202 A22,22 0 0 1 1224,158 V270 A22,22 0 0 1 1202,292 H78 A22,22 0 0 1 56,270 V158 A22,22 0 0 1 78,136 Z" />
+    
+  <g transform="translate(92.0, 174.0) scale(1.8333333333333333)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+  </g>
+    <text x="158" y="193" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">理论模拟加速</text>
+    <text x="158" y="224" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">按模拟对象数量估算：265 个原始 kernel / 2 个代表 kernel</text>
+    <text x="760" y="230" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="72" font-weight="800" fill="#22C55E">132.5x</text>
+    <text x="760" y="260" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#5B6475">约 132.5 倍模拟对象压缩带来的理论加速</text>
+    <path fill="#F7F9FC" stroke="#D8DEE9" d="M1024,174 H1148 A14,14 0 0 1 1162,188 V218 A14,14 0 0 1 1148,232 H1024 A14,14 0 0 1 1010,218 V188 A14,14 0 0 1 1024,174 Z" />
+    <text x="1086" y="198" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5B6475">压缩比例</text>
+    <text x="1086" y="222" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="24" font-weight="800" fill="#155E75">265 → 2</text>
+  </g>
+  <g id="evidence-1">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M90,340 H394 A18,18 0 0 1 412,358 V510 A18,18 0 0 1 394,528 H90 A18,18 0 0 1 72,510 V358 A18,18 0 0 1 90,340 Z" />
+    
+  <g transform="translate(104.0, 372.0) scale(1.4166666666666667)" fill="none" stroke="#155E75" stroke-width="2">
+    <path d="M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0" />
+    <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
+    <path d="M4 12v6a8 3 0 0 0 16 0v-6" />
+  </g>
+    <text x="154" y="397" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">真实 trace 输入</text>
+    <text x="104" y="448" font-family="Consolas, Courier New, monospace" font-size="42" font-weight="800" fill="#155E75">265</text>
+    <text x="206" y="446" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700" fill="#172033">kernel invocation</text>
+    <text x="104" y="486" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">输入来自 ResNet-50 full trace，覆盖真实执行中的 kernel 调用。</text>
+  </g>
+  <g id="evidence-2">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M488,340 H792 A18,18 0 0 1 810,358 V510 A18,18 0 0 1 792,528 H488 A18,18 0 0 1 470,510 V358 A18,18 0 0 1 488,340 Z" />
+    
+  <g transform="translate(502.0, 372.0) scale(1.4166666666666667)" fill="none" stroke="#2563EB" stroke-width="2">
+    <path d="M3 3v18h18" />
+    <path d="M8 15.015v.015" />
+    <path d="M16 16.015v.015" />
+    <path d="M8 7.03v.015" />
+    <path d="M12 11.03v.015" />
+    <path d="M19 11.03v.015" />
+  </g>
+    <text x="552" y="397" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">聚类选择 K=2</text>
+    <text x="502" y="448" font-family="Consolas, Courier New, monospace" font-size="42" font-weight="800" fill="#2563EB">263 / 2</text>
+    <text x="502" y="486" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">主体 kernel 与少量特殊 kernel 被分离，得到两个代表簇。</text>
+  </g>
+  <g id="evidence-3">
+    <path fill="#FFFFFF" stroke="#D8DEE9" d="M886,340 H1190 A18,18 0 0 1 1208,358 V510 A18,18 0 0 1 1190,528 H886 A18,18 0 0 1 868,510 V358 A18,18 0 0 1 886,340 Z" />
+    
+  <g transform="translate(900.0, 372.0) scale(1.4166666666666667)" fill="none" stroke="#22C55E" stroke-width="2">
+    <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M12 7a5 5 0 1 0 5 5" />
+    <path d="M13 3.055a9 9 0 1 0 7.941 7.945" />
+    <path d="M15 6v3h3l3 -3h-3v-3l-3 3" />
+    <path d="M15 9l-3 3" />
+  </g>
+    <text x="950" y="397" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">代表 kernel 输出</text>
+    <text x="900" y="448" font-family="Consolas, Courier New, monospace" font-size="42" font-weight="800" fill="#22C55E">2</text>
+    <text x="950" y="446" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700" fill="#172033">representative kernels</text>
+    <text x="900" y="486" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">后续课程实验只需围绕代表样本分析，显著降低模拟规模。</text>
+  </g>
+  <g id="bottom-summary">
+    <path fill="#155E75" d="M88,570 H1192 A16,16 0 0 1 1208,586 V612 A16,16 0 0 1 1192,628 H88 A16,16 0 0 1 72,612 V586 A16,16 0 0 1 88,570 Z" />
+    <text x="102" y="606" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">结论：</text>
+    <text x="166" y="606" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#FFFFFF">GCL + RGCN + K-means 能将本次 ResNet-50 trace 的模拟对象从 265 个压缩到 2 个，理论上约提升 132.5 倍模拟效率。</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Speedup estimate: 265 kernel invocation / 2 representative kernels</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">11 / 12</text>
+  </g>
+</svg>

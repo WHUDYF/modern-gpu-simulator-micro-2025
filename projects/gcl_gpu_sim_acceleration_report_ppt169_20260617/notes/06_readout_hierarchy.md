@@ -1,0 +1,1 @@
+这里进一步说明 readout 过程。RGCN 最开始得到的是节点级表示，但我们的目标是比较整个 kernel，所以需要把节点表示逐级聚合成 kernel 表示。这个过程按照 GPU 执行层级进行：先从 node 聚合到 warp，再到 CTA，再到 selected SM，最后得到 kernel embedding。这样做比简单地把所有节点平均起来更合理，因为它保留了 GPU 执行结构中的层次信息，也让最终 embedding 更贴近 kernel 的真实执行组织方式。

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <g id="header">
+    <rect x="56" y="48" width="6" height="34" rx="3" fill="#155E75"/>
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">实验跑通真实 ResNet-50 full trace，并观察到初步分离信号</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">EXPERIMENT DASHBOARD · input scale, embedding export, clustering metrics</text>
+  </g>
+  <g id="takeaway">
+    <rect x="56" y="126" width="1168" height="50" rx="14" fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9"/>
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">当前证据支持“端到端复现 + embedding 可分”，但还不支持“语义类别已被完全证明”。</text>
+  </g>
+  <g id="kpi-1">
+    <rect x="56" y="218" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/cpu" x="84" y="245" width="30" height="30" fill="#155E75" stroke-width="2"/>
+    <text x="84" y="316" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">265</text>
+    <text x="210" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">kernel invocation</text>
+    <text x="210" y="326" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#155E75">真实输入规模</text>
+  </g>
+  <g id="kpi-2">
+    <rect x="460" y="218" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/database" x="488" y="245" width="30" height="30" fill="#2563EB" stroke-width="2"/>
+    <text x="488" y="316" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">124876</text>
+    <text x="662" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">CTA records</text>
+    <text x="662" y="326" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#2563EB">full trace 记录</text>
+  </g>
+  <g id="kpi-3">
+    <rect x="864" y="218" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/layers-linked" x="892" y="245" width="30" height="30" fill="#22C55E" stroke-width="2"/>
+    <text x="892" y="316" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">256d</text>
+    <text x="1034" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">embedding dim</text>
+    <text x="1034" y="326" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#22C55E">每个 kernel 向量</text>
+  </g>
+  <g id="kpi-4">
+    <rect x="56" y="398" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/chart-scatter" x="84" y="425" width="30" height="30" fill="#155E75" stroke-width="2"/>
+    <text x="84" y="496" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">K=2</text>
+    <text x="210" y="480" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">selected by silhouette</text>
+    <text x="210" y="506" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#155E75">最佳候选聚类数</text>
+  </g>
+  <g id="kpi-5">
+    <rect x="460" y="398" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/chart-bar" x="488" y="425" width="30" height="30" fill="#2563EB" stroke-width="2"/>
+    <text x="488" y="496" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">0.482</text>
+    <text x="650" y="480" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">silhouette</text>
+    <text x="650" y="506" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#2563EB">聚类分离信号</text>
+  </g>
+  <g id="kpi-6">
+    <rect x="864" y="398" width="360" height="144" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <use data-icon="tabler-outline/activity" x="892" y="425" width="30" height="30" fill="#22C55E" stroke-width="2"/>
+    <text x="892" y="496" font-family="Consolas, Courier New, monospace" font-size="44" font-weight="800" fill="#172033">2.016</text>
+    <text x="1056" y="480" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">inter / intra</text>
+    <text x="1056" y="506" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#22C55E">簇间距离更大</text>
+  </g>
+  <g id="bottom-note">
+    <rect x="220" y="585" width="840" height="50" rx="14" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="640" y="617" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#5B6475">补充指标：Davies-Bouldin = 0.789742，Calinski-Harabasz = 10.301938</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: ResNet-50 reproduction artifacts; selector and Gate7 reports</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">09 / 12</text>
+  </g>
+</svg>

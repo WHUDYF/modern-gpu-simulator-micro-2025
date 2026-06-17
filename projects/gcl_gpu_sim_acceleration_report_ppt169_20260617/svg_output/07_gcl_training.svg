@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2563EB"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#22C55E"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <g id="header">
+    <text x="76" y="84" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="46" font-weight="800" fill="#172033">图对比学习：没有标签，也能训练图编码器</text>
+    <text x="78" y="120" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="700" fill="#5B6475">GRAPH CONTRASTIVE LEARNING · 正样本拉近，负样本推远</text>
+  </g>
+  <g id="main-diagram">
+    <circle cx="235" cy="340" r="76" fill="#155E75" fill-opacity="0.1" stroke="#155E75" stroke-width="2"/>
+    <use data-icon="tabler-outline/binary-tree" x="201" y="306" width="68" height="68" fill="#155E75" stroke-width="2"/>
+    <text x="235" y="450" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" font-weight="800" fill="#172033">同一个 kernel 图 Gᵢ</text>
+    <path d="M310 315 C400 260, 490 250, 560 286" fill="none" stroke="#2563EB" stroke-width="3" marker-end="url(#arrowBlue)"/>
+    <path d="M310 365 C400 430, 490 450, 560 404" fill="none" stroke="#22C55E" stroke-width="3" marker-end="url(#arrowGreen)"/>
+    <text x="424" y="262" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#2563EB">增强视图 A</text>
+    <text x="424" y="462" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" font-weight="700" fill="#22C55E">增强视图 B</text>
+    <rect x="585" y="230" width="170" height="112" rx="24" fill="#FFFFFF" stroke="#2563EB" stroke-width="2"/>
+    <rect x="585" y="365" width="170" height="112" rx="24" fill="#FFFFFF" stroke="#22C55E" stroke-width="2"/>
+    <text x="670" y="280" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="28" font-weight="800" fill="#2563EB">zᵢᵃ</text>
+    <text x="670" y="312" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">RGCN encoder</text>
+    <text x="670" y="415" text-anchor="middle" font-family="Consolas, Courier New, monospace" font-size="28" font-weight="800" fill="#22C55E">zᵢᵇ</text>
+    <text x="670" y="447" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5B6475">same encoder</text>
+    <path d="M770 288 C855 300, 875 330, 910 352" fill="none" stroke="#2563EB" stroke-width="3"/>
+    <path d="M770 420 C855 405, 875 376, 910 354" fill="none" stroke="#22C55E" stroke-width="3"/>
+    <circle cx="955" cy="354" r="68" fill="#FFFFFF" stroke="#155E75" stroke-width="2"/>
+    <text x="955" y="342" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" font-weight="800" fill="#172033">正样本对</text>
+    <text x="955" y="372" text-anchor="middle" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">拉近距离</text>
+  </g>
+  <g id="formula">
+    <rect x="245" y="560" width="790" height="76" rx="22" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="286" y="604" font-family="Consolas, Courier New, monospace" font-size="22" font-weight="700" fill="#172033">InfoNCE:</text>
+    <text x="405" y="604" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#172033">
+      最大化同一 kernel 两个视图的相似度，最小化不同 kernel 之间的相似度
+    </text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL report, section 3.4 图对比学习训练策略</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">07 / 12</text>
+  </g>
+</svg>

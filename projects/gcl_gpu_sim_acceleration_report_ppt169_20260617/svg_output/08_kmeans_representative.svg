@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#155E75"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1280" height="720" fill="#F7F9FC"/>
+  <g id="header">
+    <rect x="56" y="48" width="6" height="34" rx="3" fill="#155E75"/>
+    <text x="78" y="76" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="34" font-weight="800" fill="#172033">K-means 在 embedding 空间中完成分组与代表选择</text>
+    <text x="78" y="108" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" font-weight="700" fill="#5B6475">CLUSTERING · 从 265 个向量中选择中心附近代表样本</text>
+  </g>
+  <g id="takeaway">
+    <rect x="56" y="126" width="1168" height="50" rx="14" fill="#155E75" fill-opacity="0.08" stroke="#D8DEE9"/>
+    <text x="82" y="157" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#172033">K-means 不训练 GNN，而是在 RGCN 输出的 256 维向量空间中做无监督后处理。</text>
+  </g>
+  <g id="flow">
+    <rect x="70" y="224" width="250" height="190" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <rect x="365" y="224" width="250" height="190" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <rect x="660" y="224" width="250" height="190" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <rect x="955" y="224" width="250" height="190" rx="18" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <path d="M320 319 H353" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)"/>
+    <path d="M615 319 H648" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)"/>
+    <path d="M910 319 H943" stroke="#155E75" stroke-width="3" marker-end="url(#arrowHead)"/>
+    <use data-icon="tabler-outline/layers-linked" x="96" y="256" width="34" height="34" fill="#155E75" stroke-width="2"/>
+    <use data-icon="tabler-outline/chart-scatter" x="391" y="256" width="34" height="34" fill="#2563EB" stroke-width="2"/>
+    <use data-icon="tabler-outline/activity" x="686" y="256" width="34" height="34" fill="#2563EB" stroke-width="2"/>
+    <use data-icon="tabler-outline/target-arrow" x="981" y="256" width="34" height="34" fill="#22C55E" stroke-width="2"/>
+    <text x="96" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">1. 输入向量</text>
+    <text x="96" y="356" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">
+      <tspan x="96" dy="0">265 个 kernel</tspan>
+      <tspan x="96" dy="23">每个 256 维 embedding</tspan>
+    </text>
+    <text x="391" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">2. 选择 K</text>
+    <text x="391" y="356" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">
+      <tspan x="391" dy="0">使用 silhouette</tspan>
+      <tspan x="391" dy="23">评价候选聚类数</tspan>
+    </text>
+    <text x="686" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">3. 迭代聚类</text>
+    <text x="686" y="356" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">
+      <tspan x="686" dy="0">分配最近中心</tspan>
+      <tspan x="686" dy="23">更新簇均值</tspan>
+    </text>
+    <text x="981" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" font-weight="800" fill="#172033">4. 代表 kernel</text>
+    <text x="981" y="356" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">
+      <tspan x="981" dy="0">选择距离簇中心</tspan>
+      <tspan x="981" dy="23">最近的样本</tspan>
+    </text>
+  </g>
+  <g id="formula-row">
+    <rect x="110" y="480" width="485" height="96" rx="20" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="138" y="516" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">聚类目标</text>
+    <text x="138" y="550" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#155E75">J = sum ||zᵢ - μₖ||²</text>
+    <text x="360" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">最小化簇内距离</text>
+    <rect x="685" y="480" width="485" height="96" rx="20" fill="#FFFFFF" stroke="#D8DEE9"/>
+    <text x="713" y="516" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" font-weight="800" fill="#172033">代表样本准则</text>
+    <text x="713" y="550" font-family="Consolas, Courier New, monospace" font-size="20" font-weight="700" fill="#22C55E">arg min ||zᵢ - μₖ||</text>
+    <text x="940" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5B6475">中心附近样本</text>
+  </g>
+  <g id="footer">
+    <text x="56" y="684" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#8792A2">Source: GCL report, section 2.1 and 3.5-3.6</text>
+    <text x="1224" y="684" text-anchor="end" font-family="Consolas, Courier New, monospace" font-size="12" fill="#8792A2">08 / 12</text>
+  </g>
+</svg>
